@@ -29,13 +29,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bonnypanicker.dominderandroidreminderapp",
+      "package": "app.rork.dominder-android-reminder-app",
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
-        "RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "RECORD_AUDIO"
       ]
     },
     "web": {
@@ -75,14 +73,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {
-        "origin": "https://rork.com/"
-      },
-      "eas": {
-        "projectId": "72f40bfb-6edd-4107-8ae3-67876122c8cf"
-      }
     }
   }
 }
