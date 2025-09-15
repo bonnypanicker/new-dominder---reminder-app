@@ -11,7 +11,6 @@ export interface AppSettings {
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   darkMode: boolean;
-  highPriorityRingerSound: string;
   sortMode: 'creation' | 'upcoming';
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
@@ -22,7 +21,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   soundEnabled: true,
   vibrationEnabled: true,
   darkMode: false,
-  highPriorityRingerSound: 'default',
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',

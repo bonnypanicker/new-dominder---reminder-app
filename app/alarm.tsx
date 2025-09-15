@@ -13,18 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReminders, useUpdateReminder } from '@/hooks/reminder-store';
 import { AlarmClock, CheckCircle } from 'lucide-react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { Audio } from 'expo-av';
 import { calculateNextReminderDate } from '@/hooks/reminder-engine';
-import { RINGER_SOUNDS, RingerSound } from '@/constants/ringerSounds';
-import { useSettings } from '@/hooks/settings-store';
 
 export default function AlarmScreen() {
   const { reminderId } = useLocalSearchParams<{ reminderId: string }>();
   const { data: reminders = [] } = useReminders();
-  const { data: settings } = useSettings();
   const updateReminder = useUpdateReminder();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -72,40 +67,7 @@ export default function AlarmScreen() {
     ).start();
   }, [pulseAnim, slideAnim, glowAnim]);
 
-  const playAlarmSound = useCallback(async () => {
-    if (Platform.OS === 'web' || !reminder) return;
 
-    try {
-      // For high priority reminders, use the sound from settings
-      let selectedSound = 'default';
-      if (reminder.priority === 'high' && settings?.highPriorityRingerSound) {
-        selectedSound = settings.highPriorityRingerSound;
-      } else if (reminder.ringerSound) {
-        selectedSound = reminder.ringerSound;
-      }
-      
-      const soundConfig = RINGER_SOUNDS.find((s: RingerSound) => s.id === selectedSound) || RINGER_SOUNDS[0];
-      
-      console.log('Playing alarm sound:', selectedSound, soundConfig.url);
-      
-      // Configure audio for playback
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: false,
-        staysActiveInBackground: true,
-        playThroughEarpieceAndroid: false,
-      });
-      
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: soundConfig.url },
-        { shouldPlay: true, isLooping: true, volume: 1.0 }
-      );
-      setSound(newSound);
-    } catch (error) {
-      console.error('Failed to play alarm sound:', error);
-    }
-  }, [reminder, settings]);
 
   useEffect(() => {
     // Lock screen orientation to portrait
@@ -123,9 +85,6 @@ export default function AlarmScreen() {
     // Start animations
     startAnimations();
 
-    // Play alarm sound
-    playAlarmSound();
-
     return () => {
       clearInterval(timeInterval);
       // Unlock screen orientation
@@ -135,34 +94,11 @@ export default function AlarmScreen() {
         });
       }
     };
-  }, [startAnimations, playAlarmSound]);
+  }, [startAnimations]);
   
-  // Separate cleanup for sound to avoid dependency loop
-  useEffect(() => {
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
 
-
-
-  const stopAlarmSound = async () => {
-    if (sound) {
-      try {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-      } catch (error) {
-        console.error('Failed to stop alarm sound:', error);
-      } finally {
-        setSound(null);
-      }
-    }
-  };
 
   const handleDone = async () => {
-    await stopAlarmSound();
     if (reminder) {
       if (reminder.repeatType === 'none') {
         // For "Once" reminders, mark as completed
@@ -187,7 +123,6 @@ export default function AlarmScreen() {
   };
 
   const handleSnooze = async (minutes: number) => {
-    await stopAlarmSound();
     if (reminder) {
       const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
       updateReminder.mutate({ 
@@ -200,7 +135,6 @@ export default function AlarmScreen() {
   };
 
   const handleDismiss = async () => {
-    await stopAlarmSound();
     router.back();
   };
 

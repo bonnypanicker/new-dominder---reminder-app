@@ -5,14 +5,11 @@ import { ArrowLeft, Bell, Volume2, Vibrate, Music, ChevronRight, Check, Play, Sq
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
-import { RINGER_SOUNDS } from '@/constants/ringerSounds';
-import { Audio } from 'expo-av';
 import { RepeatType } from '@/types/reminder';
 
 export default function SettingsScreen() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
-  const [ringerModalVisible, setRingerModalVisible] = useState<boolean>(false);
   const [defaultsModalVisible, setDefaultsModalVisible] = useState<boolean>(false);
   const [licensesModalVisible, setLicensesModalVisible] = useState<boolean>(false);
   const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState<boolean>(false);
@@ -37,8 +34,6 @@ export default function SettingsScreen() {
       </SafeAreaView>
     );
   }
-
-  const selectedRingerSound = RINGER_SOUNDS.find(sound => sound.id === settings.highPriorityRingerSound) || RINGER_SOUNDS[0];
 
   const getRepeatModeLabel = (mode: RepeatType): string => {
     switch (mode) {
@@ -178,20 +173,6 @@ export default function SettingsScreen() {
         
         {expandedSection === 'preferences' && (
           <View style={styles.sectionContent}>
-            <TouchableOpacity 
-            style={styles.preferenceCard}
-            onPress={() => setRingerModalVisible(true)}
-          >
-            <View style={styles.preferenceIcon}>
-              <Music size={20} color={Material3Colors.light.primary} />
-            </View>
-            <View style={styles.preferenceContent}>
-              <Text style={styles.preferenceTitle}>Alarm Sound</Text>
-              <Text style={styles.preferenceValue}>{selectedRingerSound.name}</Text>
-            </View>
-            <ChevronRight size={20} color={Material3Colors.light.onSurfaceVariant} />
-          </TouchableOpacity>
-
           <TouchableOpacity 
             style={styles.preferenceCard}
             onPress={() => setDefaultsModalVisible(true)}
