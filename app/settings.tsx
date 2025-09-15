@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Bell, Volume2, Vibrate, Music, ChevronRight, Check, Play, Square, Clock, AlertCircle, FileText } from 'lucide-react-native';
+import { ArrowLeft, Bell, Volume2, Vibrate, ChevronRight, Clock, AlertCircle, FileText } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
@@ -273,15 +273,7 @@ export default function SettingsScreen() {
         )}
       </ScrollView>
 
-      <RingerSoundModal
-        visible={ringerModalVisible}
-        onClose={() => setRingerModalVisible(false)}
-        selectedSoundId={settings.highPriorityRingerSound}
-        onSelectSound={(soundId) => {
-          updateSettings.mutate({ highPriorityRingerSound: soundId });
-          setRingerModalVisible(false);
-        }}
-      />
+
 
       <DefaultsModal
         visible={defaultsModalVisible}
@@ -399,182 +391,7 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
   );
 }
 
-interface RingerSoundModalProps {
-  visible: boolean;
-  onClose: () => void;
-  selectedSoundId: string;
-  onSelectSound: (soundId: string) => void;
-}
 
-function RingerSoundModal({ visible, onClose, selectedSoundId, onSelectSound }: RingerSoundModalProps) {
-  const [playingSound, setPlayingSound] = useState<string | null>(null);
-  const [loadingSound, setLoadingSound] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-
-  useEffect(() => {
-    // Cleanup sound when modal closes
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    // Stop sound when modal closes
-    if (!visible && soundRef.current) {
-      soundRef.current.stopAsync();
-      soundRef.current.unloadAsync();
-      soundRef.current = null;
-      setPlayingSound(null);
-    }
-  }, [visible]);
-
-  const playSound = async (soundId: string) => {
-    try {
-      console.log('Attempting to play sound:', soundId);
-      
-      if (Platform.OS === 'web') {
-        console.log('Audio playback not supported on web');
-        return;
-      }
-      
-      // Stop current sound if playing
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-
-      // If clicking the same sound that's playing, just stop it
-      if (playingSound === soundId) {
-        setPlayingSound(null);
-        return;
-      }
-
-      // Find the sound to play
-      const soundToPlay = RINGER_SOUNDS.find(s => s.id === soundId);
-      if (!soundToPlay) {
-        console.error('Sound not found:', soundId);
-        return;
-      }
-
-      console.log('Loading sound from URL:', soundToPlay.url);
-      setLoadingSound(soundId);
-
-      // Configure audio for playback
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: false,
-        staysActiveInBackground: false,
-        playThroughEarpieceAndroid: false,
-      });
-
-      // Load and play the sound
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: soundToPlay.url },
-        { shouldPlay: true, isLooping: false, volume: 1.0 }
-      );
-
-      console.log('Sound loaded and playing:', soundId);
-      soundRef.current = sound;
-      setPlayingSound(soundId);
-      setLoadingSound(null);
-
-      // Set up listener for when sound finishes
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          console.log('Sound finished playing:', soundId);
-          setPlayingSound(null);
-          sound.unloadAsync();
-          if (soundRef.current === sound) {
-            soundRef.current = null;
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error playing sound:', soundId, error);
-      setPlayingSound(null);
-      setLoadingSound(null);
-    }
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal 
-      visible={visible} 
-      transparent={false} 
-      animationType="fade" 
-      onRequestClose={onClose}
-      presentationStyle="fullScreen"
-    >
-      <SafeAreaView style={modalStyles.container}>
-        <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>High Priority Alarm Sound</Text>
-          <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
-            <Text style={modalStyles.closeButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <ScrollView style={modalStyles.soundList} showsVerticalScrollIndicator={false}>
-          {RINGER_SOUNDS.length === 0 ? (
-            <View style={modalStyles.emptyState}>
-              <Text style={modalStyles.emptyStateText}>No alarm sounds available</Text>
-            </View>
-          ) : (
-          RINGER_SOUNDS.map((sound) => {
-            const isSelected = sound.id === selectedSoundId;
-            return (
-              <TouchableOpacity
-                key={sound.id}
-                style={[modalStyles.soundItem, isSelected && modalStyles.soundItemSelected]}
-                onPress={() => onSelectSound(sound.id)}
-                testID={`ringer-sound-${sound.id}`}
-              >
-                <View style={modalStyles.soundInfo}>
-                  <Text style={[modalStyles.soundName, isSelected && modalStyles.soundNameSelected]}>
-                    {sound.name}
-                  </Text>
-                  <Text style={[modalStyles.soundDescription, isSelected && modalStyles.soundDescriptionSelected]}>
-                    {sound.description}
-                  </Text>
-                </View>
-                <View style={modalStyles.soundActions}>
-                  <TouchableOpacity
-                    style={[modalStyles.playButton, loadingSound === sound.id && modalStyles.playButtonLoading]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      playSound(sound.id);
-                    }}
-                    disabled={loadingSound === sound.id || Platform.OS === 'web'}
-                    testID={`play-sound-${sound.id}`}
-                  >
-                    {loadingSound === sound.id ? (
-                      <Text style={modalStyles.loadingText}>...</Text>
-                    ) : playingSound === sound.id ? (
-                      <Square size={18} color={Material3Colors.light.primary} />
-                    ) : (
-                      <Play size={18} color={Material3Colors.light.primary} />
-                    )}
-                  </TouchableOpacity>
-                  {isSelected && (
-                    <View style={modalStyles.checkIcon}>
-                      <Check size={20} color={Material3Colors.light.primary} />
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
