@@ -62,7 +62,12 @@
           "initialOrientation": "DEFAULT"
         }
       ],
-
+      [ "expo-build-properties", {
+          "android": {
+            "enableBundleCompression": false
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
