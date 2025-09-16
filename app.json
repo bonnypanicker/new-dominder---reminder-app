@@ -29,11 +29,13 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.dominder-android-reminder-app",
+      "package": "com.bonnypanicker.dominderandroidreminderapp",
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -49,12 +51,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./local/assets/notification_icon.png",
           "color": "#ffffff",
           "defaultChannel": "default",
-          "sounds": [
-            "./local/assets/notification_sound.wav"
-          ],
           "enableBackgroundRemoteNotifications": false
         }
       ],
@@ -64,15 +62,19 @@
           "initialOrientation": "DEFAULT"
         }
       ],
-      [
-        "expo-av",
-        {
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
-        }
-      ]
+
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": "https://rork.com/"
+      },
+      "eas": {
+        "projectId": "72f40bfb-6edd-4107-8ae3-67876122c8cf"
+      }
+    },
+    "owner": "bonnypanicker"
   }
 }
