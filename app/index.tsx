@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, RotateCcw, AlertCircle, X, Square, CheckSquare, Repeat, Keyboard } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -1300,6 +1300,25 @@ function CreateReminderPopup({
     }
   }, [visible, mainContentSlide, mode]);
 
+  useEffect(() => {
+    if (showTimeSelector) {
+      try {
+        RNKeyboard.dismiss();
+      } catch (e) {
+        console.log('keyboard dismiss error', e);
+      }
+    }
+  }, [showTimeSelector]);
+
+  const handleOpenTime = useCallback(() => {
+    try {
+      RNKeyboard.dismiss();
+    } catch (e) {
+      console.log('keyboard dismiss error', e);
+    }
+    onTimeSelect();
+  }, [onTimeSelect]);
+
   if (!visible) return null;
 
   return (
@@ -1321,7 +1340,7 @@ function CreateReminderPopup({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
             style={{ maxHeight: '100%' }}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -1352,13 +1371,13 @@ function CreateReminderPopup({
                     onDateChange(date);
                     if (repeatType === 'none' || repeatType === 'monthly' || repeatType === 'yearly') {
                       try {
-                        onTimeSelect();
+                        handleOpenTime();
                       } catch (e) {
                         console.log('open time selector error', e);
                       }
                     }
                   }}
-                  onOpenTime={onTimeSelect}
+                  onOpenTime={handleOpenTime}
                   displayTime={`${formatTime(selectedTime, isAM)}`}
                   everyValue={everyValue}
                   everyUnit={everyUnit}
