@@ -1313,9 +1313,14 @@ function CreateReminderPopup({
       <TouchableOpacity 
         style={createPopupStyles.overlay} 
         activeOpacity={1} 
-        onPress={onClose}
+        onPress={() => {
+          RNKeyboard.dismiss();
+          onClose();
+        }}
       >
-        <View 
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
           style={[createPopupStyles.popup, { height: popupHeight }]}
         >
           <ScrollView 
@@ -1324,10 +1329,6 @@ function CreateReminderPopup({
             style={{ maxHeight: '100%' }}
             keyboardShouldPersistTaps="handled"
           >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
               <View style={createPopupStyles.mainContent}>
               <View style={createPopupStyles.section}>
                 <TextInput
@@ -1376,7 +1377,6 @@ function CreateReminderPopup({
                 />
               </View>
               </View>
-            </TouchableOpacity>
           </ScrollView>
           
           <View style={createPopupStyles.buttonContainer}>
@@ -1394,7 +1394,7 @@ function CreateReminderPopup({
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       </TouchableOpacity>
       
       <TimeSelector
