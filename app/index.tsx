@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, RotateCcw, AlertCircle, X, Square, CheckSquare, Repeat, Keyboard } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -840,6 +840,7 @@ export default function HomeScreen() {
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
         scrollEnabled={!showCreatePopup}
+        keyboardShouldPersistTaps="handled"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
@@ -1352,13 +1353,14 @@ function CreateReminderPopup({
                     onDateChange(date);
                     if (repeatType === 'none' || repeatType === 'monthly' || repeatType === 'yearly') {
                       try {
+                        RNKeyboard.dismiss();
                         onTimeSelect();
                       } catch (e) {
                         console.log('open time selector error', e);
                       }
                     }
                   }}
-                  onOpenTime={onTimeSelect}
+                  onOpenTime={() => { RNKeyboard.dismiss(); onTimeSelect(); }}
                   displayTime={`${formatTime(selectedTime, isAM)}`}
                   everyValue={everyValue}
                   everyUnit={everyUnit}

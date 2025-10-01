@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard } from 'react-native';
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
 import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react-native';
@@ -104,7 +104,7 @@ export default function CustomizePanel({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.repeatOptionsContainer}>
         {repeatOptions.map((option) => (
           <TouchableOpacity
@@ -135,7 +135,7 @@ export default function CustomizePanel({
                 label={`${formattedSelectedDate} • ${displayTime}`}
                 open={menuOpen}
                 onOpen={() => setMenuOpen(true)}
-                onToggle={() => setMenuOpen(v => !v)}
+                onToggle={() => { RNKeyboard.dismiss(); setMenuOpen(v => !v); }}
                 onMeasure={(coords) => setAnchor(coords)}
               />
             </View>
@@ -171,7 +171,7 @@ export default function CustomizePanel({
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 style={styles.menuButton}
-                onPress={onOpenTime}
+                onPress={() => { RNKeyboard.dismiss(); onOpenTime?.(); }}
                 testID="daily-time-button"
               >
                 <Clock size={16} color="#111827" />
@@ -214,7 +214,7 @@ export default function CustomizePanel({
               <TouchableOpacity
                 testID="monthly-open-calendar"
                 style={styles.menuButton}
-                onPress={() => setMonthlyCalendarOpen(true)}
+                onPress={() => { RNKeyboard.dismiss(); setMonthlyCalendarOpen(true); }}
               >
                 <CalendarIcon size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>
@@ -235,7 +235,7 @@ export default function CustomizePanel({
               <TouchableOpacity
                 testID="yearly-open-calendar"
                 style={styles.menuButton}
-                onPress={() => setYearlyCalendarOpen(true)}
+                onPress={() => { RNKeyboard.dismiss(); setYearlyCalendarOpen(true); }}
               >
                 <CalendarIcon size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
@@ -267,6 +267,7 @@ export default function CustomizePanel({
             setMenuOpen(false);
           }}
           onCustom={() => {
+            RNKeyboard.dismiss();
             setMenuOpen(false);
             setCalendarOpen(true);
           }}
@@ -282,6 +283,7 @@ export default function CustomizePanel({
           onDateChange(date);
           setCalendarOpen(false);
           try {
+            RNKeyboard.dismiss();
             onOpenTime?.();
           } catch (e) {
             console.log('open time after once date error', e);
@@ -297,6 +299,7 @@ export default function CustomizePanel({
           onDateChange(date);
           setYearlyCalendarOpen(false);
           try {
+            RNKeyboard.dismiss();
             onOpenTime?.();
           } catch (e) {
             console.log('open time after yearly date error', e);
@@ -313,6 +316,7 @@ export default function CustomizePanel({
           setMonthlyDate(date);
           setMonthlyCalendarOpen(false);
           try {
+            RNKeyboard.dismiss();
             onOpenTime?.();
           } catch (e) {
             console.log('open time after monthly day error', e);
