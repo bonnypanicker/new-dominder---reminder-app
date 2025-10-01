@@ -1096,7 +1096,7 @@ export default function HomeScreen() {
               repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
               monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
               everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
-              ringerSound: priority === 'high' ? (settings?.highPriorityRingerSound ?? 'default') : undefined,
+              ringerSound: undefined,
               isCompleted: false,
               isActive: true,
               isPaused: false,
@@ -1148,7 +1148,7 @@ export default function HomeScreen() {
             repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
             monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
             everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
-            ringerSound: priority === 'high' ? (settings?.highPriorityRingerSound ?? 'default') : undefined,
+            ringerSound: undefined,
             isCompleted: false,
           }, {
             onSuccess: () => {
