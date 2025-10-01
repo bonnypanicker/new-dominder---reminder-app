@@ -1096,7 +1096,7 @@ export default function HomeScreen() {
               repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
               monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
               everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
-              ringerSound: undefined,
+              ringerSound: priority === 'high' ? (settings?.highPriorityRingerSound ?? 'default') : undefined,
               isCompleted: false,
               isActive: true,
               isPaused: false,
@@ -1148,7 +1148,7 @@ export default function HomeScreen() {
             repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
             monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
             everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
-            ringerSound: undefined,
+            ringerSound: priority === 'high' ? (settings?.highPriorityRingerSound ?? 'default') : undefined,
             isCompleted: false,
           }, {
             onSuccess: () => {
@@ -1311,8 +1311,8 @@ function CreateReminderPopup({
     >
       <TouchableOpacity 
         style={createPopupStyles.overlay} 
-        activeOpacity={1}
-        onPress={() => {}}
+        activeOpacity={1} 
+        onPress={onClose}
       >
         <View 
           style={[createPopupStyles.popup, { height: popupHeight }]}
@@ -1321,7 +1321,7 @@ function CreateReminderPopup({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
             style={{ maxHeight: '100%' }}
-            keyboardShouldPersistTaps="always"
+            keyboardShouldPersistTaps="handled"
           >
             <TouchableOpacity
               activeOpacity={1}
