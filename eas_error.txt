@@ -1,0 +1,23 @@
+- Creating native directory (./android)
+✔ Created native directory
+- Updating package.json
+› Using react-native@0.79.1 instead of recommended react-native@0.79.6.
+- Updating package.json
+✔ Updated package.json
+- Running prebuild
+» android: EDGE_TO_EDGE_PLUGIN: No configuration found for `edgeToEdgeEnabled` field in the project app config, falling back to false. In Android 16+ (targetSdkVersion 36) it will no longer be possible to disable edge-to-edge. Learn more: https://expo.fyi/edge-to-edge-rollout
+- Running prebuild
+✖ Prebuild failed
+Error: [android.dangerous]: withAndroidDangerousBaseMod: An error occurred while configuring Android notifications. Encountered an issue copying Android notification sounds: Error: ENOENT: no such file or directory, copyfile '/home/expo/workingdir/build/local/assets/notification_sound.wav' -> '/home/expo/workingdir/build/android/app/src/main/res/raw/notification_sound.wav'
+Error: [android.dangerous]: withAndroidDangerousBaseMod: An error occurred while configuring Android notifications. Encountered an issue copying Android notification sounds: Error: ENOENT: no such file or directory, copyfile '/home/expo/workingdir/build/local/assets/notification_sound.wav' -> '/home/expo/workingdir/build/android/app/src/main/res/raw/notification_sound.wav'
+    at writeNotificationSoundFile (/home/expo/workingdir/build/node_modules/expo-notifications/plugin/build/withNotificationsAndroid.js:189:19)
+    at setNotificationSounds (/home/expo/workingdir/build/node_modules/expo-notifications/plugin/build/withNotificationsAndroid.js:169:9)
+    at /home/expo/workingdir/build/node_modules/expo-notifications/plugin/build/withNotificationsAndroid.js:72:13
+    at action (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:199:29)
+    at interceptingMod (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:27)
+    at action (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:204:14)
+    at async interceptingMod (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/home/expo/workingdir/build/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+error: "expo" exited with code 1
