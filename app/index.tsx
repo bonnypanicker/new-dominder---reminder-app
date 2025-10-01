@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, RotateCcw, AlertCircle, X, Square, CheckSquare, Repeat, Keyboard } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -1023,7 +1023,7 @@ export default function HomeScreen() {
           setEveryValue(value);
           setEveryUnit(unit);
         }}
-        onTimeSelect={() => { RNKeyboard.dismiss(); setShowTimeSelector(true); }}
+        onTimeSelect={() => setShowTimeSelector(true)}
         onTimeChange={(time, ampm) => {
           setSelectedTime(time);
           setIsAM(ampm);
@@ -1321,7 +1321,7 @@ function CreateReminderPopup({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
             style={{ maxHeight: '100%' }}
-            keyboardShouldPersistTaps="always"
+            keyboardShouldPersistTaps="handled"
           >
             <TouchableOpacity
               activeOpacity={1}
