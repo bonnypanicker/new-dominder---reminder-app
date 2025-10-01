@@ -1311,8 +1311,7 @@ function CreateReminderPopup({
     >
       <TouchableOpacity 
         style={createPopupStyles.overlay} 
-        activeOpacity={1} 
-        onPress={onClose}
+        activeOpacity={1}
       >
         <View 
           style={[createPopupStyles.popup, { height: popupHeight }]}
@@ -1321,7 +1320,8 @@ function CreateReminderPopup({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
             style={{ maxHeight: '100%' }}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="none"
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -1337,6 +1337,8 @@ function CreateReminderPopup({
                   onChangeText={onTitleChange}
                   maxLength={100}
                   autoFocus={false}
+                  blurOnSubmit={false}
+                  returnKeyType="done"
                   testID="title-input"
                 />
               </View>
