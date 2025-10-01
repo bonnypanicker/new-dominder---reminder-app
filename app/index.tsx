@@ -1311,8 +1311,8 @@ function CreateReminderPopup({
     >
       <TouchableOpacity 
         style={createPopupStyles.overlay} 
-        activeOpacity={1} 
-        onPress={onClose}
+        activeOpacity={1}
+        onPress={() => {}}
       >
         <View 
           style={[createPopupStyles.popup, { height: popupHeight }]}
