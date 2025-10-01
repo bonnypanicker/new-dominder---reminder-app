@@ -1321,7 +1321,7 @@ function CreateReminderPopup({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
             style={{ maxHeight: '100%' }}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
             <TouchableOpacity
               activeOpacity={1}
