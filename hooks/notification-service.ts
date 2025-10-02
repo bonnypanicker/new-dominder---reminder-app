@@ -97,6 +97,7 @@ export class NotificationService {
   }
 
   async scheduleNotification(reminder: Reminder): Promise<string | null> {
+    console.log(`[scheduleNotification] for reminder: ${reminder.id}`);
     if (!this.isInitialized) {
       const initialized = await this.initialize();
       if (!initialized) return null;

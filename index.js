@@ -10,6 +10,7 @@ import { AppRegistry } from 'react-native';
 
 if (notifee && typeof notifee.onBackgroundEvent === 'function') {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
+    console.log('[onBackgroundEvent] type:', type, 'detail:', detail);
     try {
       const { notification, pressAction } = detail ?? {};
       if (!notification) return;

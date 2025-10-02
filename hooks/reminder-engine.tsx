@@ -43,6 +43,7 @@ function nextMonthlyOccurrenceFrom(now: Date, desiredDay: number, hh: number, mm
 }
 
 export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = new Date()): Date | null {
+  console.log(`[calculateNextReminderDate] for reminder: ${reminder.id}, fromDate: ${fromDate.toISOString()}`);
   const timeParts = reminder.time.split(':');
   const hh = parseInt(timeParts[0] || '0', 10);
   const mm = parseInt(timeParts[1] || '0', 10);
