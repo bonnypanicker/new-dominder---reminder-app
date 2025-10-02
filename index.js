@@ -1,27 +1,30 @@
-import notifee from '@notifee/react-native';
+let notifee;
+try {
+  notifee = require('@notifee/react-native').default;
+} catch (e) {
+  console.log('[index] notifee unavailable', e?.message ?? e);
+}
+
 import { AppRegistry } from 'react-native';
 
-notifee.onBackgroundEvent(async ({ type, detail }) => {
-  const { notification, pressAction } = detail;
+if (notifee && typeof notifee.onBackgroundEvent === 'function') {
+  notifee.onBackgroundEvent(async ({ type, detail }) => {
+    try {
+      const { notification, pressAction } = detail ?? {};
+      if (!notification || !pressAction) return;
+      if (type === 1 && pressAction.id === 'snooze') {
+        await notifee.cancelNotification?.(notification.id);
+      } else if (type === 1 && pressAction.id === 'done') {
+        await notifee.cancelNotification?.(notification.id);
+      }
+    } catch (err) {
+      console.log('[index] backgroundEvent error', err);
+    }
+  });
+}
 
-  // Handle notification events
-  if (type === 1 && pressAction.id === 'snooze') {
-    // Snooze the notification
-    await notifee.cancelNotification(notification.id);
-  } else if (type === 1 && pressAction.id === 'done') {
-    // Mark the reminder as done
-    await notifee.cancelNotification(notification.id);
-  }
-});
-
-function HeadlessCheck({ isHeadless }) {
-  if (isHeadless) {
-    // App has been launched in the background by iOS, ignore
-    return null;
-  }
-
-  // Render the app component on foreground launch
-  return <App />;
+function HeadlessCheck() {
+  return null;
 }
 
 AppRegistry.registerComponent('main', () => HeadlessCheck);
