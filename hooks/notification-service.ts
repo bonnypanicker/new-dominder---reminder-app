@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ANDROID_IMPORTANCE_HIGH = 4 as const;
 const ANDROID_IMPORTANCE_DEFAULT = 3 as const;
+const ANDROID_IMPORTANCE_LOW = 2 as const;
 const ANDROID_VISIBILITY_PUBLIC = 1 as const;
 const TRIGGER_TYPE_TIMESTAMP = 0 as const;
 
@@ -48,8 +49,8 @@ export class NotificationService {
       await notifee.requestPermission();
 
       await notifee.createChannel({
-        id: 'high_priority_v2',
-        name: 'High Priority Reminders',
+        id: 'ringer_v3',
+        name: 'Ringer Reminders',
         importance: ANDROID_IMPORTANCE_HIGH,
         vibration: true,
         vibrationPattern: [300, 500],
@@ -61,15 +62,25 @@ export class NotificationService {
       });
 
       await notifee.createChannel({
-        id: 'default_priority_v2',
-        name: 'Default Priority Reminders',
+        id: 'standard_v3',
+        name: 'Standard Reminders',
         importance: ANDROID_IMPORTANCE_DEFAULT,
         vibration: true,
-        vibrationPattern: [300, 500],
+        vibrationPattern: [200, 200],
         visibility: ANDROID_VISIBILITY_PUBLIC,
         sound: 'default',
         lights: true,
         lightColor: '#FFFFFFFF',
+      });
+
+      await notifee.createChannel({
+        id: 'silent_v3',
+        name: 'Silent Reminders',
+        importance: ANDROID_IMPORTANCE_LOW,
+        vibration: false,
+        visibility: ANDROID_VISIBILITY_PUBLIC,
+        // no sound for silent channel
+        lights: false,
       });
 
       this.isInitialized = true;
@@ -106,12 +117,15 @@ export class NotificationService {
     };
 
     try {
+      const channelId = reminder.priority === 'high' ? 'ringer_v3' : reminder.priority === 'medium' ? 'standard_v3' : 'silent_v3';
       const notificationId = await notifee.createTriggerNotification(
         {
           title: reminder.title,
           body: reminder.description,
           android: {
-            channelId: reminder.priority === 'high' ? 'high_priority_v2' : 'default_priority_v2',
+            channelId,
+            ongoing: reminder.priority === 'medium',
+            autoCancel: reminder.priority !== 'medium',
             actions: [
               { title: 'Done', pressAction: { id: 'done', launchActivity: 'default' } },
               { title: 'Snooze 5m', pressAction: { id: 'snooze', launchActivity: 'default' } },
@@ -208,7 +222,7 @@ export class NotificationService {
       await notifee.displayNotification({
         title,
         body,
-        android: { channelId: 'default_priority_v2' },
+        android: { channelId: 'standard_v3', ongoing: true },
       });
     } catch (e) {
       console.error('Failed to display info notification:', e);
