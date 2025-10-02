@@ -385,6 +385,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
   const lastUpdateTimeRef = useRef(new Map<string, number>());
   
   useEffect(() => {
+    console.log('[ReminderEngine] Reminders updated:', reminders);
     const processNotifications = async () => {
       const now = Date.now();
       
@@ -412,6 +413,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const configChanged = previousConfig && previousConfig !== configString && !reminder.snoozeClearing;
         
         if (shouldSchedule) {
+          console.log(`[processNotifications] Reminder ${reminder.id} should be scheduled.`);
           let needsReschedule = false;
           
           // Check if reminder configuration changed (date, time, repeat settings, etc.)
@@ -500,6 +502,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             reminderConfigsRef.current.set(reminder.id, configString);
           }
         } else if (!shouldSchedule && existingNotificationId) {
+          console.log(`[processNotifications] Reminder ${reminder.id} should NOT be scheduled, cancelling notification.`);
           console.log(`Cancelling notification for reminder: ${reminder.id}`);
           await notificationService.cancelNotification(existingNotificationId);
           scheduledNotifications.current.delete(reminder.id);

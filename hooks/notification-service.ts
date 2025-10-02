@@ -126,7 +126,7 @@ export class NotificationService {
 
     console.log(`Scheduling notification for reminder ${reminder.id} at ${triggerDate.toISOString()}`);
 
-    const trigger: TimestampTrigger = {
+    console.log(`[scheduleNotification] trigger:`, trigger);
       type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
       alarmManager: { allowWhileIdle: true },
@@ -281,6 +281,7 @@ export class NotificationService {
   }
 
   private calculateTriggerDate(reminder: Reminder): Date | null {
+    console.log(`[calculateTriggerDate] for reminder: ${reminder.id}`);
     try {
       const now = new Date();
 
