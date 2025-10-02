@@ -12,7 +12,29 @@ const EVENT_TYPE_DISMISSED = 3 as const;
 
 type TimestampTrigger = { type: number; timestamp: number; alarmManager?: { allowWhileIdle?: boolean } };
 
-type NotifeeModule = any;
+type NotifeeNotification = {
+  id?: string;
+  title?: string;
+  body?: string;
+  android?: any;
+  data?: Record<string, any>;
+};
+
+type NotifeeModule = {
+  requestPermission: () => Promise<any>;
+  createChannel: (channel: any) => Promise<void>;
+  createTriggerNotification: (notification: NotifeeNotification, trigger: TimestampTrigger) => Promise<string>;
+  cancelNotification: (id: string) => Promise<void>;
+  cancelAllNotifications: () => Promise<void>;
+  cancelDisplayedNotifications?: () => Promise<void>;
+  getTriggerNotifications: () => Promise<any[]>;
+  getDisplayedNotifications: () => Promise<any[]>;
+  displayNotification: (notification: NotifeeNotification) => Promise<string>;
+  getNotificationSettings: () => Promise<any>;
+  openAlarmPermissionSettings: () => Promise<void>;
+  onForegroundEvent: (handler: (event: any) => void) => () => void;
+  onBackgroundEvent: (handler: (event: any) => Promise<void>) => () => void;
+};
 
 function getNotifee(): NotifeeModule | null {
   try {
@@ -140,7 +162,7 @@ export class NotificationService {
           android: {
             channelId,
             ongoing: reminder.priority === 'medium',
-            autoCancel: reminder.priority === 'low',
+            autoCancel: reminder.priority !== 'medium',
             actions: [
               { title: 'Done', pressAction: { id: 'done' } },
               { title: 'Snooze 5m', pressAction: { id: 'snooze' } },
@@ -277,13 +299,16 @@ export class NotificationService {
     return false;
   }
 
-  subscribeToEvents(handler: (event: any) => void): () => void {
+  subscribeToEvents(handler: (event: any) => void | Promise<void>): () => void {
     if (Platform.OS !== 'android') return () => {};
     const notifee = getNotifee();
     if (!notifee) return () => {};
     try {
+      const asyncHandler = async (event: any) => {
+        await Promise.resolve(handler(event));
+      };
       const unsub1 = notifee.onForegroundEvent(handler);
-      const unsub2 = notifee.onBackgroundEvent(handler);
+      const unsub2 = notifee.onBackgroundEvent(asyncHandler);
       return () => {
         try { unsub1?.(); } catch {}
         try { unsub2?.(); } catch {}
