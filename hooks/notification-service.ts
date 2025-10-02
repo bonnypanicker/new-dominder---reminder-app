@@ -304,14 +304,9 @@ export class NotificationService {
     const notifee = getNotifee();
     if (!notifee) return () => {};
     try {
-      const asyncHandler = async (event: any) => {
-        await Promise.resolve(handler(event));
-      };
-      const unsub1 = notifee.onForegroundEvent(handler);
-      const unsub2 = notifee.onBackgroundEvent(asyncHandler);
+      const unsub = notifee.onForegroundEvent(handler);
       return () => {
-        try { unsub1?.(); } catch {}
-        try { unsub2?.(); } catch {}
+        try { unsub?.(); } catch {}
       };
     } catch (e) {
       console.error('Failed to subscribe to notifee events:', e);
