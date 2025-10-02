@@ -48,21 +48,28 @@ export class NotificationService {
       await notifee.requestPermission();
 
       await notifee.createChannel({
-        id: 'high_priority',
+        id: 'high_priority_v2',
         name: 'High Priority Reminders',
         importance: ANDROID_IMPORTANCE_HIGH,
         vibration: true,
         vibrationPattern: [300, 500],
         visibility: ANDROID_VISIBILITY_PUBLIC,
+        sound: 'default',
+        lights: true,
+        lightColor: '#FFFFFFFF',
+        bypassDnd: true,
       });
 
       await notifee.createChannel({
-        id: 'default_priority',
+        id: 'default_priority_v2',
         name: 'Default Priority Reminders',
         importance: ANDROID_IMPORTANCE_DEFAULT,
         vibration: true,
         vibrationPattern: [300, 500],
         visibility: ANDROID_VISIBILITY_PUBLIC,
+        sound: 'default',
+        lights: true,
+        lightColor: '#FFFFFFFF',
       });
 
       this.isInitialized = true;
@@ -104,11 +111,12 @@ export class NotificationService {
           title: reminder.title,
           body: reminder.description,
           android: {
-            channelId: reminder.priority === 'high' ? 'high_priority' : 'default_priority',
+            channelId: reminder.priority === 'high' ? 'high_priority_v2' : 'default_priority_v2',
             actions: [
-              { title: 'Done', pressAction: { id: 'done' } },
-              { title: 'Snooze 5m', pressAction: { id: 'snooze' } },
+              { title: 'Done', pressAction: { id: 'done', launchActivity: 'default' } },
+              { title: 'Snooze 5m', pressAction: { id: 'snooze', launchActivity: 'default' } },
             ],
+            pressAction: { id: 'default', launchActivity: 'default' },
           },
           data: { reminderId: reminder.id },
         },
@@ -200,7 +208,7 @@ export class NotificationService {
       await notifee.displayNotification({
         title,
         body,
-        android: { channelId: 'default_priority' },
+        android: { channelId: 'default_priority_v2' },
       });
     } catch (e) {
       console.error('Failed to display info notification:', e);
