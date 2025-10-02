@@ -11,12 +11,12 @@ if (notifee && typeof notifee.onBackgroundEvent === 'function') {
   notifee.onBackgroundEvent(async ({ type, detail }) => {
     try {
       const { notification, pressAction } = detail ?? {};
-      if (!notification || !pressAction) return;
+      if (!notification) return;
 
       const reminderId = notification?.data?.reminderId;
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 
-      if (type === 1) {
+      if (type === 1 && pressAction) { // EventType.ACTION_PRESS
         const stored = await AsyncStorage.getItem('dominder_reminders');
         const list = stored ? JSON.parse(stored) : [];
         const idx = list.findIndex((r) => r.id === reminderId);
