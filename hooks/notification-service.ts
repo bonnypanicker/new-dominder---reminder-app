@@ -14,7 +14,6 @@ type NotifeeModule = any;
 
 function getNotifee(): NotifeeModule | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require('@notifee/react-native');
     return mod?.default ?? mod ?? null;
   } catch (e) {
@@ -82,7 +81,6 @@ export class NotificationService {
         importance: ANDROID_IMPORTANCE_LOW,
         vibration: false,
         visibility: ANDROID_VISIBILITY_PUBLIC,
-        // no sound for silent channel
         lights: false,
       });
       console.log('Created/validated channel silent_v3');
@@ -114,8 +112,6 @@ export class NotificationService {
     const hasExactAlarmPerm = await this.checkExactAlarmPermission();
     if (!hasExactAlarmPerm) {
       console.log('Exact alarm permission not granted, notification may be delayed.');
-      // Optionally, you could decide not to schedule the notification at all
-      // return null;
     }
 
     const triggerDate = this.calculateTriggerDate(reminder);
@@ -191,6 +187,21 @@ export class NotificationService {
     }
   }
 
+  async cancelAllNotifications(): Promise<void> {
+    if (Platform.OS !== 'android') return;
+    const notifee = getNotifee();
+    if (!notifee) return;
+    try {
+      await notifee.cancelAllNotifications();
+      if (typeof notifee.cancelDisplayedNotifications === 'function') {
+        await notifee.cancelDisplayedNotifications();
+      }
+      console.log('Cancelled all notifications');
+    } catch (error) {
+      console.error('Failed to cancel all notifications:', error);
+    }
+  }
+
   async hasScheduledForReminder(reminderId: string): Promise<boolean> {
     if (Platform.OS !== 'android') return false;
     const notifee = getNotifee();
@@ -256,14 +267,14 @@ export class NotificationService {
     if (!notifee) return false;
 
     const settings = await notifee.getNotificationSettings();
-    if (settings.android.alarm === 1) { // 1 === authorized
+    if (settings.android.alarm === 1) {
       return true;
     }
 
-    // Prompt user to enable exact alarms
     await notifee.openAlarmPermissionSettings();
     return false;
   }
+
   subscribeToEvents(handler: (event: any) => void): () => void {
     if (Platform.OS !== 'android') return () => {};
     const notifee = getNotifee();
