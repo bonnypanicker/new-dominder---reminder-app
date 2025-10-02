@@ -106,7 +106,7 @@ export class NotificationService {
           identifier: 'done',
           buttonTitle: 'Done',
           options: {
-            opensAppToForeground: false,
+            opensAppToForeground: true,
             isDestructive: false,
             isAuthenticationRequired: false,
           },
@@ -115,7 +115,7 @@ export class NotificationService {
           identifier: 'snooze',
           buttonTitle: 'Snooze 5m',
           options: {
-            opensAppToForeground: false,
+            opensAppToForeground: true,
             isDestructive: false,
             isAuthenticationRequired: false,
           },
@@ -128,7 +128,7 @@ export class NotificationService {
           identifier: 'done',
           buttonTitle: 'Done',
           options: {
-            opensAppToForeground: false,
+            opensAppToForeground: true,
             isDestructive: false,
             isAuthenticationRequired: false,
           },
@@ -137,7 +137,7 @@ export class NotificationService {
           identifier: 'snooze',
           buttonTitle: 'Snooze 5m',
           options: {
-            opensAppToForeground: false,
+            opensAppToForeground: true,
             isDestructive: false,
             isAuthenticationRequired: false,
           },
@@ -868,7 +868,7 @@ export class NotificationService {
     });
     
     // Handle notification responses
-    Notifications.addNotificationResponseReceivedListener(async (response) => {
+    const handleResponse = async (response: Notifications.NotificationResponse) => {
       const data = response.notification.request.content.data as { reminderId?: string; type?: string; isRepeat?: boolean } | undefined;
       const { reminderId, type } = data || {};
       const actionIdentifier = response.actionIdentifier;
@@ -905,7 +905,22 @@ export class NotificationService {
           if (onOpen) onOpen(reminderId);
         }
       }
-    });
+    };
+
+    Notifications.addNotificationResponseReceivedListener(handleResponse);
+
+    // If the app was launched from a notification while it was closed, process that last response
+    (async () => {
+      try {
+        const last = await Notifications.getLastNotificationResponseAsync();
+        if (last) {
+          console.log('Processing last notification response on app start');
+          await handleResponse(last);
+        }
+      } catch (e) {
+        console.error('Failed to process last notification response:', e);
+      }
+    })();
     
     // Periodically check for dismissed notifications
     const dismissalCheckInterval = setInterval(async () => {
