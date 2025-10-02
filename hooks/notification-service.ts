@@ -1,13 +1,26 @@
-import notifee, {
-  AndroidImportance,
-  AndroidVisibility,
-  TimestampTrigger,
-  TriggerType,
-} from '@notifee/react-native';
 import { Platform } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppSettings } from '@/hooks/settings-store';
+
+const ANDROID_IMPORTANCE_HIGH = 4 as const;
+const ANDROID_IMPORTANCE_DEFAULT = 3 as const;
+const ANDROID_VISIBILITY_PUBLIC = 1 as const;
+const TRIGGER_TYPE_TIMESTAMP = 0 as const;
+
+type TimestampTrigger = { type: number; timestamp: number };
+
+type NotifeeModule = any;
+
+function getNotifee(): NotifeeModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('@notifee/react-native');
+    return mod?.default ?? mod ?? null;
+  } catch (e) {
+    console.log('Notifee not available, running in Expo Go/web or without native module.');
+    return null;
+  }
+}
 
 export class NotificationService {
   private static instance: NotificationService;
@@ -24,31 +37,32 @@ export class NotificationService {
     if (this.isInitialized) return true;
 
     try {
-      if (Platform.OS === 'web') {
-        console.log('Notifications not supported on web');
+      if (Platform.OS !== 'android') {
+        console.log('Notifications supported only on Android for this build.');
         return false;
       }
 
+      const notifee = getNotifee();
+      if (!notifee) return false;
+
       await notifee.requestPermission();
 
-      // Create a channel for high-priority notifications
       await notifee.createChannel({
         id: 'high_priority',
         name: 'High Priority Reminders',
-        importance: AndroidImportance.HIGH,
+        importance: ANDROID_IMPORTANCE_HIGH,
         vibration: true,
         vibrationPattern: [300, 500],
-        visibility: AndroidVisibility.PUBLIC,
+        visibility: ANDROID_VISIBILITY_PUBLIC,
       });
 
-      // Create a channel for default priority notifications
       await notifee.createChannel({
         id: 'default_priority',
         name: 'Default Priority Reminders',
-        importance: AndroidImportance.DEFAULT,
+        importance: ANDROID_IMPORTANCE_DEFAULT,
         vibration: true,
         vibrationPattern: [300, 500],
-        visibility: AndroidVisibility.PUBLIC,
+        visibility: ANDROID_VISIBILITY_PUBLIC,
       });
 
       this.isInitialized = true;
@@ -66,10 +80,13 @@ export class NotificationService {
       if (!initialized) return null;
     }
 
-    if (Platform.OS === 'web') {
-      console.log('Notifications not supported on web');
+    if (Platform.OS !== 'android') {
+      console.log('Notifications not supported on this platform');
       return null;
     }
+
+    const notifee = getNotifee();
+    if (!notifee) return null;
 
     const triggerDate = this.calculateTriggerDate(reminder);
     if (!triggerDate) {
@@ -77,7 +94,7 @@ export class NotificationService {
     }
 
     const trigger: TimestampTrigger = {
-      type: TriggerType.TIMESTAMP,
+      type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
     };
 
@@ -87,28 +104,13 @@ export class NotificationService {
           title: reminder.title,
           body: reminder.description,
           android: {
-            channelId:
-              reminder.priority === 'high'
-                ? 'high_priority'
-                : 'default_priority',
+            channelId: reminder.priority === 'high' ? 'high_priority' : 'default_priority',
             actions: [
-              {
-                title: 'Done',
-                pressAction: {
-                  id: 'done',
-                },
-              },
-              {
-                title: 'Snooze 5m',
-                pressAction: {
-                  id: 'snooze',
-                },
-              },
+              { title: 'Done', pressAction: { id: 'done' } },
+              { title: 'Snooze 5m', pressAction: { id: 'snooze' } },
             ],
           },
-          data: {
-            reminderId: reminder.id,
-          },
+          data: { reminderId: reminder.id },
         },
         trigger,
       );
@@ -121,8 +123,9 @@ export class NotificationService {
   }
 
   async cancelNotification(notificationId: string): Promise<void> {
-    if (Platform.OS === 'web') return;
-
+    if (Platform.OS !== 'android') return;
+    const notifee = getNotifee();
+    if (!notifee) return;
     try {
       await notifee.cancelNotification(notificationId);
       console.log(`Cancelled notification: ${notificationId}`);
@@ -132,29 +135,39 @@ export class NotificationService {
   }
 
   async cancelAllNotificationsForReminder(reminderId: string): Promise<void> {
-    if (Platform.OS === 'web') return;
-
+    if (Platform.OS !== 'android') return;
+    const notifee = getNotifee();
+    if (!notifee) return;
     try {
-      const notifications = await notifee.getTriggerNotificationIds();
-      for (const notificationId of notifications) {
-        const notification = await notifee.getTriggerNotification(
-          notificationId,
-        );
-        if (notification?.data?.reminderId === reminderId) {
-          await notifee.cancelNotification(notificationId);
+      const notifications = await notifee.getTriggerNotifications();
+      for (const n of notifications) {
+        const rid = n.notification?.data?.reminderId as string | undefined;
+        if (rid === reminderId) {
+          await notifee.cancelNotification(n.notification.id);
         }
       }
     } catch (error) {
-      console.error(
-        `Failed to cancel notifications for reminder ${reminderId}:`,
-        error,
-      );
+      console.error(`Failed to cancel notifications for reminder ${reminderId}:`, error);
+    }
+  }
+
+  async hasScheduledForReminder(reminderId: string): Promise<boolean> {
+    if (Platform.OS !== 'android') return false;
+    const notifee = getNotifee();
+    if (!notifee) return false;
+    try {
+      const notifications = await notifee.getTriggerNotifications();
+      return notifications.some((n: any) => n.notification?.data?.reminderId === reminderId);
+    } catch (e) {
+      console.error('Error checking scheduled notifications:', e);
+      return false;
     }
   }
 
   async cleanupOrphanedNotifications(): Promise<void> {
-    if (Platform.OS === 'web') return;
-
+    if (Platform.OS !== 'android') return;
+    const notifee = getNotifee();
+    if (!notifee) return;
     try {
       const scheduledNotifications = await notifee.getTriggerNotifications();
       console.log(`Found ${scheduledNotifications.length} scheduled notifications`);
@@ -163,26 +176,51 @@ export class NotificationService {
       const currentReminders: any[] = stored ? JSON.parse(stored) : [];
       const activeReminderIds = new Set(
         currentReminders
-          .filter(
-            (r) => r.isActive && !r.isCompleted && !r.isExpired && !r.isPaused,
-          )
+          .filter((r) => r.isActive && !r.isCompleted && !r.isExpired && !r.isPaused)
           .map((r) => r.id),
       );
 
       for (const notification of scheduledNotifications) {
-        const reminderId = notification.notification.data?.reminderId as
-          | string
-          | undefined;
-
+        const reminderId = notification.notification.data?.reminderId as string | undefined;
         if (!reminderId || !activeReminderIds.has(reminderId)) {
           await notifee.cancelNotification(notification.notification.id);
-          console.log(
-            `Cancelled orphaned notification ${notification.notification.id} for reminder ${reminderId}`,
-          );
+          console.log(`Cancelled orphaned notification ${notification.notification.id} for reminder ${reminderId}`);
         }
       }
     } catch (error) {
       console.error('Failed to cleanup orphaned notifications:', error);
+    }
+  }
+
+  async displayInfoNotification(title: string, body: string): Promise<void> {
+    if (Platform.OS !== 'android') return;
+    const notifee = getNotifee();
+    if (!notifee) return;
+    try {
+      await notifee.displayNotification({
+        title,
+        body,
+        android: { channelId: 'default_priority' },
+      });
+    } catch (e) {
+      console.error('Failed to display info notification:', e);
+    }
+  }
+
+  subscribeToEvents(handler: (event: any) => void): () => void {
+    if (Platform.OS !== 'android') return () => {};
+    const notifee = getNotifee();
+    if (!notifee) return () => {};
+    try {
+      const unsub1 = notifee.onForegroundEvent(handler);
+      const unsub2 = notifee.onBackgroundEvent(handler);
+      return () => {
+        try { unsub1?.(); } catch {}
+        try { unsub2?.(); } catch {}
+      };
+    } catch (e) {
+      console.error('Failed to subscribe to notifee events:', e);
+      return () => {};
     }
   }
 
@@ -213,18 +251,11 @@ export class NotificationService {
       const hh = parseInt(timeParts[0] || '0', 10);
       const mm = parseInt(timeParts[1] || '0', 10);
 
-      if (
-        isNaN(year) ||
-        isNaN(month) ||
-        isNaN(day) ||
-        isNaN(hh) ||
-        isNaN(mm)
-      ) {
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hh) || isNaN(mm)) {
         return null;
       }
 
       const triggerDate = new Date(year, month - 1, day, hh, mm, 0, 0);
-
       if (isNaN(triggerDate.getTime())) {
         return null;
       }
@@ -237,24 +268,15 @@ export class NotificationService {
       }
 
       const nextFire = this.computeNextFireForNotification(reminder, now);
-      if (nextFire) {
-        return nextFire;
-      }
+      if (nextFire) return nextFire;
       return null;
     } catch (error) {
-      console.error(
-        'Error calculating trigger date for reminder:',
-        reminder.id,
-        error,
-      );
+      console.error('Error calculating trigger date for reminder:', reminder.id, error);
       return null;
     }
   }
 
-  private computeNextFireForNotification(
-    reminder: Reminder,
-    now: Date,
-  ): Date | null {
+  private computeNextFireForNotification(reminder: Reminder, now: Date): Date | null {
     const timeParts = reminder.time.split(':');
     const hh = parseInt(timeParts[0] || '0', 10);
     const mm = parseInt(timeParts[1] || '0', 10);
@@ -266,14 +288,9 @@ export class NotificationService {
 
     switch (reminder.repeatType) {
       case 'daily': {
-        const selected =
-          reminder.repeatDays && reminder.repeatDays.length > 0
-            ? reminder.repeatDays
-            : [0, 1, 2, 3, 4, 5, 6];
+        const selected = reminder.repeatDays && reminder.repeatDays.length > 0 ? reminder.repeatDays : [0, 1, 2, 3, 4, 5, 6];
         for (let add = 0; add < 8; add++) {
-          const check = setTime(
-            new Date(now.getFullYear(), now.getMonth(), now.getDate() + add),
-          );
+          const check = setTime(new Date(now.getFullYear(), now.getMonth(), now.getDate() + add));
           if (selected.includes(check.getDay()) && check > now) return check;
         }
         return null;
@@ -284,42 +301,26 @@ export class NotificationService {
         const dayOfMonth = reminder.monthlyDay ?? day;
 
         let target = setTime(new Date(now.getFullYear(), now.getMonth(), 1));
-        const daysInThisMonth = new Date(
-          target.getFullYear(),
-          target.getMonth() + 1,
-          0,
-        ).getDate();
+        const daysInThisMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
         const dayToUse = Math.min(dayOfMonth, daysInThisMonth);
         target.setDate(dayToUse);
 
         if (target <= now) {
           target.setMonth(target.getMonth() + 1);
-          const daysInNextMonth = new Date(
-            target.getFullYear(),
-            target.getMonth() + 1,
-            0,
-          ).getDate();
+          const daysInNextMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
           const nextDayToUse = Math.min(dayOfMonth, daysInNextMonth);
           target.setDate(nextDayToUse);
         }
-
         return target;
       }
       case 'every': {
         const interval = reminder.everyInterval;
         if (!interval || !interval.value || interval.value <= 0) return null;
-        const start = setTime(
-          new Date(now.getFullYear(), now.getMonth(), now.getDate()),
-        );
+        const start = setTime(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
         const baseStart = new Date(reminder.date);
         baseStart.setHours(hh, mm, 0, 0);
         let candidate = baseStart > now ? baseStart : start;
-        const addMs =
-          interval.unit === 'minutes'
-            ? interval.value * 60 * 1000
-            : interval.unit === 'hours'
-            ? interval.value * 60 * 60 * 1000
-            : interval.value * 24 * 60 * 60 * 1000;
+        const addMs = interval.unit === 'minutes' ? interval.value * 60 * 1000 : interval.unit === 'hours' ? interval.value * 60 * 60 * 1000 : interval.value * 24 * 60 * 60 * 1000;
         if (candidate <= now) {
           const diff = now.getTime() - candidate.getTime();
           const steps = Math.floor(diff / addMs) + 1;
@@ -340,9 +341,7 @@ export class NotificationService {
         const selected = reminder.repeatDays ?? [];
         if (selected.length === 0) return null;
         for (let add = 0; add < 370; add++) {
-          const check = setTime(
-            new Date(now.getFullYear(), now.getMonth(), now.getDate() + add),
-          );
+          const check = setTime(new Date(now.getFullYear(), now.getMonth(), now.getDate() + add));
           if (selected.includes(check.getDay()) && check > now) return check;
         }
         return null;

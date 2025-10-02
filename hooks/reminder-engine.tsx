@@ -7,8 +7,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
-
-
 interface EngineContext {
   lastTick: number;
 }
@@ -233,31 +231,28 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const initNotifications = async () => {
       try {
         await notificationService.initialize();
-        // Clean up orphaned notifications on startup
         await notificationService.cleanupOrphanedNotifications();
       } catch (error) {
         console.error('Failed to initialize notifications in engine:', error);
       }
     };
-    
+
     initNotifications();
 
-    const onEvent = async ({ type, detail }) => {
-      const { notification, pressAction } = detail;
-
+    const onEvent = async ({ type, detail }: any) => {
+      const { notification, pressAction } = detail ?? {};
       if (type === 1 && notification) {
         if (pressAction?.id === 'done') {
-          handleNotificationDone(notification.data.reminderId);
+          handleNotificationDone(notification.data?.reminderId as string);
         } else if (pressAction?.id === 'snooze') {
-          handleNotificationSnooze(notification.data.reminderId);
+          handleNotificationSnooze(notification.data?.reminderId as string);
         } else if (pressAction?.id === 'default') {
-          handleNotificationOpen(notification.data.reminderId);
+          handleNotificationOpen(notification.data?.reminderId as string);
         }
       }
     };
 
-    notifee.onForegroundEvent(onEvent);
-    notifee.onBackgroundEvent(onEvent);
+    const unsubscribe = notificationService.subscribeToEvents(onEvent);
 
     const handleNotificationOpen = (reminderId: string) => {
       try {
@@ -269,7 +264,6 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
 
     const handleNotificationDone = (reminderId: string) => {
       console.log(`Notification Done action for reminder: ${reminderId}`);
-      // Use a callback to get fresh reminders data
       setTimeout(async () => {
         try {
           const stored = await AsyncStorage.getItem('dominder_reminders');
@@ -277,45 +271,31 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
             const now = new Date();
-            
-            // Check if reminder has expired (30 minutes after trigger for "once" reminders)
             if (reminder.repeatType === 'none' && reminder.lastTriggeredAt) {
               const triggeredTime = new Date(reminder.lastTriggeredAt);
               const timeSinceTrigger = now.getTime() - triggeredTime.getTime();
-              if (timeSinceTrigger > 30 * 60 * 1000) { // 30 minutes
+              if (timeSinceTrigger > 30 * 60 * 1000) {
                 console.log(`Reminder ${reminderId} has expired (triggered ${Math.floor(timeSinceTrigger / 60000)} minutes ago)`);
-                // Show toast notification about expiration
-                if (Platform.OS !== 'web') {
-                  await notifee.displayNotification({
-                    title: 'Reminder Expired',
-                    body: 'This reminder has expired and cannot be marked as done.',
-                    android: {
-                      channelId: 'default_priority',
-                    },
-                  });
-                }
+                await notificationService.displayInfoNotification('Reminder Expired', 'This reminder has expired and cannot be marked as done.');
                 return;
               }
             }
-            
             console.log(`Marking reminder as completed from notification: ${reminderId}`);
             if (reminder.repeatType === 'none') {
-              // For "Once" reminders, mark as completed when Done is pressed
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 isCompleted: true, 
                 lastTriggeredAt: reminder.lastTriggeredAt || now.toISOString(),
-                snoozeUntil: undefined // Clear any snooze
+                snoozeUntil: undefined
               });
             } else {
-              // For repeating reminders, update the last triggered time and calculate next occurrence
               const nextDate = calculateNextReminderDate(reminder, now);
               console.log(`Updating repeating reminder ${reminderId} - type: ${reminder.repeatType}, next date: ${nextDate?.toISOString()}`);
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 lastTriggeredAt: now.toISOString(),
                 nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
-                snoozeUntil: undefined // Clear any snooze
+                snoozeUntil: undefined
               });
             }
           }
@@ -389,6 +369,9 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           console.error('Error getting fresh reminder data:', error);
         }
       }, 100);
+    };
+    return () => {
+      try { unsubscribe(); } catch {}
     };
   }, []); // Empty dependency array - only run once
 
