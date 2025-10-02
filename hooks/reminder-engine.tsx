@@ -5,7 +5,8 @@ import { Reminder } from '@/types/reminder';
 import { notificationService } from '@/hooks/notification-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface EngineContext {
   lastTick: number;
@@ -116,6 +117,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
   const updateReminder = useUpdateReminder();
   const [lastTick, setLastTick] = React.useState<number>(Date.now());
   const updateReminderRef = useRef(updateReminder);
+  const queryClient = useQueryClient();
   
   // Keep the ref updated
   updateReminderRef.current = updateReminder;
@@ -239,6 +241,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     };
 
     initNotifications();
+
+    // Listen for app state changes to invalidate cache when coming from background
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[ReminderEngine] App became active, invalidating reminders cache');
+        // Invalidate the reminders query to refetch from AsyncStorage
+        // This ensures UI reflects any changes made by background handler
+        queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      }
+    });
 
     const onEvent = async ({ type, detail }: any) => {
       const { notification, pressAction } = detail ?? {};
@@ -373,8 +385,9 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     };
     return () => {
       try { unsubscribe(); } catch {}
+      appStateSubscription?.remove();
     };
-  }, []); // Empty dependency array - only run once
+  }, [queryClient]); // Add queryClient to dependencies
 
   // Schedule notifications for low priority reminders
   const scheduledNotifications = useRef(new Map<string, string>());
