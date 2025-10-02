@@ -8,7 +8,7 @@ const ANDROID_IMPORTANCE_LOW = 2 as const;
 const ANDROID_VISIBILITY_PUBLIC = 1 as const;
 const TRIGGER_TYPE_TIMESTAMP = 0 as const;
 
-type TimestampTrigger = { type: number; timestamp: number };
+type TimestampTrigger = { type: number; timestamp: number; alarmManager?: { allowWhileIdle?: boolean } };
 
 type NotifeeModule = any;
 
@@ -46,6 +46,7 @@ export class NotificationService {
       const notifee = getNotifee();
       if (!notifee) return false;
 
+      console.log('Requesting POST_NOTIFICATIONS permission...');
       await notifee.requestPermission();
 
       await notifee.createChannel({
@@ -60,6 +61,7 @@ export class NotificationService {
         lightColor: '#FFFFFFFF',
         bypassDnd: true,
       });
+      console.log('Created/validated channel ringer_v3');
 
       await notifee.createChannel({
         id: 'standard_v3',
@@ -72,6 +74,7 @@ export class NotificationService {
         lights: true,
         lightColor: '#FFFFFFFF',
       });
+      console.log('Created/validated channel standard_v3');
 
       await notifee.createChannel({
         id: 'silent_v3',
@@ -82,6 +85,7 @@ export class NotificationService {
         // no sound for silent channel
         lights: false,
       });
+      console.log('Created/validated channel silent_v3');
 
       this.isInitialized = true;
       console.log('Notification service initialized successfully');
@@ -114,6 +118,7 @@ export class NotificationService {
     const trigger: TimestampTrigger = {
       type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
+      alarmManager: { allowWhileIdle: true },
     };
 
     try {
@@ -127,10 +132,11 @@ export class NotificationService {
             ongoing: reminder.priority === 'medium',
             autoCancel: reminder.priority !== 'medium',
             actions: [
-              { title: 'Done', backgroundAction: { id: 'done' } },
-              { title: 'Snooze 5m', backgroundAction: { id: 'snooze' } },
+              { title: 'Done', pressAction: { id: 'done' } },
+              { title: 'Snooze 5m', pressAction: { id: 'snooze' } },
             ],
-            pressAction: { id: 'default', launchActivity: 'default' },
+            pressAction: { id: 'default' },
+            asForegroundService: false,
           },
           data: { reminderId: reminder.id },
         },
@@ -222,7 +228,7 @@ export class NotificationService {
       await notifee.displayNotification({
         title,
         body,
-        android: { channelId: 'standard_v3', ongoing: true },
+        android: { channelId: 'standard_v3', ongoing: true, pressAction: { id: 'default' } },
       });
     } catch (e) {
       console.error('Failed to display info notification:', e);

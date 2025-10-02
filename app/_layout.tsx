@@ -34,6 +34,7 @@ function RootLayoutNav() {
           gestureEnabled: false,
         }} 
       />
+      <Stack.Screen name="notifications-debug" options={{ title: 'Notifications Debug' }} />
 
     </Stack>
   );
