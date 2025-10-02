@@ -126,11 +126,12 @@ export class NotificationService {
 
     console.log(`Scheduling notification for reminder ${reminder.id} at ${triggerDate.toISOString()}`);
 
-    console.log(`[scheduleNotification] trigger:`, trigger);
+    const trigger: TimestampTrigger = {
       type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
       alarmManager: { allowWhileIdle: true },
     };
+    console.log(`[scheduleNotification] trigger:`, trigger);
 
     try {
       const channelId = reminder.priority === 'high' ? 'ringer_v3' : reminder.priority === 'medium' ? 'standard_v3' : 'silent_v3';
