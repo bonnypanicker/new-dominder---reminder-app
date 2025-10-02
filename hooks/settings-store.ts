@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RepeatType } from '@/types/reminder';
-import * as Notifications from 'expo-notifications';
+
 import { notificationService } from '@/hooks/notification-service';
 
 const SETTINGS_STORAGE_KEY = 'dominder_settings';
@@ -69,7 +69,7 @@ export const useUpdateSettings = () => {
         if (typeof variables.notificationsEnabled === 'boolean') {
           if (variables.notificationsEnabled === false) {
             await notificationService.cancelAllNotifications();
-            await Notifications.dismissAllNotificationsAsync();
+
           } else {
             await notificationService.initialize();
           }
@@ -78,7 +78,7 @@ export const useUpdateSettings = () => {
         if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean') {
           // No reschedule needed; future notifications will respect toggles.
           // Optionally clear presented notifications to apply immediately
-          await Notifications.dismissAllNotificationsAsync();
+
         }
       } catch (e) {
         console.log('Post-settings toggle side effects failed');
