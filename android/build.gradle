@@ -9,7 +9,6 @@ buildscript {
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
-    classpath 'app.notifee:notifee-react-native-gradle-plugin:0.2.0'
   }
 }
 
@@ -27,7 +26,7 @@ allprojects {
       // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
       url(reactNativeAndroidDir)
     }
-    maven { url 'https://maven.notifee.app' }
+
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
