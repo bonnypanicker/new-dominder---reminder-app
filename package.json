@@ -6,11 +6,14 @@
     "start": "bunx rork start -p ijvqabpwsfu6udyj06711 --tunnel",
     "start-web": "bunx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",
     "start-web-dev": "DEBUG=expo* bunx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@nkzw/create-context-hook": "^1.1.0",
+    "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-navigation/native": "^7.1.6",
     "@stardazed/streams-text-encoding": "^1.0.2",

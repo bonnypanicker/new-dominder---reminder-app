@@ -6,7 +6,7 @@ import { notificationService } from '@/hooks/notification-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+
 
 
 interface EngineContext {
@@ -241,8 +241,24 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     };
     
     initNotifications();
-    
-    // Handle notification responses (when user taps "Done" or "Snooze" button)
+
+    const onEvent = async ({ type, detail }) => {
+      const { notification, pressAction } = detail;
+
+      if (type === 1 && notification) {
+        if (pressAction?.id === 'done') {
+          handleNotificationDone(notification.data.reminderId);
+        } else if (pressAction?.id === 'snooze') {
+          handleNotificationSnooze(notification.data.reminderId);
+        } else if (pressAction?.id === 'default') {
+          handleNotificationOpen(notification.data.reminderId);
+        }
+      }
+    };
+
+    notifee.onForegroundEvent(onEvent);
+    notifee.onBackgroundEvent(onEvent);
+
     const handleNotificationOpen = (reminderId: string) => {
       try {
         router.push(`/alarm?reminderId=${reminderId}`);
@@ -270,12 +286,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 console.log(`Reminder ${reminderId} has expired (triggered ${Math.floor(timeSinceTrigger / 60000)} minutes ago)`);
                 // Show toast notification about expiration
                 if (Platform.OS !== 'web') {
-                  await Notifications.scheduleNotificationAsync({
-                    content: {
-                      title: 'Reminder Expired',
-                      body: 'This reminder has expired and cannot be marked as done.',
+                  await notifee.displayNotification({
+                    title: 'Reminder Expired',
+                    body: 'This reminder has expired and cannot be marked as done.',
+                    android: {
+                      channelId: 'default_priority',
                     },
-                    trigger: null, // Show immediately
                   });
                 }
                 return;
@@ -374,18 +390,6 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         }
       }, 100);
     };
-
-    // Delay setup to ensure notification service is initialized
-    const setupTimeout = setTimeout(() => {
-      notificationService.setupNotificationResponseHandler(
-        handleNotificationDone,
-        handleNotificationSnooze,
-        handleNotificationDismissed,
-        handleNotificationOpen,
-      );
-    }, 100);
-    
-    return () => clearTimeout(setupTimeout);
   }, []); // Empty dependency array - only run once
 
   // Schedule notifications for low priority reminders
