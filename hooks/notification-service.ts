@@ -254,6 +254,8 @@ export class NotificationService {
     await notifee.openAlarmPermissionSettings();
     return false;
   }
+  subscribeToEvents(handler: (event: any) => void): () => void {
+    if (Platform.OS !== 'android') return () => {};
     const notifee = getNotifee();
     if (!notifee) return () => {};
     try {
