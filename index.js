@@ -6,8 +6,6 @@ try {
   console.log('[index] notifee unavailable', e?.message ?? e);
 }
 
-import { AppRegistry } from 'react-native';
-
 function calculateNextReminderDate(reminder, fromDate = new Date()) {
   const timeParts = reminder.time.split(':');
   const hh = parseInt(timeParts[0] || '0', 10);
@@ -164,6 +162,7 @@ async function scheduleNotification(reminder) {
 }
 
 if (notifee && typeof notifee.onBackgroundEvent === 'function') {
+  const { EventType } = require('@notifee/react-native');
   notifee.onBackgroundEvent(async ({ type, detail }) => {
     console.log('[onBackgroundEvent] type:', type, 'detail:', detail);
     try {
@@ -173,7 +172,7 @@ if (notifee && typeof notifee.onBackgroundEvent === 'function') {
       const reminderId = notification?.data?.reminderId;
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 
-      if (type === 1 && pressAction) {
+      if (type === EventType.ACTION_PRESS && pressAction) {
         const stored = await AsyncStorage.getItem('dominder_reminders');
         const list = stored ? JSON.parse(stored) : [];
         const idx = list.findIndex((r) => r.id === reminderId);
@@ -182,7 +181,11 @@ if (notifee && typeof notifee.onBackgroundEvent === 'function') {
           const nowIso = new Date().toISOString();
           const now = new Date();
           
-          await notifee.cancelNotification(notification.id);
+          try {
+            await notifee.cancelNotification(notification.id);
+          } catch (e) {
+            console.log('[onBackgroundEvent] cancelNotification failed', e);
+          }
           
           if (pressAction.id === 'snooze') {
             console.log('[onBackgroundEvent] Snoozing reminder:', reminderId);
@@ -238,9 +241,3 @@ if (notifee && typeof notifee.onBackgroundEvent === 'function') {
     }
   });
 }
-
-function HeadlessCheck() {
-  return null;
-}
-
-AppRegistry.registerComponent('main', () => HeadlessCheck);
