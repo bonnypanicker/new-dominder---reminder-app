@@ -117,6 +117,14 @@ export class NotificationService {
       // return null;
     }
 
+    const triggerDate = this.calculateTriggerDate(reminder);
+    if (!triggerDate) {
+      console.log(`Cannot schedule notification for reminder ${reminder.id}: no valid trigger date`);
+      return null;
+    }
+
+    console.log(`Scheduling notification for reminder ${reminder.id} at ${triggerDate.toISOString()}`);
+
     const trigger: TimestampTrigger = {
       type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
