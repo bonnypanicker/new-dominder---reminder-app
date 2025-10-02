@@ -58,18 +58,18 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={styles.root}>
-          <ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <GestureHandlerRootView style={styles.root}>
             <ReminderEngineProvider>
               <StatusBar hidden={true} />
               <RootLayoutNav />
             </ReminderEngineProvider>
-          </ThemeProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </ErrorBoundary>
+          </GestureHandlerRootView>
+        </ErrorBoundary>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
