@@ -127,8 +127,8 @@ export class NotificationService {
             ongoing: reminder.priority === 'medium',
             autoCancel: reminder.priority !== 'medium',
             actions: [
-              { title: 'Done', pressAction: { id: 'done', launchActivity: 'default' } },
-              { title: 'Snooze 5m', pressAction: { id: 'snooze', launchActivity: 'default' } },
+              { title: 'Done', backgroundAction: { id: 'done' } },
+              { title: 'Snooze 5m', backgroundAction: { id: 'snooze' } },
             ],
             pressAction: { id: 'default', launchActivity: 'default' },
           },
