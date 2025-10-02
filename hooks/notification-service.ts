@@ -110,9 +110,11 @@ export class NotificationService {
     const notifee = getNotifee();
     if (!notifee) return null;
 
-    const triggerDate = this.calculateTriggerDate(reminder);
-    if (!triggerDate) {
-      return null;
+    const hasExactAlarmPerm = await this.checkExactAlarmPermission();
+    if (!hasExactAlarmPerm) {
+      console.log('Exact alarm permission not granted, notification may be delayed.');
+      // Optionally, you could decide not to schedule the notification at all
+      // return null;
     }
 
     const trigger: TimestampTrigger = {
@@ -235,8 +237,23 @@ export class NotificationService {
     }
   }
 
-  subscribeToEvents(handler: (event: any) => void): () => void {
-    if (Platform.OS !== 'android') return () => {};
+  async checkExactAlarmPermission(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    const notifee = getNotifee();
+    if (!notifee) return false;
+
+    const settings = await notifee.getNotificationSettings();
+    if (settings.android.alarm === 1) { // 1 === authorized
+      return true;
+    }
+
+    // Prompt user to enable exact alarms
+    await notifee.openAlarmPermissionSettings();
+    return false;
+  }
     const notifee = getNotifee();
     if (!notifee) return () => {};
     try {

@@ -1,3 +1,4 @@
+import "expo-router/entry";
 let notifee;
 try {
   notifee = require('@notifee/react-native').default;

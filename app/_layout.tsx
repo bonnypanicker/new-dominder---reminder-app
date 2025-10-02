@@ -41,28 +41,15 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        // Request notification permissions on app startup
-        await notificationService.initialize();
-        console.log('App initialized with notification permissions');
-      } catch (error) {
-        console.error('Failed to initialize app:', error);
-      } finally {
-        // Hide splash screen after initialization
-        await SplashScreen.hideAsync();
-      }
-    };
-
-    initializeApp();
+  const onLayoutRootView = React.useCallback(async () => {
+    await SplashScreen.hideAsync();
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ErrorBoundary>
-          <GestureHandlerRootView style={styles.root}>
+          <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
             <ReminderEngineProvider>
               <StatusBar hidden={true} />
               <RootLayoutNav />
