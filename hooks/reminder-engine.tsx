@@ -5,7 +5,7 @@ import { Reminder } from '@/types/reminder';
 import { notificationService } from '@/hooks/notification-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { Platform, AppState } from 'react-native';
+import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface EngineContext {
@@ -252,9 +252,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
     });
 
+    const EVENT_TYPE_PRESS = 1 as const;
+    const EVENT_TYPE_DISMISSED = 3 as const;
+
     const onEvent = async ({ type, detail }: any) => {
       const { notification, pressAction } = detail ?? {};
-      if (type === 1 && notification) {
+      if (type === EVENT_TYPE_PRESS && notification) {
         if (pressAction?.id === 'done') {
           handleNotificationDone(notification.data?.reminderId as string);
         } else if (pressAction?.id === 'snooze') {
@@ -262,6 +265,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         } else if (pressAction?.id === 'default') {
           handleNotificationOpen(notification.data?.reminderId as string);
         }
+      } else if (type === EVENT_TYPE_DISMISSED && notification) {
+        handleNotificationDismissed(notification.data?.reminderId as string);
       }
     };
 
@@ -275,8 +280,20 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
     };
 
-    const handleNotificationDone = (reminderId: string) => {
+    const handleNotificationDone = async (reminderId: string) => {
       console.log(`Notification Done action for reminder: ${reminderId}`);
+      try {
+        const notifee = require('@notifee/react-native');
+        const displayedNotifications = await notifee.default.getDisplayedNotifications();
+        const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
+        if (targetNotification) {
+          await notifee.default.cancelNotification(targetNotification.notification.id);
+          console.log(`Dismissed notification ${targetNotification.notification.id} after Done action`);
+        }
+      } catch (e) {
+        console.log('Could not dismiss notification:', e);
+      }
+
       setTimeout(async () => {
         try {
           const stored = await AsyncStorage.getItem('dominder_reminders');
@@ -318,9 +335,20 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }, 100);
     };
 
-    const handleNotificationSnooze = (reminderId: string) => {
+    const handleNotificationSnooze = async (reminderId: string) => {
       console.log(`Notification Snooze action for reminder: ${reminderId}`);
-      // Use a callback to get fresh reminders data
+      try {
+        const notifee = require('@notifee/react-native');
+        const displayedNotifications = await notifee.default.getDisplayedNotifications();
+        const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
+        if (targetNotification) {
+          await notifee.default.cancelNotification(targetNotification.notification.id);
+          console.log(`Dismissed notification ${targetNotification.notification.id} after Snooze action`);
+        }
+      } catch (e) {
+        console.log('Could not dismiss notification:', e);
+      }
+
       setTimeout(async () => {
         try {
           const stored = await AsyncStorage.getItem('dominder_reminders');
@@ -328,18 +356,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
             console.log(`Snoozing reminder for 5 minutes: ${reminderId}`);
-            const snoozeUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes from now
+            const snoozeUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
             
-            // If reminder was expired, reactivate it with snooze
             if (reminder.isExpired) {
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 snoozeUntil,
-                isExpired: false, // Reactivate expired reminder
+                isExpired: false,
                 lastTriggeredAt: new Date().toISOString()
               });
             } else {
-              // For both "Once" and repeating reminders, keep as active but set snooze
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 snoozeUntil,

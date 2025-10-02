@@ -7,6 +7,8 @@ const ANDROID_IMPORTANCE_DEFAULT = 3 as const;
 const ANDROID_IMPORTANCE_LOW = 2 as const;
 const ANDROID_VISIBILITY_PUBLIC = 1 as const;
 const TRIGGER_TYPE_TIMESTAMP = 0 as const;
+const EVENT_TYPE_PRESS = 1 as const;
+const EVENT_TYPE_DISMISSED = 3 as const;
 
 type TimestampTrigger = { type: number; timestamp: number; alarmManager?: { allowWhileIdle?: boolean } };
 
@@ -138,7 +140,7 @@ export class NotificationService {
           android: {
             channelId,
             ongoing: reminder.priority === 'medium',
-            autoCancel: reminder.priority !== 'medium',
+            autoCancel: reminder.priority === 'low',
             actions: [
               { title: 'Done', pressAction: { id: 'done' } },
               { title: 'Snooze 5m', pressAction: { id: 'snooze' } },

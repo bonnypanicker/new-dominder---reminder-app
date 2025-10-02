@@ -139,7 +139,7 @@ async function scheduleNotification(reminder) {
         android: {
           channelId,
           ongoing: reminder.priority === 'medium',
-          autoCancel: reminder.priority !== 'medium',
+          autoCancel: reminder.priority === 'low',
           actions: [
             { title: 'Done', pressAction: { id: 'done' } },
             { title: 'Snooze 5m', pressAction: { id: 'snooze' } },
