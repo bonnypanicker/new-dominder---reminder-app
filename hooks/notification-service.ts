@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -109,6 +109,26 @@ export class NotificationService {
       });
       console.log('Created/validated channel silent_v3');
 
+      const hasExact = await this.checkExactAlarmPermission();
+      if (!hasExact) {
+        try {
+          Alert.alert(
+            'Exact alarms disabled',
+            'To ring exactly on time, enable Exact alarms for DoMinder in system settings. We will still schedule reminders, but they may be delayed.',
+            [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Open settings', onPress: async () => { try { await notifee.openAlarmPermissionSettings(); } catch {} } },
+            ],
+          );
+        } catch {}
+        try {
+          await this.displayInfoNotification(
+            'Exact alarms disabled',
+            'Open DoMinder and enable Exact alarms in system settings for precise reminders.'
+          );
+        } catch {}
+      }
+
       this.isInitialized = true;
       console.log('Notification service initialized successfully');
       return true;
@@ -149,7 +169,7 @@ export class NotificationService {
     const trigger: TimestampTrigger = {
       type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
-      alarmManager: { allowWhileIdle: true },
+      alarmManager: hasExactAlarmPerm ? { allowWhileIdle: true } : undefined,
     };
     console.log(`[scheduleNotification] trigger:`, trigger);
 
