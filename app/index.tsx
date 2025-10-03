@@ -971,30 +971,24 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.createAlarmButton}
             onPress={() => {
-              // Use InteractionManager to defer state updates on Android
-              InteractionManager.runAfterInteractions(() => {
-                // Set initial values first
-                setEditingReminder(null);
-                setTitle('');
-                const defaultPriority = settings?.defaultPriority ?? 'standard';
-                const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
-                setPriority(mappedPriority);
-                setRepeatType(settings?.defaultReminderMode ?? 'none');
-                setRepeatDays([]);
-                setEveryValue(1);
-                setEveryUnit('hours');
-                const defaultTime = calculateDefaultTime();
-                setSelectedTime(defaultTime.time);
-                setIsAM(defaultTime.isAM);
-                const now = new Date();
-                const yyyy = now.getFullYear();
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(now.getDate()).padStart(2, '0');
-                setSelectedDate(`${yyyy}-${mm}-${dd}`);
-                
-                // Show popup immediately after state is set
-                setShowCreatePopup(true);
-              });
+              setEditingReminder(null);
+              setTitle('');
+              const defaultPriority = settings?.defaultPriority ?? 'standard';
+              const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
+              setPriority(mappedPriority);
+              setRepeatType(settings?.defaultReminderMode ?? 'none');
+              setRepeatDays([]);
+              setEveryValue(1);
+              setEveryUnit('hours');
+              const defaultTime = calculateDefaultTime();
+              setSelectedTime(defaultTime.time);
+              setIsAM(defaultTime.isAM);
+              const now = new Date();
+              const yyyy = now.getFullYear();
+              const mm = String(now.getMonth() + 1).padStart(2, '0');
+              const dd = String(now.getDate()).padStart(2, '0');
+              setSelectedDate(`${yyyy}-${mm}-${dd}`);
+              setShowCreatePopup(true);
             }}
             testID="fab-create-reminder"
           >
@@ -1292,11 +1286,12 @@ function CreateReminderPopup({
   useEffect(() => {
     if (visible) {
       mainContentSlide.setValue(0);
-      // Auto-focus on the title input only when creating new reminders, not when rescheduling
       if (mode === 'create') {
-        setTimeout(() => {
-          titleInputRef.current?.focus();
-        }, 100);
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            titleInputRef.current?.focus();
+          }, 50);
+        });
       }
     }
   }, [visible, mainContentSlide, mode]);
@@ -1338,7 +1333,7 @@ function CreateReminderPopup({
                   value={title}
                   onChangeText={onTitleChange}
                   maxLength={100}
-                  autoFocus={false}
+                  autoFocus={mode === 'create'}
                   testID="title-input"
                 />
               </View>
