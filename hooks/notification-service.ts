@@ -1,7 +1,8 @@
 import { Platform, Alert } from 'react-native';
-import notifee, { AndroidStyle } from '@notifee/react-native';
+import notifee, { AndroidStyle, AndroidCategory, AndroidImportance } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { currentRingerChannelId } from '@/services/channels';
 
 const ANDROID_IMPORTANCE_HIGH = 4 as const;
 const ANDROID_IMPORTANCE_DEFAULT = 3 as const;
@@ -37,15 +38,6 @@ type NotifeeModule = {
   onBackgroundEvent: (handler: (event: any) => Promise<void>) => () => void;
 };
 
-function getNotifee(): NotifeeModule | null {
-  try {
-    const mod = require('@notifee/react-native');
-    return mod?.default ?? mod ?? null;
-  } catch (e) {
-    console.log('Notifee not available, running in Expo Go/web or without native module.');
-    return null;
-  }
-}
 
 export class NotificationService {
   private static instance: NotificationService;
@@ -67,48 +59,12 @@ export class NotificationService {
         return false;
       }
 
-      const notifee = getNotifee();
       if (!notifee) return false;
 
       console.log('Requesting POST_NOTIFICATIONS permission...');
       await notifee.requestPermission();
 
-      await notifee.createChannel({
-        id: 'ringer_v3',
-        name: 'Ringer Reminders',
-        importance: ANDROID_IMPORTANCE_HIGH,
-        vibration: true,
-        vibrationPattern: [300, 500],
-        visibility: ANDROID_VISIBILITY_PUBLIC,
-        sound: 'default',
-        lights: true,
-        lightColor: '#FFFFFFFF',
-        bypassDnd: true,
-      });
-      console.log('Created/validated channel ringer_v3');
-
-      await notifee.createChannel({
-        id: 'standard_v3',
-        name: 'Standard Reminders',
-        importance: ANDROID_IMPORTANCE_DEFAULT,
-        vibration: true,
-        vibrationPattern: [200, 200],
-        visibility: ANDROID_VISIBILITY_PUBLIC,
-        sound: 'default',
-        lights: true,
-        lightColor: '#FFFFFFFF',
-      });
-      console.log('Created/validated channel standard_v3');
-
-      await notifee.createChannel({
-        id: 'silent_v3',
-        name: 'Silent Reminders',
-        importance: ANDROID_IMPORTANCE_LOW,
-        vibration: false,
-        visibility: ANDROID_VISIBILITY_PUBLIC,
-        lights: false,
-      });
-      console.log('Created/validated channel silent_v3');
+      await ensureBaseChannels();
 
       const hasExact = await this.checkExactAlarmPermission();
       if (!hasExact) {
@@ -139,8 +95,8 @@ export class NotificationService {
     }
   }
 
-  async scheduleNotification(reminder: Reminder): Promise<string | null> {
-    console.log(`[scheduleNotification] for reminder: ${reminder.id}`);
+  async scheduleReminderByModel(reminder: Reminder): Promise<string | null> {
+    console.log(`[scheduleReminderByModel] for reminder: ${reminder.id}`);
     if (!this.isInitialized) {
       const initialized = await this.initialize();
       if (!initialized) return null;
@@ -151,7 +107,6 @@ export class NotificationService {
       return null;
     }
 
-    const notifee = getNotifee();
     if (!notifee) return null;
 
     const hasExactAlarmPerm = await this.checkExactAlarmPermission();
@@ -172,7 +127,7 @@ export class NotificationService {
       timestamp: triggerDate.getTime(),
       alarmManager: hasExactAlarmPerm ? { allowWhileIdle: true } : undefined,
     };
-    console.log(`[scheduleNotification] trigger:`, trigger);
+    console.log(`[scheduleReminderByModel] trigger:`, trigger);
 
     const formattedReminderTime = triggerDate.toLocaleString([], {
       hour: '2-digit',
@@ -183,26 +138,56 @@ export class NotificationService {
     });
 
     try {
-      const channelId = reminder.priority === 'high' ? 'ringer_v3' : reminder.priority === 'medium' ? 'standard_v3' : 'silent_v3';
+      let channelId = 'standard_v3';
+      let androidConfig: any = {
+        channelId: 'standard_v3',
+        ongoing: reminder.priority === 'medium',
+        autoCancel: reminder.priority !== 'medium',
+        actions: [
+          { title: 'Done', pressAction: { id: 'done' } },
+          { title: 'Snooze 5m', pressAction: { id: 'snooze_5' } },
+        ],
+        pressAction: { id: 'default' },
+        asForegroundService: false,
+        timestamp: triggerDate.getTime(),
+        showTimestamp: true,
+        style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}` }
+      };
+
+      if (reminder.priority === 'high') {
+        channelId = await currentRingerChannelId();
+        androidConfig = {
+          channelId,
+          importance: AndroidImportance.HIGH,
+          category: AndroidCategory.ALARM,
+          ongoing: true,
+          lightUpScreen: true,
+          fullScreenAction: { id: 'alarm' },
+          actions: [
+            { title: 'Done', pressAction: { id: 'done' } },
+            { title: 'Snooze 5m', pressAction: { id: 'snooze_5' } },
+            { title: 'Snooze 10m', pressAction: { id: 'snooze_10' } },
+            { title: 'Snooze 15m', pressAction: { id: 'snooze_15' } },
+            { title: 'Snooze 30m', pressAction: { id: 'snooze_30' } },
+          ],
+          pressAction: { id: 'default' },
+          asForegroundService: false,
+          timestamp: triggerDate.getTime(),
+          showTimestamp: true,
+          style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}` }
+        };
+      } else if (reminder.priority === 'medium') {
+        channelId = 'standard_v3';
+      } else {
+        channelId = 'silent_v3';
+      }
+
       const notificationId = await notifee.createTriggerNotification(
         {
           title: reminder.title,
           body: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}`,
-          android: {
-            channelId,
-            ongoing: reminder.priority === 'medium',
-            autoCancel: reminder.priority !== 'medium',
-            actions: [
-              { title: 'Done', pressAction: { id: 'done' } },
-              { title: 'Snooze 5m', pressAction: { id: 'snooze_5' } },
-            ],
-            pressAction: { id: 'default' },
-            asForegroundService: false,
-            timestamp: triggerDate.getTime(),
-            showTimestamp: true,
-            style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}` }
-          },
-          data: { reminderId: reminder.id },
+          android: androidConfig,
+          data: { reminderId: reminder.id, title: reminder.title },
         },
         trigger,
       );
@@ -216,7 +201,6 @@ export class NotificationService {
 
   async cancelNotification(notificationId: string): Promise<void> {
     if (Platform.OS !== 'android') return;
-    const notifee = getNotifee();
     if (!notifee) return;
     try {
       await notifee.cancelNotification(notificationId);
@@ -228,7 +212,6 @@ export class NotificationService {
 
   async cancelAllNotificationsForReminder(reminderId: string): Promise<void> {
     if (Platform.OS !== 'android') return;
-    const notifee = getNotifee();
     if (!notifee) return;
     try {
       const notifications = await notifee.getTriggerNotifications();
@@ -245,7 +228,6 @@ export class NotificationService {
 
   async cancelAllNotifications(): Promise<void> {
     if (Platform.OS !== 'android') return;
-    const notifee = getNotifee();
     if (!notifee) return;
     try {
       await notifee.cancelAllNotifications();
@@ -260,7 +242,6 @@ export class NotificationService {
 
   async hasScheduledForReminder(reminderId: string): Promise<boolean> {
     if (Platform.OS !== 'android') return false;
-    const notifee = getNotifee();
     if (!notifee) return false;
     try {
       const notifications = await notifee.getTriggerNotifications();
@@ -273,7 +254,6 @@ export class NotificationService {
 
   async cleanupOrphanedNotifications(): Promise<void> {
     if (Platform.OS !== 'android') return;
-    const notifee = getNotifee();
     if (!notifee) return;
     try {
       const scheduledNotifications = await notifee.getTriggerNotifications();
@@ -301,13 +281,12 @@ export class NotificationService {
 
   async displayInfoNotification(title: string, body: string): Promise<void> {
     if (Platform.OS !== 'android') return;
-    const notifee = getNotifee();
     if (!notifee) return;
     try {
       await notifee.displayNotification({
         title,
         body,
-        android: { channelId: 'standard_v3', ongoing: true, pressAction: { id: 'default' } },
+        android: { channelId: 'standard_v4', ongoing: true, pressAction: { id: 'default' } },
       });
     } catch (e) {
       console.error('Failed to display info notification:', e);
@@ -319,7 +298,6 @@ export class NotificationService {
       return true;
     }
 
-    const notifee = getNotifee();
     if (!notifee) return false;
 
     const settings = await notifee.getNotificationSettings();
@@ -333,7 +311,6 @@ export class NotificationService {
 
   subscribeToEvents(handler: (event: any) => void | Promise<void>): () => void {
     if (Platform.OS !== 'android') return () => {};
-    const notifee = getNotifee();
     if (!notifee) return () => {};
     try {
       const unsub = notifee.onForegroundEvent(handler);

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -9,12 +9,29 @@ import { notificationService } from "@/hooks/notification-service";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/hooks/theme-provider";
 import { StatusBar } from "expo-status-bar";
+import notifee from '@notifee/react-native';
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
+  useEffect(() => {
+    async function checkInitialNotification() {
+      const initialNotification = await notifee.getInitialNotification();
+      if (initialNotification?.notification?.android?.fullScreenAction) {
+        router.replace({
+          pathname: '/alarm',
+          params: {
+            reminderId: initialNotification.notification.data?.reminderId as string,
+            title: initialNotification.notification.title as string,
+          },
+        });
+      }
+    }
+    checkInitialNotification();
+  }, []);
+
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />

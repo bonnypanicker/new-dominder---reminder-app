@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking } from 'react-native';
+import RingtoneManager from 'react-native-ringtone-manager-new';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bell, Volume2, Vibrate, ChevronRight, Clock, AlertCircle, FileText } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
+import { setRingerToneUri, currentRingerChannelId, ensureBaseChannels } from '@/services/channels';
 
 export default function SettingsScreen() {
   const { data: settings, isLoading } = useSettings();
@@ -52,7 +54,7 @@ export default function SettingsScreen() {
     switch (priority) {
       case 'standard': return 'Standard';
       case 'silent': return 'Silent';
-      case 'ringer': return 'Ringer';
+      case 'ringer': return 'High Priority';
       default: return 'Standard';
     }
   };
@@ -150,14 +152,45 @@ export default function SettingsScreen() {
                 style={styles.toggleSwitch}
               />
             </TouchableOpacity>
-          </View>
-          </View>
-        )}
 
-        <TouchableOpacity 
-          style={styles.sectionHeader}
-          onPress={() => setExpandedSection(expandedSection === 'preferences' ? null : 'preferences')}
-        >
+            <View style={styles.toggleDivider} />
+
+            <TouchableOpacity 
+              style={styles.toggleItem}
+              onPress={handleRingtoneSelection}
+            >
+              <Volume2 size={20} color={Material3Colors.light.primary} />
+              <Text style={styles.toggleLabel}>High Priority Tone</Text>
+              <ChevronRight size={20} color={Material3Colors.light.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+          </View>
+        );
+      }
+
+      const handleRingtoneSelection = async () => {
+        if (Platform.OS !== 'android') return;
+        try {
+          const currentUri = await AsyncStorage.getItem('ringer_tone_uri');
+          const result = await RingtoneManager.showRingtonePicker({
+            title: 'Select High Priority Tone',
+            type: RingtoneManager.TYPE_ALARM,
+            currentUri: currentUri || undefined,
+          });
+
+          if (result && result.uri) {
+            await setRingerToneUri(result.uri);
+            // Optionally, you might want to re-initialize notification service or channels here
+            // to ensure the new sound is applied immediately.
+            await ensureBaseChannels();
+          }
+        } catch (error) {
+          console.error('Failed to open ringtone picker:', error);
+        }
+      };
+
+      return (
+        <SafeAreaView style={styles.container}>
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
               <AlertCircle size={20} color={Material3Colors.light.primary} />
@@ -322,7 +355,7 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
   const priorities: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: any }[] = [
     { value: 'standard', label: 'Standard', icon: Bell },
     { value: 'silent', label: 'Silent', icon: Volume2 },
-    { value: 'ringer', label: 'Ringer', icon: AlertCircle },
+    { value: 'ringer', label: 'High Priority', icon: AlertCircle },
   ];
 
   if (!visible) return null;
