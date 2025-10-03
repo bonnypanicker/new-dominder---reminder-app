@@ -1,9 +1,0 @@
-FATAL EXCEPTION: pool-2-thread-1
-Process: app.rork.dominder_android_reminder_app
-java.lang.NoSuchMethodError: No virtual method getConverters()Lexpo/modules/kotlin/types/TypeConverterProvider;
-in class Lexpo/modules/kotlin/modules/InternalModuleDefinitionBuilder; 
-or its super classes (declaration of 'expo.modules.kotlin.modules.InternalModuleDefinitionBuilder' appears in .../base.apk!classes3.dex)
-    at expo.modules.av.video.VideoViewModule.definition(VideoViewModule.kt:121)
-    at expo.modules.kotlin.ModuleHolder.<init>(ModuleHolder.kt:22)
-    at expo.modules.kotlin.ModuleRegistry.register(ModuleRegistry.kt:27)
-    ...

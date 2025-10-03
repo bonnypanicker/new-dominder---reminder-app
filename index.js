@@ -169,6 +169,11 @@ if (notifee && typeof notifee.onBackgroundEvent === 'function') {
       const { notification, pressAction } = detail ?? {};
       if (!notification) return;
 
+      try { await notifee.cancelNotification(notification.id); } catch (e) {
+        console.log('[onBackgroundEvent] cancelNotification failed', e);
+      }
+      try { await notifee.cancelDisplayedNotifications(); } catch {}
+
       const reminderId = notification?.data?.reminderId;
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 
@@ -181,17 +186,13 @@ if (notifee && typeof notifee.onBackgroundEvent === 'function') {
           const nowIso = new Date().toISOString();
           const now = new Date();
           
-          try {
-            await notifee.cancelNotification(notification.id);
-          } catch (e) {
-            console.log('[onBackgroundEvent] cancelNotification failed', e);
-          }
-          
-          if (pressAction.id === 'snooze') {
-            console.log('[onBackgroundEvent] Snoozing reminder:', reminderId);
+          const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction.id);
+          if (snoozeMatch) {
+            const minutes = parseInt(snoozeMatch[1], 10);
+            console.log(`[onBackgroundEvent] Snoozing reminder ${reminderId} for ${minutes} minutes`);
             list[idx] = {
               ...reminder,
-              snoozeUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+              snoozeUntil: new Date(Date.now() + minutes * 60 * 1000).toISOString(),
               isExpired: false,
               lastTriggeredAt: reminder.lastTriggeredAt ?? nowIso,
               notificationId: undefined,

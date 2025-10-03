@@ -1,4 +1,5 @@
 import { Platform, Alert } from 'react-native';
+import notifee, { AndroidStyle } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -173,22 +174,33 @@ export class NotificationService {
     };
     console.log(`[scheduleNotification] trigger:`, trigger);
 
+    const formattedReminderTime = triggerDate.toLocaleString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short'
+    });
+
     try {
       const channelId = reminder.priority === 'high' ? 'ringer_v3' : reminder.priority === 'medium' ? 'standard_v3' : 'silent_v3';
       const notificationId = await notifee.createTriggerNotification(
         {
           title: reminder.title,
-          body: reminder.description,
+          body: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}`,
           android: {
             channelId,
             ongoing: reminder.priority === 'medium',
             autoCancel: reminder.priority !== 'medium',
             actions: [
               { title: 'Done', pressAction: { id: 'done' } },
-              { title: 'Snooze 5m', pressAction: { id: 'snooze' } },
+              { title: 'Snooze 5m', pressAction: { id: 'snooze_5' } },
             ],
             pressAction: { id: 'default' },
             asForegroundService: false,
+            timestamp: triggerDate.getTime(),
+            showTimestamp: true,
+            style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}` }
           },
           data: { reminderId: reminder.id },
         },

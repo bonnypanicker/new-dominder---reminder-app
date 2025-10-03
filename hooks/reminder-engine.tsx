@@ -262,11 +262,14 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const rid = notification.data?.reminderId as string;
         if (pressAction?.id === 'done') {
           handleNotificationDone(rid);
-        } else if (pressAction?.id === 'snooze') {
-          handleNotificationSnooze(rid);
-        } else if (pressAction?.id === 'default') {
-          handleNotificationOpen(rid);
-        }
+        } else {
+          const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction?.id || '');
+          if (snoozeMatch) {
+            const minutes = parseInt(snoozeMatch[1], 10);
+            handleNotificationSnooze(rid, minutes);
+          } else if (pressAction?.id === 'default') {
+            handleNotificationOpen(rid);
+          }        }
       } else if (type === EVENT_TYPE_DISMISSED) {
         handleNotificationDismissed(notification.data?.reminderId as string);
       }
@@ -337,8 +340,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }, 100);
     };
 
-    const handleNotificationSnooze = async (reminderId: string) => {
-      console.log(`Notification Snooze action for reminder: ${reminderId}`);
+    const handleNotificationSnooze = async (reminderId: string, minutes: number = 5) => {
+      console.log(`Notification Snooze action for reminder: ${reminderId} for ${minutes} minutes`);
       try {
         const notifee = require('@notifee/react-native');
         const displayedNotifications = await notifee.default.getDisplayedNotifications();
@@ -357,8 +360,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const currentReminders: Reminder[] = stored ? JSON.parse(stored) : [];
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
-            console.log(`Snoozing reminder for 5 minutes: ${reminderId}`);
-            const snoozeUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+            console.log(`Snoozing reminder for ${minutes} minutes: ${reminderId}`);
+            const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
             
             if (reminder.isExpired) {
               updateReminderRef.current.mutate({ 
