@@ -29,20 +29,18 @@ export default function AlarmScreen() {
         const stored = await AsyncStorage.getItem('dominder_reminders');
         const list = stored ? JSON.parse(stored) : [];
         const idx = list.findIndex((r: any) => r.id === reminderId);
-        if (idx !== -1) {
-          const reminder = list[idx];
-          if (reminder.repeatType === 'none') {
-            list[idx] = { ...reminder, isCompleted: true, snoozeUntil: undefined, notificationId: undefined };
-          } else {
-            // For repeating reminders, just clear snooze and notification ID
-            list[idx] = { ...reminder, snoozeUntil: undefined, notificationId: undefined };
-          }
-          await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
-        }
-      }
-      await notifee.cancelAllNotifications();
-      if (Platform.OS === 'android' && typeof notifee.cancelDisplayedNotifications === 'function') {
-        await notifee.cancelDisplayedNotifications();
+                  if (idx !== -1) {
+                    const reminder = list[idx];
+                    if (reminder.repeatType === 'none') {
+                      list[idx] = { ...reminder, isCompleted: true, snoozeUntil: undefined, notificationId: undefined };
+                    } else {
+                      // For repeating reminders, just clear snooze and notification ID
+                      list[idx] = { ...reminder, snoozeUntil: undefined, notificationId: undefined };
+                    }
+                    await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
+                  }
+                }
+              if (Platform.OS === 'android' && typeof notifee.cancelDisplayedNotifications === 'function') {        await notifee.cancelDisplayedNotifications();
       }
       router.replace('/'); // Go back to home screen
     } catch (error) {
@@ -59,7 +57,6 @@ export default function AlarmScreen() {
       if (reminderId) {
         await rescheduleReminderById(reminderId as string, minutes);
       }
-      await notifee.cancelAllNotifications();
       if (Platform.OS === 'android' && typeof notifee.cancelDisplayedNotifications === 'function') {
         await notifee.cancelDisplayedNotifications();
       }

@@ -1,19 +1,27 @@
-import notifee, { AndroidImportance, AndroidCategory } from '@notifee/react-native';
+import notifee, { AndroidImportance, AndroidVisibility } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const RINGER_CHANNEL_ID_KEY = 'ringer_channel_id';
 const RINGER_TONE_URI_KEY = 'ringer_tone_uri';
-const CHANNEL_VERSION = 4; // Increment this to force channel recreation
+const CHANNEL_VERSION = 5; // Increment this to force channel recreation
+
+function hashUri(uri: string): string {
+  let hash = 0;
+  for (let i = 0; i < uri.length; i++) {
+    const char = uri.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return (hash >>> 0).toString(36).slice(-6);
+}
 
 export async function ensureBaseChannels() {
   if (Platform.OS !== 'android') return;
 
-  const ringerChannelId = `ringer_v${CHANNEL_VERSION}`;
-  const standardChannelId = `standard_v${CHANNEL_VERSION}`;
-  const silentChannelId = `silent_v${CHANNEL_VERSION}`;
-
   const storedRingerToneUri = await AsyncStorage.getItem(RINGER_TONE_URI_KEY);
+  const ringerUriSuffix = storedRingerToneUri ? hashUri(storedRingerToneUri) : 'def';
+  const ringerChannelId = `ringer_v${CHANNEL_VERSION}_${ringerUriSuffix}`;
 
   await notifee.createChannel({
     id: ringerChannelId,
@@ -21,7 +29,7 @@ export async function ensureBaseChannels() {
     importance: AndroidImportance.HIGH,
     vibration: true,
     vibrationPattern: [300, 500],
-    visibility: AndroidCategory.ALARM,
+    visibility: AndroidVisibility.PUBLIC,
     sound: storedRingerToneUri || 'default',
     lights: true,
     lightColor: '#FFFFFFFF',
@@ -30,34 +38,46 @@ export async function ensureBaseChannels() {
   console.log(`Created/validated channel ${ringerChannelId}`);
 
   await notifee.createChannel({
-    id: standardChannelId,
+    id: standardChannelId(),
     name: 'Standard Reminders',
     importance: AndroidImportance.DEFAULT,
     vibration: true,
     vibrationPattern: [200, 200],
-    visibility: AndroidCategory.REMINDER,
+    visibility: AndroidVisibility.PUBLIC,
     sound: 'default',
     lights: true,
     lightColor: '#FFFFFFFF',
   });
-  console.log(`Created/validated channel ${standardChannelId}`);
+  console.log(`Created/validated channel ${standardChannelId()}`);
 
   await notifee.createChannel({
-    id: silentChannelId,
+    id: silentChannelId(),
     name: 'Silent Reminders',
     importance: AndroidImportance.LOW,
     vibration: false,
-    visibility: AndroidCategory.REMINDER,
+    visibility: AndroidVisibility.PUBLIC,
     lights: false,
   });
-  console.log(`Created/validated channel ${silentChannelId}`);
+  console.log(`Created/validated channel ${silentChannelId()}`);
 
   await AsyncStorage.setItem(RINGER_CHANNEL_ID_KEY, ringerChannelId);
 }
 
 export async function currentRingerChannelId(): Promise<string> {
   const id = await AsyncStorage.getItem(RINGER_CHANNEL_ID_KEY);
-  return id || `ringer_v${CHANNEL_VERSION}`;
+  if (id) return id;
+
+  const storedRingerToneUri = await AsyncStorage.getItem(RINGER_TONE_URI_KEY);
+  const ringerUriSuffix = storedRingerToneUri ? hashUri(storedRingerToneUri) : 'def';
+  return `ringer_v${CHANNEL_VERSION}_${ringerUriSuffix}`;
+}
+
+export function standardChannelId(): string {
+  return `standard_v${CHANNEL_VERSION}`;
+}
+
+export function silentChannelId(): string {
+  return `silent_v${CHANNEL_VERSION}`;
 }
 
 export async function setRingerToneUri(uri: string | null) {

@@ -1,8 +1,8 @@
 import { Platform, Alert } from 'react-native';
-import notifee, { AndroidStyle, AndroidCategory, AndroidImportance } from '@notifee/react-native';
+import notifee, { AndroidStyle, AndroidVisibility, AndroidImportance } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { currentRingerChannelId } from '@/services/channels';
+import { currentRingerChannelId, standardChannelId, silentChannelId } from '@/services/channels';
 
 const ANDROID_IMPORTANCE_HIGH = 4 as const;
 const ANDROID_IMPORTANCE_DEFAULT = 3 as const;
@@ -133,9 +133,9 @@ export class NotificationService {
     });
 
     try {
-      let channelId = 'standard_v4';
+      let channelId = standardChannelId();
       let androidConfig: any = {
-        channelId: 'standard_v4',
+        channelId: standardChannelId(),
         ongoing: reminder.priority === 'medium',
         autoCancel: reminder.priority !== 'medium',
         actions: [
@@ -154,7 +154,7 @@ export class NotificationService {
         androidConfig = {
           channelId,
           importance: AndroidImportance.HIGH,
-          category: AndroidCategory.ALARM,
+          visibility: AndroidVisibility.PUBLIC,
           ongoing: true,
           lightUpScreen: true,
           fullScreenAction: { id: 'alarm' },
@@ -172,9 +172,9 @@ export class NotificationService {
           style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}` }
         };
       } else if (reminder.priority === 'medium') {
-        channelId = 'standard_v4';
+        channelId = standardChannelId();
       } else {
-        channelId = 'silent_v4';
+        channelId = silentChannelId();
       }
 
       const notificationId = await notifee.createTriggerNotification(
@@ -281,7 +281,7 @@ export class NotificationService {
       await notifee.displayNotification({
         title,
         body,
-        android: { channelId: 'standard_v4', ongoing: true, pressAction: { id: 'default' } },
+        android: { channelId: standardChannelId(), ongoing: true, pressAction: { id: 'default' } },
       });
     } catch (e) {
       console.error('Failed to display info notification:', e);

@@ -102,16 +102,24 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       case 'every': {
         const interval = reminder.everyInterval;
         if (!interval || !interval.value || interval.value <= 0) return null;
+
         const start = new Date(reminder.date);
         start.setHours(hh, mm, 0, 0);
         if (isNaN(start.getTime())) return null;
-        const addMs = interval.unit === 'minutes' ? interval.value * 60 * 1000 : interval.unit === 'hours' ? interval.value * 60 * 60 * 1000 : interval.value * 24 * 60 * 60 * 1000;
-        let candidate = start;
-        const last = reminder.lastTriggeredAt ? new Date(reminder.lastTriggeredAt) : null;
-        if (last && last > start) candidate = last;
-        while (candidate <= now) {
+
+        const addMs =
+          interval.unit === 'minutes'
+            ? interval.value * 60 * 1000
+            : interval.unit === 'hours'
+            ? interval.value * 60 * 60 * 1000
+            : interval.value * 24 * 60 * 60 * 1000;
+
+        let candidate = reminder.lastTriggeredAt ? new Date(reminder.lastTriggeredAt) : start;
+        
+        while (candidate.getTime() <= now.getTime()) {
           candidate = new Date(candidate.getTime() + addMs);
         }
+
         return candidate;
       }
       case 'weekly':
@@ -421,7 +429,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             }
             
             console.log(`Scheduling notification for ${reminder.repeatType} reminder: ${reminder.id}`);
-            const notificationId = await notificationService.scheduleNotification(reminder);
+            const notificationId = await notificationService.scheduleReminderByModel(reminder);
             if (notificationId) {
               scheduledNotifications.current.set(reminder.id, notificationId);
               reminderConfigsRef.current.set(reminder.id, configString); // Store the config
