@@ -27,20 +27,20 @@ export default function NotificationsDebug() {
     try {
       const now = new Date();
       const in10s = new Date(now.getTime() + 10_000);
-      await notificationService.scheduleReminderByModel({
-        id: 'test-reminder',
-        title: 'Test Reminder',
-        description: 'This is a test notification',
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toTimeString().slice(0, 5),
-        priority: 'high',
+      const id = await notificationService.scheduleNotification({
+        id: 'debug-1',
+        title: 'Debug Notification',
+        description: 'Should fire in ~10 seconds',
+        date: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
+        time: `${String(in10s.getHours()).padStart(2,'0')}:${String(in10s.getMinutes()).padStart(2,'0')}`,
+        priority: 'medium',
         repeatType: 'none',
         isActive: true,
-        isPaused: false,
-        createdAt: new Date().toISOString(),
         isCompleted: false,
-      });
-      setStatus(`scheduled:test-reminder`);
+        isExpired: false,
+        isPaused: false,
+      } as any);
+      setStatus(`scheduled:${id}`);
     } catch (e: unknown) {
       setErrors((prev) => [...prev, `schedule error: ${String(e)}`]);
     }

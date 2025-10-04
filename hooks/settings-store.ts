@@ -80,7 +80,7 @@ export const useUpdateSettings = () => {
           // Optionally clear presented notifications to apply immediately
 
         }
-      } catch {
+      } catch (e) {
         console.log('Post-settings toggle side effects failed');
       }
     },

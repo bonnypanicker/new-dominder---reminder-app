@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, Modal } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, Modal, Platform } from 'react-native';
 import { Material3Colors } from '@/constants/colors';
 
 interface ToastProps {
@@ -13,24 +13,6 @@ interface ToastProps {
 export default function Toast({ message, visible, duration = 3000, onHide, type = 'info' }: ToastProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
-
-  const hideToast = useCallback(() => {
-    console.log('[Toast] hide');
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onHide?.();
-    });
-  }, [fadeAnim, onHide, translateY]);
 
   useEffect(() => {
     if (visible) {
@@ -55,7 +37,25 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
 
       return () => clearTimeout(timer);
     }
-  }, [visible, duration, fadeAnim, translateY, hideToast]);
+  }, [visible, duration, fadeAnim, translateY]);
+
+  const hideToast = () => {
+    console.log('[Toast] hide');
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onHide?.();
+    });
+  };
 
   const backgroundColor = type === 'error' 
     ? Material3Colors.light.errorContainer

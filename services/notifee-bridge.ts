@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import notifee from '@notifee/react-native';
 
 let notifeeInstance: any = null;
 
@@ -13,7 +12,8 @@ export function getNotifee(): any | null {
   }
 
   try {
-    notifeeInstance = notifee;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    notifeeInstance = require('@notifee/react-native').default;
     return notifeeInstance;
   } catch (e) {
     console.warn('Notifee not available, running in Expo Go/web or without native module.', e);

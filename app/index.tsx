@@ -5,7 +5,7 @@ import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, Ro
 import { router } from 'expo-router';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
-import { calculateNextReminderDate } from '../services/reminder-utils';
+import { calculateNextReminderDate } from '@/hooks/reminder-engine';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
@@ -58,6 +58,7 @@ export default function HomeScreen() {
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const springAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -98,6 +99,9 @@ export default function HomeScreen() {
 
   const scrollToTab = useCallback((tab: 'active' | 'completed' | 'expired') => {
     setActiveTab(tab);
+    const screenWidth = Dimensions.get('window').width;
+    
+    // Auto-scroll tab headers
     const tabWidth = 140; // Approximate width of each tab
     let tabScrollX = 0;
     
@@ -110,6 +114,11 @@ export default function HomeScreen() {
         tabScrollX = tabWidth * 0.55; // This will push 55% of active tab out
         break;
       case 'expired':
+        // Calculate position to push "ACTIVE REMINDERS" out of view
+        // We need to scroll enough so that the expired tab is fully visible
+        // and the active tab is pushed out
+        const totalTabsWidth = tabWidth * 3; // 3 tabs total
+        const scrollViewWidth = screenWidth - 48; // Account for padding
         // Scroll to position expired tab at the left, pushing active out
         tabScrollX = tabWidth * 2; // This will position expired at the start, pushing active completely out
         break;
@@ -134,7 +143,7 @@ export default function HomeScreen() {
       const getNextDate = (reminder: Reminder) => {
         if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
         if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-        const calculated = calculateNextReminderDate(reminder, new Date());
+        const calculated = calculateNextReminderDate(reminder);
         if (calculated) return calculated;
         const [year, month, day] = reminder.date.split('-').map(Number);
         const [hours, minutes] = reminder.time.split(':').map(Number);
@@ -181,7 +190,7 @@ export default function HomeScreen() {
       });
     } else {
       // For repeating reminders, calculate next reminder date and keep active
-      const nextDate = calculateNextReminderDate(reminder, new Date());
+      const nextDate = calculateNextReminderDate(reminder);
       updateReminder.mutate({
         ...reminder,
         nextReminderDate: nextDate?.toISOString(),
@@ -335,7 +344,7 @@ export default function HomeScreen() {
           updates: { isCompleted: true }
         };
       } else {
-        const nextDate = calculateNextReminderDate(reminder, new Date());
+        const nextDate = calculateNextReminderDate(reminder);
         return {
           id: reminder.id,
           updates: {
@@ -537,7 +546,7 @@ export default function HomeScreen() {
                           const getNextDate = () => {
                             if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
                             if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-                            const calc = calculateNextReminderDate(reminder, new Date());
+                            const calc = calculateNextReminderDate(reminder);
                             return calc ?? null;
                           };
                           const nextDate = getNextDate();
@@ -598,7 +607,7 @@ export default function HomeScreen() {
                       Next: {(() => {
                         const getNextDate = () => {
                           if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-                          const calc = calculateNextReminderDate(reminder, new Date());
+                          const calc = calculateNextReminderDate(reminder);
                           return calc ?? null;
                         };
                         const nextDate = getNextDate();
@@ -1228,11 +1237,13 @@ function CreateReminderPopup({
   isAM,
   priority,
   onPriorityChange,
+  showCustomize,
+  onShowCustomizeChange,
   repeatType,
   onRepeatTypeChange,
   repeatDays,
   onRepeatDaysChange,
-onTimeSelect,
+  onTimeSelect,
   onTimeChange,
   showTimeSelector,
   onCloseTimeSelector,
@@ -1246,6 +1257,7 @@ onTimeSelect,
   onEveryChange,
   onShowToast,
 }: CreateReminderPopupProps) {
+  const { data: reminders } = useReminders();
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const mainContentSlide = useRef(new Animated.Value(0)).current;
   const titleInputRef = useRef<TextInput>(null);
@@ -1304,8 +1316,8 @@ onTimeSelect,
         <TouchableOpacity
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
-          style={[createPopupStyles.popup, { height: popupHeight }]
-        }>
+          style={[createPopupStyles.popup, { height: popupHeight }]}
+        >
           <ScrollView 
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
@@ -1583,11 +1595,11 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       setRotation(targetRotation);
       rotationRef.current = targetRotation;
     }
-  }, [visible, activeSection, currentHour, currentMinute]); // Remove currentHour and currentMinute to prevent jitter
+  }, [visible, activeSection]); // Remove currentHour and currentMinute to prevent jitter
   const [rotation, setRotation] = useState<number>(0);
   const [showManualEntry, setShowManualEntry] = useState<boolean>(false);
   const [manualTimeInput, setManualTimeInput] = useState<string>('');
-  const [discSize] = useState<number>(220);
+  const [discSize, setDiscSize] = useState<number>(220);
   
   const discRef = useRef<View>(null);
   const lastAngle = useRef<number>(0);
@@ -1988,66 +2000,35 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     
     for (let i = 0; i < tickCount; i++) {
       const angle = i * tickStep;
-      const isMajor = activeSection === 'hour' || i % 5 === 0;
-      const tickLength = isMajor ? 12 : 6;
-      const tickWidth = isMajor ? 2 : 1;
-      const x = radius * Math.sin(angle * Math.PI / 180);
-      const y = -radius * Math.cos(angle * Math.PI / 180);
-      
-      const labelValue = activeSection === 'hour' ? (i === 0 ? 12 : i) : i;
-      const labelRadius = radius - 24;
-      const labelX = labelRadius * Math.sin(angle * Math.PI / 180);
-      const labelY = -labelRadius * Math.cos(angle * Math.PI / 180);
-      
-      const isSelected = activeSection === 'hour'
-        ? labelValue === currentHour
-        : labelValue === currentMinute;
+      const isMainTick = activeSection === 'hour' ? true : i % 5 === 0;
+      const tickLength = isMainTick ? 12 : 6;
+      const tickWidth = isMainTick ? 2 : 1;
       
       ticks.push(
         <View
-          key={`tick-${i}`}
-          style={{
-            position: 'absolute',
-            left: discSize / 2 - tickWidth / 2 + x,
-            top: discSize / 2 - tickLength / 2 + y,
-            width: tickWidth,
-            height: tickLength,
-            backgroundColor: isSelected ? Material3Colors.light.primary : '#BDBDBD',
-            transform: [{ rotate: `${angle}deg` }],
-          }}
+          key={i}
+          style={[
+            timeSelectorStyles.tickMark,
+            {
+              height: tickLength,
+              width: tickWidth,
+              backgroundColor: isMainTick ? '#374151' : '#D1D5DB',
+              transform: [
+                { translateX: -tickWidth / 2 },
+                { translateY: -tickLength / 2 },
+                { rotate: `${angle}deg` },
+                { translateY: -radius },
+              ],
+            },
+          ]}
         />
       );
-      
-      if (isMajor) {
-        ticks.push(
-          <Text
-            key={`label-${i}`}
-            style={{
-              position: 'absolute',
-              left: discSize / 2 - 15 + labelX,
-              top: discSize / 2 - 15 + labelY,
-              width: 30,
-              height: 30,
-              textAlign: 'center',
-              lineHeight: 30,
-              fontSize: 16,
-              fontWeight: isSelected ? 'bold' : 'normal',
-              color: isSelected ? Material3Colors.light.primary : '#616161',
-            }}
-          >
-            {labelValue}
-          </Text>
-        );
-      }
     }
     return ticks;
   };
   
-  const handRotation = rotation;
-  const handLength = activeSection === 'hour' ? discSize / 2 * 0.6 : discSize / 2 * 0.8;
-  
   if (!visible) return null;
-
+  
   return (
     <Modal
       visible={visible}
@@ -2058,296 +2039,763 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       <TouchableOpacity 
         style={timeSelectorStyles.overlay} 
         activeOpacity={1} 
-        onPress={onClose}
+        onPress={() => {
+          if (showManualEntry) {
+            // If manual entry is active, confirm the time if valid
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+            if (timeRegex.test(manualTimeInput)) {
+              const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
+              let hour12 = inputHour;
+              
+              // Convert 24-hour to 12-hour format
+              if (inputHour === 0) {
+                hour12 = 12;
+              } else if (inputHour > 12) {
+                hour12 = inputHour - 12;
+              } else if (inputHour === 12) {
+                hour12 = 12;
+              } else {
+                hour12 = inputHour;
+              }
+              
+              // Use current AM/PM state instead of auto-determining
+              setCurrentHour(hour12);
+              setCurrentMinute(inputMinute);
+              setShowManualEntry(false);
+              setManualTimeInput('');
+            } else {
+              // If invalid or empty, just close manual entry
+              setShowManualEntry(false);
+              setManualTimeInput('');
+            }
+          } else {
+            onClose();
+          }
+        }}
       >
-        <TouchableOpacity
-          activeOpacity={1}
+        <TouchableOpacity 
+          style={[timeSelectorStyles.container, isLandscape && timeSelectorStyles.containerLandscape]} 
+          activeOpacity={1} 
           onPress={(e) => e.stopPropagation()}
-          style={[timeSelectorStyles.container, isLandscape && timeSelectorStyles.containerLandscape]}
         >
-          <View style={timeSelectorStyles.header}>
-            <Text style={timeSelectorStyles.headerText}>Select Time</Text>
-          </View>
-          
-          <View style={[timeSelectorStyles.content, isLandscape && timeSelectorStyles.contentLandscape]}>
-            <View style={timeSelectorStyles.displayContainer}>
-              <TouchableOpacity onPress={() => handleSectionPress('hour')}> 
-                <Text style={[timeSelectorStyles.timeText, activeSection === 'hour' && timeSelectorStyles.activeTimeText]}>
-                  {currentHour.toString().padStart(2, '0')}
-                </Text>
-              </TouchableOpacity>
-              <Text style={timeSelectorStyles.separator}>:</Text>
-              <TouchableOpacity onPress={() => handleSectionPress('minute')}> 
-                <Text style={[timeSelectorStyles.timeText, activeSection === 'minute' && timeSelectorStyles.activeTimeText]}>
-                  {currentMinute.toString().padStart(2, '0')}
-                </Text>
-              </TouchableOpacity>
+          {isLandscape ? (
+            <View style={timeSelectorStyles.landscapeRow}>
+              <View style={timeSelectorStyles.sidePanel}>
+                <View style={timeSelectorStyles.timeDisplay}>
+                  {showManualEntry ? (
+                    <TouchableOpacity 
+                      style={timeSelectorStyles.manualEntryContainer}
+                      activeOpacity={1}
+                      onPress={() => {
+                        const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+                        if (timeRegex.test(manualTimeInput)) {
+                          const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
+                          let hour12 = inputHour;
+                          if (inputHour === 0) {
+                            hour12 = 12;
+                          } else if (inputHour > 12) {
+                            hour12 = inputHour - 12;
+                          } else if (inputHour === 12) {
+                            hour12 = 12;
+                          } else {
+                            hour12 = inputHour;
+                          }
+                          setCurrentHour(hour12);
+                          setCurrentMinute(inputMinute);
+                          setShowManualEntry(false);
+                          setManualTimeInput('');
+                        } else if (manualTimeInput.trim() !== '') {
+                          Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
+                        }
+                      }}
+                    >
+                      <TextInput
+                        style={timeSelectorStyles.manualTimeInput}
+                        value={manualTimeInput}
+                        onChangeText={(text) => {
+                          const cleaned = text.replace(/[^0-9:]/g, '');
+                          if (cleaned.length <= 5) {
+                            let formatted = cleaned;
+                            if (cleaned.length === 3 && !cleaned.includes(':')) {
+                              formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2);
+                            }
+                            setManualTimeInput(formatted);
+                          }
+                        }}
+                        onSubmitEditing={() => {
+                          const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+                          if (timeRegex.test(manualTimeInput)) {
+                            const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
+                            let hour12 = inputHour;
+                            if (inputHour === 0) {
+                              hour12 = 12;
+                            } else if (inputHour > 12) {
+                              hour12 = inputHour - 12;
+                            } else if (inputHour === 12) {
+                              hour12 = 12;
+                            } else {
+                              hour12 = inputHour;
+                            }
+                            setCurrentHour(hour12);
+                            setCurrentMinute(inputMinute);
+                            setShowManualEntry(false);
+                            setManualTimeInput('');
+                          } else if (manualTimeInput.trim() !== '') {
+                            Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
+                          }
+                        }}
+                        placeholder="HH:MM"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        maxLength={5}
+                        autoFocus
+                        selectTextOnFocus
+                        testID="manual-time-input"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={[
+                          timeSelectorStyles.timeSection,
+                          activeSection === 'hour' && timeSelectorStyles.activeSectionLeft
+                        ]}
+                        onPress={() => handleSectionPress('hour')}
+                      >
+                        <Text style={[
+                          timeSelectorStyles.timeSectionText,
+                          activeSection === 'hour' && timeSelectorStyles.activeTimeSectionText
+                        ]}>
+                          {currentHour.toString().padStart(2, '0')}
+                        </Text>
+                      </TouchableOpacity>
+                      <Text style={timeSelectorStyles.timeSeparator}>:</Text>
+                      <TouchableOpacity
+                        style={[
+                          timeSelectorStyles.timeSection,
+                          activeSection === 'minute' && timeSelectorStyles.activeSectionRight
+                        ]}
+                        onPress={() => handleSectionPress('minute')}
+                      >
+                        <Text style={[
+                          timeSelectorStyles.timeSectionText,
+                          activeSection === 'minute' && timeSelectorStyles.activeTimeSectionText
+                        ]}>
+                          {currentMinute.toString().padStart(2, '0')}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+
+                <View style={timeSelectorStyles.ampmContainer}>
+                  <TouchableOpacity
+                    style={[
+                      timeSelectorStyles.ampmButton,
+                      currentAMPM && timeSelectorStyles.selectedAMPM
+                    ]}
+                    onPress={() => setCurrentAMPM(true)}
+                  >
+                    <Text style={[
+                      timeSelectorStyles.ampmText,
+                      currentAMPM && timeSelectorStyles.selectedAMPMText
+                    ]}>AM</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      timeSelectorStyles.ampmButton,
+                      !currentAMPM && timeSelectorStyles.selectedAMPM
+                    ]}
+                    onPress={() => setCurrentAMPM(false)}
+                  >
+                    <Text style={[
+                      timeSelectorStyles.ampmText,
+                      !currentAMPM && timeSelectorStyles.selectedAMPMText
+                    ]}>PM</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={timeSelectorStyles.buttonContainer}>
+                  <TouchableOpacity 
+                    style={timeSelectorStyles.keyboardButton} 
+                    onPress={() => {
+                      setShowManualEntry(true);
+                      setManualTimeInput('');
+                    }}
+                    testID="keyboard-button"
+                  >
+                    <Keyboard size={16} color="#6B7280" />
+                  </TouchableOpacity>
+                  <View style={timeSelectorStyles.rightButtons}>
+                    <TouchableOpacity style={timeSelectorStyles.cancelButton} onPress={onClose}>
+                      <Text style={timeSelectorStyles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={timeSelectorStyles.confirmButton} onPress={handleConfirm}>
+                      <Text style={timeSelectorStyles.confirmButtonText}>Set</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              <View style={timeSelectorStyles.discPanel}>
+                <View style={timeSelectorStyles.discContainer}>
+                  <View
+                    ref={discRef}
+                    onLayout={(e) => {
+                      measureCenter();
+                      const w = (e.nativeEvent as any).layout?.width ?? 220;
+                      setDiscSize(typeof w === 'number' ? w : 220);
+                    }}
+                    style={[
+                      timeSelectorStyles.discBackground,
+                      { transform: [{ rotate: `${rotation}deg` }] }
+                    ]}
+                    {...panResponder.panHandlers}
+                    testID="time-disc"
+                  >
+                    {renderTickMarks()}
+                    <View style={timeSelectorStyles.discIndicator} />
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={timeSelectorStyles.timeDisplay}>
+                {showManualEntry ? (
+                  <TouchableOpacity 
+                    style={timeSelectorStyles.manualEntryContainer}
+                    activeOpacity={1}
+                    onPress={() => {
+                      const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+                      if (timeRegex.test(manualTimeInput)) {
+                        const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
+                        let hour12 = inputHour;
+                        if (inputHour === 0) {
+                          hour12 = 12;
+                        } else if (inputHour > 12) {
+                          hour12 = inputHour - 12;
+                        } else if (inputHour === 12) {
+                          hour12 = 12;
+                        } else {
+                          hour12 = inputHour;
+                        }
+                        setCurrentHour(hour12);
+                        setCurrentMinute(inputMinute);
+                        setShowManualEntry(false);
+                        setManualTimeInput('');
+                      } else if (manualTimeInput.trim() !== '') {
+                        Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
+                      }
+                    }}
+                  >
+                    <TextInput
+                      style={timeSelectorStyles.manualTimeInput}
+                      value={manualTimeInput}
+                      onChangeText={(text) => {
+                        const cleaned = text.replace(/[^0-9:]/g, '');
+                        if (cleaned.length <= 5) {
+                          let formatted = cleaned;
+                          if (cleaned.length === 3 && !cleaned.includes(':')) {
+                            formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2);
+                          }
+                          setManualTimeInput(formatted);
+                        }
+                      }}
+                      onSubmitEditing={() => {
+                        const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+                        if (timeRegex.test(manualTimeInput)) {
+                          const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
+                          let hour12 = inputHour;
+                          if (inputHour === 0) {
+                            hour12 = 12;
+                          } else if (inputHour > 12) {
+                            hour12 = inputHour - 12;
+                          } else if (inputHour === 12) {
+                            hour12 = 12;
+                          } else {
+                            hour12 = inputHour;
+                          }
+                          setCurrentHour(hour12);
+                          setCurrentMinute(inputMinute);
+                          setShowManualEntry(false);
+                          setManualTimeInput('');
+                        } else if (manualTimeInput.trim() !== '') {
+                          Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
+                        }
+                      }}
+                      placeholder="HH:MM"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                      maxLength={5}
+                      autoFocus
+                      selectTextOnFocus
+                      testID="manual-time-input"
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        timeSelectorStyles.timeSection,
+                        activeSection === 'hour' && timeSelectorStyles.activeSectionLeft
+                      ]}
+                      onPress={() => handleSectionPress('hour')}
+                    >
+                      <Text style={[
+                        timeSelectorStyles.timeSectionText,
+                        activeSection === 'hour' && timeSelectorStyles.activeTimeSectionText
+                      ]}>
+                        {currentHour.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={timeSelectorStyles.timeSeparator}>:</Text>
+                    <TouchableOpacity
+                      style={[
+                        timeSelectorStyles.timeSection,
+                        activeSection === 'minute' && timeSelectorStyles.activeSectionRight
+                      ]}
+                      onPress={() => handleSectionPress('minute')}
+                    >
+                      <Text style={[
+                        timeSelectorStyles.timeSectionText,
+                        activeSection === 'minute' && timeSelectorStyles.activeTimeSectionText
+                      ]}>
+                        {currentMinute.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+
+              <View style={timeSelectorStyles.discContainer}>
+                <View
+                  ref={discRef}
+                  onLayout={(e) => {
+                    measureCenter();
+                    const w = (e.nativeEvent as any).layout?.width ?? 220;
+                    setDiscSize(typeof w === 'number' ? w : 220);
+                  }}
+                  style={[
+                    timeSelectorStyles.discBackground,
+                    { transform: [{ rotate: `${rotation}deg` }] }
+                  ]}
+                  {...panResponder.panHandlers}
+                  testID="time-disc"
+                >
+                  {renderTickMarks()}
+                  <View style={timeSelectorStyles.discIndicator} />
+                </View>
+              </View>
+
               <View style={timeSelectorStyles.ampmContainer}>
-                <TouchableOpacity onPress={() => setCurrentAMPM(true)}>
-                  <Text style={[timeSelectorStyles.ampmText, currentAMPM && timeSelectorStyles.activeAmPmText]}>AM</Text>
+                <TouchableOpacity
+                  style={[
+                    timeSelectorStyles.ampmButton,
+                    currentAMPM && timeSelectorStyles.selectedAMPM
+                  ]}
+                  onPress={() => setCurrentAMPM(true)}
+                >
+                  <Text style={[
+                    timeSelectorStyles.ampmText,
+                    currentAMPM && timeSelectorStyles.selectedAMPMText
+                  ]}>AM</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setCurrentAMPM(false)}>
-                  <Text style={[timeSelectorStyles.ampmText, !currentAMPM && timeSelectorStyles.activeAmPmText]}>PM</Text>
+                <TouchableOpacity
+                  style={[
+                    timeSelectorStyles.ampmButton,
+                    !currentAMPM && timeSelectorStyles.selectedAMPM
+                  ]}
+                  onPress={() => setCurrentAMPM(false)}
+                >
+                  <Text style={[
+                    timeSelectorStyles.ampmText,
+                    !currentAMPM && timeSelectorStyles.selectedAMPMText
+                  ]}>PM</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-            
-            {!showManualEntry ? (
-              <View 
-                ref={discRef}
-                style={[timeSelectorStyles.disc, { width: discSize, height: discSize }]}
-                {...panResponder.panHandlers}
-                onLayout={measureCenter}
-              >
-                {renderTickMarks()}
-                <View style={[timeSelectorStyles.hand, { height: handLength, transform: [{ rotate: `${handRotation}deg` }] }]} />
-                <View style={timeSelectorStyles.centerDot} />
+
+              <View style={timeSelectorStyles.buttonContainer}>
+                <TouchableOpacity 
+                  style={timeSelectorStyles.keyboardButton} 
+                  onPress={() => {
+                    setShowManualEntry(true);
+                    setManualTimeInput('');
+                  }}
+                  testID="keyboard-button"
+                >
+                  <Keyboard size={16} color="#6B7280" />
+                </TouchableOpacity>
+                <View style={timeSelectorStyles.rightButtons}>
+                  <TouchableOpacity style={timeSelectorStyles.cancelButton} onPress={onClose}>
+                    <Text style={timeSelectorStyles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={timeSelectorStyles.confirmButton} onPress={handleConfirm}>
+                    <Text style={timeSelectorStyles.confirmButtonText}>Set</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            ) : (
-              <View style={timeSelectorStyles.manualInputContainer}>
-                <TextInput
-                  style={timeSelectorStyles.manualInput}
-                  placeholder="HH:MM"
-                  keyboardType="numeric"
-                  value={manualTimeInput}
-                  onChangeText={setManualTimeInput}
-                  maxLength={5}
-                  autoFocus
-                />
-              </View>
-            )}
-          </View>
-          
-          <View style={timeSelectorStyles.footer}>
-            <TouchableOpacity onPress={() => setShowManualEntry(!showManualEntry)}>
-              <Keyboard size={24} color={Material3Colors.light.primary} />
-            </TouchableOpacity>
-            <View style={timeSelectorStyles.footerActions}>
-              <TouchableOpacity style={timeSelectorStyles.button} onPress={onClose}>
-                <Text style={timeSelectorStyles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={timeSelectorStyles.button} onPress={handleConfirm}>
-                <Text style={timeSelectorStyles.buttonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
   );
 }
 
-TimeSelector.displayName = 'TimeSelector';
-
 const timeSelectorStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   container: {
-    width: '90%',
-    maxWidth: 320,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'white',
+    width: '100%',
+    maxWidth: 360,
     borderRadius: 16,
-    elevation: 8,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
   },
   containerLandscape: {
-    flexDirection: 'row',
-    width: '90%',
     maxWidth: 500,
+    padding: 24,
   },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  timeDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  headerText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  content: {
-    padding: 16,
+  timeSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 70,
     alignItems: 'center',
   },
-  contentLandscape: {
-    flex: 1,
+  activeSectionLeft: {
+    backgroundColor: '#1E3A8A',
   },
-  displayContainer: {
-    flexDirection: 'row',
+  activeSectionRight: {
+    backgroundColor: '#1E3A8A',
+  },
+  timeSectionText: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  activeTimeSectionText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  timeSeparator: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginHorizontal: 4,
+  },
+  discContainer: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  timeText: {
-    fontSize: 48,
-    fontWeight: '300',
-    color: '#BDBDBD',
-    paddingHorizontal: 8,
+  landscapeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  activeTimeText: {
-    color: Material3Colors.light.primary,
-    fontWeight: '400',
+  sidePanel: {
+    width: 200,
+    marginRight: 16,
   },
-  separator: {
-    fontSize: 48,
-    fontWeight: '300',
-    color: '#BDBDBD',
+  discPanel: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ampmContainer: {
-    marginLeft: 16,
-  },
-  ampmText: {
-    fontSize: 18,
-    color: '#BDBDBD',
-    paddingVertical: 4,
-  },
-  activeAmPmText: {
-    color: Material3Colors.light.primary,
-    fontWeight: '600',
-  },
-  disc: {
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  discBackground: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
   },
-  hand: {
+  tickMark: {
     position: 'absolute',
-    bottom: '50%',
+    top: '50%',
     left: '50%',
-    width: 2,
-    backgroundColor: Material3Colors.light.primary,
-    transformOrigin: 'bottom center',
   },
-  centerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Material3Colors.light.primary,
+  discIndicator: {
     position: 'absolute',
+    top: 4,
+    left: '50%',
+    marginLeft: -2,
+    width: 4,
+    height: 18,
+    backgroundColor: '#1E3A8A',
+    borderRadius: 2,
   },
-  manualInputContainer: {
-    height: 220,
+  ampmContainer: {
+    flexDirection: 'row',
     justifyContent: 'center',
+    gap: 12,
+    marginBottom: 24,
+  },
+  ampmButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+    minWidth: 60,
     alignItems: 'center',
   },
-  manualInput: {
-    fontSize: 48,
-    fontWeight: '300',
-    textAlign: 'center',
-    width: 200,
-    borderBottomWidth: 2,
-    borderBottomColor: Material3Colors.light.primary,
+  selectedAMPM: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#1E3A8A',
   },
-footer: {
+  ampmText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  selectedAMPMText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#E5E7EB',
   },
-  footerActions: {
+  rightButtons: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
-  button: {
-    padding: 8,
+  keyboardButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  buttonText: {
-    fontSize: 16,
+  manualEntryContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  manualTimeInput: {
+    fontSize: 24,
     fontWeight: '600',
-    color: Material3Colors.light.primary,
+    color: '#374151',
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#1E3A8A',
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  cancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  confirmButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#1E3A8A',
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
   },
 });
 
-interface SwipeableRowProps {
-  children: React.ReactNode;
-  reminder: Reminder;
-  onSwipeRight?: () => void;
-  onSwipeLeft?: () => void;
-}
+const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { children: React.ReactNode; onSwipeLeft?: () => void; onSwipeRight?: () => void; reminder: Reminder; }) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const containerHeight = useRef(new Animated.Value(0)).current;
+  const [dynamicMargin, setDynamicMargin] = useState<number>(7);
+  const containerMargin = useRef(new Animated.Value(7)).current;
+  const measuredHeightRef = useRef<number>(0);
+  const [measured, setMeasured] = useState<boolean>(false);
+  const [isRemoving, setIsRemoving] = useState<boolean>(false);
+  const [showActions, setShowActions] = useState<boolean>(true);
+  const threshold = 80;
+  const isAnimating = useRef<boolean>(false);
 
-const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, reminder, onSwipeRight, onSwipeLeft }) => {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const [cardWidth, setCardWidth] = useState(Dimensions.get('window').width);
+  const reset = useCallback(() => {
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+  }, [translateX]);
+
+  const runRemoveSequence = useCallback((direction: 'left' | 'right') => {
+    if (isRemoving || isAnimating.current) return;
+    setIsRemoving(true);
+    isAnimating.current = true;
+    const screenW = Dimensions.get('window').width;
+    const offscreen = direction === 'left' ? -Math.max(160, screenW) : Math.max(160, screenW);
+
+    // First slide out the card
+    Animated.parallel([
+      Animated.timing(translateX, { 
+        toValue: offscreen, 
+        duration: 200, 
+        easing: Easing.out(Easing.cubic), 
+        useNativeDriver: true 
+      }),
+      Animated.timing(opacity, { 
+        toValue: 0, 
+        duration: 200, 
+        easing: Easing.out(Easing.cubic), 
+        useNativeDriver: true 
+      })
+    ]).start(() => {
+      // Hide background action pills early to avoid showing in the gap while list collapses
+      setShowActions(false);
+      // Then collapse the height after card is gone
+      containerMargin.setValue(0);
+      Animated.timing(containerHeight, { 
+        toValue: 0, 
+        duration: 150, 
+        easing: Easing.out(Easing.cubic), 
+        useNativeDriver: false 
+      }).start(() => {
+        // Use InteractionManager to defer the deletion on Android
+        InteractionManager.runAfterInteractions(() => {
+          if (direction === 'left') {
+            onSwipeLeft?.();
+          } else {
+            onSwipeRight?.();
+          }
+          isAnimating.current = false;
+        });
+      });
+    });
+  }, [containerHeight, containerMargin, isRemoving, onSwipeLeft, onSwipeRight, opacity, translateX]);
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only set responder if swiping horizontally
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 5;
+      onStartShouldSetPanResponder: () => !isRemoving && !isAnimating.current,
+      onMoveShouldSetPanResponder: (_, g) => !isRemoving && !isAnimating.current && Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        if (isRemoving || isAnimating.current) return;
+        translateX.setValue(g.dx);
       },
-      onPanResponderMove: Animated.event(
-        [
-          null,
-          { dx: pan.x, dy: pan.y }
-        ],
-        { useNativeDriver: false }
-      ),
-      onPanResponderRelease: (_, gestureState) => {
-        const SWIPE_THRESHOLD = cardWidth * 0.3;
-        if (gestureState.dx > SWIPE_THRESHOLD) {
-          // Swiped right
-          onSwipeRight?.();
-          Animated.timing(pan, {
-            toValue: { x: cardWidth, y: 0 },
-            duration: 200,
-            useNativeDriver: false
-          }).start(() => pan.setValue({ x: 0, y: 0 }));
-        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-          // Swiped left
-          onSwipeLeft?.();
-          Animated.timing(pan, {
-            toValue: { x: -cardWidth, y: 0 },
-            duration: 200,
-            useNativeDriver: false
-          }).start(() => pan.setValue({ x: 0, y: 0 }));
+      onPanResponderRelease: (_, g) => {
+        if (isRemoving || isAnimating.current) return;
+        if (g.dx <= -threshold && onSwipeLeft) {
+          runRemoveSequence('left');
+        } else if (g.dx >= threshold && onSwipeRight) {
+          runRemoveSequence('right');
         } else {
-          // Didn't meet threshold, spring back
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false
-          }).start();
+          reset();
         }
+      },
+      onPanResponderTerminate: () => {
+        if (!isRemoving && !isAnimating.current) reset();
       },
     })
   ).current;
 
-  const onLayout = (event: any) => {
-    setCardWidth(event.nativeEvent.layout.width);
-  };
-
-  const cardOpacity = pan.x.interpolate({
-    inputRange: [-cardWidth, 0, cardWidth],
-    outputRange: [0, 1, 0],
-    extrapolate: 'clamp'
-  });
+  const showLeftAction = !!onSwipeRight;
+  const showRightAction = !!onSwipeLeft;
 
   return (
-    <View onLayout={onLayout}>
+    <View style={swipeStyles.wrapper}>
+      {showActions && (
+        <View style={swipeStyles.actions} pointerEvents="none">
+          {showLeftAction && (
+            <View style={swipeStyles.actionLeft}>
+              <View style={swipeStyles.actionPill}>
+                <CheckCircle size={16} color={Material3Colors.light.primary} />
+                <Text style={swipeStyles.actionText}>{reminder.repeatType === 'none' ? 'Done' : 'Complete'}</Text>
+              </View>
+            </View>
+          )}
+          {showRightAction && (
+            <View style={swipeStyles.actionRight}>
+              <View style={[swipeStyles.actionPill, { backgroundColor: Material3Colors.light.errorContainer }] }>
+                <Trash2 size={16} color={Material3Colors.light.error} />
+                <Text style={[swipeStyles.actionText, { color: Material3Colors.light.error }]}>Delete</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
       <Animated.View
         style={{
-          transform: [{ translateX: pan.x }],
-          opacity: cardOpacity
+          height: isRemoving ? containerHeight : undefined,
+          marginBottom: containerMargin,
+          overflow: 'hidden',
         }}
-        {...panResponder.panHandlers}
+        onLayout={(e) => {
+          const h = (e.nativeEvent as any).layout?.height ?? 0;
+          const numericH = typeof h === 'number' ? h : 0;
+          measuredHeightRef.current = numericH;
+          if (!isRemoving) {
+            containerHeight.setValue(numericH);
+            const baseMargin = 7;
+            const heightFactor = numericH > 0 ? Math.min(1, 80 / numericH) : 1;
+            const calculatedMargin = Math.max(4, Math.round(baseMargin + heightFactor * 2));
+            setDynamicMargin(calculatedMargin);
+            containerMargin.setValue(calculatedMargin);
+          }
+        }}
+        testID={`row-container-${reminder.id}`}
       >
-        {children}
+        <Animated.View style={{ transform: [{ translateX }, { scale }], opacity }} {...panResponder.panHandlers}>
+          {children}
+        </Animated.View>
       </Animated.View>
     </View>
   );
-};
+}, (prevProps, nextProps) => {
+  // Only re-render if the reminder data actually changed
+  return prevProps.reminder.id === nextProps.reminder.id &&
+         JSON.stringify(prevProps.reminder) === JSON.stringify(nextProps.reminder) &&
+         prevProps.onSwipeLeft === nextProps.onSwipeLeft &&
+         prevProps.onSwipeRight === nextProps.onSwipeRight;
+});
 
-SwipeableRow.displayName = 'SwipeableRow';
+const swipeStyles = StyleSheet.create({
+  wrapper: { position: 'relative' },
+  actions: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 },
+  actionLeft: { alignItems: 'flex-start' },
+  actionRight: { alignItems: 'flex-end' },
+  actionPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Material3Colors.light.primaryContainer, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  actionText: { fontSize: 12, color: '#065F46', fontWeight: '600' },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -2359,333 +2807,463 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingVertical: 20,
+    backgroundColor: Material3Colors.light.surface,
+    elevation: 2,
+    shadowColor: Material3Colors.light.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: Material3Colors.light.onBackground,
+    fontWeight: '400',
+    color: Material3Colors.light.onSurface,
+    letterSpacing: 0,
   },
   settingsButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Material3Colors.light.surfaceVariant,
   },
-  tabContainer: {
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 24,
-    marginBottom: 8,
+    paddingBottom: 32,
+    paddingTop: 16,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+  },
+  createAlarmButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Material3Colors.light.primary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    elevation: 6,
+    shadowColor: Material3Colors.light.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+
+  tabContainer: {
+    backgroundColor: Material3Colors.light.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Material3Colors.light.outlineVariant,
+    paddingVertical: 8,
   },
   tabScrollView: {
     flexGrow: 0,
   },
   tabScrollContent: {
-    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+    alignItems: 'center',
   },
   tabHeader: {
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 16,
-    backgroundColor: Material3Colors.light.surfaceContainer,
-  },
-  activeTabHeader: {
-    backgroundColor: Material3Colors.light.primary,
+    paddingVertical: 10,
+    marginHorizontal: 6,
+    borderRadius: 0,
+    alignItems: 'center',
+    minWidth: 120,
   },
   tabHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  activeTabHeader: {
+    borderBottomWidth: 3,
+    borderBottomColor: Material3Colors.light.primary,
+  },
   tabHeaderText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '300',
     color: Material3Colors.light.onSurfaceVariant,
+    letterSpacing: 0.5,
   },
   activeTabHeaderText: {
-    color: Material3Colors.light.onPrimary,
+    color: Material3Colors.light.primary,
+    fontWeight: '400',
   },
   tabCount: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Material3Colors.light.onSurfaceVariant,
-    backgroundColor: Material3Colors.light.surfaceContainerHigh,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 20,
-    textAlign: 'center',
+    opacity: 0.7,
   },
   activeTabCount: {
     color: Material3Colors.light.primary,
-    backgroundColor: Material3Colors.light.onPrimary,
+    opacity: 1,
   },
+
   content: {
     flex: 1,
-  },
-  section: {
-    paddingHorizontal: 24,
+    padding: 16,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 16,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 18,
-    color: Material3Colors.light.onSurface,
+    fontSize: 16,
+    color: Material3Colors.light.onSurfaceVariant,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    minHeight: 300,
+    paddingVertical: 60,
+    gap: 16,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '400',
     color: Material3Colors.light.onSurface,
-    marginTop: 16,
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: 16,
     color: Material3Colors.light.onSurfaceVariant,
     textAlign: 'center',
-    marginTop: 8,
+    paddingHorizontal: 40,
+    lineHeight: 24,
+  },
+  section: {
+    marginBottom: 24,
   },
   reminderCard: {
     backgroundColor: Material3Colors.light.surfaceContainerLow,
     borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
+    elevation: 0,
+    shadowColor: Material3Colors.light.shadow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    overflow: 'hidden',
   },
   selectedCard: {
-    borderColor: Material3Colors.light.primary,
+    backgroundColor: Material3Colors.light.surfaceContainer,
     borderWidth: 2,
+    borderColor: Material3Colors.light.primary,
   },
   reminderContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'stretch',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   reminderLeft: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
     flex: 1,
-  },
-  selectionCheckbox: {
-    padding: 12,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   priorityBar: {
-    width: 6,
+    width: 5,
+    alignSelf: 'stretch',
+    minHeight: 48,
+    borderRadius: 2.5,
   },
   reminderInfo: {
-    padding: 12,
     flex: 1,
+    gap: 4,
   },
   reminderTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Material3Colors.light.onSurface,
-    marginBottom: 4,
+    lineHeight: 22,
   },
   reminderMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
   },
   reminderTime: {
-    fontSize: 12,
+    fontSize: 14,
     color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
   },
   metaSeparator: {
-    color: Material3Colors.light.onSurfaceVariant,
-    paddingHorizontal: 2,
+    fontSize: 14,
+    color: Material3Colors.light.outline,
   },
   repeatBadge: {
-    backgroundColor: Material3Colors.light.secondaryContainer,
-    borderRadius: 6,
-    paddingHorizontal: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Material3Colors.light.primaryContainer,
+    paddingHorizontal: 8,
     paddingVertical: 2,
+    borderRadius: 12,
   },
   repeatBadgeText: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: Material3Colors.light.onSecondaryContainer,
+    fontSize: 12,
+    color: Material3Colors.light.primary,
+    fontWeight: '600',
+  },
+  pausedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Material3Colors.light.tertiaryContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  pausedText: {
+    fontSize: 11,
+    color: Material3Colors.light.onTertiaryContainer,
+    fontWeight: '600',
   },
   reminderDetails: {
+    marginTop: 2,
+  },
+  reminderDate: {
+    fontSize: 13,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  reminderDays: {
+    fontSize: 13,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  reminderNextOccurrence: {
+    fontSize: 13,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  nextReminderText: {
+    fontSize: 12,
+    color: Material3Colors.light.primary,
+    fontWeight: '500',
+    fontStyle: 'italic',
     marginTop: 4,
+  },
+  snoozeUntilText: {
+    fontSize: 12,
+    color: Material3Colors.light.tertiary,
+    fontWeight: '500',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  reminderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pauseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFEBEE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resumeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Material3Colors.light.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Material3Colors.light.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reassignButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Material3Colors.light.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadge: {
+    backgroundColor: Material3Colors.light.secondaryContainer,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 4,
+  },
+  expiredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Material3Colors.light.errorContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  expiredText: {
+    fontSize: 11,
+    color: Material3Colors.light.onErrorContainer,
+    fontWeight: '600',
+  },
+  snoozedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Material3Colors.light.tertiaryContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  snoozedText: {
+    fontSize: 11,
+    color: Material3Colors.light.onTertiaryContainer,
+    fontWeight: '600',
+  },
+  snoozedBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Material3Colors.light.tertiaryContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  snoozedTextInline: {
+    fontSize: 11,
+    color: Material3Colors.light.onTertiaryContainer,
+    fontWeight: '600',
+  },
+  pausedBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Material3Colors.light.tertiaryContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  pausedTextInline: {
+    fontSize: 11,
+    color: Material3Colors.light.onTertiaryContainer,
+    fontWeight: '600',
+  },
+  selectionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    borderBottomWidth: 1,
+    borderBottomColor: Material3Colors.light.outlineVariant,
+  },
+  closeSelectionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  selectionCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurface,
+    flex: 1,
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  selectionActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Material3Colors.light.surface,
+  },
+  selectAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Material3Colors.light.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  selectionCheckbox: {
+    marginRight: 8,
+    padding: 4,
+  },
+  dailyDaysContainer: {
+    flexDirection: 'row',
+    gap: 3,
+    marginTop: 4,
+  },
+  dailyDayDisc: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dailyDayDiscActive: {
+    backgroundColor: '#C8D57A',
+  },
+  dailyDayText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurfaceVariant,
+  },
+  dailyDayTextActive: {
+    color: Material3Colors.light.primary,
   },
   nextOccurrenceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: 2,
   },
   reminderNextOccurrenceLarge: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Material3Colors.light.primary,
-  },
-  reminderDays: {
-    fontSize: 12,
+    fontSize: 14,
     color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
   },
-dailyTimeContainer: {
+  repeatBadgeBottom: {
+    alignSelf: 'flex-start',
+  },
+  repeatBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'nowrap',
+  },
+
+  dailyTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
-  },
-dailyDaysContainer: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-dailyDayDisc: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Material3Colors.light.surfaceContainer,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Material3Colors.light.outline,
-  },
-dailyDayDiscActive: {
-    backgroundColor: Material3Colors.light.primary,
-    borderColor: Material3Colors.light.primary,
-  },
-dailyDayText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: Material3Colors.light.onSurfaceVariant,
-  },
-dailyDayTextActive: {
-    color: Material3Colors.light.onPrimary,
-  },
-repeatBadgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-repeatBadgeBottom: {},
-snoozedBadgeInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Material3Colors.light.tertiaryContainer,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-snoozedTextInline: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: Material3Colors.light.onTertiaryContainer,
-  },
-pausedBadgeInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Material3Colors.light.surfaceContainerHigh,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-pausedTextInline: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: Material3Colors.light.onSurfaceVariant,
-  },
-snoozeUntilText: {
-    fontSize: 12,
-    color: Material3Colors.light.tertiary,
-    marginTop: 4,
-  },
-nextReminderText: {
-    fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
-    marginTop: 4,
-  },
-expiredBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-expiredText: {
-    fontSize: 12,
-    color: Material3Colors.light.error,
-    fontWeight: '500',
-  },
-reminderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-resumeButton: {
-    padding: 8,
-  },
-pauseButton: {
-    padding: 8,
-  },
-doneButton: {
-    padding: 8,
-    backgroundColor: Material3Colors.light.primary,
-    borderRadius: 99,
-    marginLeft: 8,
-  },
-reassignButton: {
-    padding: 8,
-  },
-bottomContainer: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    zIndex: 10,
-  },
-createAlarmButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Material3Colors.light.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-selectionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Material3Colors.light.surfaceContainerHigh,
-    borderBottomWidth: 1,
-    borderBottomColor: Material3Colors.light.outlineVariant,
-  },
-closeSelectionButton: {
-    padding: 8,
-    marginRight: 16,
-  },
-selectionCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Material3Colors.light.onSurface,
-    flex: 1,
-  },
-selectionActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-selectionActionButton: {
-    padding: 8,
+    marginTop: 1,
   },
 });

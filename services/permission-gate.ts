@@ -1,5 +1,5 @@
-import notifee, { AuthorizationStatus } from '@notifee/react-native';
-import { Platform, Alert, Linking } from 'react-native';
+import notifee, { AuthorizationStatus, AndroidImportance, AndroidCategory } from '@notifee/react-native';
+import { Platform, Linking } from 'react-native';
 
 interface PermissionStatus {
   authorized: boolean;
@@ -25,7 +25,8 @@ export async function ensurePermissions({ interactive = false }): Promise<Permis
 
     // Check and request exact alarm permissions for Android 12+
     if (Platform.Version >= 31) { // Android 12 (API level 31)
-      exact = settings.android.alarm === 1;
+      const alarmManager = await notifee.getAlarmManager();
+      exact = alarmManager.canScheduleExactAlarms;
 
       if (!exact && interactive) {
         await notifee.openAlarmPermissionSettings();
@@ -49,8 +50,8 @@ export async function openHelpfulSystemScreens() {
 
   // Open battery optimization settings if available (Android specific)
   if (Platform.Version >= 23) { // Android 6.0 (API level 23)
-    const powerManagerInfo: any = await notifee.getPowerManagerInfo();
-    if (powerManagerInfo && !powerManagerInfo.isBatteryOptimizationEnabled) {
+    const powerManager = await notifee.getPowerManager();
+    if (!powerManager.isIgnoringBatteryOptimizations) {
       await notifee.openBatteryOptimizationSettings();
     }
   }

@@ -7,8 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { calculateNextReminderDate, nextMonthlyOccurrenceFrom } from '@/services/reminder-utils';
-import notifee from '@notifee/react-native';
+import { calculateNextReminderDate } from '@/services/reminder-utils';
 
 interface EngineContext {
   lastTick: number;
@@ -198,10 +197,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const handleNotificationDone = async (reminderId: string) => {
       console.log(`Notification Done action for reminder: ${reminderId}`);
       try {
-        const displayedNotifications = await notifee.getDisplayedNotifications();
+        const notifee = require('@notifee/react-native');
+        const displayedNotifications = await notifee.default.getDisplayedNotifications();
         const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
-        if (targetNotification?.notification?.id) {
-          await notifee.cancelNotification(targetNotification.notification.id);
+        if (targetNotification) {
+          await notifee.default.cancelNotification(targetNotification.notification.id);
           console.log(`Dismissed notification ${targetNotification.notification.id} after Done action`);
         }
       } catch (e) {
@@ -252,10 +252,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const handleNotificationSnooze = async (reminderId: string, minutes: number = 5) => {
       console.log(`Notification Snooze action for reminder: ${reminderId} for ${minutes} minutes`);
       try {
-        const displayedNotifications = await notifee.getDisplayedNotifications();
+        const notifee = require('@notifee/react-native');
+        const displayedNotifications = await notifee.default.getDisplayedNotifications();
         const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
-        if (targetNotification?.notification?.id) {
-          await notifee.cancelNotification(targetNotification.notification.id);
+        if (targetNotification) {
+          await notifee.default.cancelNotification(targetNotification.notification.id);
           console.log(`Dismissed notification ${targetNotification.notification.id} after Snooze action`);
         }
       } catch (e) {

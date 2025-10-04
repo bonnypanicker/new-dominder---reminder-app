@@ -19,16 +19,15 @@ export default function SettingsScreen() {
 
   const pickTone = () => {
     if (Platform.OS !== 'android') return;
-    RingtoneManager.pickRingtone({
-      title: 'Select Alarm Sound',
-      defaultUri: 'content://settings/system/alarm_alert',
-      cancelLabel: 'Cancel',
-      callback: async (res: { uri: string; title: string } | null) => {
+    RingtoneManager.pickRingtone(
+      RingtoneManager.TYPE_ALARM,
+      async (res) => {
         const uri = res?.uri || 'default';
         await setRingerToneUri(uri);
         setCurrentRingerTone(res?.title || 'Default');
       },
-    } as any);
+      () => {}
+    );
   };
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
 

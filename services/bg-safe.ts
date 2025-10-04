@@ -5,7 +5,7 @@ const TIMEOUT_MS = 15 * 1000; // 15 seconds
 
 export function safeBackground<T>(fn: (...args: any[]) => Promise<T>, label: string, ms: number = TIMEOUT_MS) {
   return async (...args: any[]): Promise<T | undefined> => {
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: NodeJS.Timeout;
     const timeoutPromise = new Promise<undefined>((resolve) => {
       timeoutId = setTimeout(() => {
         console.warn(`Background task '${label}' timed out after ${ms}ms`);
@@ -18,11 +18,11 @@ export function safeBackground<T>(fn: (...args: any[]) => Promise<T>, label: str
         fn(...args),
         timeoutPromise,
       ]);
-      clearTimeout(timeoutId as any);
+      clearTimeout(timeoutId);
       return result;
     } catch (error) {
       console.error(`Error in background task '${label}':`, error);
-      clearTimeout(timeoutId as any);
+      clearTimeout(timeoutId);
       return undefined;
     }
   };
