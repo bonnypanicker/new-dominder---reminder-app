@@ -1,5 +1,7 @@
 import "expo-router/entry";
 import { rescheduleReminderById } from './services/reminder-scheduler';
+import { notificationService } from './hooks/notification-service';
+import { calculateNextReminderDate } from './services/reminder-utils';
 
 let notifee;
 try {
@@ -52,13 +54,19 @@ if (notifee?.onBackgroundEvent) {
                 lastTriggeredAt: reminder.lastTriggeredAt ?? nowIso,
                 notificationId: undefined,
               };
+              await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
             } else {
-              list[idx] = {
+              const nextDate = calculateNextReminderDate(reminder, new Date());
+              const updatedReminder = {
                 ...reminder,
                 snoozeUntil: undefined,
                 lastTriggeredAt: nowIso,
+                nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
                 notificationId: undefined,
               };
+              list[idx] = updatedReminder;
+              await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
+              await notificationService.scheduleReminderByModel(updatedReminder);
             }
             await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
           }

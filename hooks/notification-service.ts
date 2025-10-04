@@ -64,8 +64,6 @@ export class NotificationService {
       console.log('Requesting POST_NOTIFICATIONS permission...');
       await notifee.requestPermission();
 
-      await ensureBaseChannels();
-
       const hasExact = await this.checkExactAlarmPermission();
       if (!hasExact) {
         try {
@@ -109,10 +107,7 @@ export class NotificationService {
 
     if (!notifee) return null;
 
-    const hasExactAlarmPerm = await this.checkExactAlarmPermission();
-    if (!hasExactAlarmPerm) {
-      console.log('Exact alarm permission not granted, notification may be delayed.');
-    }
+    const alarmAllowed = await this.checkExactAlarmPermission();
 
     const triggerDate = this.calculateTriggerDate(reminder);
     if (!triggerDate) {
@@ -125,7 +120,7 @@ export class NotificationService {
     const trigger: TimestampTrigger = {
       type: TRIGGER_TYPE_TIMESTAMP,
       timestamp: triggerDate.getTime(),
-      alarmManager: hasExactAlarmPerm ? { allowWhileIdle: true } : undefined,
+      alarmManager: alarmAllowed ? { allowWhileIdle: true } : undefined,
     };
     console.log(`[scheduleReminderByModel] trigger:`, trigger);
 
@@ -138,9 +133,9 @@ export class NotificationService {
     });
 
     try {
-      let channelId = 'standard_v3';
+      let channelId = 'standard_v4';
       let androidConfig: any = {
-        channelId: 'standard_v3',
+        channelId: 'standard_v4',
         ongoing: reminder.priority === 'medium',
         autoCancel: reminder.priority !== 'medium',
         actions: [
@@ -177,9 +172,9 @@ export class NotificationService {
           style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}` }
         };
       } else if (reminder.priority === 'medium') {
-        channelId = 'standard_v3';
+        channelId = 'standard_v4';
       } else {
-        channelId = 'silent_v3';
+        channelId = 'silent_v4';
       }
 
       const notificationId = await notifee.createTriggerNotification(
@@ -301,12 +296,7 @@ export class NotificationService {
     if (!notifee) return false;
 
     const settings = await notifee.getNotificationSettings();
-    if (settings.android.alarm === 1) {
-      return true;
-    }
-
-    await notifee.openAlarmPermissionSettings();
-    return false;
+    return settings.android.alarm === 1; // AndroidAlarmPermissionStatus.ALLOWED
   }
 
   subscribeToEvents(handler: (event: any) => void | Promise<void>): () => void {

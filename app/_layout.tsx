@@ -11,6 +11,8 @@ import { ThemeProvider } from "@/hooks/theme-provider";
 import { StatusBar } from "expo-status-bar";
 import notifee from '@notifee/react-native';
 
+import { ensureBaseChannels } from '@/services/channels';
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -30,6 +32,7 @@ function RootLayoutNav() {
       }
     }
     checkInitialNotification();
+    ensureBaseChannels();
   }, []);
 
   return (
