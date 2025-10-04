@@ -179,6 +179,7 @@ export class NotificationService {
 
       const notificationId = await notifee.createTriggerNotification(
         {
+          id: `rem-${reminder.id}`,
           title: reminder.title,
           body: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}`,
           android: androidConfig,
