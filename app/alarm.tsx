@@ -4,13 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import notifee from '@notifee/react-native';
 import { Material3Colors } from '@/constants/colors';
-import { BellRing, Snooze, CheckCircle } from 'lucide-react-native';
+import { BellRing, Clock, CheckCircle } from 'lucide-react-native';
 import { rescheduleReminderById } from '@/services/reminder-scheduler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AlarmScreen() {
-  const { reminderId, title } = useLocalSearchParams();
+  const { title } = useLocalSearchParams();
+  const [reminderId, setReminderId] = useState<string | null>(null);
   const [isHandlingAction, setIsHandlingAction] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const initial = await notifee.getInitialNotification();
+        setReminderId(initial?.notification?.data?.reminderId as string ?? null);
+      } catch (e) { console.log('Alarm init error', e); }
+    })();
+  }, []);
 
   useEffect(() => {
     // Prevent going back from the alarm screen
@@ -93,7 +103,7 @@ export default function AlarmScreen() {
                 onPress={() => handleSnooze(minutes)}
                 disabled={isHandlingAction}
               >
-                <Snooze size={20} color={Material3Colors.light.primary} />
+                <Clock size={20} color={Material3Colors.light.primary} />
                 <Text style={styles.snoozeButtonText}>{minutes}m</Text>
               </TouchableOpacity>
             ))}

@@ -9,7 +9,7 @@ function resolveMonthlyDay(year: number, monthIndex: number, desiredDay: number)
   return Math.min(desiredDay, lastDay);
 }
 
-function nextMonthlyOccurrenceFrom(now: Date, desiredDay: number, hh: number, mm: number): Date {
+export function nextMonthlyOccurrenceFrom(now: Date, desiredDay: number, hh: number, mm: number): Date {
   const year = now.getFullYear();
   const monthIndex = now.getMonth();
 

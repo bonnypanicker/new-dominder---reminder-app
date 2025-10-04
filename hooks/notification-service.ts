@@ -1,42 +1,10 @@
 import { Platform, Alert } from 'react-native';
-import notifee, { AndroidStyle, AndroidVisibility, AndroidImportance } from '@notifee/react-native';
+import notifee, { AndroidStyle, AndroidVisibility, AndroidImportance, TimestampTrigger } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { currentRingerChannelId, standardChannelId, silentChannelId } from '@/services/channels';
 
-const ANDROID_IMPORTANCE_HIGH = 4 as const;
-const ANDROID_IMPORTANCE_DEFAULT = 3 as const;
-const ANDROID_IMPORTANCE_LOW = 2 as const;
-const ANDROID_VISIBILITY_PUBLIC = 1 as const;
 const TRIGGER_TYPE_TIMESTAMP = 0 as const;
-const EVENT_TYPE_PRESS = 1 as const;
-const EVENT_TYPE_DISMISSED = 3 as const;
-
-type TimestampTrigger = { type: number; timestamp: number; alarmManager?: { allowWhileIdle?: boolean } };
-
-type NotifeeNotification = {
-  id?: string;
-  title?: string;
-  body?: string;
-  android?: any;
-  data?: Record<string, any>;
-};
-
-type NotifeeModule = {
-  requestPermission: () => Promise<any>;
-  createChannel: (channel: any) => Promise<void>;
-  createTriggerNotification: (notification: NotifeeNotification, trigger: TimestampTrigger) => Promise<string>;
-  cancelNotification: (id: string) => Promise<void>;
-  cancelAllNotifications: () => Promise<void>;
-  cancelDisplayedNotifications?: () => Promise<void>;
-  getTriggerNotifications: () => Promise<any[]>;
-  getDisplayedNotifications: () => Promise<any[]>;
-  displayNotification: (notification: NotifeeNotification) => Promise<string>;
-  getNotificationSettings: () => Promise<any>;
-  openAlarmPermissionSettings: () => Promise<void>;
-  onForegroundEvent: (handler: (event: any) => void) => () => void;
-  onBackgroundEvent: (handler: (event: any) => Promise<void>) => () => void;
-};
 
 
 export class NotificationService {
@@ -179,6 +147,7 @@ export class NotificationService {
 
       const notificationId = await notifee.createTriggerNotification(
         {
+          id: `rem-${reminder.id}`,
           title: reminder.title,
           body: `${reminder.description}\n⏰ Reminder: ${formattedReminderTime}`,
           android: androidConfig,
@@ -211,9 +180,10 @@ export class NotificationService {
     try {
       const notifications = await notifee.getTriggerNotifications();
       for (const n of notifications) {
+        const notificationId = n.notification?.id;
         const rid = n.notification?.data?.reminderId as string | undefined;
-        if (rid === reminderId) {
-          await notifee.cancelNotification(n.notification.id);
+        if (rid === reminderId && notificationId) {
+          await notifee.cancelNotification(notificationId);
         }
       }
     } catch (error) {
@@ -263,10 +233,11 @@ export class NotificationService {
       );
 
       for (const notification of scheduledNotifications) {
+        const notificationId = notification.notification.id;
         const reminderId = notification.notification.data?.reminderId as string | undefined;
-        if (!reminderId || !activeReminderIds.has(reminderId)) {
-          await notifee.cancelNotification(notification.notification.id);
-          console.log(`Cancelled orphaned notification ${notification.notification.id} for reminder ${reminderId}`);
+        if (notificationId && (!reminderId || !activeReminderIds.has(reminderId))) {
+          await notifee.cancelNotification(notificationId);
+          console.log(`Cancelled orphaned notification ${notificationId} for reminder ${reminderId}`);
         }
       }
     } catch (error) {

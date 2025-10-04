@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard, Dimensions } from 'react-native';
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
 import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react-native';
@@ -363,10 +363,10 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     const firstDay = new Date(year, month, 1);
     const startWeekday = firstDay.getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const weeks: Array<Array<number | null>> = [];
+    const weeks: (number | null)[][] = [];
     let current = 1 - startWeekday;
     for (let w = 0; w < 6; w++) {
-      const row: Array<number | null> = [];
+      const row: (number | null)[] = [];
       for (let i = 0; i < 7; i++) {
         if (current < 1 || current > daysInMonth) {
           row.push(null);
@@ -594,7 +594,7 @@ interface UnitDropdownModalProps {
 }
 
 function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChange, onClose }: UnitDropdownModalProps) {
-  const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
+  const { width: winW, height: winH } = Dimensions.get('window');
   const estimatedWidth = 140;
   const estimatedHeight = 140;
 
@@ -1237,67 +1237,7 @@ const monthlyStyles = StyleSheet.create({
   },
 });
 
-const actionSheetStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 24,
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 24,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 8,
-  },
-  sheetTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  itemRowFirst: {
-    marginTop: 4,
-  },
-  itemText: {
-    fontSize: 16,
-    color: '#111827',
-    fontWeight: '500',
-  },
-  itemTextSelected: {
-    color: '#1E3A8A',
-    fontWeight: '700',
-  },
-  checkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#1E3A8A',
-  },
-});
+
 
 const calendarStyles = StyleSheet.create({
   overlay: {
@@ -1482,7 +1422,7 @@ interface DropdownModalProps {
 }
 
 function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
-  const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
+  const { width: winW, height: winH } = Dimensions.get('window');
   const estimatedWidth = 220;
   const estimatedHeight = hideTomorrow ? 120 : 180;
 
