@@ -70,7 +70,6 @@ if (notifee?.onBackgroundEvent) {
             }
             await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
           }
-          await AsyncStorage.setItem('dominder_reminders', JSON.stringify(list));
           console.log('[onBackgroundEvent] Updated reminder in storage');
         }
       }
