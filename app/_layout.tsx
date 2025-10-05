@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import notifee, { EventType } from '@notifee/react-native';
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -19,14 +20,32 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   useEffect(() => {
-    (async () => {
-            const notifee = require('@notifee/react-native');
-      const initial = await notifee.default.getInitialNotification();
-      if (initial?.notification?.android?.fullScreenAction) {
-        router.replace('/alarm');
+    async function handleNotification(notification) {
+      if (notification) {
+        const { pressAction, data } = notification;
+        if (pressAction?.id === 'alarm' && data?.reminderId) {
+          router.replace(`/alarm?reminderId=${data.reminderId}`);
+        }
       }
-    })();
+    }
+
+    // Handle initial notification
+    notifee.getInitialNotification().then(initialNotification => {
+      if (initialNotification) {
+        handleNotification(initialNotification.notification);
+      }
+    });
+
+    // Handle foreground events
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS) {
+        handleNotification(detail.notification);
+      }
+    });
+
     ensureBaseChannels();
+
+    return unsubscribe;
   }, []);
 
   return (

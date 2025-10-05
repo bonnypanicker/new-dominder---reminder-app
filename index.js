@@ -1,4 +1,5 @@
 import 'expo-router/entry';
+import './services/headless-task.js';
 import notifee, { EventType } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
