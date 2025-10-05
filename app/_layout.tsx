@@ -9,7 +9,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/hooks/theme-provider";
 import { useSettings } from '@/hooks/settings-store';
 import { StatusBar } from "expo-status-bar";
-import notifee from '@notifee/react-native';
+
 
 import { ensureBaseChannels } from '@/services/channels';
 
@@ -20,7 +20,8 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   useEffect(() => {
     (async () => {
-      const initial = await notifee.getInitialNotification();
+            const notifee = require('@notifee/react-native');
+      const initial = await notifee.default.getInitialNotification();
       if (initial?.notification?.android?.fullScreenAction) {
         router.replace('/alarm');
       }
@@ -82,6 +83,14 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  // Fallback to hide splash screen after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />

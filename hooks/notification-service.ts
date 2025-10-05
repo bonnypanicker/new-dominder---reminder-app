@@ -4,20 +4,13 @@ import notifee, {
   AndroidStyle,
   TriggerType,
   TimestampTrigger,
-  AndroidNotificationSetting,
+  EventType,
 } from '@notifee/react-native';
 import { ensureBaseChannels, currentRingerChannelId, standardChannelId, silentChannelId } from '../services/channels';
 import { getPermissionState } from '../services/permission-gate';
+import { Reminder } from '@/types/reminder';
 
-type Reminder = {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'high' | 'medium' | 'low';
-  time: number | string; // epoch ms or ISO
-};
-
-export async function scheduleReminderByModel(reminder: Reminder) {
+async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
   await ensureBaseChannels();
 
   const when = typeof reminder.time === 'number' ? reminder.time : new Date(reminder.time).getTime();
@@ -52,7 +45,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
     ? await currentRingerChannelId()
     : reminder.priority === 'medium' ? standardChannelId() : silentChannelId();
 
-  await notifee.createTriggerNotification({
+  const notificationId = await notifee.createTriggerNotification({
     id: `rem-${reminder.id}`,
     title: reminder.title,
     body: `${reminder.description ?? ''}\n${formattedDateTime}`.trim(),
@@ -68,38 +61,55 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description ?? ''}\n${formattedDateTime}`.trim() },
       actions: isRinger
         ? [
-            {
-              title: 'Done',
-              pressAction: { id: 'done' },
-            },
-            {
-              title: 'Snooze 5',
-              pressAction: { id: 'snooze_5' },
-            },
-            {
-              title: 'Snooze 10',
-              pressAction: { id: 'snooze_10' },
-            },
-            {
-              title: 'Snooze 15',
-              pressAction: { id: 'snooze_15' },
-            },
-            {
-              title: 'Snooze 30',
-              pressAction: { id: 'snooze_30' },
-            },
+            { title: 'Done', pressAction: { id: 'done' } },
+            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
+            { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
+            { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
+            { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
           ]
         : [
-            {
-              title: 'Done',
-              pressAction: { id: 'done' },
-            },
-            {
-              title: 'Snooze 5',
-              pressAction: { id: 'snooze_5' },
-            },
+            { title: 'Done', pressAction: { id: 'done' } },
+            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
           ],
       pressAction: { id: 'default' },
     },
   }, trigger);
+  return notificationId;
 }
+
+export const notificationService = {
+  initialize: async () => {
+    await notifee.requestPermission();
+    await ensureBaseChannels();
+  },
+  scheduleReminderByModel,
+  cancelNotification: async (notificationId: string) => {
+    await notifee.cancelNotification(notificationId);
+  },
+  cancelAllNotificationsForReminder: async (reminderId: string) => {
+    const notifications = await notifee.getTriggerNotificationIds();
+    const reminderNotifications = notifications.filter(id => id.startsWith(`rem-${reminderId}`));
+    await notifee.cancelTriggerNotifications(reminderNotifications);
+  },
+  cleanupOrphanedNotifications: async () => {
+    // This logic might need to be more sophisticated depending on how reminders are stored
+    console.log('[Native] cleanupOrphanedNotifications not fully implemented');
+  },
+  hasScheduledForReminder: async (reminderId: string): Promise<boolean> => {
+    const notifications = await notifee.getTriggerNotificationIds();
+    return notifications.some(id => id.startsWith(`rem-${reminderId}`));
+  },
+  displayInfoNotification: async (title: string, body: string) => {
+    const channelId = await standardChannelId();
+    return notifee.displayNotification({ title, body, android: { channelId } });
+  },
+  subscribeToEvents: (onEvent: (event: any) => void) => {
+    const foregroundSubscription = notifee.onForegroundEvent(onEvent);
+    const backgroundSubscription = notifee.onBackgroundEvent(onEvent);
+
+    return () => {
+      foregroundSubscription();
+      backgroundSubscription();
+    };
+  },
+};

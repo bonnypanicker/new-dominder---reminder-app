@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import notifee, { AndroidImportance, AndroidVisibility } from '@notifee/react-native';
+
 
 const V = 4; // bump when defaults change
 const K = {
@@ -13,23 +13,26 @@ function hashUri(uri: string): string {
 }
 
 export async function ensureBaseChannels() {
+  const notifee = require('@notifee/react-native');
+  const { AndroidImportance, AndroidVisibility } = notifee;
+
   const tone = (await AsyncStorage.getItem(K.TONE_URI)) || 'default';
   const suffix = tone === 'default' ? 'def' : hashUri(tone);
   const ringerId = `ringer_v${V}_${suffix}`;
   const standardId = `standard_v${V}`;
   const silentId = `silent_v${V}`;
 
-  await notifee.createChannel({
+  await notifee.default.createChannel({
     id: ringerId, name: 'High Priority (Ringer)',
     importance: AndroidImportance.HIGH, vibration: true,
     sound: tone, visibility: AndroidVisibility.PUBLIC,
   });
-  await notifee.createChannel({
+  await notifee.default.createChannel({
     id: standardId, name: 'Standard',
     importance: AndroidImportance.DEFAULT, vibration: true,
     visibility: AndroidVisibility.PUBLIC,
   });
-  await notifee.createChannel({
+  await notifee.default.createChannel({
     id: silentId, name: 'Silent',
     importance: AndroidImportance.LOW, vibration: false,
     visibility: AndroidVisibility.PUBLIC,
