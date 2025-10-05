@@ -6,8 +6,6 @@ import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
-import RingtoneManager from 'react-native-ringtone-manager-new';
-import { setRingerToneUri } from '@/services/channels';
 
 export default function SettingsScreen() {
   const { data: settings, isLoading } = useSettings();

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-const V = 4; // bump when defaults change
+const V = 5; // bump when defaults change
 const K = {
   TONE_URI: 'dominder_ringer_tone_uri',
   RINGER_CH: 'dominder_ringer_channel',
@@ -16,8 +16,8 @@ export async function ensureBaseChannels() {
   const notifee = require('@notifee/react-native');
   const { AndroidImportance, AndroidVisibility } = notifee;
 
-  const tone = (await AsyncStorage.getItem(K.TONE_URI)) || 'default';
-  const suffix = tone === 'default' ? 'def' : hashUri(tone);
+  const tone = 'default';
+  const suffix = 'def';
   const ringerId = `ringer_v${V}_${suffix}`;
   const standardId = `standard_v${V}`;
   const silentId = `silent_v${V}`;
@@ -47,8 +47,7 @@ export async function currentRingerChannelId(): Promise<string> {
 export function standardChannelId() { return `standard_v${V}`; }
 export function silentChannelId() { return `silent_v${V}`; }
 
-export async function setRingerToneUri(uri: string | null) {
-  await AsyncStorage.setItem(K.TONE_URI, uri ?? 'default');
-  // recreate with new per‑tone id
+export async function setRingerToneUri(_uri: string | null) {
+  await AsyncStorage.setItem(K.TONE_URI, 'default');
   await ensureBaseChannels();
 }
