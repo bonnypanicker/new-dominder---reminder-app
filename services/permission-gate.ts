@@ -1,9 +1,9 @@
-import notifee from '@notifee/react-native';
+import notifee, { AuthorizationStatus, AndroidNotificationSetting } from '@notifee/react-native';
 
 export async function getPermissionState() {
   const s = await notifee.getNotificationSettings();
-  const authorized = s.authorizationStatus === notifee.AuthorizationStatus.AUTHORIZED;
-  const exact = s?.android?.alarm === notifee.AndroidNotificationSetting.ENABLED;
+  const authorized = s.authorizationStatus === AuthorizationStatus.AUTHORIZED;
+  const exact = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
   return { authorized, exact };
 }
 
