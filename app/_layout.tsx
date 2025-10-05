@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/hooks/theme-provider";
+import { useSettings } from '@/hooks/settings-store';
 import { StatusBar } from "expo-status-bar";
 import notifee from '@notifee/react-native';
 
@@ -54,9 +55,17 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const { isLoading } = useSettings();
+
   const onLayoutRootView = React.useCallback(async () => {
-    await SplashScreen.hideAsync();
-  }, []);
+    if (!isLoading) {
+      await SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  if (isLoading) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

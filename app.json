@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DoMinder - Reminder App",
-    "slug": "dominder-android-reminder-app",
+    "slug": "new-dominder-reminder-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -71,9 +71,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "72f40bfb-6edd-4107-8ae3-67876122c8cf"
+        "projectId": "6475a17f-f730-4631-af77-82a1428aa171"
       }
     },
-    "owner": "bonnypanicker"
+    "owner": "panicker"
   }
 }
