@@ -13,7 +13,14 @@ import { Reminder } from '@/types/reminder';
 async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
   await ensureBaseChannels();
 
-  const when = typeof reminder.time === 'number' ? reminder.time : new Date(reminder.time).getTime();
+    let when: number;
+  if (typeof reminder.time === 'number') {
+    when = reminder.time;
+  } else {
+    const [year, month, day] = reminder.date.split('-').map(Number);
+    const [hours, minutes] = reminder.time.split(':').map(Number);
+    when = new Date(year, month - 1, day, hours, minutes).getTime();
+  }
   const { exact } = await getPermissionState();
 
   const trigger: TimestampTrigger = {

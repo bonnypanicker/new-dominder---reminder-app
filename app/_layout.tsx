@@ -32,7 +32,16 @@ function RootLayoutNav() {
     // Handle initial notification
     notifee.getInitialNotification().then(initialNotification => {
       if (initialNotification) {
-        handleNotification(initialNotification.notification);
+        if (initialNotification.notification?.android?.fullScreenAction) {
+          const reminderId = initialNotification.notification.data?.reminderId as string;
+          if (reminderId) {
+            router.replace(`/alarm?reminderId=${reminderId}`);
+          } else {
+            router.replace('/alarm');
+          }
+        } else {
+          handleNotification(initialNotification.notification);
+        }
       }
     });
 
