@@ -167,20 +167,26 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const onEvent = async ({ type, detail }: any) => {
       const { notification, pressAction } = detail ?? {};
       if (!notification) return;
+      const reminderId = notification.data?.reminderId;
+
+      if (typeof reminderId !== 'string') {
+        return;
+      }
+
       if (type === EVENT_TYPE_PRESS) {
-        const rid = notification.data?.reminderId as string;
         if (pressAction?.id === 'done') {
-          handleNotificationDone(rid);
+          handleNotificationDone(reminderId);
         } else {
           const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction?.id || '');
           if (snoozeMatch) {
             const minutes = parseInt(snoozeMatch[1], 10);
-            handleNotificationSnooze(rid, minutes);
+            handleNotificationSnooze(reminderId, minutes);
           } else if (pressAction?.id === 'default') {
-            handleNotificationOpen(rid);
-          }        }
+            handleNotificationOpen(reminderId);
+          }
+        }
       } else if (type === EVENT_TYPE_DISMISSED) {
-        handleNotificationDismissed(notification.data?.reminderId as string);
+        handleNotificationDismissed(reminderId);
       }
     };
 

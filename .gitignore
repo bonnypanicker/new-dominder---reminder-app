@@ -35,5 +35,5 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
-credentials.json 
+credentials.json
 *.txt

@@ -6,8 +6,6 @@ import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
-import RingtoneManager from 'react-native-ringtone-manager-new';
-import { setRingerToneUri } from '@/services/channels';
 
 export default function SettingsScreen() {
   const { data: settings, isLoading } = useSettings();
@@ -16,19 +14,6 @@ export default function SettingsScreen() {
   const [licensesModalVisible, setLicensesModalVisible] = useState<boolean>(false);
   const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState<boolean>(false);
   const [currentRingerTone, setCurrentRingerTone] = useState('Default');
-
-  const pickTone = () => {
-    if (Platform.OS !== 'android') return;
-    RingtoneManager.pickRingtone(
-      RingtoneManager.TYPE_ALARM,
-      async (res) => {
-        const uri = res?.uri || 'default';
-        await setRingerToneUri(uri);
-        setCurrentRingerTone(res?.title || 'Default');
-      },
-      () => {}
-    );
-  };
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
 
   if (isLoading || !settings) {
@@ -168,22 +153,19 @@ export default function SettingsScreen() {
 
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={pickTone}
-          testID="pick-ringtone"
+          onPress={() => router.push('/settings/notifications')}
+          testID="go-to-notification-settings"
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <Volume2 size={20} color={Material3Colors.light.primary} />
+              <Bell size={20} color={Material3Colors.light.primary} />
             </View>
-            <Text style={styles.sectionHeaderTitle}>High Priority Tone</Text>
+            <Text style={styles.sectionHeaderTitle}>Notification Settings</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: Material3Colors.light.onSurfaceVariant, marginRight: 8 }}>{currentRingerTone}</Text>
-            <ChevronRight
-              size={20}
-              color={Material3Colors.light.onSurfaceVariant}
-            />
-          </View>
+          <ChevronRight
+            size={20}
+            color={Material3Colors.light.onSurfaceVariant}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity 

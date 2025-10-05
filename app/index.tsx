@@ -5,7 +5,7 @@ import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, Ro
 import { router } from 'expo-router';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
-import { calculateNextReminderDate } from '@/hooks/reminder-engine';
+import { calculateNextReminderDate } from '@/services/reminder-utils';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
@@ -58,7 +58,6 @@ export default function HomeScreen() {
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
-  const springAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -117,9 +116,6 @@ export default function HomeScreen() {
         // Calculate position to push "ACTIVE REMINDERS" out of view
         // We need to scroll enough so that the expired tab is fully visible
         // and the active tab is pushed out
-        const totalTabsWidth = tabWidth * 3; // 3 tabs total
-        const scrollViewWidth = screenWidth - 48; // Account for padding
-        // Scroll to position expired tab at the left, pushing active out
         tabScrollX = tabWidth * 2; // This will position expired at the start, pushing active completely out
         break;
     }
@@ -839,8 +835,8 @@ export default function HomeScreen() {
         ref={contentScrollRef}
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
-        scrollEnabled={!showCreatePopup}
         keyboardShouldPersistTaps="handled"
+        pointerEvents={showCreatePopup ? 'none' : 'auto'}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
@@ -1287,14 +1283,12 @@ function CreateReminderPopup({
     if (visible) {
       mainContentSlide.setValue(0);
       if (mode === 'create') {
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(() => {
-            titleInputRef.current?.focus();
-          }, 50);
-        });
+        titleInputRef.current?.focus();
       }
     }
   }, [visible, mainContentSlide, mode]);
+
+  console.log('CreateReminderPopup visible prop:', visible); // Add this line
 
   if (!visible) return null;
 

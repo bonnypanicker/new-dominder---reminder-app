@@ -1,58 +1,17 @@
-import notifee, { AuthorizationStatus, AndroidImportance, AndroidCategory } from '@notifee/react-native';
-import { Platform, Linking } from 'react-native';
+import notifee, { AuthorizationStatus, AndroidNotificationSetting } from '@notifee/react-native';
 
-interface PermissionStatus {
-  authorized: boolean;
-  exact: boolean;
-}
-
-export async function ensurePermissions({ interactive = false }): Promise<PermissionStatus> {
-  if (Platform.OS !== 'android') {
-    return { authorized: true, exact: true };
-  }
-
-  const settings = await notifee.getNotificationSettings();
-
-  let authorized = settings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
-  let exact = true; // Assume true until proven otherwise for older Android versions
-
-  if (settings.android) {
-    // Request POST_NOTIFICATIONS if not authorized and interactive
-    if (!authorized && interactive) {
-      const requestedSettings = await notifee.requestPermission();
-      authorized = requestedSettings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
-    }
-
-    // Check and request exact alarm permissions for Android 12+
-    if (Platform.Version >= 31) { // Android 12 (API level 31)
-      const alarmManager = await notifee.getAlarmManager();
-      exact = alarmManager.canScheduleExactAlarms;
-
-      if (!exact && interactive) {
-        await notifee.openAlarmPermissionSettings();
-        // User needs to manually grant, so we can't re-check immediately
-        // We'll return false for exact and let the user re-trigger if needed
-        exact = false;
-      }
-    }
-  }
-
+export async function getPermissionState() {
+  const s = await notifee.getNotificationSettings();
+  const authorized = s.authorizationStatus === AuthorizationStatus.AUTHORIZED;
+  const exact = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
   return { authorized, exact };
 }
 
-export async function openHelpfulSystemScreens() {
-  if (Platform.OS !== 'android') {
-    return;
-  }
+export async function requestInteractive() {
+  await notifee.requestPermission();
+  return getPermissionState();
+}
 
-  // Open notification settings
-  await notifee.openNotificationSettings();
-
-  // Open battery optimization settings if available (Android specific)
-  if (Platform.Version >= 23) { // Android 6.0 (API level 23)
-    const powerManager = await notifee.getPowerManager();
-    if (!powerManager.isIgnoringBatteryOptimizations) {
-      await notifee.openBatteryOptimizationSettings();
-    }
-  }
+export async function openAlarmSettings() {
+  try { await notifee.openAlarmPermissionSettings(); } catch {}
 }

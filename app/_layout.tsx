@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import notifee, { EventType } from '@notifee/react-native';
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -7,8 +8,9 @@ import { StyleSheet } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/hooks/theme-provider";
+import { useSettings } from '@/hooks/settings-store';
 import { StatusBar } from "expo-status-bar";
-import notifee from '@notifee/react-native';
+
 
 import { ensureBaseChannels } from '@/services/channels';
 
@@ -18,19 +20,48 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   useEffect(() => {
-    (async () => {
-      const initial = await notifee.getInitialNotification();
-      if (initial?.notification?.android?.fullScreenAction) {
-        router.replace('/alarm');
+    async function handleNotification(notification) {
+      if (notification) {
+        const { pressAction, data } = notification;
+        if (pressAction?.id === 'alarm' && data?.reminderId) {
+          router.replace(`/alarm?reminderId=${data.reminderId}`);
+        }
       }
-    })();
+    }
+
+    // Handle initial notification
+    notifee.getInitialNotification().then(initialNotification => {
+      if (initialNotification) {
+        if (initialNotification.notification?.android?.fullScreenAction) {
+          const reminderId = initialNotification.notification.data?.reminderId as string;
+          if (reminderId) {
+            router.replace(`/alarm?reminderId=${reminderId}`);
+          } else {
+            router.replace('/alarm');
+          }
+        } else {
+          handleNotification(initialNotification.notification);
+        }
+      }
+    });
+
+    // Handle foreground events
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS) {
+        handleNotification(detail.notification);
+      }
+    });
+
     ensureBaseChannels();
+
+    return unsubscribe;
   }, []);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/notifications" options={{ title: 'Notification Settings' }} />
       <Stack.Screen 
         name="create-reminder" 
         options={{ 
@@ -52,23 +83,45 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function AppContent() {
+  const { isLoading } = useSettings();
+
   const onLayoutRootView = React.useCallback(async () => {
-    await SplashScreen.hideAsync();
+    if (!isLoading) {
+      await SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <ThemeProvider>
+      <ErrorBoundary>
+        <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
+          <ReminderEngineProvider>
+            <StatusBar hidden={true} />
+            <RootLayoutNav />
+          </ReminderEngineProvider>
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  // Fallback to hide splash screen after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ErrorBoundary>
-          <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
-            <ReminderEngineProvider>
-              <StatusBar hidden={true} />
-              <RootLayoutNav />
-            </ReminderEngineProvider>
-          </GestureHandlerRootView>
-        </ErrorBoundary>
-      </ThemeProvider>
+      <AppContent />
     </QueryClientProvider>
   );
 }
