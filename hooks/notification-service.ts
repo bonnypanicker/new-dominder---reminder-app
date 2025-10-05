@@ -67,7 +67,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       timestamp: when,
       style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description ?? ''}\n${formattedDateTime}`.trim() },
       actions: isRinger
-        ?
+        ? [
             {
               title: 'Done',
               pressAction: { id: 'done' },
@@ -89,7 +89,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
               pressAction: { id: 'snooze_30' },
             },
           ]
-        :
+        : [
             {
               title: 'Done',
               pressAction: { id: 'done' },
