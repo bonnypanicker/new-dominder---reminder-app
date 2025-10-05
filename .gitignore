@@ -1,1 +1,4 @@
 *.txt
+.expo/
+node_modules/
+credentials.json
