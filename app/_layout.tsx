@@ -54,7 +54,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function AppContent() {
   const { isLoading } = useSettings();
 
   const onLayoutRootView = React.useCallback(async () => {
@@ -68,17 +68,23 @@ export default function RootLayout() {
   }
 
   return (
+    <ThemeProvider>
+      <ErrorBoundary>
+        <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
+          <ReminderEngineProvider>
+            <StatusBar hidden={true} />
+            <RootLayoutNav />
+          </ReminderEngineProvider>
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ErrorBoundary>
-          <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
-            <ReminderEngineProvider>
-              <StatusBar hidden={true} />
-              <RootLayoutNav />
-            </ReminderEngineProvider>
-          </GestureHandlerRootView>
-        </ErrorBoundary>
-      </ThemeProvider>
+      <AppContent />
     </QueryClientProvider>
   );
 }
