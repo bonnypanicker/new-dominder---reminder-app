@@ -105,11 +105,8 @@ export const notificationService = {
   },
   subscribeToEvents: (onEvent: (event: any) => void) => {
     const foregroundSubscription = notifee.onForegroundEvent(onEvent);
-    const backgroundSubscription = notifee.onBackgroundEvent(onEvent);
-
     return () => {
       foregroundSubscription();
-      backgroundSubscription();
     };
   },
 };
