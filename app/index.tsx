@@ -835,8 +835,8 @@ export default function HomeScreen() {
         ref={contentScrollRef}
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
-        scrollEnabled={!showCreatePopup}
         keyboardShouldPersistTaps="handled"
+        pointerEvents={showCreatePopup ? 'none' : 'auto'}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
@@ -1283,14 +1283,12 @@ function CreateReminderPopup({
     if (visible) {
       mainContentSlide.setValue(0);
       if (mode === 'create') {
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(() => {
-            titleInputRef.current?.focus();
-          }, 50);
-        });
+        titleInputRef.current?.focus();
       }
     }
   }, [visible, mainContentSlide, mode]);
+
+  console.log('CreateReminderPopup visible prop:', visible); // Add this line
 
   if (!visible) return null;
 
