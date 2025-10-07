@@ -38,7 +38,7 @@ export default function AlarmScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/');
+      BackHandler.exitApp();
     }
   }, [router]);
 

@@ -1,53 +1,37 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import notifee, { AndroidImportance } from '@notifee/react-native';
 
-const V = 5; // bump when defaults change
-const K = {
-  TONE_URI: 'dominder_ringer_tone_uri',
-  RINGER_CH: 'dominder_ringer_channel',
+const V = 2; // Version for channel IDs
+
+export const CHANNEL_IDS = {
+  STANDARD: `standard-v${V}`,
+  SILENT: `silent-v${V}`,
+  ALARM: `alarm-v${V}`,
 };
 
-function hashUri(uri: string): string {
-  let h = 0; for (let i = 0; i < uri.length; i++) h = ((h << 5) - h) + uri.charCodeAt(i) | 0;
-  return Math.abs(h).toString(36).slice(0, 6);
-}
-
 export async function ensureBaseChannels() {
-  const notifee = require('@notifee/react-native');
-  const { AndroidImportance, AndroidVisibility } = notifee;
-
-  const tone = 'default';
-  const suffix = 'def';
-  const ringerId = `ringer_v${V}_${suffix}`;
-  const standardId = `standard_v${V}`;
-  const silentId = `silent_v${V}`;
-
-  await notifee.default.createChannel({
-    id: ringerId, name: 'High Priority (Ringer)',
-    importance: AndroidImportance.HIGH, vibration: true,
-    sound: tone, visibility: AndroidVisibility.PUBLIC,
-  });
-  await notifee.default.createChannel({
-    id: standardId, name: 'Standard',
-    importance: AndroidImportance.DEFAULT, vibration: true,
-    visibility: AndroidVisibility.PUBLIC,
-  });
-  await notifee.default.createChannel({
-    id: silentId, name: 'Silent',
-    importance: AndroidImportance.LOW, vibration: false,
-    visibility: AndroidVisibility.PUBLIC,
+  await notifee.createChannel({
+    id: CHANNEL_IDS.STANDARD,
+    name: 'Standard Notifications',
+    importance: AndroidImportance.HIGH,
+    sound: 'default',
+    vibration: true,
   });
 
-  await AsyncStorage.setItem(K.RINGER_CH, ringerId);
-}
+  await notifee.createChannel({
+    id: CHANNEL_IDS.SILENT,
+    name: 'Silent Notifications',
+    importance: AndroidImportance.LOW,
+    sound: undefined,
+    vibration: false,
+  });
 
-export async function currentRingerChannelId(): Promise<string> {
-  return (await AsyncStorage.getItem(K.RINGER_CH)) || `ringer_v${V}_def`;
-}
-export function standardChannelId() { return `standard_v${V}`; }
-export function silentChannelId() { return `silent_v${V}`; }
-
-export async function setRingerToneUri(_uri: string | null) {
-  await AsyncStorage.setItem(K.TONE_URI, 'default');
-  await ensureBaseChannels();
+  await notifee.createChannel({
+    id: CHANNEL_IDS.ALARM,
+    name: 'Alarms',
+    importance: AndroidImportance.HIGH,
+    sound: 'default',
+    vibration: true,
+    bypassDnd: true,
+  });
 }

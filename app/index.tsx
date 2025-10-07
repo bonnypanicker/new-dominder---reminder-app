@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
 import { calculateNextReminderDate } from '@/services/reminder-utils';
+import { CHANNEL_IDS } from '@/services/channels';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
@@ -708,6 +709,26 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>DoMinder</Text>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={async () => {
+            try {
+              const notifee = require('@notifee/react-native');
+              await notifee.default.displayNotification({
+                title: 'Test Standard Notification',
+                body: 'This is a test notification from Notifee.',
+                android: {
+                  channelId: CHANNEL_IDS.STANDARD, // Make sure this channel exists
+                },
+              });
+            } catch (e) {
+              console.error('Test notification failed:', e);
+              Alert.alert('Test Failed', 'Could not display notification. Check logs.');
+            }
+          }}
+        >
+          <Text>Test Standard</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => router.push('/settings')}

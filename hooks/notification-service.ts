@@ -1,3 +1,5 @@
+
+
 import notifee, {
   AndroidCategory,
   AndroidImportance,
@@ -6,14 +8,15 @@ import notifee, {
   TimestampTrigger,
   EventType,
 } from '@notifee/react-native';
-import { ensureBaseChannels, currentRingerChannelId, standardChannelId, silentChannelId } from '../services/channels';
-import { getPermissionState } from '../services/permission-gate';
+import { ensureBaseChannels, CHANNEL_IDS } from '../services/channels';
+import { getPermissionState, requestInteractive, openAlarmSettings } from '../services/permission-gate';
 import { Reminder } from '@/types/reminder';
+import { Alert } from 'react-native';
 
 async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
   await ensureBaseChannels();
 
-    let when: number;
+  let when: number;
   if (typeof reminder.time === 'number') {
     when = reminder.time;
   } else {
@@ -21,12 +24,39 @@ async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
     const [hours, minutes] = reminder.time.split(':').map(Number);
     when = new Date(year, month - 1, day, hours, minutes).getTime();
   }
-  const { exact } = await getPermissionState();
+
+  const { authorized, exact } = await getPermissionState();
+
+  if (!authorized) {
+    const { authorized: newAuthorized } = await requestInteractive();
+    if (!newAuthorized) {
+      Alert.alert(
+        'Permission Required',
+        'To schedule reminders, you need to grant notification permissions.',
+        [{ text: 'OK' }]
+      );
+      return '';
+    }
+  }
+
+  if (!exact) {
+    Alert.alert(
+      'Exact Alarm Permission Required',
+      'To ensure your reminders fire at the exact time, please grant the Alarms & Reminders permission.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: openAlarmSettings },
+      ]
+    );
+    return '';
+  }
 
   const trigger: TimestampTrigger = {
     type: TriggerType.TIMESTAMP,
     timestamp: when,
-    ...(exact ? { alarmManager: { allowWhileIdle: true } } : {}),
+    alarmManager: {
+      allowWhileIdle: true,
+    },
   };
 
   const now = new Date();
@@ -49,8 +79,8 @@ async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
 
   const isRinger = reminder.priority === 'high';
   const channelId = isRinger
-    ? await currentRingerChannelId()
-    : reminder.priority === 'medium' ? standardChannelId() : silentChannelId();
+    ? CHANNEL_IDS.ALARM
+    : reminder.priority === 'medium' ? CHANNEL_IDS.STANDARD : CHANNEL_IDS.SILENT;
 
   const notificationId = await notifee.createTriggerNotification({
     id: `rem-${reminder.id}`,
@@ -107,7 +137,7 @@ export const notificationService = {
     return notifications.some(id => id.startsWith(`rem-${reminderId}`));
   },
   displayInfoNotification: async (title: string, body: string) => {
-    const channelId = await standardChannelId();
+    const channelId = CHANNEL_IDS.STANDARD;
     return notifee.displayNotification({ title, body, android: { channelId } });
   },
   subscribeToEvents: (onEvent: (event: any) => void) => {

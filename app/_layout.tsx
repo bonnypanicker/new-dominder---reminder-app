@@ -12,6 +12,7 @@ import { useSettings } from '@/hooks/settings-store';
 import { StatusBar } from "expo-status-bar";
 
 
+import { requestInteractive } from '@/services/permission-gate';
 import { ensureBaseChannels } from '@/services/channels';
 
 SplashScreen.preventAutoHideAsync();
@@ -22,8 +23,8 @@ function RootLayoutNav() {
   useEffect(() => {
     async function handleNotification(notification) {
       if (notification) {
-        const { pressAction, data } = notification;
-        if (pressAction?.id === 'alarm' && data?.reminderId) {
+        const { data, android } = notification;
+        if (android?.fullScreenAction && data?.reminderId) {
           router.replace(`/alarm?reminderId=${data.reminderId}`);
         }
       }
@@ -53,6 +54,7 @@ function RootLayoutNav() {
     });
 
     ensureBaseChannels();
+    requestInteractive();
 
     return unsubscribe;
   }, []);
