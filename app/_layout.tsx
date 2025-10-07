@@ -30,9 +30,28 @@ function RootLayoutNav() {
       }
     }
 
+    // Handle initial notification
+    notifee.getInitialNotification().then(initialNotification => {
+      if (initialNotification) {
+        if (initialNotification.notification?.android?.fullScreenAction) {
+          const reminderId = initialNotification.notification.data?.reminderId as string;
+          if (reminderId) {
+            router.replace(`/alarm?reminderId=${reminderId}`);
+          } else {
+            router.replace('/alarm');
+          }
+        } else {
+          handleNotification(initialNotification.notification);
+        }
+      }
+    });
 
-
-
+    // Handle foreground events
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS) {
+        handleNotification(detail.notification);
+      }
+    });
 
     ensureBaseChannels();
     requestInteractive();
