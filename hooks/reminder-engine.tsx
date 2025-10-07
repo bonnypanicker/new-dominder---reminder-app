@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { useReminders, useUpdateReminder } from '@/hooks/reminder-store';
 import { Reminder } from '@/types/reminder';
+import notifee from '@notifee/react-native';
 import { notificationService } from '@/hooks/notification-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -150,6 +151,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     };
 
     initNotifications();
+
+    // Handle initial notification that opened the app
+    notifee.getInitialNotification().then(initialNotification => {
+      if (initialNotification) {
+        const reminderId = initialNotification.notification?.data?.reminderId as string;
+        if (reminderId) {
+          handleNotificationOpen(reminderId);
+        }
+      }
+    });
 
     // Listen for app state changes to invalidate cache when coming from background
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
