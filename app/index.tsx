@@ -982,11 +982,37 @@ export default function HomeScreen() {
           )
         )}
       </Animated.ScrollView>
-
-      <Pressable style={styles.addButton} onPress={() => setShowCreatePopup(true)}>
-        <FontAwesome name="plus" size={24} color="white" />
-      </Pressable>
-    </View>
+      
+      {!isSelectionMode && (
+        <View style={styles.bottomContainer}>
+          <TouchableOpacity
+            style={styles.createAlarmButton}
+            onPress={() => {
+              setEditingReminder(null);
+              setTitle('');
+              const defaultPriority = settings?.defaultPriority ?? 'standard';
+              const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
+              setPriority(mappedPriority);
+              setRepeatType(settings?.defaultReminderMode ?? 'none');
+              setRepeatDays([]);
+              setEveryValue(1);
+              setEveryUnit('hours');
+              const defaultTime = calculateDefaultTime();
+              setSelectedTime(defaultTime.time);
+              setIsAM(defaultTime.isAM);
+              const now = new Date();
+              const yyyy = now.getFullYear();
+              const mm = String(now.getMonth() + 1).padStart(2, '0');
+              const dd = String(now.getDate()).padStart(2, '0');
+              setSelectedDate(`${yyyy}-${mm}-${dd}`);
+              setShowCreatePopup(true);
+            }}
+            testID="fab-create-reminder"
+          >
+            <Plus size={32} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
       
       <CreateReminderPopup
         visible={showCreatePopup}

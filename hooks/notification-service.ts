@@ -12,7 +12,6 @@ import { ensureBaseChannels, CHANNEL_IDS } from '../services/channels';
 import { getPermissionState, requestInteractive, openAlarmSettings } from '../services/permission-gate';
 import { Reminder } from '@/types/reminder';
 import { Alert } from 'react-native';
-import { debugService } from '../services/debug-service';
 
 async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
   await ensureBaseChannels();
@@ -83,42 +82,36 @@ async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
     ? CHANNEL_IDS.ALARM
     : reminder.priority === 'medium' ? CHANNEL_IDS.STANDARD : CHANNEL_IDS.SILENT;
 
-  try {
-    const notificationId = await notifee.createTriggerNotification({
-      id: `rem-${reminder.id}`,
-      title: reminder.title,
-      body: `${reminder.description ?? ''}\n${formattedDateTime}`.trim(),
-      data: { reminderId: reminder.id },
-      android: {
-        channelId,
-        importance: isRinger ? AndroidImportance.HIGH : undefined,
-        category: isRinger ? AndroidCategory.ALARM : undefined,
-        lightUpScreen: isRinger || undefined,
-        fullScreenAction: isRinger ? { id: 'alarm' } : undefined,
-        showTimestamp: true,
-        timestamp: when,
-        style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description ?? ''}\n${formattedDateTime}`.trim() },
-        actions: isRinger
-          ? [
-              { title: 'Done', pressAction: { id: 'done' } },
-              { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
-              { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
-              { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
-              { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
-            ]
-          : [
-              { title: 'Done', pressAction: { id: 'done' } },
-              { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
-            ],
-        pressAction: { id: 'default' },
-      },
-    }, trigger);
-    debugService.logNotificationScheduled(reminder.id, notificationId, new Date(when));
-    return notificationId;
-  } catch (error) {
-    debugService.logNotificationError('scheduleReminderByModel', error);
-    throw error; // Re-throw the error so the caller can handle it
-  }
+  const notificationId = await notifee.createTriggerNotification({
+    id: `rem-${reminder.id}`,
+    title: reminder.title,
+    body: `${reminder.description ?? ''}\n${formattedDateTime}`.trim(),
+    data: { reminderId: reminder.id },
+    android: {
+      channelId,
+      importance: isRinger ? AndroidImportance.HIGH : undefined,
+      category: isRinger ? AndroidCategory.ALARM : undefined,
+      lightUpScreen: isRinger || undefined,
+      fullScreenAction: isRinger ? { id: 'alarm' } : undefined,
+      showTimestamp: true,
+      timestamp: when,
+      style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description ?? ''}\n${formattedDateTime}`.trim() },
+      actions: isRinger
+        ? [
+            { title: 'Done', pressAction: { id: 'done' } },
+            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
+            { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
+            { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
+            { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
+          ]
+        : [
+            { title: 'Done', pressAction: { id: 'done' } },
+            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
+          ],
+      pressAction: { id: 'default' },
+    },
+  }, trigger);
+  return notificationId;
 }
 
 export const notificationService = {
@@ -129,6 +122,11 @@ export const notificationService = {
   scheduleReminderByModel,
   cancelNotification: async (notificationId: string) => {
     await notifee.cancelNotification(notificationId);
+  },
+  cancelAllNotificationsForReminder: async (reminderId: string) => {
+    const notifications = await notifee.getTriggerNotificationIds();
+    const reminderNotifications = notifications.filter(id => id.startsWith(`rem-${reminderId}`));
+    await notifee.cancelTriggerNotifications(reminderNotifications);
   },
   cleanupOrphanedNotifications: async () => {
     // This logic might need to be more sophisticated depending on how reminders are stored

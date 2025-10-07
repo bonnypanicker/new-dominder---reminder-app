@@ -46,8 +46,17 @@ function RootLayoutNav() {
       }
     });
 
+    // Handle foreground events
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS) {
+        handleNotification(detail.notification);
+      }
+    });
+
     ensureBaseChannels();
     requestInteractive();
+
+    return unsubscribe;
   }, []);
 
   return (
