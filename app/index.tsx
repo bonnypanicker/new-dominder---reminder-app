@@ -983,11 +983,9 @@ export default function HomeScreen() {
         )}
       </Animated.ScrollView>
 
-      <Link href="/create-reminder" asChild>
-        <Pressable style={styles.addButton}>
-          <FontAwesome name="plus" size={24} color="white" />
-        </Pressable>
-      </Link>
+      <Pressable style={styles.addButton} onPress={() => setShowCreatePopup(true)}>
+        <FontAwesome name="plus" size={24} color="white" />
+      </Pressable>
     </View>
       
       <CreateReminderPopup
