@@ -981,38 +981,21 @@ export default function HomeScreen() {
             </Animated.View>
           )
         )}
-      </Animated.ScrollView>
-      
-      {!isSelectionMode && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={styles.createAlarmButton}
-            onPress={() => {
-              setEditingReminder(null);
-              setTitle('');
-              const defaultPriority = settings?.defaultPriority ?? 'standard';
-              const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
-              setPriority(mappedPriority);
-              setRepeatType(settings?.defaultReminderMode ?? 'none');
-              setRepeatDays([]);
-              setEveryValue(1);
-              setEveryUnit('hours');
-              const defaultTime = calculateDefaultTime();
-              setSelectedTime(defaultTime.time);
-              setIsAM(defaultTime.isAM);
-              const now = new Date();
-              const yyyy = now.getFullYear();
-              const mm = String(now.getMonth() + 1).padStart(2, '0');
-              const dd = String(now.getDate()).padStart(2, '0');
-              setSelectedDate(`${yyyy}-${mm}-${dd}`);
-              setShowCreatePopup(true);
-            }}
-            testID="fab-create-reminder"
-          >
-            <Plus size={32} color="white" />
-          </TouchableOpacity>
-        </View>
-      )}
+      </SwipeListView>
+
+      <Pressable
+        style={[styles.addButton, { bottom: 100, backgroundColor: 'blue' }]} // Adjust position and color
+        onPress={() => notificationService.displayInfoNotification('Test Notification', 'From Home Screen')}
+      >
+        <Text style={{ color: 'white' }}>Test Notif (Home)</Text>
+      </Pressable>
+
+      <Link href="/create-reminder" asChild>
+        <Pressable style={styles.addButton}>
+          <FontAwesome name="plus" size={24} color="white" />
+        </Pressable>
+      </Link>
+    </View>
       
       <CreateReminderPopup
         visible={showCreatePopup}

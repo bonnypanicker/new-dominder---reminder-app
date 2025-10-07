@@ -123,11 +123,6 @@ export const notificationService = {
   cancelNotification: async (notificationId: string) => {
     await notifee.cancelNotification(notificationId);
   },
-  cancelAllNotificationsForReminder: async (reminderId: string) => {
-    const notifications = await notifee.getTriggerNotificationIds();
-    const reminderNotifications = notifications.filter(id => id.startsWith(`rem-${reminderId}`));
-    await notifee.cancelTriggerNotifications(reminderNotifications);
-  },
   cleanupOrphanedNotifications: async () => {
     // This logic might need to be more sophisticated depending on how reminders are stored
     console.log('[Native] cleanupOrphanedNotifications not fully implemented');

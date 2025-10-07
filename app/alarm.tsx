@@ -28,9 +28,7 @@ export default function AlarmScreen() {
 
   const handleDismiss = useCallback(async () => {
     try {
-      // It's safer to cancel all notifications as we might not know the specific ID
-      // that triggered the full-screen intent, especially on older Android versions.
-      await notifee.cancelAllNotifications();
+      await notifee.cancelNotification(reminderId);
     } catch (e) {
       console.error('Error cancelling notifications:', e);
     }

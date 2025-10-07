@@ -382,9 +382,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             console.log(`New config: ${configString}`);
             needsReschedule = true;
             
-            // Cancel ALL notifications for this reminder (including any duplicates or orphaned ones)
-            console.log(`Cancelling all notifications for rescheduled reminder: ${reminder.id}`);
-            await notificationService.cancelAllNotificationsForReminder(reminder.id);
+            // Cancel the specific notification for this reminder using its stored ID
+            console.log(`Cancelling notification ${reminder.notificationId} for rescheduled reminder: ${reminder.id}`);
+            if (reminder.notificationId) {
+              await notificationService.cancelNotification(reminder.notificationId);
+            }
             scheduledNotifications.current.delete(reminder.id);
             // Add a delay to prevent immediate re-scheduling
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -550,21 +552,13 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           
           const diff = next.getTime() - now.getTime();
           // Only trigger if the time is within the next 30 seconds (not in the past)
-          if (diff >= 0 && diff < 30 * 1000) {
-            // For high priority reminders, open the alarm screen
-            if (r.priority === 'high') {
-              console.log(`High priority reminder triggered: ${r.id} - opening alarm screen at ${next.toISOString()}`);
-              router.push(`/alarm?reminderId=${r.id}`);
-              
-              // Update the last triggered time
-              updateReminderRef.current.mutate({ ...r, lastTriggeredAt: now.toISOString() });
+          // High priority reminders should ONLY use notification system, so skip in-app check
+          if (diff >= 0 && diff < 30 * 1000 && r.priority !== 'high') {
+            // For other priorities (if any), handle normally
+            if (r.repeatType === 'none') {
+              updateReminderRef.current.mutate({ ...r, isCompleted: true, lastTriggeredAt: now.toISOString() });
             } else {
-              // For other priorities (if any), handle normally
-              if (r.repeatType === 'none') {
-                updateReminderRef.current.mutate({ ...r, isCompleted: true, lastTriggeredAt: now.toISOString() });
-              } else {
-                updateReminderRef.current.mutate({ ...r, lastTriggeredAt: now.toISOString() });
-              }
+              updateReminderRef.current.mutate({ ...r, lastTriggeredAt: now.toISOString() });
             }
           }
       });
