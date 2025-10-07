@@ -314,22 +314,8 @@ export default function SettingsScreen() {
         visible={privacyPolicyVisible}
         onClose={() => setPrivacyPolicyVisible(false)}
       />
-        </View>
-
-        <Pressable
-          style={{
-            backgroundColor: 'green',
-            padding: 15,
-            borderRadius: 10,
-            alignItems: 'center',
-            marginTop: 20,
-          }}
-          onPress={() => notificationService.displayInfoNotification('Test Notification', 'From Settings Screen')}
-        >
-          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Test Notif (Settings)</Text>
-        </Pressable>
-      </View>
-    );
+    </SafeAreaView>
+  );
 }
 
 interface DefaultsModalProps {

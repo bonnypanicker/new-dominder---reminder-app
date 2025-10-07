@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { calculateNextReminderDate } from '@/services/reminder-utils';
+import { debugService } from '@/services/debug-service';
 
 interface EngineContext {
   lastTick: number;
@@ -143,8 +144,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const initNotifications = async () => {
       try {
         await notificationService.initialize();
+        debugService.logAppEvent('NotificationService Initialized');
         await notificationService.cleanupOrphanedNotifications();
       } catch (error) {
+        debugService.logNotificationError('initNotifications', error);
         console.error('Failed to initialize notifications in engine:', error);
       }
     };
@@ -174,6 +177,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
 
       if (type === EVENT_TYPE_PRESS) {
+        debugService.logNotificationTriggered(reminderId, notification.id, `PRESS - Action: ${pressAction?.id}`);
         if (pressAction?.id === 'done') {
           handleNotificationDone(reminderId);
         } else {
@@ -186,6 +190,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           }
         }
       } else if (type === EVENT_TYPE_DISMISSED) {
+        debugService.logNotificationTriggered(reminderId, notification.id, 'DISMISSED');
         handleNotificationDismissed(reminderId);
       }
     };
@@ -351,6 +356,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       for (const reminder of reminders) {
         // Skip reminders with internal flags to prevent loops
         if (reminder.snoozeClearing || reminder.notificationUpdating) {
+          debugService.logNotificationBlocked(reminder.id, 'Has internal flags (snoozeClearing or notificationUpdating)');
           console.log(`Skipping reminder ${reminder.id} - has internal flags`);
           continue;
         }
@@ -359,6 +365,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const lastUpdateTime = lastUpdateTimeRef.current.get(reminder.id) || 0;
         const timeSinceLastUpdate = now - lastUpdateTime;
         if (timeSinceLastUpdate < 5000) {
+          debugService.logNotificationBlocked(reminder.id, `Recently updated (${timeSinceLastUpdate}ms ago)`);
           console.log(`Skipping notification processing for reminder ${reminder.id} - recently updated ${timeSinceLastUpdate}ms ago`);
           continue;
         }
@@ -372,11 +379,13 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const configChanged = previousConfig && previousConfig !== configString && !reminder.snoozeClearing;
         
         if (shouldSchedule) {
+          debugService.logAppEvent(`Reminder ${reminder.id} should be scheduled.`);
           console.log(`[processNotifications] Reminder ${reminder.id} should be scheduled.`);
           let needsReschedule = false;
           
           // Check if reminder configuration changed (date, time, repeat settings, etc.)
           if (configChanged) {
+            debugService.logAppEvent(`Reminder ${reminder.id} configuration changed, needs rescheduling`);
             console.log(`Reminder ${reminder.id} configuration changed, needs rescheduling`);
             console.log(`Previous config: ${previousConfig}`);
             console.log(`New config: ${configString}`);
@@ -431,11 +440,14 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           
           if (needsReschedule) {
             if (existingNotificationId) {
+              debugService.logAppEvent(`Cancelling old notification for reminder: ${reminder.id} (ID: ${reminder.notificationId})`);
               console.log(`Cancelling old notification for reminder: ${reminder.id}`);
-              await notificationService.cancelNotification(existingNotificationId);
-              scheduledNotifications.current.delete(reminder.id);
+              if (reminder.notificationId) {
+                await notificationService.cancelNotification(reminder.notificationId);
+              }
             }
             
+            debugService.logAppEvent(`Scheduling notification for ${reminder.repeatType} reminder: ${reminder.id}`);
             console.log(`Scheduling notification for ${reminder.repeatType} reminder: ${reminder.id}`);
             const notificationId = await notificationService.scheduleReminderByModel(reminder);
             if (notificationId) {
@@ -463,6 +475,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             reminderConfigsRef.current.set(reminder.id, configString);
           }
         } else if (!shouldSchedule && existingNotificationId) {
+          debugService.logNotificationBlocked(reminder.id, 'Should not be scheduled, cancelling existing notification');
           console.log(`[processNotifications] Reminder ${reminder.id} should NOT be scheduled, cancelling notification.`);
           console.log(`Cancelling notification for reminder: ${reminder.id}`);
           await notificationService.cancelNotification(existingNotificationId);
@@ -482,6 +495,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       const currentReminderIds = new Set(reminders.map(r => r.id));
       for (const [scheduledId, notificationId] of scheduledNotifications.current) {
         if (!currentReminderIds.has(scheduledId)) {
+          debugService.logAppEvent(`Cleaning up orphaned notification ${notificationId} for reminder ${scheduledId}`);
           await notificationService.cancelNotification(notificationId);
           scheduledNotifications.current.delete(scheduledId);
           reminderConfigsRef.current.delete(scheduledId); // Clean up config tracking
@@ -512,6 +526,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           // SAFETY CHECK: Ensure reminder still exists in storage (not deleted)
           const reminderExists = currentReminders.some(stored => stored.id === r.id);
           if (!reminderExists) {
+            debugService.logNotificationBlocked(r.id, 'Reminder deleted from storage');
             console.log(`Skipping deleted reminder: ${r.id}`);
             return;
           }
@@ -575,6 +590,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       try {
         await notificationService.cleanupOrphanedNotifications();
       } catch (error) {
+        debugService.logNotificationError('cleanupOrphanedNotifications', error);
         console.error('Error during periodic notification cleanup:', error);
       }
     }, 5 * 60 * 1000); // 5 minutes

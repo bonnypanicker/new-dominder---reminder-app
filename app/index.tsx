@@ -981,14 +981,7 @@ export default function HomeScreen() {
             </Animated.View>
           )
         )}
-      </SwipeListView>
-
-      <Pressable
-        style={[styles.addButton, { bottom: 100, backgroundColor: 'blue' }]} // Adjust position and color
-        onPress={() => notificationService.displayInfoNotification('Test Notification', 'From Home Screen')}
-      >
-        <Text style={{ color: 'white' }}>Test Notif (Home)</Text>
-      </Pressable>
+      </Animated.ScrollView>
 
       <Link href="/create-reminder" asChild>
         <Pressable style={styles.addButton}>
