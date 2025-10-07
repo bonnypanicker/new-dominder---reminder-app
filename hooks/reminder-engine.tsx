@@ -181,7 +181,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           if (snoozeMatch) {
             const minutes = parseInt(snoozeMatch[1], 10);
             handleNotificationSnooze(reminderId, minutes);
-          } else if (pressAction?.id === 'default') {
+          } else if (pressAction?.id === 'default' || pressAction?.id === 'alarm') {
             handleNotificationOpen(reminderId);
           }
         }

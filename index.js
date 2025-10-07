@@ -2,6 +2,8 @@ import 'expo-router/entry';
 import './services/headless-task.js';
 import notifee, { EventType } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notificationService } from './hooks/notification-service';
+import { rescheduleReminderById } from './services/reminder-scheduler';
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   try {
@@ -25,8 +27,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     const m = /^snooze_(\d+)$/.exec(pressAction.id);
     if (m) {
       const mins = parseInt(m[1], 10);
-      const svc = require('./services/reminder-scheduler'); // no .ts extension
-      await svc.rescheduleReminderById(reminderId, mins);
+      await rescheduleReminderById(reminderId, mins);
     }
   } catch (e) {
     console.log('[onBackgroundEvent] error', e);
