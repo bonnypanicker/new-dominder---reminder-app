@@ -8,6 +8,12 @@ import com.facebook.react.jstasks.HeadlessJsTaskConfig
 class RescheduleAlarmsService : HeadlessJsTaskService() {
     override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
         val extras = intent?.extras
+        DebugLogger.log("RescheduleAlarmsService: getTaskConfig invoked")
+        if (extras != null) {
+            DebugLogger.log("RescheduleAlarmsService: Intent extras: " + extras.toString())
+        } else {
+            DebugLogger.log("RescheduleAlarmsService: No extras in intent")
+        }
         return HeadlessJsTaskConfig(
             "RescheduleAlarms", // Task name
             Arguments.fromBundle(extras),

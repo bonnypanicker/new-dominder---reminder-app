@@ -10,28 +10,38 @@ export const CHANNEL_IDS = {
 };
 
 export async function ensureBaseChannels() {
-  await notifee.createChannel({
+  console.log('[Dominder-Debug] Ensuring base notification channels');
+
+  const standardChannel = {
     id: CHANNEL_IDS.STANDARD,
     name: 'Standard Notifications',
     importance: AndroidImportance.HIGH,
     sound: 'default',
     vibration: true,
-  });
+  };
+  console.log('[Dominder-Debug] Creating channel:', JSON.stringify(standardChannel));
+  await notifee.createChannel(standardChannel);
 
-  await notifee.createChannel({
+  const silentChannel = {
     id: CHANNEL_IDS.SILENT,
     name: 'Silent Notifications',
     importance: AndroidImportance.LOW,
     sound: undefined,
     vibration: false,
-  });
+  };
+  console.log('[Dominder-Debug] Creating channel:', JSON.stringify(silentChannel));
+  await notifee.createChannel(silentChannel);
 
-  await notifee.createChannel({
+  const alarmChannel = {
     id: CHANNEL_IDS.ALARM,
     name: 'Alarms',
     importance: AndroidImportance.HIGH,
     sound: 'default',
     vibration: true,
     bypassDnd: true,
-  });
+  };
+  console.log('[Dominder-Debug] Creating channel:', JSON.stringify(alarmChannel));
+  await notifee.createChannel(alarmChannel);
+
+  console.log('[Dominder-Debug] Base channels ensured');
 }

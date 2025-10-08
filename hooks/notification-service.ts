@@ -1,149 +1,84 @@
 
 
 import notifee, {
-  AndroidCategory,
-  AndroidImportance,
-  AndroidStyle,
-  TriggerType,
   TimestampTrigger,
-  EventType,
+  TriggerType,
+  RepeatFrequency,
+  AndroidImportance,
 } from '@notifee/react-native';
-import { ensureBaseChannels, CHANNEL_IDS } from '../services/channels';
-import { getPermissionState, requestInteractive, openAlarmSettings } from '../services/permission-gate';
 import { Reminder } from '@/types/reminder';
-import { Alert } from 'react-native';
+import { CHANNEL_IDS, ensureBaseChannels } from '@/services/channels';
 
-async function scheduleReminderByModel(reminder: Reminder): Promise<string> {
-  await ensureBaseChannels();
-
-  let when: number;
-  if (typeof reminder.time === 'number') {
-    when = reminder.time;
-  } else {
-    const [year, month, day] = reminder.date.split('-').map(Number);
-    const [hours, minutes] = reminder.time.split(':').map(Number);
-    when = new Date(year, month - 1, day, hours, minutes).getTime();
+const getChannelId = (priority: 'standard' | 'silent' | 'ringer') => {
+  switch (priority) {
+    case 'ringer':
+      return CHANNEL_IDS.ALARM;
+    case 'silent':
+      return CHANNEL_IDS.SILENT;
+    default:r
+      return CHANNEL_IDS.STANDARD;
   }
-
-  const { authorized, exact } = await getPermissionState();
-
-  if (!authorized) {
-    const { authorized: newAuthorized } = await requestInteractive();
-    if (!newAuthorized) {
-      Alert.alert(
-        'Permission Required',
-        'To schedule reminders, you need to grant notification permissions.',
-        [{ text: 'OK' }]
-      );
-      return '';
-    }
-  }
-
-  if (!exact) {
-    Alert.alert(
-      'Exact Alarm Permission Required',
-      'To ensure your reminders fire at the exact time, please grant the Alarms & Reminders permission.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Settings', onPress: openAlarmSettings },
-      ]
-    );
-    return '';
-  }
-
-  const trigger: TimestampTrigger = {
-    type: TriggerType.TIMESTAMP,
-    timestamp: when,
-    alarmManager: {
-      allowWhileIdle: true,
-    },
-  };
-
-  const now = new Date();
-  const reminderDate = new Date(when);
-
-  let formattedDatePart;
-  if (reminderDate.toDateString() === now.toDateString()) {
-    formattedDatePart = 'Today';
-  } else {
-    formattedDatePart = reminderDate.toLocaleString([], {
-      weekday: 'short', day: 'numeric', month: 'short',
-    });
-  }
-
-  const formattedTimePart = reminderDate.toLocaleString([], {
-    hour: '2-digit', minute: '2-digit',
-  });
-
-  const formattedDateTime = `${formattedDatePart}, ${formattedTimePart}`;
-
-  const isRinger = reminder.priority === 'high';
-  const channelId = isRinger
-    ? CHANNEL_IDS.ALARM
-    : reminder.priority === 'medium' ? CHANNEL_IDS.STANDARD : CHANNEL_IDS.SILENT;
-
-  const notificationId = await notifee.createTriggerNotification({
-    id: `rem-${reminder.id}`,
-    title: reminder.title,
-    body: `${reminder.description ?? ''}\n${formattedDateTime}`.trim(),
-    data: { reminderId: reminder.id },
-    android: {
-      channelId,
-      importance: isRinger ? AndroidImportance.HIGH : undefined,
-      category: isRinger ? AndroidCategory.ALARM : undefined,
-      lightUpScreen: isRinger || undefined,
-      fullScreenAction: isRinger ? { id: 'alarm' } : undefined,
-      showTimestamp: true,
-      timestamp: when,
-      style: { type: AndroidStyle.BIGTEXT, text: `${reminder.description ?? ''}\n${formattedDateTime}`.trim() },
-      actions: isRinger
-        ? [
-            { title: 'Done', pressAction: { id: 'done' } },
-            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
-            { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
-            { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
-            { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
-          ]
-        : [
-            { title: 'Done', pressAction: { id: 'done' } },
-            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
-          ],
-      pressAction: { id: 'default' },
-    },
-  }, trigger);
-  return notificationId;
-}
+};
 
 export const notificationService = {
   initialize: async () => {
-    await notifee.requestPermission();
+    console.log('[Dominder-Debug] Initializing notification service and channels');
     await ensureBaseChannels();
   },
-  scheduleReminderByModel,
-  cancelNotification: async (notificationId: string) => {
-    await notifee.cancelNotification(notificationId);
+
+  scheduleReminderByModel: async (reminder: Reminder) => {
+    try {
+      console.log(`[Dominder-Debug] Scheduling reminder by model: ${JSON.stringify(reminder)}`);
+      const { id, title, time, repeat, priority, message } = reminder;
+
+      if (time < Date.now() && repeat === 'none') {
+        console.log(`[Dominder-Debug] Reminder ${id} is in the past and does not repeat. Skipping schedule.`);
+        return;
+      }
+
+      const channelId = getChannelId(priority);
+      console.log(`[Dominder-Debug] Using channel ID: ${channelId} for priority: ${priority}`);
+
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: time,
+      };
+
+      if (repeat !== 'none') {
+        trigger.repeatFrequency = RepeatFrequency[repeat.toUpperCase() as keyof typeof RepeatFrequency];
+        console.log(`[Dominder-Debug] Reminder ${id} set to repeat with frequency: ${trigger.repeatFrequency}`);
+      }
+
+      const notificationDetails = {
+        id,
+        title,
+        body: message,
+        android: {
+          channelId,
+          importance: AndroidImportance.HIGH,
+          pressAction: {
+            id: 'default',
+          },
+          sound: priority === 'silent' ? undefined : 'default',
+          vibration: priority !== 'silent',
+        },
+      };
+
+      console.log(`[Dominder-Debug] Creating trigger notification with details: ${JSON.stringify(notificationDetails)} and trigger: ${JSON.stringify(trigger)}`);
+      await notifee.createTriggerNotification(notificationDetails, trigger);
+      console.log(`[Dominder-Debug] Successfully scheduled notification for reminder ${id}`);
+    } catch (e: any) {
+      console.error(`[Dominder-Debug] Failed to schedule reminder ${reminder.id}:`, e.message, e.stack);
+    }
   },
+
   cancelAllNotificationsForReminder: async (reminderId: string) => {
-    const notifications = await notifee.getTriggerNotificationIds();
-    const reminderNotifications = notifications.filter(id => id.startsWith(`rem-${reminderId}`));
-    await notifee.cancelTriggerNotifications(reminderNotifications);
+    console.log(`[Dominder-Debug] Cancelling all notifications for reminder ID: ${reminderId}`);
+    await notifee.cancelNotification(reminderId);
   },
-  cleanupOrphanedNotifications: async () => {
-    // This logic might need to be more sophisticated depending on how reminders are stored
-    console.log('[Native] cleanupOrphanedNotifications not fully implemented');
-  },
-  hasScheduledForReminder: async (reminderId: string): Promise<boolean> => {
-    const notifications = await notifee.getTriggerNotificationIds();
-    return notifications.some(id => id.startsWith(`rem-${reminderId}`));
-  },
-  displayInfoNotification: async (title: string, body: string) => {
-    const channelId = CHANNEL_IDS.STANDARD;
-    return notifee.displayNotification({ title, body, android: { channelId } });
-  },
-  subscribeToEvents: (onEvent: (event: any) => void) => {
-    const foregroundSubscription = notifee.onForegroundEvent(onEvent);
-    return () => {
-      foregroundSubscription();
-    };
+
+  cancelAllNotifications: async () => {
+    console.log('[Dominder-Debug] Cancelling all notifications');
+    await notifee.cancelAllNotifications();
   },
 };

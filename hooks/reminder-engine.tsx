@@ -33,7 +33,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         return snoozeDate;
       } else {
         // Snooze time has passed, clear it and continue with normal scheduling
-        console.log(`Snooze time has passed for reminder ${reminder.id}, clearing snooze`);
+        console.log(`[Dominder-Debug] Snooze time has passed for reminder ${reminder.id}, clearing snooze`);
         // Use a flag to prevent multiple clears
         if (!reminder.snoozeClearing) {
           // Update the reminder to clear snooze with a flag to prevent loops
@@ -91,7 +91,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       case 'monthly': {
         const dayOfMonth = reminder.monthlyDay ?? base.getDate();
         const target = nextMonthlyOccurrenceFrom(now, dayOfMonth, hh, mm);
-        console.log(`Monthly computeNextFire -> desired=${dayOfMonth}, result=${target.toISOString()}`);
+        console.log(`[Dominder-Debug] Monthly computeNextFire -> desired=${dayOfMonth}, result=${target.toISOString()}`);
         return target;
       }
       case 'yearly': {
@@ -133,7 +133,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         return null;
       }
       default:
-        console.log(`Unknown repeat type in computeNextFire: ${reminder.repeatType}`);
+        console.log(`[Dominder-Debug] Unknown repeat type in computeNextFire: ${reminder.repeatType}`);
         return null;
     }
   }, []);
@@ -142,10 +142,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
   useEffect(() => {
     const initNotifications = async () => {
       try {
+        console.log('[Dominder-Debug] ReminderEngine: Initializing notifications');
         await notificationService.initialize();
         await notificationService.cleanupOrphanedNotifications();
       } catch (error) {
-        console.error('Failed to initialize notifications in engine:', error);
+        console.error('[Dominder-Debug] Failed to initialize notifications in engine:', error);
       }
     };
 
@@ -154,7 +155,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     // Listen for app state changes to invalidate cache when coming from background
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        console.log('[ReminderEngine] App became active, invalidating reminders cache');
+        console.log('[Dominder-Debug] App became active, invalidating reminders cache');
         // Invalidate the reminders query to refetch from AsyncStorage
         // This ensures UI reflects any changes made by background handler
         queryClient.invalidateQueries({ queryKey: ['reminders'] });
@@ -165,6 +166,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const EVENT_TYPE_DISMISSED = 3 as const;
 
     const onEvent = async ({ type, detail }: any) => {
+      console.log(`[Dominder-Debug] Received notifee event: type=${type}, detail=${JSON.stringify(detail)}`);
       const { notification, pressAction } = detail ?? {};
       if (!notification) return;
       const reminderId = notification.data?.reminderId;
@@ -194,24 +196,25 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
 
     const handleNotificationOpen = (reminderId: string) => {
       try {
+        console.log(`[Dominder-Debug] Handling notification open for reminder: ${reminderId}`);
         router.push(`/alarm?reminderId=${reminderId}`);
       } catch (e) {
-        console.error('Failed to open alarm screen from notification:', e);
+        console.error('[Dominder-Debug] Failed to open alarm screen from notification:', e);
       }
     };
 
     const handleNotificationDone = async (reminderId: string) => {
-      console.log(`Notification Done action for reminder: ${reminderId}`);
+      console.log(`[Dominder-Debug] Handling notification 'Done' action for reminder: ${reminderId}`);
       try {
         const notifee = require('@notifee/react-native');
         const displayedNotifications = await notifee.default.getDisplayedNotifications();
         const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
         if (targetNotification) {
           await notifee.default.cancelNotification(targetNotification.notification.id);
-          console.log(`Dismissed notification ${targetNotification.notification.id} after Done action`);
+          console.log(`[Dominder-Debug] Dismissed notification ${targetNotification.notification.id} after Done action`);
         }
       } catch (e) {
-        console.log('Could not dismiss notification:', e);
+        console.log('[Dominder-Debug] Could not dismiss notification:', e);
       }
 
       setTimeout(async () => {
@@ -225,12 +228,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
               const triggeredTime = new Date(reminder.lastTriggeredAt);
               const timeSinceTrigger = now.getTime() - triggeredTime.getTime();
               if (timeSinceTrigger > 30 * 60 * 1000) {
-                console.log(`Reminder ${reminderId} has expired (triggered ${Math.floor(timeSinceTrigger / 60000)} minutes ago)`);
+                console.log(`[Dominder-Debug] Reminder ${reminderId} has expired (triggered ${Math.floor(timeSinceTrigger / 60000)} minutes ago)`);
                 await notificationService.displayInfoNotification('Reminder Expired', 'This reminder has expired and cannot be marked as done.');
                 return;
               }
             }
-            console.log(`Marking reminder as completed from notification: ${reminderId}`);
+            console.log(`[Dominder-Debug] Marking reminder as completed from notification: ${reminderId}`);
             if (reminder.repeatType === 'none') {
               updateReminderRef.current.mutate({ 
                 ...reminder, 
@@ -240,7 +243,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
               });
             } else {
               const nextDate = calculateNextReminderDate(reminder, now);
-              console.log(`Updating repeating reminder ${reminderId} - type: ${reminder.repeatType}, next date: ${nextDate?.toISOString()}`);
+              console.log(`[Dominder-Debug] Updating repeating reminder ${reminderId} - type: ${reminder.repeatType}, next date: ${nextDate?.toISOString()}`);
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 lastTriggeredAt: now.toISOString(),
@@ -250,23 +253,23 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             }
           }
         } catch (error) {
-          console.error('Error getting fresh reminder data:', error);
+          console.error('[Dominder-Debug] Error getting fresh reminder data:', error);
         }
       }, 100);
     };
 
     const handleNotificationSnooze = async (reminderId: string, minutes: number = 5) => {
-      console.log(`Notification Snooze action for reminder: ${reminderId} for ${minutes} minutes`);
+      console.log(`[Dominder-Debug] Handling notification 'Snooze' action for reminder: ${reminderId} for ${minutes} minutes`);
       try {
         const notifee = require('@notifee/react-native');
         const displayedNotifications = await notifee.default.getDisplayedNotifications();
         const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
         if (targetNotification) {
           await notifee.default.cancelNotification(targetNotification.notification.id);
-          console.log(`Dismissed notification ${targetNotification.notification.id} after Snooze action`);
+          console.log(`[Dominder-Debug] Dismissed notification ${targetNotification.notification.id} after Snooze action`);
         }
       } catch (e) {
-        console.log('Could not dismiss notification:', e);
+        console.log('[Dominder-Debug] Could not dismiss notification:', e);
       }
 
       setTimeout(async () => {
@@ -275,7 +278,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const currentReminders: Reminder[] = stored ? JSON.parse(stored) : [];
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
-            console.log(`Snoozing reminder for ${minutes} minutes: ${reminderId}`);
+            console.log(`[Dominder-Debug] Snoozing reminder for ${minutes} minutes: ${reminderId}`);
             const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
             
             if (reminder.isExpired) {
@@ -294,13 +297,13 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             }
           }
         } catch (error) {
-          console.error('Error getting fresh reminder data:', error);
+          console.error('[Dominder-Debug] Error getting fresh reminder data:', error);
         }
       }, 100);
     };
 
     const handleNotificationDismissed = (reminderId: string) => {
-      console.log(`Notification Dismissed (swiped away) for reminder: ${reminderId}`);
+      console.log(`[Dominder-Debug] Notification Dismissed (swiped away) for reminder: ${reminderId}`);
       // Use a callback to get fresh reminders data
       setTimeout(async () => {
         try {
@@ -311,21 +314,21 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             // For "Once" reminders, mark as expired when notification is dismissed without action
             // Exception: Medium priority "Once" reminders should NOT be marked as expired
             if (reminder.repeatType === 'none' && reminder.priority !== 'medium') {
-              console.log(`Marking "Once" reminder as expired due to dismissed notification: ${reminderId}`);
+              console.log(`[Dominder-Debug] Marking "Once" reminder as expired due to dismissed notification: ${reminderId}`);
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 isExpired: true,
                 lastTriggeredAt: new Date().toISOString()
               });
             } else if (reminder.repeatType === 'none' && reminder.priority === 'medium') {
-              console.log(`Medium priority "Once" reminder dismissed - not marking as expired: ${reminderId}`);
+              console.log(`[Dominder-Debug] Medium priority "Once" reminder dismissed - not marking as expired: ${reminderId}`);
             } else {
               // For repeating reminders, just log that it was dismissed
-              console.log(`Repeating reminder notification dismissed: ${reminderId}`);
+              console.log(`[Dominder-Debug] Repeating reminder notification dismissed: ${reminderId}`);
             }
           }
         } catch (error) {
-          console.error('Error getting fresh reminder data:', error);
+          console.error('[Dominder-Debug] Error getting fresh reminder data:', error);
         }
       }, 100);
     };
@@ -344,14 +347,15 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
   const lastUpdateTimeRef = useRef(new Map<string, number>());
   
   useEffect(() => {
-    console.log('[ReminderEngine] Reminders updated:', reminders);
+    console.log('[Dominder-Debug] Reminder engine processing reminders...', reminders.length, 'reminders found.');
     const processNotifications = async () => {
       const now = Date.now();
       
       for (const reminder of reminders) {
+        console.log(`[Dominder-Debug] Processing reminder: ${reminder.id} (${reminder.title})`);
         // Skip reminders with internal flags to prevent loops
         if (reminder.snoozeClearing || reminder.notificationUpdating) {
-          console.log(`Skipping reminder ${reminder.id} - has internal flags`);
+          console.log(`[Dominder-Debug] Skipping reminder ${reminder.id} - has internal flags`);
           continue;
         }
         
@@ -359,7 +363,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const lastUpdateTime = lastUpdateTimeRef.current.get(reminder.id) || 0;
         const timeSinceLastUpdate = now - lastUpdateTime;
         if (timeSinceLastUpdate < 5000) {
-          console.log(`Skipping notification processing for reminder ${reminder.id} - recently updated ${timeSinceLastUpdate}ms ago`);
+          console.log(`[Dominder-Debug] Skipping notification processing for reminder ${reminder.id} - recently updated ${timeSinceLastUpdate}ms ago`);
           continue;
         }
         const shouldSchedule = (reminder.priority === 'low' || reminder.priority === 'medium' || reminder.priority === 'high') && reminder.isActive && !reminder.isCompleted && !reminder.isExpired && !reminder.isPaused;
@@ -372,18 +376,18 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const configChanged = previousConfig && previousConfig !== configString && !reminder.snoozeClearing;
         
         if (shouldSchedule) {
-          console.log(`[processNotifications] Reminder ${reminder.id} should be scheduled.`);
+          console.log(`[Dominder-Debug] Reminder ${reminder.id} should be scheduled. Has existing notification: ${existingNotificationId}`);
           let needsReschedule = false;
           
           // Check if reminder configuration changed (date, time, repeat settings, etc.)
           if (configChanged) {
-            console.log(`Reminder ${reminder.id} configuration changed, needs rescheduling`);
-            console.log(`Previous config: ${previousConfig}`);
-            console.log(`New config: ${configString}`);
+            console.log(`[Dominder-Debug] Reminder ${reminder.id} configuration changed, needs rescheduling`);
+            console.log(`[Dominder-Debug] Previous config: ${previousConfig}`);
+            console.log(`[Dominder-Debug] New config: ${configString}`);
             needsReschedule = true;
             
             // Cancel ALL notifications for this reminder (including any duplicates or orphaned ones)
-            console.log(`Cancelling all notifications for rescheduled reminder: ${reminder.id}`);
+            console.log(`[Dominder-Debug] Cancelling all notifications for rescheduled reminder: ${reminder.id}`);
             await notificationService.cancelAllNotificationsForReminder(reminder.id);
             scheduledNotifications.current.delete(reminder.id);
             // Add a delay to prevent immediate re-scheduling
@@ -392,9 +396,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           
           if (!existingNotificationId && !needsReschedule) {
             const osHasScheduled = await notificationService.hasScheduledForReminder(reminder.id);
+            console.log(`[Dominder-Debug] Reminder ${reminder.id} has no tracked notification. OS has scheduled: ${osHasScheduled}`);
             needsReschedule = !osHasScheduled;
           }
           if (reminder.snoozeUntil) {
+            console.log(`[Dominder-Debug] Reminder ${reminder.id} is snoozed. Needs reschedule.`);
             needsReschedule = true;
           }
           
@@ -406,7 +412,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             
             // If triggered recently (within 2 minutes), check if notification needs update
             if (timeSinceLastTrigger < 2 * 60 * 1000) {
-              console.log(`Recently triggered ${reminder.repeatType} reminder ${reminder.id}, checking if reschedule needed`);
+              console.log(`[Dominder-Debug] Recently triggered ${reminder.repeatType} reminder ${reminder.id}, checking if reschedule needed`);
               // Cancel existing notification and reschedule for next occurrence
               if (existingNotificationId) {
                 await notificationService.cancelNotification(existingNotificationId);
@@ -419,24 +425,27 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           // If the reminder's stored notificationId changed, simply sync our map without re-scheduling
           if (reminder.notificationId && !existingNotificationId && !configChanged) {
             // Sync the notificationId if we don't have it tracked yet
+            console.log(`[Dominder-Debug] Syncing notification ID ${reminder.notificationId} for reminder ${reminder.id}`);
             scheduledNotifications.current.set(reminder.id, reminder.notificationId);
             needsReschedule = false;
           } else if (reminder.notificationId && existingNotificationId && reminder.notificationId !== existingNotificationId && !configChanged) {
             // If notificationId changed but config didn't, just update our tracking
+            console.log(`[Dominder-Debug] Updating tracked notification ID for reminder ${reminder.id} to ${reminder.notificationId}`);
             scheduledNotifications.current.set(reminder.id, reminder.notificationId);
             needsReschedule = false;
           }
           
           if (needsReschedule) {
             if (existingNotificationId) {
-              console.log(`Cancelling old notification for reminder: ${reminder.id}`);
+              console.log(`[Dominder-Debug] Cancelling old notification ${existingNotificationId} for reminder: ${reminder.id}`);
               await notificationService.cancelNotification(existingNotificationId);
               scheduledNotifications.current.delete(reminder.id);
             }
             
-            console.log(`Scheduling notification for ${reminder.repeatType} reminder: ${reminder.id}`);
+            console.log(`[Dominder-Debug] Scheduling notification for ${reminder.repeatType} reminder: ${reminder.id}`);
             const notificationId = await notificationService.scheduleReminderByModel(reminder);
             if (notificationId) {
+              console.log(`[Dominder-Debug] Scheduled notification ${notificationId} for reminder ${reminder.id}`);
               scheduledNotifications.current.set(reminder.id, notificationId);
               reminderConfigsRef.current.set(reminder.id, configString); // Store the config
               lastUpdateTimeRef.current.set(reminder.id, Date.now()); // Track update time
@@ -461,8 +470,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             reminderConfigsRef.current.set(reminder.id, configString);
           }
         } else if (!shouldSchedule && existingNotificationId) {
-          console.log(`[processNotifications] Reminder ${reminder.id} should NOT be scheduled, cancelling notification.`);
-          console.log(`Cancelling notification for reminder: ${reminder.id}`);
+          console.log(`[Dominder-Debug] Reminder ${reminder.id} should NOT be scheduled, cancelling notification ${existingNotificationId}.`);
           await notificationService.cancelNotification(existingNotificationId);
           scheduledNotifications.current.delete(reminder.id);
           reminderConfigsRef.current.delete(reminder.id); // Remove config tracking
@@ -480,6 +488,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       const currentReminderIds = new Set(reminders.map(r => r.id));
       for (const [scheduledId, notificationId] of scheduledNotifications.current) {
         if (!currentReminderIds.has(scheduledId)) {
+          console.log(`[Dominder-Debug] Cleaning up orphaned notification ${notificationId} for deleted reminder ${scheduledId}`);
           await notificationService.cancelNotification(notificationId);
           scheduledNotifications.current.delete(scheduledId);
           reminderConfigsRef.current.delete(scheduledId); // Clean up config tracking
@@ -493,6 +502,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
 
   useEffect(() => {
     const checkReminders = async () => {
+      console.log('[Dominder-Debug] ReminderEngine: Running periodic checkReminders');
       const now = new Date();
       setLastTick(now.getTime());
       
@@ -502,7 +512,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         const stored = await AsyncStorage.getItem('dominder_reminders');
         currentReminders = stored ? JSON.parse(stored) : [];
       } catch (error) {
-        console.error('Error loading current reminders for safety check:', error);
+        console.error('[Dominder-Debug] Error loading current reminders for safety check:', error);
         return;
       }
       
@@ -510,7 +520,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           // SAFETY CHECK: Ensure reminder still exists in storage (not deleted)
           const reminderExists = currentReminders.some(stored => stored.id === r.id);
           if (!reminderExists) {
-            console.log(`Skipping deleted reminder: ${r.id}`);
+            console.log(`[Dominder-Debug] Skipping deleted reminder in checkReminders: ${r.id}`);
             return;
           }
           
@@ -522,7 +532,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             const triggeredTime = new Date(r.lastTriggeredAt);
             const timeSinceTrigger = now.getTime() - triggeredTime.getTime();
             if (timeSinceTrigger > 30 * 60 * 1000) { // 30 minutes
-              console.log(`Marking "once" reminder ${r.id} as expired (triggered ${Math.floor(timeSinceTrigger / 60000)} minutes ago)`);
+              console.log(`[Dominder-Debug] Marking "once" reminder ${r.id} as expired (triggered ${Math.floor(timeSinceTrigger / 60000)} minutes ago)`);
               updateReminderRef.current.mutate({ 
                 ...r, 
                 isExpired: true
@@ -553,7 +563,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           if (diff >= 0 && diff < 30 * 1000) {
             // For high priority reminders, open the alarm screen
             if (r.priority === 'high') {
-              console.log(`High priority reminder triggered: ${r.id} - opening alarm screen at ${next.toISOString()}`);
+              console.log(`[Dominder-Debug] High priority reminder triggered: ${r.id} - opening alarm screen at ${next.toISOString()}`);
               router.push(`/alarm?reminderId=${r.id}`);
               
               // Update the last triggered time
@@ -579,9 +589,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     // Periodic cleanup of orphaned notifications every 5 minutes
     const cleanupInterval = setInterval(async () => {
       try {
+        console.log('[Dominder-Debug] Running periodic cleanup of orphaned notifications');
         await notificationService.cleanupOrphanedNotifications();
       } catch (error) {
-        console.error('Error during periodic notification cleanup:', error);
+        console.error('[Dominder-Debug] Error during periodic notification cleanup:', error);
       }
     }, 5 * 60 * 1000); // 5 minutes
     
