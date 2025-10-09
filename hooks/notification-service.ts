@@ -88,7 +88,7 @@ export const notificationService = {
         });
       }
 
-      const notificationId = `reminder_${reminder.id}_${Date.now()}`;
+      const notificationId = `reminder_${reminder.id}`;
       
       const notificationDetails: any = {
         id: notificationId,

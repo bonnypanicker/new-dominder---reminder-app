@@ -90,9 +90,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
       case 'monthly': {
         const dayOfMonth = reminder.monthlyDay ?? base.getDate();
-        const target = nextMonthlyOccurrenceFrom(now, dayOfMonth, hh, mm);
-        console.log(`[Dominder-Debug] Monthly computeNextFire -> desired=${dayOfMonth}, result=${target.toISOString()}`);
-        return target;
+        let candidate = setTime(new Date(now.getFullYear(), now.getMonth(), dayOfMonth));
+        if (candidate <= now) {
+          candidate = setTime(new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth));
+        }
+        console.log(`[Dominder-Debug] Monthly computeNextFire -> desired=${dayOfMonth}, result=${candidate.toISOString()}`);
+        return candidate;
       }
       case 'yearly': {
         const target = setTime(new Date(now.getFullYear(), month - 1, day));
@@ -206,11 +209,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const handleNotificationDone = async (reminderId: string) => {
       console.log(`[Dominder-Debug] Handling notification 'Done' action for reminder: ${reminderId}`);
       try {
-        const notifee = require('@notifee/react-native');
-        const displayedNotifications = await notifee.default.getDisplayedNotifications();
+        const notifeeModule = await import('@notifee/react-native');
+        const notifee = notifeeModule.default;
+        const displayedNotifications = await notifee.getDisplayedNotifications();
         const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
-        if (targetNotification) {
-          await notifee.default.cancelNotification(targetNotification.notification.id);
+        if (targetNotification?.notification?.id) {
+          await notifee.cancelNotification(targetNotification.notification.id);
           console.log(`[Dominder-Debug] Dismissed notification ${targetNotification.notification.id} after Done action`);
         }
       } catch (e) {
@@ -261,11 +265,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const handleNotificationSnooze = async (reminderId: string, minutes: number = 5) => {
       console.log(`[Dominder-Debug] Handling notification 'Snooze' action for reminder: ${reminderId} for ${minutes} minutes`);
       try {
-        const notifee = require('@notifee/react-native');
-        const displayedNotifications = await notifee.default.getDisplayedNotifications();
+        const notifeeModule = await import('@notifee/react-native');
+        const notifee = notifeeModule.default;
+        const displayedNotifications = await notifee.getDisplayedNotifications();
         const targetNotification = displayedNotifications.find((n: any) => n.notification?.data?.reminderId === reminderId);
-        if (targetNotification) {
-          await notifee.default.cancelNotification(targetNotification.notification.id);
+        if (targetNotification?.notification?.id) {
+          await notifee.cancelNotification(targetNotification.notification.id);
           console.log(`[Dominder-Debug] Dismissed notification ${targetNotification.notification.id} after Snooze action`);
         }
       } catch (e) {
@@ -391,7 +396,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             await notificationService.cancelAllNotificationsForReminder(reminder.id);
             scheduledNotifications.current.delete(reminder.id);
             // Add a delay to prevent immediate re-scheduling
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
           
           if (!existingNotificationId && !needsReschedule) {
@@ -436,7 +441,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           }
           
           if (needsReschedule) {
-            if (existingNotificationId) {
+            if (existingNotificationId && !configChanged) {
               console.log(`[Dominder-Debug] Cancelling old notification ${existingNotificationId} for reminder: ${reminder.id}`);
               await notificationService.cancelNotification(existingNotificationId);
               scheduledNotifications.current.delete(reminder.id);
@@ -447,26 +452,22 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             if (notificationId) {
               console.log(`[Dominder-Debug] Scheduled notification ${notificationId} for reminder ${reminder.id}`);
               scheduledNotifications.current.set(reminder.id, notificationId);
-              reminderConfigsRef.current.set(reminder.id, configString); // Store the config
-              lastUpdateTimeRef.current.set(reminder.id, Date.now()); // Track update time
-              // Only update notificationId if it actually changed and we're not already in an update cycle
-              if (notificationId !== reminder.notificationId && !configChanged && !reminder.notificationUpdating) {
-                // Use setTimeout to avoid triggering immediate re-render and add flag to prevent loops
+              reminderConfigsRef.current.set(reminder.id, configString);
+              lastUpdateTimeRef.current.set(reminder.id, Date.now());
+              
+              if (notificationId !== reminder.notificationId) {
                 setTimeout(() => {
-                  // Double-check the reminder still needs this update
                   const currentUpdateTime = lastUpdateTimeRef.current.get(reminder.id) || 0;
-                  if (Date.now() - currentUpdateTime < 1000) {
+                  if (Date.now() - currentUpdateTime < 2000) {
                     updateReminderRef.current.mutate({ 
                       ...reminder, 
-                      notificationId,
-                      notificationUpdating: true
+                      notificationId
                     });
                   }
                 }, 500);
               }
             }
           } else if (!needsReschedule) {
-            // Update stored config even if no reschedule needed
             reminderConfigsRef.current.set(reminder.id, configString);
           }
         } else if (!shouldSchedule && existingNotificationId) {
