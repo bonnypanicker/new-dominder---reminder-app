@@ -432,19 +432,29 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           }
           
           // For repeating reminders, check if we need to reschedule based on nextReminderDate
-          if (reminder.repeatType !== 'none' && reminder.lastTriggeredAt && !configChanged && !needsReschedule) {
-            const lastTriggered = new Date(reminder.lastTriggeredAt);
-            const now = new Date();
-            const timeSinceLastTrigger = now.getTime() - lastTriggered.getTime();
-            
-            // If triggered recently (within 2 minutes), check if notification needs update
-            if (timeSinceLastTrigger < 2 * 60 * 1000) {
-              console.log(`[Dominder-Debug] Recently triggered ${reminder.repeatType} reminder ${reminder.id}, checking if reschedule needed`);
-              // Cancel existing notification and reschedule for next occurrence
-              if (existingNotificationId) {
-                await notificationService.cancelNotification(existingNotificationId);
-                scheduledNotifications.current.delete(reminder.id);
+          if (reminder.repeatType !== 'none' && !configChanged && !needsReschedule) {
+            // Check if the scheduled notification is for the correct date
+            if (existingNotificationId && reminder.nextReminderDate) {
+              const triggers = await notificationService.getAllScheduledNotifications();
+              const scheduledTrigger = triggers.find((t: any) => t.notification?.id === existingNotificationId);
+              
+              const triggerTimestamp = (scheduledTrigger?.trigger as any)?.timestamp;
+              if (triggerTimestamp) {
+                const scheduledTime = new Date(triggerTimestamp);
+                const expectedTime = new Date(reminder.nextReminderDate);
+                const timeDiff = Math.abs(scheduledTime.getTime() - expectedTime.getTime());
+                
+                // If scheduled time differs from expected by more than 10 seconds, reschedule
+                if (timeDiff > 10000) {
+                  console.log(`[Dominder-Debug] Repeating reminder ${reminder.id} scheduled for wrong time. Expected: ${expectedTime.toISOString()}, Scheduled: ${scheduledTime.toISOString()}`);
+                  await notificationService.cancelNotification(existingNotificationId);
+                  scheduledNotifications.current.delete(reminder.id);
+                  needsReschedule = true;
+                }
               }
+            } else if (!existingNotificationId && reminder.nextReminderDate) {
+              // No notification scheduled but we have a next date - need to schedule
+              console.log(`[Dominder-Debug] Repeating reminder ${reminder.id} has nextReminderDate but no scheduled notification`);
               needsReschedule = true;
             }
           }

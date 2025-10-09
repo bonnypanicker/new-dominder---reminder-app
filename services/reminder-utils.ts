@@ -50,9 +50,9 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       const selected = (reminder.repeatDays && reminder.repeatDays.length > 0)
         ? reminder.repeatDays
         : [0,1,2,3,4,5,6];
-      for (let add = 1; add < 8; add++) {
+      for (let add = 0; add < 8; add++) {
         const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
-        if (selected.includes(check.getDay())) return check;
+        if (selected.includes(check.getDay()) && check > fromDate) return check;
       }
       return null;
     }
@@ -86,9 +86,9 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
     case 'custom': {
       const selected = reminder.repeatDays ?? [];
       if (selected.length === 0) return null;
-      for (let add = 1; add < 370; add++) {
+      for (let add = 0; add < 370; add++) {
         const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
-        if (selected.includes(check.getDay())) return check;
+        if (selected.includes(check.getDay()) && check > fromDate) return check;
       }
       return null;
     }
