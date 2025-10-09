@@ -101,7 +101,7 @@ export const notificationService = {
           channelId,
           importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           pressAction: {
-            id: reminder.priority === 'high' ? 'alarm' : 'default',
+            id: 'alarm',
           },
           actions,
           sound: reminder.priority === 'low' ? undefined : 'default',

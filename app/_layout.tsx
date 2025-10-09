@@ -21,21 +21,47 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   useEffect(() => {
-    async function handleNotification(notification) {
-      if (notification) {
-        const { data, android } = notification;
-        if (android?.fullScreenAction && data?.reminderId) {
-          router.replace(`/alarm?reminderId=${data.reminderId}`);
+    // Handle both foreground and initial notification (when app opens from notification)
+    const checkInitialNotification = async () => {
+      try {
+        const initialNotification = await notifee.getInitialNotification();
+        if (initialNotification) {
+          const { notification, pressAction } = initialNotification;
+          console.log('[Dominder-Debug] App opened from notification:', notification?.data?.reminderId, 'pressAction:', pressAction?.id);
+          
+          if (notification?.data?.reminderId) {
+            const reminderId = notification.data.reminderId;
+            
+            // Open alarm screen for all notification presses (unless it's an action button)
+            if (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id) {
+              console.log('[Dominder-Debug] Opening alarm screen from initial notification');
+              router.replace(`/alarm?reminderId=${reminderId}`);
+            }
+          }
         }
+      } catch (error) {
+        console.error('[Dominder-Debug] Error checking initial notification:', error);
       }
-    }
+    };
 
-
+    checkInitialNotification();
 
     // Handle foreground events
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      console.log('[Dominder-Debug] Foreground event:', type, 'pressAction:', detail?.pressAction?.id);
+      
       if (type === EventType.PRESS) {
-        handleNotification(detail.notification);
+        const { notification, pressAction } = detail;
+        
+        if (notification?.data?.reminderId) {
+          const reminderId = notification.data.reminderId;
+          
+          // Open alarm screen for all notification presses (unless it's an action button)
+          if (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id) {
+            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press');
+            router.push(`/alarm?reminderId=${reminderId}`);
+          }
+        }
       }
     });
 

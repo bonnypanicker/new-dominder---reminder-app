@@ -88,22 +88,38 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   try {
     console.log(`[Dominder-Debug] Background event: type=${type}, detail=${JSON.stringify(detail)}`);
     
-    if (type !== EventType.ACTION_PRESS && type !== EventType.DISMISSED) return;
-    
     const { notification, pressAction } = detail || {};
     if (!notification) return;
     
     const reminderId = notification.data && notification.data.reminderId;
     if (typeof reminderId !== 'string') return;
     
-    console.log(`[Dominder-Debug] Background event for reminder: ${reminderId}, action: ${pressAction?.id || 'dismissed'}`);
+    console.log(`[Dominder-Debug] Background event for reminder: ${reminderId}, action: ${pressAction?.id || 'dismissed'}, type: ${type}`);
     
-    try { 
-      await notifee.cancelNotification(notification.id); 
-      console.log(`[Dominder-Debug] Cancelled notification: ${notification.id}`);
-    } catch (e) {
-      console.log('[Dominder-Debug] Could not cancel notification:', e);
+    // Handle notification press to open alarm screen (for high priority reminders)
+    if (type === EventType.PRESS) {
+      if (pressAction?.id === 'alarm' || pressAction?.id === 'default') {
+        console.log(`[Dominder-Debug] Background: Opening alarm screen for reminder ${reminderId}`);
+        // The app will be brought to foreground and the foreground handler in _layout.tsx will handle routing
+        // We don't cancel the notification here - let the alarm screen handle it
+        return;
+      }
     }
+    
+    // For action buttons and dismissals, cancel the notification
+    if (type === EventType.ACTION_PRESS || type === EventType.DISMISSED) {
+      try { 
+        await notifee.cancelNotification(notification.id); 
+        console.log(`[Dominder-Debug] Cancelled notification: ${notification.id}`);
+      } catch (e) {
+        console.log('[Dominder-Debug] Could not cancel notification:', e);
+      }
+    } else {
+      // For PRESS events that aren't handled above, return early
+      return;
+    }
+    
+    if (type !== EventType.ACTION_PRESS && type !== EventType.DISMISSED) return;
     
     const raw = (await AsyncStorage.getItem(STORAGE_KEY)) || '[]';
     const list = JSON.parse(raw);
@@ -128,7 +144,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       return;
     }
     
-    if (pressAction?.id === 'done') {
+    if (type === EventType.ACTION_PRESS && pressAction?.id === 'done') {
       console.log(`[Dominder-Debug] Background: Handling 'Done' action for reminder ${reminderId}`);
       
       if (reminder.repeatType === 'none') {
