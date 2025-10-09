@@ -149,6 +149,7 @@ export const notificationService = {
         android: {
           channelId,
           importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
+          category: reminder.priority === 'high' ? 'alarm' : undefined,
           pressAction: {
             id: reminder.priority === 'high' ? 'alarm' : 'default',
           },
@@ -157,6 +158,7 @@ export const notificationService = {
           vibrationPattern: reminder.priority === 'low' ? undefined : [300, 500],
           autoCancel: reminder.priority === 'low',
           ongoing: reminder.priority === 'high' || reminder.priority === 'medium',
+          visibility: 1,
         },
       };
 
