@@ -179,14 +179,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
 
       if (type === EVENT_TYPE_PRESS) {
-        if (pressAction?.id === 'done') {
+        if (pressAction?.id === 'alarm') {
+          handleNotificationOpen(reminderId);
+        } else if (pressAction?.id === 'done') {
           handleNotificationDone(reminderId);
         } else {
           const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction?.id || '');
           if (snoozeMatch) {
             const minutes = parseInt(snoozeMatch[1], 10);
             handleNotificationSnooze(reminderId, minutes);
-          } else if (pressAction?.id === 'default' || pressAction?.id === 'alarm') {
+          } else if (pressAction?.id === 'default') {
             handleNotificationOpen(reminderId);
           }
         }
@@ -309,27 +311,21 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
 
     const handleNotificationDismissed = (reminderId: string) => {
       console.log(`[Dominder-Debug] Notification Dismissed (swiped away) for reminder: ${reminderId}`);
-      // Use a callback to get fresh reminders data
       setTimeout(async () => {
         try {
           const stored = await AsyncStorage.getItem('dominder_reminders');
           const currentReminders: Reminder[] = stored ? JSON.parse(stored) : [];
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
-            // For "Once" reminders, mark as expired when notification is dismissed without action
-            // Exception: Medium priority "Once" reminders should NOT be marked as expired
-            if (reminder.repeatType === 'none' && reminder.priority !== 'medium') {
-              console.log(`[Dominder-Debug] Marking "Once" reminder as expired due to dismissed notification: ${reminderId}`);
+            if (reminder.repeatType === 'none' && reminder.priority === 'low') {
+              console.log(`[Dominder-Debug] Marking "Once" low priority reminder as expired due to dismissed notification: ${reminderId}`);
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 isExpired: true,
                 lastTriggeredAt: new Date().toISOString()
               });
-            } else if (reminder.repeatType === 'none' && reminder.priority === 'medium') {
-              console.log(`[Dominder-Debug] Medium priority "Once" reminder dismissed - not marking as expired: ${reminderId}`);
             } else {
-              // For repeating reminders, just log that it was dismissed
-              console.log(`[Dominder-Debug] Repeating reminder notification dismissed: ${reminderId}`);
+              console.log(`[Dominder-Debug] Notification dismissed for reminder ${reminderId} (priority: ${reminder.priority}, repeat: ${reminder.repeatType})`);
             }
           }
         } catch (error) {

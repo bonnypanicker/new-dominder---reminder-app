@@ -61,16 +61,8 @@ export const notificationService = {
       
       if (reminder.priority === 'high') {
         actions.push({
-          title: 'Done',
-          pressAction: { id: 'done' },
-        });
-        actions.push({
-          title: 'Snooze 5m',
-          pressAction: { id: 'snooze_5' },
-        });
-        actions.push({
-          title: 'Snooze 10m',
-          pressAction: { id: 'snooze_10' },
+          title: 'Open Alarm',
+          pressAction: { id: 'alarm' },
         });
       } else if (reminder.priority === 'medium') {
         actions.push({
@@ -101,13 +93,13 @@ export const notificationService = {
           channelId,
           importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           pressAction: {
-            id: 'alarm',
+            id: reminder.priority === 'high' ? 'alarm' : 'default',
           },
           actions,
           sound: reminder.priority === 'low' ? undefined : 'default',
           vibrationPattern: reminder.priority === 'low' ? undefined : [300, 500],
-          autoCancel: reminder.priority !== 'medium',
-          ongoing: reminder.priority === 'medium',
+          autoCancel: reminder.priority === 'low',
+          ongoing: reminder.priority === 'high' || reminder.priority === 'medium',
         },
       };
 
