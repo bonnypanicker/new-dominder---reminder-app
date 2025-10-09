@@ -146,8 +146,34 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const initNotifications = async () => {
       try {
         console.log('[Dominder-Debug] ReminderEngine: Initializing notifications');
+        
+        // Check and request permissions first
+        const hasPermission = await notificationService.checkPermissions();
+        if (!hasPermission) {
+          console.log('[Dominder-Debug] No notification permission, requesting...');
+          const granted = await notificationService.requestPermissions();
+          if (!granted) {
+            console.error('[Dominder-Debug] Notification permission denied by user');
+            return;
+          }
+        }
+        
         await notificationService.initialize();
         await notificationService.cleanupOrphanedNotifications();
+        
+        // Log all currently scheduled notifications for debugging
+        const scheduled = await notificationService.getAllScheduledNotifications();
+        console.log(`[Dominder-Debug] Currently scheduled notifications: ${scheduled.length}`);
+        scheduled.forEach((trigger: any) => {
+          const timestamp = trigger.trigger?.timestamp;
+          const id = trigger.notification?.id;
+          const reminderId = trigger.notification?.data?.reminderId;
+          if (timestamp) {
+            const date = new Date(timestamp);
+            const inSeconds = Math.round((timestamp - Date.now()) / 1000);
+            console.log(`[Dominder-Debug]   - ${id} (reminder: ${reminderId}) scheduled for ${date.toISOString()} (in ${inSeconds}s)`);
+          }
+        });
       } catch (error) {
         console.error('[Dominder-Debug] Failed to initialize notifications in engine:', error);
       }
@@ -462,6 +488,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                   }
                 }, 500);
               }
+            } else {
+              console.error(`[Dominder-Debug] Failed to schedule notification for reminder ${reminder.id}`);
             }
           } else if (!needsReschedule) {
             reminderConfigsRef.current.set(reminder.id, configString);
