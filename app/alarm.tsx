@@ -4,6 +4,7 @@ import notifee from '@notifee/react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useReminders, useUpdateReminder } from '@/hooks/reminder-store';
 import { Reminder } from '@/types/reminder';
+import { calculateNextReminderDate } from '@/services/reminder-utils';
 
 export default function AlarmScreen() {
   const router = useRouter();
@@ -26,31 +27,90 @@ export default function AlarmScreen() {
     }
   }, [reminders, reminderId]);
 
+  useEffect(() => {
+    const cancelNotificationOnOpen = async () => {
+      if (reminderId) {
+        try {
+          console.log(`[Dominder-Debug] Alarm screen opened for reminder ${reminderId}, cancelling notification`);
+          const notificationId = `reminder_${reminderId}`;
+          await notifee.cancelNotification(notificationId);
+          
+          const displayed = await notifee.getDisplayedNotifications();
+          const targetNotification = displayed.find((n: any) => n.notification?.data?.reminderId === reminderId);
+          if (targetNotification?.notification?.id) {
+            await notifee.cancelNotification(targetNotification.notification.id);
+            console.log(`[Dominder-Debug] Cancelled displayed notification ${targetNotification.notification.id}`);
+          }
+        } catch (e) {
+          console.error('[Dominder-Debug] Error cancelling notification on alarm screen open:', e);
+        }
+      }
+    };
+    
+    cancelNotificationOnOpen();
+  }, [reminderId]);
+
   const handleDismiss = useCallback(async () => {
     try {
-      await notifee.cancelNotification(`rem-${reminderId}`);
+      console.log(`[Dominder-Debug] Dismissing alarm for reminder ${reminderId}`);
+      const notificationId = `reminder_${reminderId}`;
+      await notifee.cancelNotification(notificationId);
+      
+      const displayed = await notifee.getDisplayedNotifications();
+      const targetNotification = displayed.find((n: any) => n.notification?.data?.reminderId === reminderId);
+      if (targetNotification?.notification?.id) {
+        await notifee.cancelNotification(targetNotification.notification.id);
+        console.log(`[Dominder-Debug] Cancelled displayed notification ${targetNotification.notification.id}`);
+      }
     } catch (e) {
-      console.error('Error cancelling notifications:', e);
+      console.error('[Dominder-Debug] Error cancelling notifications:', e);
     }
-    // Navigate back or to home screen
+    
     if (router.canGoBack()) {
       router.back();
     } else {
-      BackHandler.exitApp();
+      router.replace('/');
     }
-  }, [router]);
+  }, [router, reminderId]);
 
   const done = useCallback(async () => {
     if (reminder) {
-      updateReminder({ ...reminder, isCompleted: true, snoozeUntil: undefined });
+      console.log(`[Dominder-Debug] Marking reminder ${reminder.id} as done from alarm screen`);
+      const now = new Date();
+      
+      if (reminder.repeatType === 'none') {
+        updateReminder({ 
+          ...reminder, 
+          isCompleted: true, 
+          snoozeUntil: undefined,
+          lastTriggeredAt: now.toISOString()
+        });
+      } else {
+        const nextDate = calculateNextReminderDate(reminder, now);
+        console.log(`[Dominder-Debug] Updating repeating reminder ${reminder.id}, next date: ${nextDate?.toISOString()}`);
+        updateReminder({ 
+          ...reminder, 
+          lastTriggeredAt: now.toISOString(),
+          nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
+          snoozeUntil: undefined
+        });
+      }
     }
     await handleDismiss();
   }, [reminder, updateReminder, handleDismiss]);
 
   const snooze = useCallback(async (minutes: number) => {
     if (reminder) {
+      console.log(`[Dominder-Debug] Snoozing reminder ${reminder.id} for ${minutes} minutes from alarm screen`);
       const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
-      updateReminder({ ...reminder, snoozeUntil });
+      const now = new Date();
+      
+      updateReminder({ 
+        ...reminder, 
+        snoozeUntil,
+        lastTriggeredAt: now.toISOString(),
+        isExpired: false
+      });
     }
     await handleDismiss();
   }, [reminder, updateReminder, handleDismiss]);
