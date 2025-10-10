@@ -232,11 +232,17 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             const minutes = parseInt(snoozeMatch[1], 10);
             handleNotificationSnooze(reminderId, minutes);
           } else if (pressAction?.id === 'default') {
-            // Only open alarm screen for ringer mode (high priority)
+            // Open alarm screen for ringer mode (high priority)
             if (priority === 'high') {
               handleNotificationOpen(reminderId);
             } else {
-              console.log('[Dominder-Debug] Notification pressed but not ringer mode, priority:', priority);
+              // For standard and silent modes, open the app (navigate to home)
+              console.log('[Dominder-Debug] Notification body pressed for standard/silent mode, opening app');
+              try {
+                router.push('/');
+              } catch (e) {
+                console.error('[Dominder-Debug] Failed to navigate to home:', e);
+              }
             }
           }
         }
