@@ -114,9 +114,10 @@ export const notificationService = {
       const channelId = getPriorityChannelId(reminder.priority);
       console.log(`[Dominder-Debug] Using channel ID: ${channelId} for priority: ${reminder.priority}`);
 
-      const trigger: TimestampTrigger = {
+      const trigger: TimestampTrigger & { allowWhileIdle?: boolean } = {
         type: TriggerType.TIMESTAMP,
         timestamp: triggerTime.getTime(),
+        allowWhileIdle: reminder.priority !== 'high' ? true : undefined,
       };
 
       const actions = [];
