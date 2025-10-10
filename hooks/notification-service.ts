@@ -71,8 +71,8 @@ export const notificationService = {
       } else if (reminder.nextReminderDate && reminder.repeatType !== 'none') {
         triggerTime = new Date(reminder.nextReminderDate);
         console.log(`[Dominder-Debug] Using nextReminderDate: ${triggerTime.toISOString()}`);
-      } else if (reminder.repeatType === 'none') {
-        // For one-time reminders, use the date and time directly
+      } else {
+        // For all other cases (including 'none' without nextReminderDate), calculate from date/time
         const dateParts = reminder.date.split('-');
         const year = parseInt(dateParts[0] || '0', 10);
         const month = parseInt(dateParts[1] || '1', 10);
@@ -80,13 +80,17 @@ export const notificationService = {
         const timeParts = reminder.time.split(':');
         const hh = parseInt(timeParts[0] || '0', 10);
         const mm = parseInt(timeParts[1] || '0', 10);
-        triggerTime = new Date(year, month - 1, day, hh, mm, 0, 0);
-        console.log(`[Dominder-Debug] One-time reminder, using date/time: ${triggerTime.toISOString()}, date: ${reminder.date}, time: ${reminder.time}`);
-      } else {
-        // For repeating reminders, calculate next occurrence
-        console.log(`[Dominder-Debug] Repeating reminder detected, calling calculateNextReminderDate`);
-        triggerTime = calculateNextReminderDate(reminder, now);
-        console.log(`[Dominder-Debug] Calculated next trigger time: ${triggerTime?.toISOString()}`);
+        
+        if (reminder.repeatType === 'none') {
+          // For one-time reminders, use the date and time directly
+          triggerTime = new Date(year, month - 1, day, hh, mm, 0, 0);
+          console.log(`[Dominder-Debug] One-time reminder, using date/time: ${triggerTime.toISOString()}, date: ${reminder.date}, time: ${reminder.time}`);
+        } else {
+          // For repeating reminders without nextReminderDate, calculate next occurrence
+          console.log(`[Dominder-Debug] Repeating reminder detected, calling calculateNextReminderDate`);
+          triggerTime = calculateNextReminderDate(reminder, now);
+          console.log(`[Dominder-Debug] Calculated next trigger time: ${triggerTime?.toISOString()}`);
+        }
       }
 
       if (!triggerTime) {

@@ -32,7 +32,7 @@ function nextMonthlyOccurrenceFrom(now: Date, desiredDay: number, hh: number, mm
 }
 
 export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = new Date()): Date | null {
-  console.log(`[calculateNextReminderDate] for reminder: ${reminder.id}, fromDate: ${fromDate.toISOString()}, repeatType: ${reminder.repeatType}`);
+  console.log(`[calculateNextReminderDate] for reminder: ${reminder.id}, fromDate: ${fromDate.toISOString()}, repeatType: ${reminder.repeatType}, date: ${reminder.date}, time: ${reminder.time}`);
   const timeParts = reminder.time.split(':');
   const hh = parseInt(timeParts[0] || '0', 10);
   const mm = parseInt(timeParts[1] || '0', 10);
@@ -44,7 +44,14 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
 
   switch (reminder.repeatType) {
     case 'none': {
-      return null; // Non-repeating reminders don't have next dates
+      // For one-time reminders, return the scheduled date/time if it's in the future
+      const dateParts = reminder.date.split('-');
+      const year = parseInt(dateParts[0] || '0', 10);
+      const month = parseInt(dateParts[1] || '1', 10);
+      const day = parseInt(dateParts[2] || '1', 10);
+      const scheduledTime = new Date(year, month - 1, day, hh, mm, 0, 0);
+      console.log(`[calculateNextReminderDate] One-time reminder scheduled for: ${scheduledTime.toISOString()}, isInFuture: ${scheduledTime > fromDate}`);
+      return scheduledTime > fromDate ? scheduledTime : null;
     }
     case 'daily': {
       const selected = (reminder.repeatDays && reminder.repeatDays.length > 0)
