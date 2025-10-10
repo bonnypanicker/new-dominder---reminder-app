@@ -150,6 +150,7 @@ export const notificationService = {
         body: reminder.description || 'Reminder',
         data: {
           reminderId: reminder.id,
+          priority: reminder.priority,
         },
         android: {
           channelId,

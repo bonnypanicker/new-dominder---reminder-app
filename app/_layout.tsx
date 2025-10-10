@@ -31,11 +31,14 @@ function RootLayoutNav() {
           
           if (notification?.data?.reminderId) {
             const reminderId = notification.data.reminderId;
+            const priority = notification.data.priority;
             
-            // Open alarm screen for all notification presses (unless it's an action button)
-            if (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id) {
-              console.log('[Dominder-Debug] Opening alarm screen from initial notification');
+            // Only open alarm screen for "ringer" mode (high priority) reminders
+            if (priority === 'high' && (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id)) {
+              console.log('[Dominder-Debug] Opening alarm screen from initial notification (ringer mode)');
               router.replace(`/alarm?reminderId=${reminderId}`);
+            } else {
+              console.log('[Dominder-Debug] Notification pressed but not ringer mode, priority:', priority);
             }
           }
         }
@@ -55,11 +58,14 @@ function RootLayoutNav() {
         
         if (notification?.data?.reminderId) {
           const reminderId = notification.data.reminderId;
+          const priority = notification.data.priority;
           
-          // Open alarm screen for all notification presses (unless it's an action button)
-          if (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id) {
-            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press');
+          // Only open alarm screen for "ringer" mode (high priority) reminders
+          if (priority === 'high' && (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id)) {
+            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press (ringer mode)');
             router.push(`/alarm?reminderId=${reminderId}`);
+          } else {
+            console.log('[Dominder-Debug] Notification pressed but not ringer mode, priority:', priority);
           }
         }
       }

@@ -220,6 +220,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
 
       if (type === EVENT_TYPE_PRESS) {
+        const priority = notification.data?.priority;
+        
         if (pressAction?.id === 'alarm') {
           handleNotificationOpen(reminderId);
         } else if (pressAction?.id === 'done') {
@@ -230,7 +232,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             const minutes = parseInt(snoozeMatch[1], 10);
             handleNotificationSnooze(reminderId, minutes);
           } else if (pressAction?.id === 'default') {
-            handleNotificationOpen(reminderId);
+            // Only open alarm screen for ringer mode (high priority)
+            if (priority === 'high') {
+              handleNotificationOpen(reminderId);
+            } else {
+              console.log('[Dominder-Debug] Notification pressed but not ringer mode, priority:', priority);
+            }
           }
         }
       } else if (type === EVENT_TYPE_DISMISSED) {
