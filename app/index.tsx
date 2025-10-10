@@ -1632,10 +1632,10 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   
   const HOUR_SENSITIVITY = 1.0;
   const MINUTE_SENSITIVITY = 1.0;
-  const DEADBAND_DEG = 0.5;
+  const DEADBAND_DEG = 1.5;
   const DECAY_FRICTION = 0.85;
   const MIN_DECAY_VELOCITY = 0.3;
-  const VELOCITY_THRESHOLD = 9999; // Disabled momentum to improve finger tracking
+  const VELOCITY_THRESHOLD = 0.15; // Minimum velocity to trigger momentum
   const SNAP_THRESHOLD = 0.08; // Below this velocity, snap to nearest value
   const SNAP_DURATION = 200; // Duration of snap animation in ms
   
@@ -1692,17 +1692,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       stoppedByFriction.current = false;
       lastMoveTime.current = Date.now();
       
-      const nEvt: any = evt.nativeEvent as any;
-      const moveX = (gestureState as any).moveX;
-      const moveY = (gestureState as any).moveY;
-      let px = typeof moveX === 'number' && !Number.isNaN(moveX) && moveX !== 0 ? moveX : (nEvt?.pageX ?? 0);
-      let py = typeof moveY === 'number' && !Number.isNaN(moveY) && moveY !== 0 ? moveY : (nEvt?.pageY ?? 0);
-      if ((px === 0 && py === 0) && nEvt?.locationX != null && nEvt?.locationY != null) {
-        const lx = nEvt.locationX as number;
-        const ly = nEvt.locationY as number;
-        px = centerRef.current.x - discSize / 2 + lx;
-        py = centerRef.current.y - discSize / 2 + ly;
-      }
+      const px = (evt.nativeEvent as any)?.pageX ?? (gestureState as any).moveX ?? 0;
+      const py = (evt.nativeEvent as any)?.pageY ?? (gestureState as any).moveY ?? 0;
       const cx = centerRef.current.x;
       const cy = centerRef.current.y;
       const angle = Math.atan2(py - cy, px - cx);
@@ -1712,17 +1703,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     onPanResponderMove: (evt, gestureState) => {
       if (!isDragging.current) return;
       const currentTime = Date.now();
-      const nEvt: any = evt.nativeEvent as any;
-      const moveX = (gestureState as any).moveX;
-      const moveY = (gestureState as any).moveY;
-      let px = typeof moveX === 'number' && !Number.isNaN(moveX) && moveX !== 0 ? moveX : (nEvt?.pageX ?? 0);
-      let py = typeof moveY === 'number' && !Number.isNaN(moveY) && moveY !== 0 ? moveY : (nEvt?.pageY ?? 0);
-      if ((px === 0 && py === 0) && nEvt?.locationX != null && nEvt?.locationY != null) {
-        const lx = nEvt.locationX as number;
-        const ly = nEvt.locationY as number;
-        px = centerRef.current.x - discSize / 2 + lx;
-        py = centerRef.current.y - discSize / 2 + ly;
-      }
+      const px = (gestureState as any).moveX ?? (evt.nativeEvent as any)?.pageX ?? 0;
+      const py = (gestureState as any).moveY ?? (evt.nativeEvent as any)?.pageY ?? 0;
       const cx = centerRef.current.x;
       const cy = centerRef.current.y;
       const angle = Math.atan2(py - cy, px - cx);
