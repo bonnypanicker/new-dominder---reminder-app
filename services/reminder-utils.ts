@@ -32,7 +32,7 @@ function nextMonthlyOccurrenceFrom(now: Date, desiredDay: number, hh: number, mm
 }
 
 export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = new Date()): Date | null {
-  console.log(`[calculateNextReminderDate] for reminder: ${reminder.id}, fromDate: ${fromDate.toISOString()}`);
+  console.log(`[calculateNextReminderDate] for reminder: ${reminder.id}, fromDate: ${fromDate.toISOString()}, repeatType: ${reminder.repeatType}, date: ${reminder.date}, time: ${reminder.time}`);
   const timeParts = reminder.time.split(':');
   const hh = parseInt(timeParts[0] || '0', 10);
   const mm = parseInt(timeParts[1] || '0', 10);
@@ -44,16 +44,29 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
 
   switch (reminder.repeatType) {
     case 'none': {
-      return null; // Non-repeating reminders don't have next dates
+      // For one-time reminders, return the scheduled date/time if it's in the future
+      const dateParts = reminder.date.split('-');
+      const year = parseInt(dateParts[0] || '0', 10);
+      const month = parseInt(dateParts[1] || '1', 10);
+      const day = parseInt(dateParts[2] || '1', 10);
+      const scheduledTime = new Date(year, month - 1, day, hh, mm, 0, 0);
+      console.log(`[calculateNextReminderDate] One-time reminder scheduled for: ${scheduledTime.toISOString()}, isInFuture: ${scheduledTime > fromDate}`);
+      return scheduledTime > fromDate ? scheduledTime : null;
     }
     case 'daily': {
       const selected = (reminder.repeatDays && reminder.repeatDays.length > 0)
         ? reminder.repeatDays
         : [0,1,2,3,4,5,6];
-      for (let add = 1; add < 8; add++) {
+      console.log(`[calculateNextReminderDate] Daily reminder, selected days: ${JSON.stringify(selected)}`);
+      for (let add = 0; add < 8; add++) {
         const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
-        if (selected.includes(check.getDay())) return check;
+        console.log(`[calculateNextReminderDate] Checking day ${add}: ${check.toISOString()}, dayOfWeek: ${check.getDay()}, isSelected: ${selected.includes(check.getDay())}, isAfterNow: ${check > fromDate}`);
+        if (selected.includes(check.getDay()) && check > fromDate) {
+          console.log(`[calculateNextReminderDate] Found next daily occurrence: ${check.toISOString()}`);
+          return check;
+        }
       }
+      console.log(`[calculateNextReminderDate] No valid daily occurrence found`);
       return null;
     }
     case 'monthly': {
@@ -61,35 +74,57 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       const day = parseInt(dateParts[2] || '1', 10);
       const desiredDay = reminder.monthlyDay ?? day;
       const result = nextMonthlyOccurrenceFrom(fromDate, desiredDay, hh, mm);
-      console.log(`calculateNextReminderDate - Monthly desired=${desiredDay}, from=${fromDate.toISOString()}, result=${result.toISOString()}`);
+      console.log(`[calculateNextReminderDate] Monthly desired=${desiredDay}, from=${fromDate.toISOString()}, result=${result.toISOString()}`);
       return result;
     }
     case 'yearly': {
       const dateParts = reminder.date.split('-');
       const month = parseInt(dateParts[1] || '1', 10);
       const day = parseInt(dateParts[2] || '1', 10);
-      const target = setTime(new Date(fromDate.getFullYear() + 1, month - 1, day));
+      // Try this year first
+      let target = setTime(new Date(fromDate.getFullYear(), month - 1, day));
+      // If it's in the past, use next year
+      if (target <= fromDate) {
+        target = setTime(new Date(fromDate.getFullYear() + 1, month - 1, day));
+      }
+      console.log(`[calculateNextReminderDate] Yearly result: ${target.toISOString()}`);
       return target;
     }
     case 'every': {
       const interval = reminder.everyInterval;
-      if (!interval || !interval.value || interval.value <= 0) return null;
+      if (!interval || !interval.value || interval.value <= 0) {
+        console.log(`[calculateNextReminderDate] Invalid interval for 'every' reminder`);
+        return null;
+      }
       const baseStart = new Date(reminder.date);
       baseStart.setHours(hh, mm, 0, 0);
-      if (fromDate <= baseStart) return baseStart;
+      if (fromDate <= baseStart) {
+        console.log(`[calculateNextReminderDate] Using base start time: ${baseStart.toISOString()}`);
+        return baseStart;
+      }
       const addMs = interval.unit === 'minutes' ? interval.value * 60 * 1000 : interval.unit === 'hours' ? interval.value * 60 * 60 * 1000 : interval.value * 24 * 60 * 60 * 1000;
       const diff = fromDate.getTime() - baseStart.getTime();
       const steps = Math.floor(diff / addMs) + 1;
-      return new Date(baseStart.getTime() + steps * addMs);
+      const result = new Date(baseStart.getTime() + steps * addMs);
+      console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, result: ${result.toISOString()}`);
+      return result;
     }
     case 'weekly':
     case 'custom': {
       const selected = reminder.repeatDays ?? [];
-      if (selected.length === 0) return null;
-      for (let add = 1; add < 370; add++) {
-        const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
-        if (selected.includes(check.getDay())) return check;
+      if (selected.length === 0) {
+        console.log(`[calculateNextReminderDate] No repeat days selected for weekly/custom reminder`);
+        return null;
       }
+      console.log(`[calculateNextReminderDate] Weekly/custom reminder, selected days: ${JSON.stringify(selected)}`);
+      for (let add = 0; add < 370; add++) {
+        const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
+        if (selected.includes(check.getDay()) && check > fromDate) {
+          console.log(`[calculateNextReminderDate] Found next weekly/custom occurrence: ${check.toISOString()}`);
+          return check;
+        }
+      }
+      console.log(`[calculateNextReminderDate] No valid weekly/custom occurrence found`);
       return null;
     }
     default:

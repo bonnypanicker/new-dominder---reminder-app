@@ -7,14 +7,36 @@ export default function NotificationsDebug() {
   const [init, setInit] = useState<boolean>(false);
   const [status, setStatus] = useState<string>('idle');
   const [errors, setErrors] = useState<string[]>([]);
+  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const [scheduledCount, setScheduledCount] = useState<number>(0);
 
   useEffect(() => {
     const run = async () => {
       try {
         setStatus('initializing');
+        
+        // Check permissions
+        const permission = await notificationService.checkPermissions();
+        setHasPermission(permission);
+        
+        if (!permission) {
+          setErrors((prev) => [...prev, 'No notification permission. Requesting...']);
+          const granted = await notificationService.requestPermissions();
+          setHasPermission(granted);
+          if (!granted) {
+            setErrors((prev) => [...prev, 'Permission denied by user']);
+            setStatus('permission-denied');
+            return;
+          }
+        }
+        
         const ok = await notificationService.initialize();
         setInit(ok);
         setStatus(ok ? 'initialized' : 'not-initialized');
+        
+        // Get scheduled notifications count
+        const scheduled = await notificationService.getAllScheduledNotifications();
+        setScheduledCount(scheduled.length);
       } catch (e: unknown) {
         setErrors((prev) => [...prev, String(e)]);
         setStatus('error');
@@ -22,6 +44,16 @@ export default function NotificationsDebug() {
     };
     run();
   }, []);
+
+  const refreshScheduled = async () => {
+    try {
+      const scheduled = await notificationService.getAllScheduledNotifications();
+      setScheduledCount(scheduled.length);
+      setStatus(`refreshed: ${scheduled.length} scheduled`);
+    } catch (e: unknown) {
+      setErrors((prev) => [...prev, `refresh error: ${String(e)}`]);
+    }
+  };
 
   const testImmediate = async () => {
     try {
@@ -59,13 +91,20 @@ export default function NotificationsDebug() {
       <Stack.Screen options={{ title: 'Notifications Debug' }} />
       <Text style={styles.h1}>Platform: {Platform.OS}</Text>
       <Text>Init: {String(init)}</Text>
+      <Text>Permission: {String(hasPermission)}</Text>
       <Text>Status: {status}</Text>
+      <Text>Scheduled: {scheduledCount}</Text>
       <View style={styles.row}>
         <TouchableOpacity style={styles.btn} onPress={testImmediate} testID="btn-schedule-10s">
           <Text style={styles.btnText}>Schedule in 10s</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btn} onPress={testInfo} testID="btn-info">
           <Text style={styles.btnText}>Show Info</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.row}>
+        <TouchableOpacity style={styles.btn} onPress={refreshScheduled} testID="btn-refresh">
+          <Text style={styles.btnText}>Refresh Count</Text>
         </TouchableOpacity>
       </View>
       {!!errors.length && (

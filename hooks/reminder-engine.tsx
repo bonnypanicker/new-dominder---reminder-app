@@ -33,14 +33,29 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         return snoozeDate;
       } else {
         // Snooze time has passed, clear it and continue with normal scheduling
-        console.log(`[Dominder-Debug] Snooze time has passed for reminder ${reminder.id}, clearing snooze`);
+        console.log(`[Dominder-Debug] Snooze time has passed for reminder ${reminder.id}, clearing snooze, repeatType: ${reminder.repeatType}`);
         // Use a flag to prevent multiple clears
         if (!reminder.snoozeClearing) {
-          // Update the reminder to clear snooze with a flag to prevent loops
+          // For "once" reminders that were snoozed, mark as completed after snooze fires
+          if (reminder.repeatType === 'none' && reminder.wasSnoozed) {
+            console.log(`[Dominder-Debug] Once reminder ${reminder.id} snooze expired, marking as completed`);
+            setTimeout(() => {
+              updateReminderRef.current.mutate({ 
+                ...reminder, 
+                snoozeUntil: undefined,
+                isCompleted: true,
+                wasSnoozed: undefined,
+                snoozeClearing: true
+              });
+            }, 100);
+            return null;
+          }
+          // For repeating reminders, just clear snooze
           setTimeout(() => {
             updateReminderRef.current.mutate({ 
               ...reminder, 
               snoozeUntil: undefined,
+              wasSnoozed: undefined,
               snoozeClearing: true
             });
           }, 100);
@@ -146,8 +161,34 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const initNotifications = async () => {
       try {
         console.log('[Dominder-Debug] ReminderEngine: Initializing notifications');
+        
+        // Check and request permissions first
+        const hasPermission = await notificationService.checkPermissions();
+        if (!hasPermission) {
+          console.log('[Dominder-Debug] No notification permission, requesting...');
+          const granted = await notificationService.requestPermissions();
+          if (!granted) {
+            console.error('[Dominder-Debug] Notification permission denied by user');
+            return;
+          }
+        }
+        
         await notificationService.initialize();
         await notificationService.cleanupOrphanedNotifications();
+        
+        // Log all currently scheduled notifications for debugging
+        const scheduled = await notificationService.getAllScheduledNotifications();
+        console.log(`[Dominder-Debug] Currently scheduled notifications: ${scheduled.length}`);
+        scheduled.forEach((trigger: any) => {
+          const timestamp = trigger.trigger?.timestamp;
+          const id = trigger.notification?.id;
+          const reminderId = trigger.notification?.data?.reminderId;
+          if (timestamp) {
+            const date = new Date(timestamp);
+            const inSeconds = Math.round((timestamp - Date.now()) / 1000);
+            console.log(`[Dominder-Debug]   - ${id} (reminder: ${reminderId}) scheduled for ${date.toISOString()} (in ${inSeconds}s)`);
+          }
+        });
       } catch (error) {
         console.error('[Dominder-Debug] Failed to initialize notifications in engine:', error);
       }
@@ -245,7 +286,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 ...reminder, 
                 isCompleted: true, 
                 lastTriggeredAt: reminder.lastTriggeredAt || now.toISOString(),
-                snoozeUntil: undefined
+                snoozeUntil: undefined,
+                wasSnoozed: undefined
               });
             } else {
               const nextDate = calculateNextReminderDate(reminder, now);
@@ -254,7 +296,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 ...reminder, 
                 lastTriggeredAt: now.toISOString(),
                 nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
-                snoozeUntil: undefined
+                snoozeUntil: undefined,
+                wasSnoozed: undefined
               });
             }
           }
@@ -285,7 +328,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const currentReminders: Reminder[] = stored ? JSON.parse(stored) : [];
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
-            console.log(`[Dominder-Debug] Snoozing reminder for ${minutes} minutes: ${reminderId}`);
+            console.log(`[Dominder-Debug] Snoozing reminder for ${minutes} minutes: ${reminderId}, repeatType: ${reminder.repeatType}`);
             const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
             
             if (reminder.isExpired) {
@@ -293,13 +336,15 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 ...reminder, 
                 snoozeUntil,
                 isExpired: false,
-                lastTriggeredAt: new Date().toISOString()
+                lastTriggeredAt: new Date().toISOString(),
+                wasSnoozed: true
               });
             } else {
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 snoozeUntil,
-                lastTriggeredAt: reminder.lastTriggeredAt || new Date().toISOString()
+                lastTriggeredAt: reminder.lastTriggeredAt || new Date().toISOString(),
+                wasSnoozed: true
               });
             }
           }
@@ -353,7 +398,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       const now = Date.now();
       
       for (const reminder of reminders) {
-        console.log(`[Dominder-Debug] Processing reminder: ${reminder.id} (${reminder.title})`);
+        console.log(`[Dominder-Debug] Processing reminder: ${reminder.id} (${reminder.title}), repeatType: ${reminder.repeatType}, priority: ${reminder.priority}`);
         // Skip reminders with internal flags to prevent loops
         if (reminder.snoozeClearing || reminder.notificationUpdating) {
           console.log(`[Dominder-Debug] Skipping reminder ${reminder.id} - has internal flags`);
@@ -406,19 +451,29 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           }
           
           // For repeating reminders, check if we need to reschedule based on nextReminderDate
-          if (reminder.repeatType !== 'none' && reminder.lastTriggeredAt && !configChanged && !needsReschedule) {
-            const lastTriggered = new Date(reminder.lastTriggeredAt);
-            const now = new Date();
-            const timeSinceLastTrigger = now.getTime() - lastTriggered.getTime();
-            
-            // If triggered recently (within 2 minutes), check if notification needs update
-            if (timeSinceLastTrigger < 2 * 60 * 1000) {
-              console.log(`[Dominder-Debug] Recently triggered ${reminder.repeatType} reminder ${reminder.id}, checking if reschedule needed`);
-              // Cancel existing notification and reschedule for next occurrence
-              if (existingNotificationId) {
-                await notificationService.cancelNotification(existingNotificationId);
-                scheduledNotifications.current.delete(reminder.id);
+          if (reminder.repeatType !== 'none' && !configChanged && !needsReschedule) {
+            // Check if the scheduled notification is for the correct date
+            if (existingNotificationId && reminder.nextReminderDate) {
+              const triggers = await notificationService.getAllScheduledNotifications();
+              const scheduledTrigger = triggers.find((t: any) => t.notification?.id === existingNotificationId);
+              
+              const triggerTimestamp = (scheduledTrigger?.trigger as any)?.timestamp;
+              if (triggerTimestamp) {
+                const scheduledTime = new Date(triggerTimestamp);
+                const expectedTime = new Date(reminder.nextReminderDate);
+                const timeDiff = Math.abs(scheduledTime.getTime() - expectedTime.getTime());
+                
+                // If scheduled time differs from expected by more than 10 seconds, reschedule
+                if (timeDiff > 10000) {
+                  console.log(`[Dominder-Debug] Repeating reminder ${reminder.id} scheduled for wrong time. Expected: ${expectedTime.toISOString()}, Scheduled: ${scheduledTime.toISOString()}`);
+                  await notificationService.cancelNotification(existingNotificationId);
+                  scheduledNotifications.current.delete(reminder.id);
+                  needsReschedule = true;
+                }
               }
+            } else if (!existingNotificationId && reminder.nextReminderDate) {
+              // No notification scheduled but we have a next date - need to schedule
+              console.log(`[Dominder-Debug] Repeating reminder ${reminder.id} has nextReminderDate but no scheduled notification`);
               needsReschedule = true;
             }
           }
@@ -462,6 +517,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                   }
                 }, 500);
               }
+            } else {
+              console.error(`[Dominder-Debug] Failed to schedule notification for reminder ${reminder.id}`);
             }
           } else if (!needsReschedule) {
             reminderConfigsRef.current.set(reminder.id, configString);

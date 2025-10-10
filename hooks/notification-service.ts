@@ -21,14 +21,46 @@ const getPriorityChannelId = (priority: Priority): string => {
 };
 
 export const notificationService = {
-  initialize: async () => {
-    console.log('[Dominder-Debug] Initializing notification service and channels');
-    await ensureBaseChannels();
+  initialize: async (): Promise<boolean> => {
+    try {
+      console.log('[Dominder-Debug] Initializing notification service and channels');
+      await ensureBaseChannels();
+      console.log('[Dominder-Debug] Notification service initialized successfully');
+      return true;
+    } catch (error) {
+      console.error('[Dominder-Debug] Failed to initialize notification service:', error);
+      return false;
+    }
+  },
+
+  requestPermissions: async (): Promise<boolean> => {
+    try {
+      console.log('[Dominder-Debug] Requesting notification permissions');
+      const settings = await notifee.requestPermission();
+      const granted = settings.authorizationStatus >= 1;
+      console.log('[Dominder-Debug] Notification permission granted:', granted);
+      return granted;
+    } catch (error) {
+      console.error('[Dominder-Debug] Failed to request permissions:', error);
+      return false;
+    }
+  },
+
+  checkPermissions: async (): Promise<boolean> => {
+    try {
+      const settings = await notifee.getNotificationSettings();
+      const granted = settings.authorizationStatus >= 1;
+      console.log('[Dominder-Debug] Notification permission status:', granted);
+      return granted;
+    } catch (error) {
+      console.error('[Dominder-Debug] Failed to check permissions:', error);
+      return false;
+    }
   },
 
   scheduleReminderByModel: async (reminder: Reminder): Promise<string | undefined> => {
     try {
-      console.log(`[Dominder-Debug] Scheduling notification for reminder: ${reminder.id} (${reminder.title})`);
+      console.log(`[Dominder-Debug] Scheduling notification for reminder: ${reminder.id} (${reminder.title}), repeatType: ${reminder.repeatType}`);
       
       const now = new Date();
       let triggerTime: Date | null = null;
@@ -40,13 +72,43 @@ export const notificationService = {
         triggerTime = new Date(reminder.nextReminderDate);
         console.log(`[Dominder-Debug] Using nextReminderDate: ${triggerTime.toISOString()}`);
       } else {
-        triggerTime = calculateNextReminderDate(reminder, now);
-        console.log(`[Dominder-Debug] Calculated next trigger time: ${triggerTime?.toISOString()}`);
+        // For all other cases (including 'none' without nextReminderDate), calculate from date/time
+        const dateParts = reminder.date.split('-');
+        const year = parseInt(dateParts[0] || '0', 10);
+        const month = parseInt(dateParts[1] || '1', 10);
+        const day = parseInt(dateParts[2] || '1', 10);
+        const timeParts = reminder.time.split(':');
+        const hh = parseInt(timeParts[0] || '0', 10);
+        const mm = parseInt(timeParts[1] || '0', 10);
+        
+        if (reminder.repeatType === 'none') {
+          // For one-time reminders, use the date and time directly
+          triggerTime = new Date(year, month - 1, day, hh, mm, 0, 0);
+          console.log(`[Dominder-Debug] One-time reminder, using date/time: ${triggerTime.toISOString()}, date: ${reminder.date}, time: ${reminder.time}`);
+        } else {
+          // For repeating reminders without nextReminderDate, calculate next occurrence
+          console.log(`[Dominder-Debug] Repeating reminder detected, calling calculateNextReminderDate`);
+          triggerTime = calculateNextReminderDate(reminder, now);
+          console.log(`[Dominder-Debug] Calculated next trigger time: ${triggerTime?.toISOString()}`);
+        }
       }
 
-      if (!triggerTime || triggerTime <= now) {
-        console.log(`[Dominder-Debug] Trigger time is in the past or null, skipping schedule for reminder ${reminder.id}`);
+      if (!triggerTime) {
+        console.log(`[Dominder-Debug] Trigger time is null, skipping schedule for reminder ${reminder.id}`);
         return undefined;
+      }
+
+      // Allow scheduling if trigger time is within 5 seconds in the past (clock skew tolerance)
+      const timeDiff = triggerTime.getTime() - now.getTime();
+      if (timeDiff < -5000) {
+        console.log(`[Dominder-Debug] Trigger time is too far in the past (${Math.abs(timeDiff)}ms), skipping schedule for reminder ${reminder.id}`);
+        return undefined;
+      }
+
+      // If trigger time is slightly in the past or very soon, adjust it to be 1 second in the future
+      if (timeDiff < 1000) {
+        triggerTime = new Date(now.getTime() + 1000);
+        console.log(`[Dominder-Debug] Adjusted trigger time to 1 second in the future: ${triggerTime.toISOString()}`);
       }
 
       const channelId = getPriorityChannelId(reminder.priority);
@@ -92,6 +154,7 @@ export const notificationService = {
         android: {
           channelId,
           importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
+          category: reminder.priority === 'high' ? 'alarm' : undefined,
           pressAction: {
             id: reminder.priority === 'high' ? 'alarm' : 'default',
           },
@@ -100,6 +163,7 @@ export const notificationService = {
           vibrationPattern: reminder.priority === 'low' ? undefined : [300, 500],
           autoCancel: reminder.priority === 'low',
           ongoing: reminder.priority === 'high' || reminder.priority === 'medium',
+          visibility: 1,
         },
       };
 
@@ -110,8 +174,19 @@ export const notificationService = {
       }
 
       console.log(`[Dominder-Debug] Creating trigger notification with ID: ${notificationId}`);
+      console.log(`[Dominder-Debug] Trigger timestamp: ${new Date(trigger.timestamp).toISOString()} (in ${Math.round((trigger.timestamp - Date.now()) / 1000)}s)`);
+      
       await notifee.createTriggerNotification(notificationDetails, trigger);
       console.log(`[Dominder-Debug] Successfully scheduled notification ${notificationId} for reminder ${reminder.id}`);
+      
+      // Verify the notification was actually scheduled
+      const triggers = await notifee.getTriggerNotifications();
+      const scheduled = triggers.find((t: any) => t.notification?.id === notificationId);
+      if (scheduled) {
+        console.log(`[Dominder-Debug] Verified notification ${notificationId} is in trigger queue`);
+      } else {
+        console.warn(`[Dominder-Debug] WARNING: Notification ${notificationId} not found in trigger queue after scheduling!`);
+      }
       
       return notificationId;
     } catch (e: any) {
@@ -211,6 +286,21 @@ export const notificationService = {
       });
     } catch (e) {
       console.error('[Dominder-Debug] Failed to display info notification:', e);
+    }
+  },
+
+  scheduleNotification: async (reminder: Reminder): Promise<string | undefined> => {
+    return notificationService.scheduleReminderByModel(reminder);
+  },
+
+  getAllScheduledNotifications: async () => {
+    try {
+      const triggers = await notifee.getTriggerNotifications();
+      console.log(`[Dominder-Debug] Found ${triggers.length} scheduled notifications`);
+      return triggers;
+    } catch (e) {
+      console.error('[Dominder-Debug] Failed to get scheduled notifications:', e);
+      return [];
     }
   },
 };
