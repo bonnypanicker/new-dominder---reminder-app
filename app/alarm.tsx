@@ -83,6 +83,7 @@ export default function AlarmScreen() {
           ...reminder, 
           isCompleted: true, 
           snoozeUntil: undefined,
+          wasSnoozed: undefined,
           lastTriggeredAt: now.toISOString()
         });
       } else {
@@ -92,7 +93,8 @@ export default function AlarmScreen() {
           ...reminder, 
           lastTriggeredAt: now.toISOString(),
           nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
-          snoozeUntil: undefined
+          snoozeUntil: undefined,
+          wasSnoozed: undefined
         });
       }
     }
@@ -101,7 +103,7 @@ export default function AlarmScreen() {
 
   const snooze = useCallback(async (minutes: number) => {
     if (reminder) {
-      console.log(`[Dominder-Debug] Snoozing reminder ${reminder.id} for ${minutes} minutes from alarm screen`);
+      console.log(`[Dominder-Debug] Snoozing reminder ${reminder.id} for ${minutes} minutes from alarm screen, repeatType: ${reminder.repeatType}`);
       const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
       const now = new Date();
       
@@ -109,7 +111,8 @@ export default function AlarmScreen() {
         ...reminder, 
         snoozeUntil,
         lastTriggeredAt: now.toISOString(),
-        isExpired: false
+        isExpired: false,
+        wasSnoozed: true
       });
     }
     await handleDismiss();

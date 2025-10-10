@@ -33,14 +33,29 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         return snoozeDate;
       } else {
         // Snooze time has passed, clear it and continue with normal scheduling
-        console.log(`[Dominder-Debug] Snooze time has passed for reminder ${reminder.id}, clearing snooze`);
+        console.log(`[Dominder-Debug] Snooze time has passed for reminder ${reminder.id}, clearing snooze, repeatType: ${reminder.repeatType}`);
         // Use a flag to prevent multiple clears
         if (!reminder.snoozeClearing) {
-          // Update the reminder to clear snooze with a flag to prevent loops
+          // For "once" reminders that were snoozed, mark as completed after snooze fires
+          if (reminder.repeatType === 'none' && reminder.wasSnoozed) {
+            console.log(`[Dominder-Debug] Once reminder ${reminder.id} snooze expired, marking as completed`);
+            setTimeout(() => {
+              updateReminderRef.current.mutate({ 
+                ...reminder, 
+                snoozeUntil: undefined,
+                isCompleted: true,
+                wasSnoozed: undefined,
+                snoozeClearing: true
+              });
+            }, 100);
+            return null;
+          }
+          // For repeating reminders, just clear snooze
           setTimeout(() => {
             updateReminderRef.current.mutate({ 
               ...reminder, 
               snoozeUntil: undefined,
+              wasSnoozed: undefined,
               snoozeClearing: true
             });
           }, 100);
@@ -271,7 +286,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 ...reminder, 
                 isCompleted: true, 
                 lastTriggeredAt: reminder.lastTriggeredAt || now.toISOString(),
-                snoozeUntil: undefined
+                snoozeUntil: undefined,
+                wasSnoozed: undefined
               });
             } else {
               const nextDate = calculateNextReminderDate(reminder, now);
@@ -280,7 +296,8 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 ...reminder, 
                 lastTriggeredAt: now.toISOString(),
                 nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
-                snoozeUntil: undefined
+                snoozeUntil: undefined,
+                wasSnoozed: undefined
               });
             }
           }
@@ -311,7 +328,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const currentReminders: Reminder[] = stored ? JSON.parse(stored) : [];
           const reminder = currentReminders.find((r: Reminder) => r.id === reminderId);
           if (reminder) {
-            console.log(`[Dominder-Debug] Snoozing reminder for ${minutes} minutes: ${reminderId}`);
+            console.log(`[Dominder-Debug] Snoozing reminder for ${minutes} minutes: ${reminderId}, repeatType: ${reminder.repeatType}`);
             const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
             
             if (reminder.isExpired) {
@@ -319,13 +336,15 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 ...reminder, 
                 snoozeUntil,
                 isExpired: false,
-                lastTriggeredAt: new Date().toISOString()
+                lastTriggeredAt: new Date().toISOString(),
+                wasSnoozed: true
               });
             } else {
               updateReminderRef.current.mutate({ 
                 ...reminder, 
                 snoozeUntil,
-                lastTriggeredAt: reminder.lastTriggeredAt || new Date().toISOString()
+                lastTriggeredAt: reminder.lastTriggeredAt || new Date().toISOString(),
+                wasSnoozed: true
               });
             }
           }

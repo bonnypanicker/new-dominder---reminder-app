@@ -29,6 +29,7 @@ export interface Reminder {
   // Internal flags to prevent infinite loops
   snoozeClearing?: boolean;
   notificationUpdating?: boolean;
+  wasSnoozed?: boolean;
 }
 
 export interface SnoozeOption {
