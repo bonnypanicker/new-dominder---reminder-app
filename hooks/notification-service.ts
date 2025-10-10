@@ -117,14 +117,14 @@ export const notificationService = {
       const trigger: TimestampTrigger & { allowWhileIdle?: boolean } = {
         type: TriggerType.TIMESTAMP,
         timestamp: triggerTime.getTime(),
-        allowWhileIdle: reminder.priority !== 'high' ? true : undefined,
+        allowWhileIdle: true,
       };
 
-      const actions = [];
+      const actions = [] as any[];
       
-      // For ringer mode (high priority), no action buttons on notification
-      // User taps notification body to open alarm screen
-      if (reminder.priority === 'medium') {
+      if (reminder.priority === 'high') {
+        // For ringer mode: no action buttons, only persistent notification
+      } else if (reminder.priority === 'medium') {
         actions.push({
           title: 'Done',
           pressAction: { id: 'done' },
@@ -169,7 +169,7 @@ export const notificationService = {
 
       if (reminder.priority === 'high') {
         notificationDetails.android.fullScreenAction = {
-          id: 'fullscreen_alarm',
+          id: 'alarm',
           launchActivity: 'default',
           launchActivityFlags: [4, 268435456],
         };

@@ -66,19 +66,13 @@ export default function AlarmScreen() {
       console.error('[Dominder-Debug] Error cancelling notifications:', e);
     }
     
-    // For ringer mode, close the app after action
-    if (reminder?.priority === 'high') {
-      console.log('[Dominder-Debug] Ringer mode alarm dismissed, closing app');
-      const { BackHandler } = await import('react-native');
-      BackHandler.exitApp();
-    } else {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/');
-      }
-    }
-  }, [router, reminderId, reminder]);
+    // Close the app/activity completely after handling actions
+    setTimeout(() => {
+      try {
+        BackHandler.exitApp();
+      } catch {}
+    }, 150);
+  }, [reminderId]);
 
   const done = useCallback(async () => {
     if (reminder) {
