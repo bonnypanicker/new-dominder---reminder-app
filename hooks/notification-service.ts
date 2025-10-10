@@ -60,7 +60,7 @@ export const notificationService = {
 
   scheduleReminderByModel: async (reminder: Reminder): Promise<string | undefined> => {
     try {
-      console.log(`[Dominder-Debug] Scheduling notification for reminder: ${reminder.id} (${reminder.title})`);
+      console.log(`[Dominder-Debug] Scheduling notification for reminder: ${reminder.id} (${reminder.title}), repeatType: ${reminder.repeatType}`);
       
       const now = new Date();
       let triggerTime: Date | null = null;
@@ -81,9 +81,10 @@ export const notificationService = {
         const hh = parseInt(timeParts[0] || '0', 10);
         const mm = parseInt(timeParts[1] || '0', 10);
         triggerTime = new Date(year, month - 1, day, hh, mm, 0, 0);
-        console.log(`[Dominder-Debug] One-time reminder, using date/time: ${triggerTime.toISOString()}`);
+        console.log(`[Dominder-Debug] One-time reminder, using date/time: ${triggerTime.toISOString()}, date: ${reminder.date}, time: ${reminder.time}`);
       } else {
         // For repeating reminders, calculate next occurrence
+        console.log(`[Dominder-Debug] Repeating reminder detected, calling calculateNextReminderDate`);
         triggerTime = calculateNextReminderDate(reminder, now);
         console.log(`[Dominder-Debug] Calculated next trigger time: ${triggerTime?.toISOString()}`);
       }

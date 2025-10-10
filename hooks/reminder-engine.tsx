@@ -379,7 +379,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       const now = Date.now();
       
       for (const reminder of reminders) {
-        console.log(`[Dominder-Debug] Processing reminder: ${reminder.id} (${reminder.title})`);
+        console.log(`[Dominder-Debug] Processing reminder: ${reminder.id} (${reminder.title}), repeatType: ${reminder.repeatType}, priority: ${reminder.priority}`);
         // Skip reminders with internal flags to prevent loops
         if (reminder.snoozeClearing || reminder.notificationUpdating) {
           console.log(`[Dominder-Debug] Skipping reminder ${reminder.id} - has internal flags`);
