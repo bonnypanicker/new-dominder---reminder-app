@@ -631,15 +631,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const diff = next.getTime() - now.getTime();
           // Only trigger if the time is within the next 30 seconds (not in the past)
           if (diff >= 0 && diff < 30 * 1000) {
-            // For high priority reminders, open the alarm screen
             if (r.priority === 'high') {
-              console.log(`[Dominder-Debug] High priority reminder triggered: ${r.id} - opening alarm screen at ${next.toISOString()}`);
-              router.push(`/alarm?reminderId=${r.id}`);
-              
-              // Update the last triggered time
-              updateReminderRef.current.mutate({ ...r, lastTriggeredAt: now.toISOString() });
+              console.log(`[Dominder-Debug] High priority reminder within window: ${r.id} at ${next.toISOString()} - relying on scheduled notification (no UI auto-open)`);
+              // Do not auto-open alarm UI; full-screen intent/notification will handle presentation
             } else {
-              // For other priorities (if any), handle normally
               if (r.repeatType === 'none') {
                 updateReminderRef.current.mutate({ ...r, isCompleted: true, lastTriggeredAt: now.toISOString() });
               } else {

@@ -117,16 +117,13 @@ export const notificationService = {
       const trigger: TimestampTrigger & { allowWhileIdle?: boolean } = {
         type: TriggerType.TIMESTAMP,
         timestamp: triggerTime.getTime(),
-        allowWhileIdle: reminder.priority !== 'high' ? true : undefined,
+        allowWhileIdle: true,
       };
 
-      const actions = [];
+      const actions = [] as any[];
       
       if (reminder.priority === 'high') {
-        actions.push({
-          title: 'Open Alarm',
-          pressAction: { id: 'alarm' },
-        });
+        // For ringer mode: no action buttons, only persistent notification
       } else if (reminder.priority === 'medium') {
         actions.push({
           title: 'Done',
@@ -158,7 +155,7 @@ export const notificationService = {
           importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           category: reminder.priority === 'high' ? 'alarm' : undefined,
           pressAction: {
-            id: reminder.priority === 'high' ? 'alarm' : 'default',
+            id: 'default',
             launchActivity: 'default',
           },
           actions,

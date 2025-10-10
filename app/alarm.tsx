@@ -66,12 +66,13 @@ export default function AlarmScreen() {
       console.error('[Dominder-Debug] Error cancelling notifications:', e);
     }
     
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  }, [router, reminderId]);
+    // Close the app/activity completely after handling actions
+    setTimeout(() => {
+      try {
+        BackHandler.exitApp();
+      } catch {}
+    }, 150);
+  }, [reminderId]);
 
   const done = useCallback(async () => {
     if (reminder) {
