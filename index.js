@@ -96,12 +96,25 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     
     console.log(`[Dominder-Debug] Background event for reminder: ${reminderId}, action: ${pressAction?.id || 'dismissed'}, type: ${type}`);
     
-    // Handle notification press to open alarm screen (for high priority reminders)
+    // Handle notification press
     if (type === EventType.PRESS) {
-      if (pressAction?.id === 'alarm' || pressAction?.id === 'default') {
-        console.log(`[Dominder-Debug] Background: Opening alarm screen for reminder ${reminderId}`);
-        // The app will be brought to foreground and the foreground handler in _layout.tsx will handle routing
-        // We don't cancel the notification here - let the alarm screen handle it
+      const priority = notification.data && notification.data.priority;
+      
+      if (priority === 'high' && (pressAction?.id === 'alarm' || pressAction?.id === 'default')) {
+        console.log(`[Dominder-Debug] Background: High priority notification pressed for reminder ${reminderId}`);
+        // For ringer mode, the app will be brought to foreground
+        // The foreground handler will route to the alarm screen
+        // Don't cancel the notification here - let the alarm screen handle it
+        return;
+      } else if (pressAction?.id === 'default') {
+        console.log(`[Dominder-Debug] Background: Standard/silent notification pressed, priority: ${priority}`);
+        // For non-ringer modes, cancel the notification and let the app open to home
+        try { 
+          await notifee.cancelNotification(notification.id); 
+          console.log(`[Dominder-Debug] Cancelled notification: ${notification.id}`);
+        } catch (e) {
+          console.log('[Dominder-Debug] Could not cancel notification:', e);
+        }
         return;
       }
     }

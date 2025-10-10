@@ -220,7 +220,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
 
       if (type === EVENT_TYPE_PRESS) {
+        const priority = notification.data?.priority;
+        
         if (pressAction?.id === 'alarm') {
+          // For ringer mode (high priority), open alarm screen
+          console.log('[Dominder-Debug] Alarm action pressed, opening alarm screen');
           handleNotificationOpen(reminderId);
         } else if (pressAction?.id === 'done') {
           handleNotificationDone(reminderId);
@@ -230,7 +234,19 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             const minutes = parseInt(snoozeMatch[1], 10);
             handleNotificationSnooze(reminderId, minutes);
           } else if (pressAction?.id === 'default') {
-            handleNotificationOpen(reminderId);
+            // For ringer mode (high priority), open alarm screen
+            if (priority === 'high') {
+              console.log('[Dominder-Debug] High priority notification pressed, opening alarm screen');
+              handleNotificationOpen(reminderId);
+            } else {
+              // For standard and silent modes, open the app (navigate to home)
+              console.log('[Dominder-Debug] Notification body pressed for standard/silent mode, opening app');
+              try {
+                router.push('/');
+              } catch (e) {
+                console.error('[Dominder-Debug] Failed to navigate to home:', e);
+              }
+            }
           }
         }
       } else if (type === EVENT_TYPE_DISMISSED) {

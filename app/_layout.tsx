@@ -21,21 +21,30 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   useEffect(() => {
+    let hasHandledInitial = false;
+
     // Handle both foreground and initial notification (when app opens from notification)
     const checkInitialNotification = async () => {
       try {
         const initialNotification = await notifee.getInitialNotification();
-        if (initialNotification) {
+        if (initialNotification && !hasHandledInitial) {
+          hasHandledInitial = true;
           const { notification, pressAction } = initialNotification;
-          console.log('[Dominder-Debug] App opened from notification:', notification?.data?.reminderId, 'pressAction:', pressAction?.id);
+          console.log('[Dominder-Debug] App opened from notification:', notification?.data?.reminderId, 'pressAction:', pressAction?.id, 'priority:', notification?.data?.priority);
           
           if (notification?.data?.reminderId) {
             const reminderId = notification.data.reminderId;
+            const priority = notification.data.priority;
             
-            // Open alarm screen for all notification presses (unless it's an action button)
-            if (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id) {
-              console.log('[Dominder-Debug] Opening alarm screen from initial notification');
-              router.replace(`/alarm?reminderId=${reminderId}`);
+            // Only open alarm screen for "ringer" mode (high priority) reminders
+            if (priority === 'high') {
+              console.log('[Dominder-Debug] Opening alarm screen from initial notification (ringer mode)');
+              // Use setTimeout to ensure router is ready
+              setTimeout(() => {
+                router.replace(`/alarm?reminderId=${reminderId}`);
+              }, 100);
+            } else {
+              console.log('[Dominder-Debug] Standard/silent notification opened app, staying on home screen');
             }
           }
         }
@@ -44,22 +53,27 @@ function RootLayoutNav() {
       }
     };
 
+    // Check immediately and after a short delay to catch late-arriving notifications
     checkInitialNotification();
+    const delayedCheck = setTimeout(checkInitialNotification, 500);
 
     // Handle foreground events
     const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
       console.log('[Dominder-Debug] Foreground event:', type, 'pressAction:', detail?.pressAction?.id);
       
       if (type === EventType.PRESS) {
-        const { notification, pressAction } = detail;
+        const { notification } = detail;
         
         if (notification?.data?.reminderId) {
           const reminderId = notification.data.reminderId;
+          const priority = notification.data.priority;
           
-          // Open alarm screen for all notification presses (unless it's an action button)
-          if (pressAction?.id === 'alarm' || pressAction?.id === 'default' || !pressAction?.id) {
-            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press');
+          // Only open alarm screen for "ringer" mode (high priority) reminders
+          if (priority === 'high') {
+            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press (ringer mode)');
             router.push(`/alarm?reminderId=${reminderId}`);
+          } else {
+            console.log('[Dominder-Debug] Standard/silent notification pressed, staying on current screen');
           }
         }
       }
@@ -68,7 +82,10 @@ function RootLayoutNav() {
     ensureBaseChannels();
     requestInteractive();
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(delayedCheck);
+      unsubscribe();
+    };
   }, []);
 
   return (

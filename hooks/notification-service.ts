@@ -150,6 +150,7 @@ export const notificationService = {
         body: reminder.description || 'Reminder',
         data: {
           reminderId: reminder.id,
+          priority: reminder.priority,
         },
         android: {
           channelId,
@@ -157,6 +158,7 @@ export const notificationService = {
           category: reminder.priority === 'high' ? 'alarm' : undefined,
           pressAction: {
             id: reminder.priority === 'high' ? 'alarm' : 'default',
+            launchActivity: 'default',
           },
           actions,
           sound: reminder.priority === 'low' ? undefined : 'default',
@@ -170,7 +172,13 @@ export const notificationService = {
       if (reminder.priority === 'high') {
         notificationDetails.android.fullScreenAction = {
           id: 'alarm',
+          launchActivity: 'default',
+          launchActivityFlags: [4, 268435456],
         };
+        notificationDetails.android.showTimestamp = true;
+        notificationDetails.android.timestamp = triggerTime.getTime();
+        notificationDetails.android.loopSound = true;
+        notificationDetails.android.lights = ["#FF0000", 300, 600];
       }
 
       console.log(`[Dominder-Debug] Creating trigger notification with ID: ${notificationId}`);
