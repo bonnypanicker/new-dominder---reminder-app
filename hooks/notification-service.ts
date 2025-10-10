@@ -122,12 +122,9 @@ export const notificationService = {
 
       const actions = [];
       
-      if (reminder.priority === 'high') {
-        actions.push({
-          title: 'Open Alarm',
-          pressAction: { id: 'alarm' },
-        });
-      } else if (reminder.priority === 'medium') {
+      // For ringer mode (high priority), no action buttons on notification
+      // User taps notification body to open alarm screen
+      if (reminder.priority === 'medium') {
         actions.push({
           title: 'Done',
           pressAction: { id: 'done' },
@@ -158,7 +155,7 @@ export const notificationService = {
           importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           category: reminder.priority === 'high' ? 'alarm' : undefined,
           pressAction: {
-            id: reminder.priority === 'high' ? 'alarm' : 'default',
+            id: 'default',
             launchActivity: 'default',
           },
           actions,
@@ -172,7 +169,7 @@ export const notificationService = {
 
       if (reminder.priority === 'high') {
         notificationDetails.android.fullScreenAction = {
-          id: 'alarm',
+          id: 'fullscreen_alarm',
           launchActivity: 'default',
           launchActivityFlags: [4, 268435456],
         };

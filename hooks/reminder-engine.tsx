@@ -222,11 +222,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       if (type === EVENT_TYPE_PRESS) {
         const priority = notification.data?.priority;
         
-        if (pressAction?.id === 'alarm') {
-          // For ringer mode (high priority), open alarm screen
-          console.log('[Dominder-Debug] Alarm action pressed, opening alarm screen');
-          handleNotificationOpen(reminderId);
-        } else if (pressAction?.id === 'done') {
+        if (pressAction?.id === 'done') {
           handleNotificationDone(reminderId);
         } else {
           const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction?.id || '');
@@ -247,6 +243,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 console.error('[Dominder-Debug] Failed to navigate to home:', e);
               }
             }
+          } else if (pressAction?.id === 'fullscreen_alarm') {
+            // Full screen intent triggered (screen was locked)
+            console.log('[Dominder-Debug] Full screen alarm triggered for high priority notification');
+            handleNotificationOpen(reminderId);
           }
         }
       } else if (type === EVENT_TYPE_DISMISSED) {
@@ -613,40 +613,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           
           if (!r.isActive || r.isPaused) return;
           
-          // Skip low and medium priority reminders as they are handled by notifications
-          if (r.priority === 'low' || r.priority === 'medium') return;
-          
-          const next = computeNextFireInternal(r, now);
-          if (!next) return;
-          
-          // Check if we've already triggered this reminder recently (within last 2 minutes)
-          if (r.lastTriggeredAt) {
-            const lastTriggered = new Date(r.lastTriggeredAt);
-            const timeSinceLastTrigger = now.getTime() - lastTriggered.getTime();
-            if (timeSinceLastTrigger < 2 * 60 * 1000) {
-              return; // Skip if triggered recently
-            }
-          }
-          
-          const diff = next.getTime() - now.getTime();
-          // Only trigger if the time is within the next 30 seconds (not in the past)
-          if (diff >= 0 && diff < 30 * 1000) {
-            // For high priority reminders, open the alarm screen
-            if (r.priority === 'high') {
-              console.log(`[Dominder-Debug] High priority reminder triggered: ${r.id} - opening alarm screen at ${next.toISOString()}`);
-              router.push(`/alarm?reminderId=${r.id}`);
-              
-              // Update the last triggered time
-              updateReminderRef.current.mutate({ ...r, lastTriggeredAt: now.toISOString() });
-            } else {
-              // For other priorities (if any), handle normally
-              if (r.repeatType === 'none') {
-                updateReminderRef.current.mutate({ ...r, isCompleted: true, lastTriggeredAt: now.toISOString() });
-              } else {
-                updateReminderRef.current.mutate({ ...r, lastTriggeredAt: now.toISOString() });
-              }
-            }
-          }
+          // Skip all priority reminders as they are handled by notifications
+          // High priority (ringer) notifications will show alarm screen via fullScreenAction when locked
+          // or via persistent notification when unlocked
+          if (r.priority === 'low' || r.priority === 'medium' || r.priority === 'high') return;
       });
     };
 
