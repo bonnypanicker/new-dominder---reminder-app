@@ -39,10 +39,21 @@ function RootLayoutNav() {
             // Only open alarm screen for "ringer" mode (high priority) reminders
             if (priority === 'high') {
               console.log('[Dominder-Debug] Opening alarm screen from initial notification (ringer mode)');
-              // Use setTimeout to ensure router is ready
-              setTimeout(() => {
-                router.replace(`/alarm?reminderId=${reminderId}`);
-              }, 100);
+              // Use multiple attempts to ensure router is ready
+              const attemptNavigation = (attempts = 0) => {
+                if (attempts > 10) {
+                  console.error('[Dominder-Debug] Failed to navigate to alarm screen after 10 attempts');
+                  return;
+                }
+                try {
+                  router.replace(`/alarm?reminderId=${reminderId}`);
+                  console.log('[Dominder-Debug] Successfully navigated to alarm screen');
+                } catch {
+                  console.log(`[Dominder-Debug] Navigation attempt ${attempts + 1} failed, retrying...`);
+                  setTimeout(() => attemptNavigation(attempts + 1), 200);
+                }
+              };
+              setTimeout(() => attemptNavigation(), 300);
             } else {
               console.log('[Dominder-Debug] Standard/silent notification opened app, staying on home screen');
             }
@@ -53,9 +64,10 @@ function RootLayoutNav() {
       }
     };
 
-    // Check immediately and after a short delay to catch late-arriving notifications
+    // Check immediately and after delays to catch late-arriving notifications
     checkInitialNotification();
-    const delayedCheck = setTimeout(checkInitialNotification, 500);
+    const delayedCheck1 = setTimeout(checkInitialNotification, 500);
+    const delayedCheck2 = setTimeout(checkInitialNotification, 1000);
 
     // Handle foreground events
     const unsubscribe = notifee.onForegroundEvent(async ({ type, detail }) => {
@@ -95,9 +107,6 @@ function RootLayoutNav() {
     });
 
     const setupNotifee = async () => {
-      if (Platform.OS === 'android') {
-        await notifee.setAlarmManager({ allowWhileIdle: true });
-      }
       await ensureBaseChannels();
       await requestInteractive();
     };
@@ -105,7 +114,8 @@ function RootLayoutNav() {
     setupNotifee();
 
     return () => {
-      clearTimeout(delayedCheck);
+      clearTimeout(delayedCheck1);
+      clearTimeout(delayedCheck2);
       unsubscribe();
     };
   }, []);

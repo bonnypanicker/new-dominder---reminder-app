@@ -164,11 +164,13 @@ export const notificationService = {
         notificationDetails.android.fullScreenAction = {
           id: 'alarm',
           launchActivity: 'default',
+          launchActivityFlags: [1, 268435456],
         };
         notificationDetails.android.showTimestamp = true;
         notificationDetails.android.timestamp = triggerTime.getTime();
         notificationDetails.android.loopSound = true;
         notificationDetails.android.lights = ["#FF0000", 300, 600];
+        notificationDetails.android.asForegroundService = true;
       }
 
       console.log(`[Dominder-Debug] Creating trigger notification with ID: ${notificationId}`);
