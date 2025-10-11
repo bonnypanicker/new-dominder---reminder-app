@@ -98,7 +98,7 @@ function RootLayoutNav() {
           // Only open alarm screen for "ringer" mode (high priority) reminders
           if (priority === 'high') {
             console.log('[Dominder-Debug] Opening alarm screen from foreground notification press (ringer mode)');
-            router.replace(`/alarm?reminderId=${reminderId}&fromNotif=1`);
+            router.replace(`/alarm?reminderId=${reminderId}&fromNotif=1&fromForeground=1`);
           } else {
             console.log('[Dominder-Debug] Standard/silent notification pressed, staying on current screen');
           }

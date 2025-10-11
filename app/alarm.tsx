@@ -8,7 +8,7 @@ import { calculateNextReminderDate } from '@/services/reminder-utils';
 
 export default function AlarmScreen() {
   const router = useRouter();
-  const { reminderId, fromNotif } = useLocalSearchParams<{ reminderId: string; fromNotif?: string }>();
+  const { reminderId, fromNotif, fromForeground } = useLocalSearchParams<{ reminderId: string; fromNotif?: string, fromForeground?: string }>();
   const { data: reminders = [] } = useReminders();
   const { mutateAsync: updateReminder } = useUpdateReminder();
 
@@ -65,16 +65,17 @@ export default function AlarmScreen() {
       console.error('[Dominder-Debug] Error cancelling notifications:', e);
     }
     
-    if (fromNotif === '1') {
+    if (fromNotif === '1' && fromForeground !== '1') {
       BackHandler.exitApp();
       return;
     }
+
     if (router.canGoBack()) {
       router.back();
     } else {
-      BackHandler.exitApp();
+      router.replace('/');
     }
-  }, [reminderId, router]);
+  }, [reminderId, router, fromNotif, fromForeground]);
 
   const done = useCallback(async () => {
     if (reminder) {
