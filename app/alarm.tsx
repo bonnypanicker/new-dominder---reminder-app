@@ -8,14 +8,13 @@ import { calculateNextReminderDate } from '@/services/reminder-utils';
 
 export default function AlarmScreen() {
   const router = useRouter();
-  const { reminderId } = useLocalSearchParams<{ reminderId: string }>();
+  const { reminderId, fromNotif } = useLocalSearchParams<{ reminderId: string; fromNotif?: string }>();
   const { data: reminders = [] } = useReminders();
   const { mutateAsync: updateReminder } = useUpdateReminder();
 
   const [reminder, setReminder] = useState<Reminder | null>(null);
 
   useEffect(() => {
-    // Disable hardware back button on the alarm screen
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => backHandler.remove();
   }, []);
@@ -66,6 +65,10 @@ export default function AlarmScreen() {
       console.error('[Dominder-Debug] Error cancelling notifications:', e);
     }
     
+    if (fromNotif === '1') {
+      BackHandler.exitApp();
+      return;
+    }
     if (router.canGoBack()) {
       router.back();
     } else {

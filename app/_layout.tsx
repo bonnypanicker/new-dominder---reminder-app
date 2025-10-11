@@ -46,7 +46,7 @@ function RootLayoutNav() {
                   return;
                 }
                 try {
-                  router.replace(`/alarm?reminderId=${reminderId}`);
+                  router.replace(`/alarm?reminderId=${reminderId}&fromNotif=1`);
                   console.log('[Dominder-Debug] Successfully navigated to alarm screen');
                 } catch {
                   console.log(`[Dominder-Debug] Navigation attempt ${attempts + 1} failed, retrying...`);
@@ -98,7 +98,7 @@ function RootLayoutNav() {
           // Only open alarm screen for "ringer" mode (high priority) reminders
           if (priority === 'high') {
             console.log('[Dominder-Debug] Opening alarm screen from foreground notification press (ringer mode)');
-            router.push(`/alarm?reminderId=${reminderId}`);
+            router.replace(`/alarm?reminderId=${reminderId}&fromNotif=1`);
           } else {
             console.log('[Dominder-Debug] Standard/silent notification pressed, staying on current screen');
           }
