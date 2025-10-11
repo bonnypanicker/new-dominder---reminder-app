@@ -3,7 +3,7 @@ const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
 /**
  * Enables full-screen alarm behaviour:
  * - Sets showWhenLocked/turnScreenOn on MainActivity
- * - Adds USE_FULL_SCREEN_INTENT permission
+ * - Adds USE_FULL_SCREEN_INTENT and WAKE_LOCK permissions
  */
 module.exports = (config) =>
   withAndroidManifest(config, (cfg) => {
@@ -13,12 +13,18 @@ module.exports = (config) =>
     if (main) {
       main['$']['android:showWhenLocked'] = 'true';
       main['$']['android:turnScreenOn'] = 'true';
+      main['$']['android:excludeFromRecents'] = 'true';
+      main['$']['android:taskAffinity'] = '';
     }
     const perms = manifest.manifest['uses-permission'] ?? [];
-    const has = perms.find(p => p.$['android:name'] === 'android.permission.USE_FULL_SCREEN_INTENT');
-    if (!has) {
+    const hasFullScreenIntent = perms.find(p => p.$['android:name'] === 'android.permission.USE_FULL_SCREEN_INTENT');
+    if (!hasFullScreenIntent) {
       perms.push({ $: { 'android:name': 'android.permission.USE_FULL_SCREEN_INTENT' } });
-      manifest.manifest['uses-permission'] = perms;
     }
+    const hasWakeLock = perms.find(p => p.$['android:name'] === 'android.permission.WAKE_LOCK');
+    if (!hasWakeLock) {
+      perms.push({ $: { 'android:name': 'android.permission.WAKE_LOCK' } });
+    }
+    manifest.manifest['uses-permission'] = perms;
     return cfg;
   });

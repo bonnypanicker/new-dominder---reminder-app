@@ -32,6 +32,7 @@
       },
       "package": "app.rork.dominder_android_reminder_app",
       "permissions": [
+        "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.RECORD_AUDIO",

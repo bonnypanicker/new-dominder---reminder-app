@@ -58,10 +58,25 @@ function RootLayoutNav() {
     const delayedCheck = setTimeout(checkInitialNotification, 500);
 
     // Handle foreground events
-    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+    const unsubscribe = notifee.onForegroundEvent(async ({ type, detail }) => {
       console.log('[Dominder-Debug] Foreground event:', type, 'pressAction:', detail?.pressAction?.id);
-      
-      if (type === EventType.PRESS) {
+
+      if (type === EventType.DELIVERED) {
+        const { notification } = detail;
+        if (notification?.data?.priority === 'high' && notification.id) {
+          // This notification has a fullScreenAction. We need to cancel it and replace it with one that doesn't.
+          await notifee.cancelNotification(notification.id);
+
+          const newNotification = {
+            ...notification,
+            android: {
+              ...notification.android,
+              fullScreenAction: undefined,
+            },
+          };
+          await notifee.displayNotification(newNotification);
+        }
+      } else if (type === EventType.PRESS) {
         const { notification } = detail;
         
         if (notification?.data?.reminderId) {
@@ -79,8 +94,15 @@ function RootLayoutNav() {
       }
     });
 
-    ensureBaseChannels();
-    requestInteractive();
+    const setupNotifee = async () => {
+      if (Platform.OS === 'android') {
+        await notifee.setAlarmManager({ allowWhileIdle: true });
+      }
+      await ensureBaseChannels();
+      await requestInteractive();
+    };
+
+    setupNotifee();
 
     return () => {
       clearTimeout(delayedCheck);

@@ -10,7 +10,7 @@ export default function AlarmScreen() {
   const router = useRouter();
   const { reminderId } = useLocalSearchParams<{ reminderId: string }>();
   const { data: reminders = [] } = useReminders();
-  const { mutate: updateReminder } = useUpdateReminder();
+  const { mutateAsync: updateReminder } = useUpdateReminder();
 
   const [reminder, setReminder] = useState<Reminder | null>(null);
 
@@ -66,13 +66,12 @@ export default function AlarmScreen() {
       console.error('[Dominder-Debug] Error cancelling notifications:', e);
     }
     
-    // Close the app/activity completely after handling actions
-    setTimeout(() => {
-      try {
-        BackHandler.exitApp();
-      } catch {}
-    }, 150);
-  }, [reminderId]);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      BackHandler.exitApp();
+    }
+  }, [reminderId, router]);
 
   const done = useCallback(async () => {
     if (reminder) {
@@ -80,7 +79,7 @@ export default function AlarmScreen() {
       const now = new Date();
       
       if (reminder.repeatType === 'none') {
-        updateReminder({ 
+        await updateReminder({ 
           ...reminder, 
           isCompleted: true, 
           snoozeUntil: undefined,
@@ -90,7 +89,7 @@ export default function AlarmScreen() {
       } else {
         const nextDate = calculateNextReminderDate(reminder, now);
         console.log(`[Dominder-Debug] Updating repeating reminder ${reminder.id}, next date: ${nextDate?.toISOString()}`);
-        updateReminder({ 
+        await updateReminder({ 
           ...reminder, 
           lastTriggeredAt: now.toISOString(),
           nextReminderDate: nextDate ? nextDate.toISOString() : undefined,
@@ -108,7 +107,7 @@ export default function AlarmScreen() {
       const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
       const now = new Date();
       
-      updateReminder({ 
+      await updateReminder({ 
         ...reminder, 
         snoozeUntil,
         lastTriggeredAt: now.toISOString(),

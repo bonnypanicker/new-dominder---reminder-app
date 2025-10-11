@@ -98,17 +98,10 @@ export const notificationService = {
         return undefined;
       }
 
-      // Allow scheduling if trigger time is within 5 seconds in the past (clock skew tolerance)
       const timeDiff = triggerTime.getTime() - now.getTime();
-      if (timeDiff < -5000) {
-        console.log(`[Dominder-Debug] Trigger time is too far in the past (${Math.abs(timeDiff)}ms), skipping schedule for reminder ${reminder.id}`);
+      if (timeDiff <= 0) {
+        console.log(`[Dominder-Debug] Skipping immediate trigger for reminder ${reminder.id}, too close to current time`);
         return undefined;
-      }
-
-      // If trigger time is slightly in the past or very soon, adjust it to be 1 second in the future
-      if (timeDiff < 1000) {
-        triggerTime = new Date(now.getTime() + 1000);
-        console.log(`[Dominder-Debug] Adjusted trigger time to 1 second in the future: ${triggerTime.toISOString()}`);
       }
 
       const channelId = getPriorityChannelId(reminder.priority);
@@ -171,7 +164,6 @@ export const notificationService = {
         notificationDetails.android.fullScreenAction = {
           id: 'alarm',
           launchActivity: 'default',
-          launchActivityFlags: [4, 268435456],
         };
         notificationDetails.android.showTimestamp = true;
         notificationDetails.android.timestamp = triggerTime.getTime();
