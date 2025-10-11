@@ -21,6 +21,7 @@ const queryClient = new QueryClient();
 
 import { useRouter } from 'expo-router';
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
+import { markReminderDone, rescheduleReminderById, handleDismissAction } from '../services/reminder-scheduler';
 
 function RootLayoutNav() {
   const router = useRouter();
@@ -28,6 +29,7 @@ function RootLayoutNav() {
   useEffect(() => {
     (async () => {
       try {
+        await ensureBaseChannels();
         const initial = await notifee.getInitialNotification();
 
         // Cold start from full-screen (locked/killed): go straight to /alarm
@@ -42,6 +44,10 @@ function RootLayoutNav() {
           setAlarmLaunchOrigin('bodytap');
           router.replace('/alarm');
           return;
+        } else if (initial?.pressAction?.id === 'default') {
+          // Default action for standard/silent notifications is to just open the app
+          router.replace('/');
+          return;
         }
       } catch (e) { console.log('initial notif error', e); }
     })();
@@ -49,10 +55,26 @@ function RootLayoutNav() {
     // Also handle foreground taps while app is running
     const unsub = notifee.onForegroundEvent(async ({ type, detail }) => {
       try {
-        if (type !== notifee.EventType.PRESS) return;
-        if (detail?.pressAction?.id === 'open_alarm') {
-          setAlarmLaunchOrigin('inapp');
-          router.push('/alarm');
+        const { notification, pressAction } = detail || {};
+        if (!notification) return;
+
+        if (type === notifee.EventType.PRESS) {
+          if (pressAction?.id === 'open_alarm') {
+            setAlarmLaunchOrigin('inapp');
+            router.push('/alarm');
+          } else if (pressAction?.id === 'done') {
+            await markReminderDone(notification.data?.reminderId as string);
+          } else if (pressAction?.id === 'default') {
+            router.push('/');
+          } else {
+            const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction?.id || '');
+            if (snoozeMatch) {
+              const minutes = parseInt(snoozeMatch[1], 10);
+              await rescheduleReminderById(notification.data?.reminderId as string, minutes);
+            }
+          }
+        } else if (type === notifee.EventType.DISMISSED) {
+          await handleDismissAction(notification.data?.reminderId as string);
         }
       } catch (e) { console.log('fg notif error', e); }
     });

@@ -53,7 +53,7 @@ export async function scheduleReminderByModel(rem: Reminder) {
       ongoing: true,
       autoCancel: false,
       // Body tap: open alarm (unlocked states)
-      pressAction: { id: 'open_alarm' },
+      pressAction: { id: isRinger ? 'open_alarm' : 'default' },
       // Full-screen for locked/killed cases
       fullScreenAction: isRinger ? { id: 'alarm' } : undefined,
       showTimestamp: true,
