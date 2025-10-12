@@ -97,10 +97,35 @@ export default function RootLayout() {
     // This handles taps on a notification body while the app is already open.
     const unsub = notifee.onForegroundEvent(async ({ type, detail }) => {
       try {
-        if (type !== notifee.EventType.PRESS) return;
-        if (detail?.pressAction?.id === 'open_alarm') {
+        const { notification, pressAction } = detail || {};
+
+        // User tapped the notification body
+        if (type === notifee.EventType.PRESS && pressAction?.id === 'open_alarm') {
           setAlarmLaunchOrigin('inapp');
           router.push('/alarm');
+          return;
+        }
+
+        // User tapped an action button
+        if (type === notifee.EventType.ACTION_PRESS && notification && pressAction) {
+          const reminderId = notification.data?.reminderId as string;
+          if (!reminderId) return;
+
+          // Always cancel the notification that was actioned
+          await notifee.cancelNotification(notification.id!);
+
+          if (pressAction.id === 'done') {
+            const { markReminderDone } = require('@/services/reminder-scheduler');
+            await markReminderDone(reminderId);
+            return;
+          }
+
+          const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction.id);
+          if (snoozeMatch) {
+            const mins = parseInt(snoozeMatch[1], 10);
+            const { rescheduleReminderById } = require('@/services/reminder-scheduler');
+            await rescheduleReminderById(reminderId, mins);
+          }
         }
       } catch (e) { console.log('fg notif error', e); }
     });

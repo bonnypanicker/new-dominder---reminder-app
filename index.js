@@ -1,3 +1,4 @@
+import './services/headless-task';
 import 'expo-router/entry';
 import notifee, { EventType } from '@notifee/react-native';
 
@@ -9,9 +10,8 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
     const reminderId = notification.data && notification.data.reminderId;
 
-    // Cancel only this notification and any currently displayed alerts
+    // Cancel only this notification
     try { await notifee.cancelNotification(notification.id); } catch {}
-    try { await notifee.cancelDisplayedNotifications(); } catch {}
 
     if (pressAction.id === 'done') {
       const svc = require('./services/reminder-scheduler');

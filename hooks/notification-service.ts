@@ -27,9 +27,10 @@ export async function scheduleReminderByModel(rem: Reminder) {
   const when = rem.time;
 
   // Permissions and exact alarm capability (fallback if denied)
-  const s = await notifee.getNotificationSettings();
+  let s = await notifee.getNotificationSettings();
   if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
     await notifee.requestPermission();
+    s = await notifee.getNotificationSettings(); // Re-fetch after request
   }
   const exactEnabled = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
 

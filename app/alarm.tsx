@@ -29,8 +29,10 @@ export default function AlarmScreen() {
     const origin = getAlarmLaunchOrigin();
     clearAlarmLaunchOrigin();
 
-    // Always cancel visible alerts before closing
-    try { await notifee.cancelDisplayedNotifications(); } catch {}
+    // Always cancel the specific alert before closing
+    try {
+      if (reminderId) await notifee.cancelNotification(reminderId);
+    } catch {}
 
     // If the app was started only for this alarm (locked/closed), finish activity entirely
     if (origin === 'fullscreen' || origin === 'bodytap') {
