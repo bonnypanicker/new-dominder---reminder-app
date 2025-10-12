@@ -4,7 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet } from 'react-native';
+import { StyleSheet, DeviceEventEmitter } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/hooks/theme-provider";
@@ -70,7 +70,18 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  const queryClient = useQueryClient();
   const router = useRouter();
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('remindersChanged', () => {
+      console.log('[RootLayout] remindersChanged event received, invalidating queries.');
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [queryClient]);
 
   useEffect(() => {
     console.log('[RootLayout] Setting up notification handlers');

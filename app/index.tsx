@@ -1148,7 +1148,9 @@ export default function HomeScreen() {
             return;
           }
 
-          addReminder.mutate({
+          const newReminder: Reminder = {
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
             title: title.trim(),
             description: '',
             time: finalTime,
@@ -1162,7 +1164,9 @@ export default function HomeScreen() {
             everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
             ringerSound: undefined,
             isCompleted: false,
-          }, {
+          };
+
+          addReminder.mutate(newReminder, {
             onSuccess: () => {
               // Close popup immediately
               setShowCreatePopup(false);
