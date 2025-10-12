@@ -86,6 +86,20 @@ function App() {
   useEffect(() => {
     console.log('[RootLayout] Setting up notification handlers');
     
+    // Handle alarm actions from native AlarmActivity
+    const alarmActionListener = DeviceEventEmitter.addListener('alarmAction', async (data) => {
+      console.log('[RootLayout] Received alarmAction event:', data);
+      const { action, reminderId, snoozeMinutes } = data;
+      
+      if (action === 'snooze' && reminderId) {
+        const { rescheduleReminderById } = require('@/services/reminder-scheduler');
+        await rescheduleReminderById(reminderId, snoozeMinutes || 10);
+      } else if (action === 'done' && reminderId) {
+        const { markReminderDone } = require('@/services/reminder-scheduler');
+        await markReminderDone(reminderId);
+      }
+    });
+    
     (async () => {
       try {
         const initial = await notifee.getInitialNotification();
@@ -94,53 +108,20 @@ function App() {
         if (initial?.notification) {
           const reminderId = initial.notification.data?.reminderId as string;
           const priority = initial.notification.data?.priority as string;
-          const isFullScreenAlarm = initial.notification.data?.isFullScreenAlarm as string;
           const title = (initial.notification.data?.title as string) || initial.notification.title || 'Reminder';
-          const route = initial.notification.data?.route as string;
           
           console.log('[RootLayout] Initial notification data:', { 
             reminderId, 
             priority, 
-            isFullScreenAlarm,
             title,
-            route,
-            pressAction: initial.pressAction?.id,
-            hasFullScreenAction: !!initial.notification.android?.fullScreenAction
+            pressAction: initial.pressAction?.id
           });
           
-          const isRinger = priority === 'high' || isFullScreenAlarm === 'true';
+          const isRinger = priority === 'high';
           
-          if (isFullScreenAlarm === 'true' && (!initial.pressAction || initial.pressAction.id === 'alarm_fullscreen')) {
-            console.log('[RootLayout] Full-screen alarm detected - app launched from locked screen');
-            setAlarmLaunchOrigin('fullscreen');
-            console.log('[RootLayout] Navigating to alarm screen');
-            setTimeout(() => {
-              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
-            }, 100);
-            return;
-          }
-
-          if (initial.pressAction?.id === 'open_alarm' && isRinger) {
-            console.log('[RootLayout] Body tap detected for ringer');
-            setAlarmLaunchOrigin('bodytap');
-            setTimeout(() => {
-              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
-            }, 100);
-            return;
-          }
-          
-          if (initial.pressAction?.id === 'default' || (!isRinger && initial.pressAction)) {
+          if (initial.pressAction?.id === 'default' && !isRinger) {
             console.log('[RootLayout] Body tap detected for standard/silent');
             router.replace('/');
-            return;
-          }
-          
-          if (route === 'alarm' && isRinger) {
-            console.log('[RootLayout] Routing to alarm screen based on route data');
-            setAlarmLaunchOrigin('fullscreen');
-            setTimeout(() => {
-              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
-            }, 100);
             return;
           }
         }
@@ -203,10 +184,11 @@ function App() {
     return () => { 
       try { 
         console.log('[RootLayout] Cleaning up notification handlers');
+        alarmActionListener.remove();
         unsub && unsub(); 
       } catch {} 
     };
-  }, [router]);
+  }, [router, queryClient]);
 
   // Other setup effects
   useEffect(() => {
