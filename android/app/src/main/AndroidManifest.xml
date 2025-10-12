@@ -37,6 +37,15 @@
         <data android:scheme="myapp"/>
       </intent-filter>
     </activity>
+    <activity
+        android:name=".alarm.AlarmActivity"
+        android:showWhenLocked="true"
+        android:turnScreenOn="true"
+        android:excludeFromRecents="true"
+        android:launchMode="singleTask"
+        android:taskAffinity=""
+        android:exported="true" />
+    <receiver android:name=".alarm.AlarmReceiver" android:exported="true" />
     <receiver android:name=".BootReceiver" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.BOOT_COMPLETED" />

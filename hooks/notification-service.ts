@@ -8,6 +8,9 @@ import notifee, {
   AndroidNotificationSetting,
 } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
+import { NativeModules } from 'react-native';
+
+const { AlarmModule } = NativeModules;
 
 function bodyWithTime(desc: string | undefined, when: number) {
   const formatted = new Date(when).toLocaleString([], {
@@ -44,75 +47,75 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
-  let s = await notifee.getNotificationSettings();
-  if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
-    await notifee.requestPermission();
-    s = await notifee.getNotificationSettings();
-  }
-  const exactEnabled = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
-
-  const trigger: TimestampTrigger = {
-    type: TriggerType.TIMESTAMP,
-    timestamp: when,
-    alarmManager: exactEnabled ? { allowWhileIdle: true } : undefined,
-  };
-
   const isRinger = reminder.priority === 'high';
-  const channelId = isRinger ? 'alarm-v2' : reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
-
-  const body = bodyWithTime(reminder.description, when);
-
-  const notificationConfig: any = {
-    id: `rem-${reminder.id}`,
-    title: reminder.title,
-    body,
-    data: { 
-      reminderId: reminder.id, 
-      priority: reminder.priority,
-      isFullScreenAlarm: isRinger ? 'true' : 'false',
-      title: reminder.title,
-      route: isRinger ? 'alarm' : 'index'
-    },
-    android: {
-      channelId,
-      importance: isRinger ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
-      category: isRinger ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
-      lightUpScreen: isRinger,
-      ongoing: true,
-      autoCancel: false,
-      pressAction: { 
-        id: isRinger ? 'open_alarm' : 'default',
-        launchActivity: 'default'
-      },
-      showTimestamp: true,
-      timestamp: when,
-      style: { type: AndroidStyle.BIGTEXT, text: body },
-      actions: [
-        { title: 'Done',      pressAction: { id: 'done' } },
-        { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
-        { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
-        { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
-        { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
-      ],
-    },
-  };
 
   if (isRinger) {
-    notificationConfig.android.fullScreenAction = {
-      id: 'alarm_fullscreen',
-      launchActivity: 'default',
-      mainComponent: 'alarm'
-    };
-  }
+    // Schedule native alarm for high priority reminders
+    AlarmModule.scheduleAlarm(reminder.id, reminder.title, when);
+    console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
+    return;
+  } else {
+    let s = await notifee.getNotificationSettings();
+    if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
+      await notifee.requestPermission();
+      s = await notifee.getNotificationSettings();
+    }
+    const exactEnabled = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
 
-  await notifee.createTriggerNotification(notificationConfig, trigger);
-  
-  console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
-}
+    const trigger: TimestampTrigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: when,
+      alarmManager: exactEnabled ? { allowWhileIdle: true } : undefined,
+    };
+
+    const channelId = reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
+
+    const body = bodyWithTime(reminder.description, when);
+
+    const notificationConfig: any = {
+      id: `rem-${reminder.id}`,
+      title: reminder.title,
+      body,
+      data: { 
+        reminderId: reminder.id, 
+        priority: reminder.priority,
+        title: reminder.title,
+        route: 'index'
+      },
+      android: {
+        channelId,
+        importance: AndroidImportance.DEFAULT,
+        category: AndroidCategory.REMINDER,
+        lightUpScreen: false,
+        ongoing: true,
+        autoCancel: false,
+        pressAction: { 
+          id: 'default',
+          launchActivity: 'default'
+        },
+        showTimestamp: true,
+        timestamp: when,
+        style: { type: AndroidStyle.BIGTEXT, text: body },
+        actions: [
+          { title: 'Done',      pressAction: { id: 'done' } },
+          { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
+          { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
+          { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
+          { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
+        ],
+      },
+    };
+
+    await notifee.createTriggerNotification(notificationConfig, trigger);
+    
+    console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
+  }
 
 export async function cancelNotification(notificationId: string) {
   try {
     await notifee.cancelNotification(notificationId);
+    // Also try to cancel native alarm if it exists
+    AlarmModule.cancelAlarm(notificationId.replace("rem-", ""));
     console.log(`[NotificationService] Cancelled notification ${notificationId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notification ${notificationId}:`, error);
@@ -122,6 +125,8 @@ export async function cancelNotification(notificationId: string) {
 export async function cancelAllNotificationsForReminder(reminderId: string) {
   try {
     await notifee.cancelNotification(`rem-${reminderId}`);
+    // Also try to cancel native alarm if it exists
+    AlarmModule.cancelAlarm(reminderId);
     console.log(`[NotificationService] Cancelled all notifications for reminder ${reminderId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
