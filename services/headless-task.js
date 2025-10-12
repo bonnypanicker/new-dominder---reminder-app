@@ -4,7 +4,7 @@ import { notificationService } from '../hooks/notification-service';
 
 const STORAGE_KEY = 'dominder_reminders';
 
-export const runRescheduleAlarms = async () => {
+const RescheduleAlarms = async () => {
   console.log('[Dominder-Debug] Headless task: RescheduleAlarms started');
   try {
     await notificationService.initialize();
@@ -27,4 +27,4 @@ export const runRescheduleAlarms = async () => {
   }
 };
 
-AppRegistry.registerHeadlessTask('RescheduleAlarms', () => runRescheduleAlarms);
+AppRegistry.registerHeadlessTask('RescheduleAlarms', () => RescheduleAlarms);

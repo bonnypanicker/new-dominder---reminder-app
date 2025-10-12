@@ -1,10 +1,8 @@
 import 'expo-router/entry';
-import { runRescheduleAlarms } from './services/headless-task.js';
+import './services/headless-task.js';
 import notifee, { EventType } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService } from './hooks/notification-service';
-
-runRescheduleAlarms();
 
 const STORAGE_KEY = 'dominder_reminders';
 

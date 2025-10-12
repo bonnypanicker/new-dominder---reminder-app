@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import notifee, { EventType } from '@notifee/react-native';
-import { Stack, router, useRootNavigationState, useRouter } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -19,56 +19,105 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-function RootLayoutNav({ reminderId, priority }: { reminderId?: string, priority?: string }) {
-  const router = useRouter();
-  const isNavigationReady = useRootNavigationState()?.key !== undefined;
-
+function RootLayoutNav() {
   useEffect(() => {
-    if (isNavigationReady) {
-      console.log(`[Dominder-Debug] App launched with props. Priority: ${priority}, Reminder ID: ${reminderId}`);
-      if (priority === 'high' && reminderId) {
-        console.log('[Dominder-Debug] High priority prop detected, navigating to alarm screen.');
-        router.replace(`/alarm?reminderId=${reminderId}`);
+    let hasHandledInitial = false;
+
+    // Handle both foreground and initial notification (when app opens from notification)
+    const checkInitialNotification = async () => {
+      try {
+        const initialNotification = await notifee.getInitialNotification();
+        if (initialNotification && !hasHandledInitial) {
+          hasHandledInitial = true;
+          const { notification, pressAction } = initialNotification;
+          console.log('[Dominder-Debug] App opened from notification:', notification?.data?.reminderId, 'pressAction:', pressAction?.id, 'priority:', notification?.data?.priority);
+          
+          if (notification?.data?.reminderId) {
+            const reminderId = notification.data.reminderId;
+            const priority = notification.data.priority;
+            
+            // Only open alarm screen for "ringer" mode (high priority) reminders
+            if (priority === 'high') {
+              console.log('[Dominder-Debug] Opening alarm screen from initial notification (ringer mode)');
+              // Use multiple attempts to ensure router is ready
+              const attemptNavigation = (attempts = 0) => {
+                if (attempts > 10) {
+                  console.error('[Dominder-Debug] Failed to navigate to alarm screen after 10 attempts');
+                  return;
+                }
+                try {
+                  router.replace(`/alarm?reminderId=${reminderId}`);
+                  console.log('[Dominder-Debug] Successfully navigated to alarm screen');
+                } catch {
+                  console.log(`[Dominder-Debug] Navigation attempt ${attempts + 1} failed, retrying...`);
+                  setTimeout(() => attemptNavigation(attempts + 1), 200);
+                }
+              };
+              setTimeout(() => attemptNavigation(), 300);
+            } else {
+              console.log('[Dominder-Debug] Standard/silent notification opened app, staying on home screen');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[Dominder-Debug] Error checking initial notification:', error);
       }
-    }
-  }, [isNavigationReady, router, reminderId, priority]);
+    };
 
-  useEffect(() => {
-    // This effect handles foreground events (e.g., user presses a notification while app is open)
+    // Check immediately and after delays to catch late-arriving notifications
+    checkInitialNotification();
+    const delayedCheck1 = setTimeout(checkInitialNotification, 500);
+    const delayedCheck2 = setTimeout(checkInitialNotification, 1000);
+
+    // Handle foreground events
     const unsubscribe = notifee.onForegroundEvent(async ({ type, detail }) => {
       console.log('[Dominder-Debug] Foreground event:', type, 'pressAction:', detail?.pressAction?.id);
 
       if (type === EventType.DELIVERED) {
         const { notification } = detail;
         if (notification?.data?.priority === 'high' && notification.id) {
+          // This notification has a fullScreenAction. We need to cancel it and replace it with one that doesn't.
           await notifee.cancelNotification(notification.id);
-          const newNotification = { ...notification };
-          delete newNotification.android?.fullScreenAction;
+
+          const newNotification = {
+            ...notification,
+            android: {
+              ...notification.android,
+              fullScreenAction: undefined,
+            },
+          };
           await notifee.displayNotification(newNotification);
         }
       } else if (type === EventType.PRESS) {
         const { notification } = detail;
-        const reminderId = notification?.data?.reminderId;
-        const priority = notification?.data?.priority;
-
-        if (priority === 'high' && reminderId) {
-          console.log('[Dominder-Debug] High priority notification pressed in foreground, navigating to alarm screen.');
-          router.push(`/alarm?reminderId=${reminderId}`);
+        
+        if (notification?.data?.reminderId) {
+          const reminderId = notification.data.reminderId;
+          const priority = notification.data.priority;
+          
+          // Only open alarm screen for "ringer" mode (high priority) reminders
+          if (priority === 'high') {
+            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press (ringer mode)');
+            router.push(`/alarm?reminderId=${reminderId}`);
+          } else {
+            console.log('[Dominder-Debug] Standard/silent notification pressed, staying on current screen');
+          }
         }
       }
     });
 
-    return () => unsubscribe();
-  }, [router]);
-
-
-  useEffect(() => {
-    // This effect initializes app-wide services like channels and permissions
-    const setupServices = async () => {
+    const setupNotifee = async () => {
       await ensureBaseChannels();
       await requestInteractive();
     };
-    setupServices();
+
+    setupNotifee();
+
+    return () => {
+      clearTimeout(delayedCheck1);
+      clearTimeout(delayedCheck2);
+      unsubscribe();
+    };
   }, []);
 
   return (
@@ -97,7 +146,7 @@ function RootLayoutNav({ reminderId, priority }: { reminderId?: string, priority
   );
 }
 
-function AppContent(props: { reminderId?: string, priority?: string }) {
+function AppContent() {
   const { isLoading } = useSettings();
 
   const onLayoutRootView = React.useCallback(async () => {
@@ -116,7 +165,7 @@ function AppContent(props: { reminderId?: string, priority?: string }) {
         <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
           <ReminderEngineProvider>
             <StatusBar hidden={true} />
-            <RootLayoutNav {...props} />
+            <RootLayoutNav />
           </ReminderEngineProvider>
         </GestureHandlerRootView>
       </ErrorBoundary>
@@ -124,7 +173,7 @@ function AppContent(props: { reminderId?: string, priority?: string }) {
   );
 }
 
-export default function RootLayout(props: any) {
+export default function RootLayout() {
   // Fallback to hide splash screen after 5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -135,7 +184,7 @@ export default function RootLayout(props: any) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent {...props} />
+      <AppContent />
     </QueryClientProvider>
   );
 }

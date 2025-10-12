@@ -41,20 +41,7 @@ class MainActivity : ReactActivity() {
               this,
               mainComponentName,
               fabricEnabled
-          ) {
-            override fun getLaunchOptions(): Bundle? {
-                val bundle = Bundle()
-                val initialNotification = intent.extras?.get("notification") as? Bundle
-                if (initialNotification != null) {
-                    val data = initialNotification.getBundle("data")
-                    val reminderId = data?.getString("reminderId")
-                    val priority = data?.getString("priority")
-                    bundle.putString("reminderId", reminderId)
-                    bundle.putString("priority", priority)
-                }
-                return bundle
-            }
-          })
+          ){})
   }
 
   /**
