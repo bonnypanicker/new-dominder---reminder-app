@@ -16,60 +16,7 @@ import { ensureBaseChannels } from '@/services/channels';
 SplashScreen.preventAutoHideAsync();
 const rootQueryClient = new QueryClient();
 
-function RootLayoutNav() {
-  return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen name="settings/notifications" options={{ title: 'Notification Settings' }} />
-      <Stack.Screen 
-        name="create-reminder" 
-        options={{ 
-          presentation: "modal",
-          headerShown: false,
-        }} 
-      />
-      <Stack.Screen 
-        name="alarm" 
-        options={{ 
-          presentation: "fullScreenModal",
-          headerShown: false,
-          gestureEnabled: false,
-        }} 
-      />
-      <Stack.Screen name="notifications-debug" options={{ title: 'Notifications Debug' }} />
-    </Stack>
-  );
-}
-
-function AppContent() {
-  const { isLoading } = useSettings();
-
-  const onLayoutRootView = React.useCallback(async () => {
-    if (!isLoading) {
-      await SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
-
-  if (isLoading) {
-    return null;
-  }
-
-  return (
-    <ThemeProvider>
-      <ErrorBoundary>
-        <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
-          <ReminderEngineProvider>
-            <StatusBar hidden={true} />
-            <RootLayoutNav />
-          </ReminderEngineProvider>
-        </GestureHandlerRootView>
-      </ErrorBoundary>
-    </ThemeProvider>
-  );
-}
-
-export default function RootLayout() {
+function App() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -221,9 +168,13 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
+  return <AppContent />;
+}
+
+export default function RootLayout() {
   return (
     <QueryClientProvider client={rootQueryClient}>
-      <AppContent />
+      <App />
     </QueryClientProvider>
   );
 }
