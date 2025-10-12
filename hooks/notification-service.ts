@@ -110,6 +110,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
     
     console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
   }
+}
 
 export async function cancelNotification(notificationId: string) {
   try {
