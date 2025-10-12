@@ -62,7 +62,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
   const body = bodyWithTime(reminder.description, when);
 
-  await notifee.createTriggerNotification({
+  const notificationConfig: any = {
     id: `rem-${reminder.id}`,
     title: reminder.title,
     body,
@@ -70,7 +70,8 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       reminderId: reminder.id, 
       priority: reminder.priority,
       isFullScreenAlarm: isRinger ? 'true' : 'false',
-      title: reminder.title
+      title: reminder.title,
+      route: isRinger ? 'alarm' : 'index'
     },
     android: {
       channelId,
@@ -79,11 +80,10 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       lightUpScreen: isRinger,
       ongoing: true,
       autoCancel: false,
-      pressAction: { id: isRinger ? 'open_alarm' : 'default' },
-      fullScreenAction: isRinger ? { 
-        id: 'alarm_fullscreen',
+      pressAction: { 
+        id: isRinger ? 'open_alarm' : 'default',
         launchActivity: 'default'
-      } : undefined,
+      },
       showTimestamp: true,
       timestamp: when,
       style: { type: AndroidStyle.BIGTEXT, text: body },
@@ -95,7 +95,17 @@ export async function scheduleReminderByModel(reminder: Reminder) {
         { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
       ],
     },
-  }, trigger);
+  };
+
+  if (isRinger) {
+    notificationConfig.android.fullScreenAction = {
+      id: 'alarm_fullscreen',
+      launchActivity: 'default',
+      mainComponent: 'alarm'
+    };
+  }
+
+  await notifee.createTriggerNotification(notificationConfig, trigger);
   
   console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
 }

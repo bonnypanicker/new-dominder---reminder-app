@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import notifee, { EventType } from '@notifee/react-native';
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -14,7 +14,7 @@ import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
 
 SplashScreen.preventAutoHideAsync();
-const queryClient = new QueryClient();
+const rootQueryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
@@ -96,25 +96,27 @@ export default function RootLayout() {
           const priority = initial.notification.data?.priority as string;
           const isFullScreenAlarm = initial.notification.data?.isFullScreenAlarm as string;
           const title = (initial.notification.data?.title as string) || initial.notification.title || 'Reminder';
+          const route = initial.notification.data?.route as string;
           
           console.log('[RootLayout] Initial notification data:', { 
             reminderId, 
             priority, 
             isFullScreenAlarm,
             title,
+            route,
             pressAction: initial.pressAction?.id,
             hasFullScreenAction: !!initial.notification.android?.fullScreenAction
           });
           
           const isRinger = priority === 'high' || isFullScreenAlarm === 'true';
           
-          if (isFullScreenAlarm === 'true') {
-            console.log('[RootLayout] Full-screen alarm detected from data flag');
+          if (isFullScreenAlarm === 'true' && (!initial.pressAction || initial.pressAction.id === 'alarm_fullscreen')) {
+            console.log('[RootLayout] Full-screen alarm detected - app launched from locked screen');
             setAlarmLaunchOrigin('fullscreen');
             console.log('[RootLayout] Navigating to alarm screen');
             setTimeout(() => {
               router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
-            }, 150);
+            }, 100);
             return;
           }
 
@@ -127,9 +129,18 @@ export default function RootLayout() {
             return;
           }
           
-          if (initial.pressAction?.id === 'default') {
+          if (initial.pressAction?.id === 'default' || (!isRinger && initial.pressAction)) {
             console.log('[RootLayout] Body tap detected for standard/silent');
             router.replace('/');
+            return;
+          }
+          
+          if (route === 'alarm' && isRinger) {
+            console.log('[RootLayout] Routing to alarm screen based on route data');
+            setAlarmLaunchOrigin('fullscreen');
+            setTimeout(() => {
+              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
+            }, 100);
             return;
           }
         }
@@ -211,7 +222,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={rootQueryClient}>
       <AppContent />
     </QueryClientProvider>
   );

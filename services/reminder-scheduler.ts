@@ -15,13 +15,15 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
 
   const nextTime = Date.now() + minutes * 60 * 1000;
   
+  await notificationService.cancelAllNotificationsForReminder(reminderId);
+  
   reminder.snoozeUntil = new Date(nextTime).toISOString();
   reminder.wasSnoozed = true;
+  reminder.lastTriggeredAt = new Date().toISOString();
 
   await updateReminder(reminder);
   console.log(`[Scheduler] Snoozed reminder ${reminderId} until ${new Date(nextTime).toISOString()}`);
   
-  await notificationService.cancelAllNotificationsForReminder(reminderId);
   await notificationService.scheduleReminderByModel(reminder);
 
   DeviceEventEmitter.emit('remindersChanged');
@@ -39,7 +41,14 @@ export async function markReminderDone(reminderId: string) {
   
   await notificationService.cancelAllNotificationsForReminder(reminderId);
 
-  if (reminder.repeatType && reminder.repeatType !== 'none') {
+  if (reminder.snoozeUntil && reminder.repeatType === 'none') {
+    console.log(`[Scheduler] Snoozed 'once' reminder ${reminderId} marked as done - completing it`);
+    reminder.isCompleted = true;
+    reminder.snoozeUntil = undefined;
+    reminder.wasSnoozed = undefined;
+    reminder.lastTriggeredAt = new Date().toISOString();
+    await updateReminder(reminder);
+  } else if (reminder.repeatType && reminder.repeatType !== 'none') {
     console.log(`[Scheduler] Processing 'Done' for repeating reminder ${reminderId}`);
     const nextDate = calculateNextReminderDate(reminder, new Date());
 
@@ -55,11 +64,16 @@ export async function markReminderDone(reminderId: string) {
     } else {
       console.log(`[Scheduler] No next occurrence found for ${reminderId}, marking as complete.`);
       reminder.isCompleted = true;
+      reminder.snoozeUntil = undefined;
+      reminder.wasSnoozed = undefined;
       await updateReminder(reminder);
     }
   } else {
     console.log(`[Scheduler] Marking one-time reminder ${reminderId} as complete.`);
     reminder.isCompleted = true;
+    reminder.snoozeUntil = undefined;
+    reminder.wasSnoozed = undefined;
+    reminder.lastTriggeredAt = new Date().toISOString();
     await updateReminder(reminder);
   }
 
