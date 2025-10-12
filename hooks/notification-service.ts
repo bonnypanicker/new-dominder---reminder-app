@@ -7,14 +7,7 @@ import notifee, {
   AuthorizationStatus,
   AndroidNotificationSetting,
 } from '@notifee/react-native';
-
-type Reminder = {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'high' | 'medium' | 'low';
-  time: number; // epoch ms
-};
+import { Reminder } from '@/types/reminder';
 
 function bodyWithTime(desc: string | undefined, when: number) {
   const formatted = new Date(when).toLocaleString([], {
@@ -23,49 +16,69 @@ function bodyWithTime(desc: string | undefined, when: number) {
   return [desc?.trim(), `⏰ ${formatted}`].filter(Boolean).join('\n');
 }
 
-export async function scheduleReminderByModel(rem: Reminder) {
-  const when = rem.time;
+function reminderToTimestamp(reminder: Reminder): number {
+  if (reminder.snoozeUntil) {
+    return new Date(reminder.snoozeUntil).getTime();
+  }
+  
+  if (reminder.nextReminderDate) {
+    return new Date(reminder.nextReminderDate).getTime();
+  }
+  
+  const [year, month, day] = reminder.date.split('-').map(Number);
+  const [hours, minutes] = reminder.time.split(':').map(Number);
+  const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  return date.getTime();
+}
 
-  // Permissions and exact alarm capability (fallback if denied)
+export async function scheduleReminderByModel(reminder: Reminder) {
+  console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
+  
+  const when = reminderToTimestamp(reminder);
+  const now = Date.now();
+  
+  if (when <= now) {
+    console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past, skipping`);
+    return;
+  }
+  
+  console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
+
   let s = await notifee.getNotificationSettings();
   if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
     await notifee.requestPermission();
-    s = await notifee.getNotificationSettings(); // Re-fetch after request
+    s = await notifee.getNotificationSettings();
   }
   const exactEnabled = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
 
   const trigger: TimestampTrigger = {
     type: TriggerType.TIMESTAMP,
     timestamp: when,
-    ...(exactEnabled ? { alarmManager: { allowWhileIdle: true } } : {}),
+    alarmManager: exactEnabled ? { allowWhileIdle: true } : undefined,
   };
 
-  const isRinger = rem.priority === 'high';
-  const channelId = isRinger ? 'alarm-v2' : rem.priority === 'medium' ? 'standard-v2' : 'silent-v2';
+  const isRinger = reminder.priority === 'high';
+  const channelId = isRinger ? 'alarm-v2' : reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
 
-  const body = bodyWithTime(rem.description, when);
+  const body = bodyWithTime(reminder.description, when);
 
   await notifee.createTriggerNotification({
-    id: `rem-${rem.id}`,
-    title: rem.title,
+    id: `rem-${reminder.id}`,
+    title: reminder.title,
     body,
-    data: { reminderId: rem.id },
+    data: { reminderId: reminder.id, priority: reminder.priority },
     android: {
       channelId,
-      importance: isRinger ? AndroidImportance.HIGH : undefined,
-      category: isRinger ? AndroidCategory.ALARM : undefined,
-      lightUpScreen: isRinger ? true : undefined,
-      // Persistent until user action
+      importance: isRinger ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
+      category: isRinger ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
+      lightUpScreen: isRinger,
       ongoing: true,
       autoCancel: false,
-      // Body tap: open alarm for ringer, open app for others
       pressAction: { id: isRinger ? 'open_alarm' : 'default' },
-      // Full-screen for locked/killed cases
-      fullScreenAction: isRinger ? { id: 'alarm' } : undefined,
+      fullScreenAction: isRinger ? { id: 'alarm', launchActivity: 'default' } : undefined,
       showTimestamp: true,
       timestamp: when,
       style: { type: AndroidStyle.BIGTEXT, text: body },
-      // Actions for both ringer and non-ringer to unify UX
       actions: [
         { title: 'Done',      pressAction: { id: 'done' } },
         { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
@@ -75,4 +88,52 @@ export async function scheduleReminderByModel(rem: Reminder) {
       ],
     },
   }, trigger);
+  
+  console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
 }
+
+export async function cancelNotification(notificationId: string) {
+  try {
+    await notifee.cancelNotification(notificationId);
+    console.log(`[NotificationService] Cancelled notification ${notificationId}`);
+  } catch (error) {
+    console.error(`[NotificationService] Error cancelling notification ${notificationId}:`, error);
+  }
+}
+
+export async function cancelAllNotificationsForReminder(reminderId: string) {
+  try {
+    await notifee.cancelNotification(`rem-${reminderId}`);
+    console.log(`[NotificationService] Cancelled all notifications for reminder ${reminderId}`);
+  } catch (error) {
+    console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
+  }
+}
+
+export async function cleanupOrphanedNotifications() {
+  try {
+    const displayed = await notifee.getDisplayedNotifications();
+    const triggered = await notifee.getTriggerNotifications();
+    console.log(`[NotificationService] Cleanup: ${displayed.length} displayed, ${triggered.length} triggered`);
+  } catch (error) {
+    console.error('[NotificationService] Error during cleanup:', error);
+  }
+}
+
+export async function initialize() {
+  try {
+    const { ensureBaseChannels } = require('@/services/channels');
+    await ensureBaseChannels();
+    console.log('[NotificationService] Initialized');
+  } catch (error) {
+    console.error('[NotificationService] Initialization error:', error);
+  }
+}
+
+export const notificationService = {
+  scheduleReminderByModel,
+  cancelNotification,
+  cancelAllNotificationsForReminder,
+  cleanupOrphanedNotifications,
+  initialize,
+};

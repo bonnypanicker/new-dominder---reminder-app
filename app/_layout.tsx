@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import notifee from '@notifee/react-native';
+import notifee, { EventType } from '@notifee/react-native';
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -73,45 +73,82 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    // This effect handles all notification-related app launching and routing.
+    console.log('[RootLayout] Setting up notification handlers');
+    
     (async () => {
       try {
         const initial = await notifee.getInitialNotification();
+        console.log('[RootLayout] Initial notification:', initial);
 
-        // App was cold-started by a full-screen intent (phone was locked)
-        if (initial?.notification?.android?.fullScreenAction) {
-          setAlarmLaunchOrigin('fullscreen');
-          router.replace('/alarm');
-          return;
-        }
+        if (initial?.notification) {
+          const reminderId = initial.notification.data?.reminderId as string;
+          const priority = initial.notification.data?.priority as string;
+          const title = initial.notification.title;
+          
+          console.log('[RootLayout] Initial notification data:', { reminderId, priority, title });
+          
+          const isRinger = priority === 'high';
+          
+          if (initial.notification.android?.fullScreenAction) {
+            console.log('[RootLayout] Full-screen intent detected');
+            if (isRinger) {
+              setAlarmLaunchOrigin('fullscreen');
+              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
+            } else {
+              router.replace('/');
+            }
+            return;
+          }
 
-        // App was cold-started by user tapping the notification body (phone was unlocked)
-        if (initial?.pressAction?.id === 'open_alarm') {
-          setAlarmLaunchOrigin('bodytap');
-          router.replace('/alarm');
-          return;
+          if (initial.pressAction?.id === 'open_alarm') {
+            console.log('[RootLayout] Body tap detected for ringer');
+            setAlarmLaunchOrigin('bodytap');
+            router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
+            return;
+          }
+          
+          if (initial.pressAction?.id === 'default') {
+            console.log('[RootLayout] Body tap detected for standard/silent');
+            router.replace('/');
+            return;
+          }
         }
-      } catch (e) { console.log('initial notif error', e); }
+      } catch (e) { 
+        console.error('[RootLayout] Initial notification error:', e); 
+      }
     })();
 
-    // This handles taps on a notification body while the app is already open.
     const unsub = notifee.onForegroundEvent(async ({ type, detail }) => {
       try {
         const { notification, pressAction } = detail || {};
+        console.log('[RootLayout] Foreground event:', { type, pressAction: pressAction?.id });
 
-        // User tapped the notification body
-        if (type === notifee.EventType.PRESS && pressAction?.id === 'open_alarm') {
-          setAlarmLaunchOrigin('inapp');
-          router.push('/alarm');
-          return;
+        if (type === EventType.PRESS && notification) {
+          const reminderId = notification.data?.reminderId as string;
+          const priority = notification.data?.priority as string;
+          const title = notification.title;
+          const isRinger = priority === 'high';
+          
+          console.log('[RootLayout] Notification pressed:', { reminderId, priority, isRinger });
+          
+          if (pressAction?.id === 'open_alarm' && isRinger) {
+            setAlarmLaunchOrigin('inapp');
+            router.push(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
+            return;
+          }
+          
+          if (pressAction?.id === 'default' && !isRinger) {
+            router.push('/');
+            return;
+          }
         }
 
-        // User tapped an action button
-        if (type === notifee.EventType.ACTION_PRESS && notification && pressAction) {
+        if (type === EventType.ACTION_PRESS && notification && pressAction) {
           const reminderId = notification.data?.reminderId as string;
+          console.log('[RootLayout] Action pressed:', { action: pressAction.id, reminderId });
+          
           if (!reminderId) return;
 
-          // Always cancel the notification that was actioned
           await notifee.cancelNotification(notification.id!);
 
           if (pressAction.id === 'done') {
@@ -127,10 +164,17 @@ export default function RootLayout() {
             await rescheduleReminderById(reminderId, mins);
           }
         }
-      } catch (e) { console.log('fg notif error', e); }
+      } catch (e) { 
+        console.error('[RootLayout] Foreground event error:', e); 
+      }
     });
 
-    return () => { try { unsub && unsub(); } catch {} };
+    return () => { 
+      try { 
+        console.log('[RootLayout] Cleaning up notification handlers');
+        unsub && unsub(); 
+      } catch {} 
+    };
   }, [router]);
 
   // Other setup effects
