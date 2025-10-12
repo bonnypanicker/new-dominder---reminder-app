@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, BackHandler } from 'react-native';
+import { View, Text, Pressable, BackHandler, NativeModules } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import notifee from '@notifee/react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { getAlarmLaunchOrigin, clearAlarmLaunchOrigin } from '../services/alarm-context';
+
+const { AlarmModule } = NativeModules;
 
 export default function AlarmScreen() {
   useKeepAwake();
@@ -67,7 +69,7 @@ export default function AlarmScreen() {
       console.log('[AlarmScreen] Exiting app for fullscreen/bodytap origin');
       try { router.dismissAll?.(); } catch {}
       setTimeout(() => { 
-        try { BackHandler.exitApp(); } 
+        try { AlarmModule.finishAffinity(); } 
         catch (e) { console.error('[AlarmScreen] Exit error:', e); }
       }, 10);
       return;
