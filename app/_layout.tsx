@@ -83,27 +83,36 @@ export default function RootLayout() {
         if (initial?.notification) {
           const reminderId = initial.notification.data?.reminderId as string;
           const priority = initial.notification.data?.priority as string;
-          const title = initial.notification.title;
+          const isFullScreenAlarm = initial.notification.data?.isFullScreenAlarm as string;
+          const title = (initial.notification.data?.title as string) || initial.notification.title || 'Reminder';
           
-          console.log('[RootLayout] Initial notification data:', { reminderId, priority, title });
+          console.log('[RootLayout] Initial notification data:', { 
+            reminderId, 
+            priority, 
+            isFullScreenAlarm,
+            title,
+            pressAction: initial.pressAction?.id,
+            hasFullScreenAction: !!initial.notification.android?.fullScreenAction
+          });
           
-          const isRinger = priority === 'high';
+          const isRinger = priority === 'high' || isFullScreenAlarm === 'true';
           
-          if (initial.notification.android?.fullScreenAction) {
-            console.log('[RootLayout] Full-screen intent detected');
-            if (isRinger) {
-              setAlarmLaunchOrigin('fullscreen');
-              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
-            } else {
-              router.replace('/');
-            }
+          if (isFullScreenAlarm === 'true') {
+            console.log('[RootLayout] Full-screen alarm detected from data flag');
+            setAlarmLaunchOrigin('fullscreen');
+            console.log('[RootLayout] Navigating to alarm screen');
+            setTimeout(() => {
+              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
+            }, 150);
             return;
           }
 
-          if (initial.pressAction?.id === 'open_alarm') {
+          if (initial.pressAction?.id === 'open_alarm' && isRinger) {
             console.log('[RootLayout] Body tap detected for ringer');
             setAlarmLaunchOrigin('bodytap');
-            router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
+            setTimeout(() => {
+              router.replace(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title)}`);
+            }, 100);
             return;
           }
           

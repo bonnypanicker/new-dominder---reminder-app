@@ -66,7 +66,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
     id: `rem-${reminder.id}`,
     title: reminder.title,
     body,
-    data: { reminderId: reminder.id, priority: reminder.priority },
+    data: { 
+      reminderId: reminder.id, 
+      priority: reminder.priority,
+      isFullScreenAlarm: isRinger ? 'true' : 'false',
+      title: reminder.title
+    },
     android: {
       channelId,
       importance: isRinger ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
@@ -75,7 +80,10 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       ongoing: true,
       autoCancel: false,
       pressAction: { id: isRinger ? 'open_alarm' : 'default' },
-      fullScreenAction: isRinger ? { id: 'alarm', launchActivity: 'default' } : undefined,
+      fullScreenAction: isRinger ? { 
+        id: 'alarm_fullscreen',
+        launchActivity: 'default'
+      } : undefined,
       showTimestamp: true,
       timestamp: when,
       style: { type: AndroidStyle.BIGTEXT, text: body },
