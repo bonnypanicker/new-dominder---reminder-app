@@ -2,9 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, BackHandler } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import notifee from '@notifee/react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { getAlarmLaunchOrigin, clearAlarmLaunchOrigin } from '../services/alarm-context';
 
 export default function AlarmScreen() {
+  useKeepAwake();
   const router = useRouter();
   const params = useLocalSearchParams();
   const [reminderId, setReminderId] = useState<string | null>(null);
