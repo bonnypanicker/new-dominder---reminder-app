@@ -19,67 +19,105 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-import { useRouter } from 'expo-router';
-import { setAlarmLaunchOrigin } from '../services/alarm-context';
-import { markReminderDone, rescheduleReminderById, handleDismissAction } from '../services/reminder-scheduler';
-
 function RootLayoutNav() {
-  const router = useRouter();
-
   useEffect(() => {
-    (async () => {
+    let hasHandledInitial = false;
+
+    // Handle both foreground and initial notification (when app opens from notification)
+    const checkInitialNotification = async () => {
       try {
-        await ensureBaseChannels();
-        const initial = await notifee.getInitialNotification();
-
-        // Cold start from full-screen (locked/killed): go straight to /alarm
-        if (initial?.notification?.android?.fullScreenAction) {
-          setAlarmLaunchOrigin('fullscreen');
-          router.replace('/alarm');
-          return;
-        }
-
-        // If app was launched/tapped from notification body in unlocked state
-        if (initial?.pressAction?.id === 'open_alarm') {
-          setAlarmLaunchOrigin('bodytap');
-          router.replace('/alarm');
-          return;
-        } else if (initial?.pressAction?.id === 'default') {
-          // Default action for standard/silent notifications is to just open the app
-          router.replace('/');
-          return;
-        }
-      } catch (e) { console.log('initial notif error', e); }
-    })();
-
-    // Also handle foreground taps while app is running
-    const unsub = notifee.onForegroundEvent(async ({ type, detail }) => {
-      try {
-        const { notification, pressAction } = detail || {};
-        if (!notification) return;
-
-        if (type === notifee.EventType.PRESS) {
-          if (pressAction?.id === 'open_alarm') {
-            setAlarmLaunchOrigin('inapp');
-            router.push('/alarm');
-          } else if (pressAction?.id === 'done') {
-            await markReminderDone(notification.data?.reminderId as string);
-          } else if (pressAction?.id === 'default') {
-            router.push('/');
-          } else {
-            const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction?.id || '');
-            if (snoozeMatch) {
-              const minutes = parseInt(snoozeMatch[1], 10);
-              await rescheduleReminderById(notification.data?.reminderId as string, minutes);
+        const initialNotification = await notifee.getInitialNotification();
+        if (initialNotification && !hasHandledInitial) {
+          hasHandledInitial = true;
+          const { notification, pressAction } = initialNotification;
+          console.log('[Dominder-Debug] App opened from notification:', notification?.data?.reminderId, 'pressAction:', pressAction?.id, 'priority:', notification?.data?.priority);
+          
+          if (notification?.data?.reminderId) {
+            const reminderId = notification.data.reminderId;
+            const priority = notification.data.priority;
+            
+            // Only open alarm screen for "ringer" mode (high priority) reminders
+            if (priority === 'high') {
+              console.log('[Dominder-Debug] Opening alarm screen from initial notification (ringer mode)');
+              // Use multiple attempts to ensure router is ready
+              const attemptNavigation = (attempts = 0) => {
+                if (attempts > 10) {
+                  console.error('[Dominder-Debug] Failed to navigate to alarm screen after 10 attempts');
+                  return;
+                }
+                try {
+                  router.replace(`/alarm?reminderId=${reminderId}`);
+                  console.log('[Dominder-Debug] Successfully navigated to alarm screen');
+                } catch {
+                  console.log(`[Dominder-Debug] Navigation attempt ${attempts + 1} failed, retrying...`);
+                  setTimeout(() => attemptNavigation(attempts + 1), 200);
+                }
+              };
+              setTimeout(() => attemptNavigation(), 300);
+            } else {
+              console.log('[Dominder-Debug] Standard/silent notification opened app, staying on home screen');
             }
           }
-        } else if (type === notifee.EventType.DISMISSED) {
-          await handleDismissAction(notification.data?.reminderId as string);
         }
-      } catch (e) { console.log('fg notif error', e); }
+      } catch (error) {
+        console.error('[Dominder-Debug] Error checking initial notification:', error);
+      }
+    };
+
+    // Check immediately and after delays to catch late-arriving notifications
+    checkInitialNotification();
+    const delayedCheck1 = setTimeout(checkInitialNotification, 500);
+    const delayedCheck2 = setTimeout(checkInitialNotification, 1000);
+
+    // Handle foreground events
+    const unsubscribe = notifee.onForegroundEvent(async ({ type, detail }) => {
+      console.log('[Dominder-Debug] Foreground event:', type, 'pressAction:', detail?.pressAction?.id);
+
+      if (type === EventType.DELIVERED) {
+        const { notification } = detail;
+        if (notification?.data?.priority === 'high' && notification.id) {
+          // This notification has a fullScreenAction. We need to cancel it and replace it with one that doesn't.
+          await notifee.cancelNotification(notification.id);
+
+          const newNotification = {
+            ...notification,
+            android: {
+              ...notification.android,
+              fullScreenAction: undefined,
+            },
+          };
+          await notifee.displayNotification(newNotification);
+        }
+      } else if (type === EventType.PRESS) {
+        const { notification } = detail;
+        
+        if (notification?.data?.reminderId) {
+          const reminderId = notification.data.reminderId;
+          const priority = notification.data.priority;
+          
+          // Only open alarm screen for "ringer" mode (high priority) reminders
+          if (priority === 'high') {
+            console.log('[Dominder-Debug] Opening alarm screen from foreground notification press (ringer mode)');
+            router.push(`/alarm?reminderId=${reminderId}`);
+          } else {
+            console.log('[Dominder-Debug] Standard/silent notification pressed, staying on current screen');
+          }
+        }
+      }
     });
 
-    return () => { try { unsub && unsub(); } catch {} };
+    const setupNotifee = async () => {
+      await ensureBaseChannels();
+      await requestInteractive();
+    };
+
+    setupNotifee();
+
+    return () => {
+      clearTimeout(delayedCheck1);
+      clearTimeout(delayedCheck2);
+      unsubscribe();
+    };
   }, []);
 
   return (
