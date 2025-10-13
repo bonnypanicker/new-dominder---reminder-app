@@ -12,6 +12,13 @@ import { NativeModules, Platform } from 'react-native';
 
 const AlarmModule = Platform.OS === 'android' ? NativeModules.AlarmModule : null;
 
+if (Platform.OS === 'android') {
+  console.log('[NotificationService] AlarmModule availability:', AlarmModule ? 'Available' : 'NULL');
+  if (AlarmModule) {
+    console.log('[NotificationService] AlarmModule methods:', Object.keys(AlarmModule));
+  }
+}
+
 function bodyWithTime(desc: string | undefined, when: number) {
   const formatted = new Date(when).toLocaleString([], {
     hour: '2-digit', minute: '2-digit', weekday: 'short', day: 'numeric', month: 'short',
@@ -50,15 +57,17 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   const isRinger = reminder.priority === 'high';
 
   if (isRinger) {
-    // Schedule native alarm for high priority reminders
     if (!AlarmModule) {
-      console.error('[NotificationService] AlarmModule is not available');
-      throw new Error('AlarmModule is not available. Please rebuild the app.');
+      console.error('[NotificationService] AlarmModule is not available, falling back to notifee with alarm channel');
+    } else {
+      AlarmModule.scheduleAlarm(reminder.id, reminder.title, when);
+      console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
+      return;
     }
-    AlarmModule.scheduleAlarm(reminder.id, reminder.title, when);
-    console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
-    return;
-  } else {
+  }
+  
+  {
+    // Use notifee for medium/low priority OR as fallback for high priority
     let s = await notifee.getNotificationSettings();
     if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
       await notifee.requestPermission();
@@ -72,7 +81,8 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       alarmManager: exactEnabled ? { allowWhileIdle: true } : undefined,
     };
 
-    const channelId = reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
+    const channelId = reminder.priority === 'high' ? 'alarm-v2' : 
+                      reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
 
     const body = bodyWithTime(reminder.description, when);
 
