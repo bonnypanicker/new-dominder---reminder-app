@@ -21,14 +21,6 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen name="settings/notifications" options={{ title: 'Notification Settings' }} />
-      <Stack.Screen 
-        name="create-reminder" 
-        options={{ 
-          presentation: "modal",
-          headerShown: false,
-        }} 
-      />
       <Stack.Screen 
         name="alarm" 
         options={{ 

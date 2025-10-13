@@ -8,9 +8,9 @@ import notifee, {
   AndroidNotificationSetting,
 } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
-const { AlarmModule } = NativeModules;
+const AlarmModule = Platform.OS === 'android' ? NativeModules.AlarmModule : null;
 
 function bodyWithTime(desc: string | undefined, when: number) {
   const formatted = new Date(when).toLocaleString([], {
@@ -51,6 +51,10 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
   if (isRinger) {
     // Schedule native alarm for high priority reminders
+    if (!AlarmModule) {
+      console.error('[NotificationService] AlarmModule is not available');
+      throw new Error('AlarmModule is not available. Please rebuild the app.');
+    }
     AlarmModule.scheduleAlarm(reminder.id, reminder.title, when);
     console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
     return;
@@ -116,7 +120,9 @@ export async function cancelNotification(notificationId: string) {
   try {
     await notifee.cancelNotification(notificationId);
     // Also try to cancel native alarm if it exists
-    AlarmModule.cancelAlarm(notificationId.replace("rem-", ""));
+    if (AlarmModule) {
+      AlarmModule.cancelAlarm(notificationId.replace("rem-", ""));
+    }
     console.log(`[NotificationService] Cancelled notification ${notificationId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notification ${notificationId}:`, error);
@@ -127,7 +133,9 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
   try {
     await notifee.cancelNotification(`rem-${reminderId}`);
     // Also try to cancel native alarm if it exists
-    AlarmModule.cancelAlarm(reminderId);
+    if (AlarmModule) {
+      AlarmModule.cancelAlarm(reminderId);
+    }
     console.log(`[NotificationService] Cancelled all notifications for reminder ${reminderId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
