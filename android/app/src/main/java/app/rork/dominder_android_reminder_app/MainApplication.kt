@@ -24,7 +24,7 @@ class MainApplication : Application(), ReactApplication {
           override fun getPackages(): List<ReactPackage> {
             val packages = PackageList(this).packages
             // Packages that cannot be autolinked yet can be added manually here, for example:
-            packages.add(AlarmPackage())
+            packages.add(app.rork.dominder_android_reminder_app.alarm.AlarmPackage())
             return packages
           }
 

@@ -26,6 +26,7 @@ class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
     @ReactMethod
     fun scheduleAlarm(reminderId: String, title: String, triggerTimeMillis: Double) {
+        Log.d("AlarmModule", "Scheduling alarm from React Native bridge: " + reminderId + " at " + triggerTimeMillis)
         val context = reactApplicationContext
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, AlarmReceiver::class.java).apply {
