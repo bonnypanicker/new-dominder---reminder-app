@@ -1,8 +1,10 @@
 package app.rork.dominder_android_reminder_app
 import expo.modules.splashscreen.SplashScreenManager
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -12,54 +14,71 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
-  override fun onCreate(savedInstanceState: Bundle?) {
-    // Set the theme to AppTheme BEFORE onCreate to support
-    // coloring the background, status bar, and navigation bar.
-    // This is required for expo-splash-screen.
-    // setTheme(R.style.AppTheme);
-    // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
-    SplashScreenManager.registerOnActivity(this)
-    // @generated end expo-splashscreen
-    super.onCreate(null)
-  }
 
-  /**
-   * Returns the name of the main component registered from JavaScript. This is used to schedule
-   * rendering of the component.
-   */
   override fun getMainComponentName(): String = "main"
 
-  /**
-   * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]
-   * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
-   */
-  override fun createReactActivityDelegate(): ReactActivityDelegate {
-    return ReactActivityDelegateWrapper(
-          this,
-          BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
-          object : DefaultReactActivityDelegate(
-              this,
-              mainComponentName,
-              fabricEnabled
-          ){})
+  override fun onCreate(savedInstanceState: Bundle?) {
+    setTheme(R.style.AppTheme);
+    SplashScreenManager.registerOnActivity(this)
+    super.onCreate(null)
+    
+    handleAlarmIntent(intent)
+  }
+  
+  override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    intent?.let { handleAlarmIntent(it) }
+  }
+  
+  private fun handleAlarmIntent(intent: Intent) {
+    val action = intent.getStringExtra("action")
+    val reminderId = intent.getStringExtra("reminderId")
+    
+    if (action != null && reminderId != null) {
+      Log.d("MainActivity", "Handling alarm action: $action for reminderId: $reminderId")
+      
+      val reactInstanceManager = reactNativeHost.reactInstanceManager
+      val reactContext = reactInstanceManager.currentReactContext
+      
+      if (reactContext != null) {
+        val params = com.facebook.react.bridge.Arguments.createMap().apply {
+          putString("action", action)
+          putString("reminderId", reminderId)
+          if (action == "snooze") {
+            putInt("snoozeMinutes", intent.getIntExtra("snoozeMinutes", 10))
+          }
+        }
+        
+        reactContext
+          .getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+          .emit("alarmAction", params)
+        
+        Log.d("MainActivity", "Sent alarmAction event to React Native")
+      } else {
+        Log.w("MainActivity", "React context not available yet")
+      }
+    }
   }
 
-  /**
-    * Align the back button behavior with Android S
-    * where moving root activities to background instead of finishing activities.
-    * @see <a href="https://developer.android.com/reference/android/app/Activity#onBackPressed()">onBackPressed</a>
-    */
-  override fun invokeDefaultOnBackPressed() {
-      if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
-          if (!moveTaskToBack(false)) {
-              // For non-root activities, use the default implementation to finish them.
-              super.invokeDefaultOnBackPressed()
-          }
-          return
-      }
+  override fun createReactActivityDelegate(): ReactActivityDelegate {
+    return ReactActivityDelegateWrapper(
+      this,
+      BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
+      object : DefaultReactActivityDelegate(
+        this,
+        mainComponentName,
+        fabricEnabled
+      ){})
+  }
 
-      // Use the default back button implementation on Android S
-      // because it's doing more than [Activity.moveTaskToBack] in fact.
-      super.invokeDefaultOnBackPressed()
+  override fun invokeDefaultOnBackPressed() {
+    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+      if (!moveTaskToBack(false)) {
+        super.invokeDefaultOnBackPressed()
+      }
+      return
+    }
+
+    super.invokeDefaultOnBackPressed()
   }
 }
