@@ -1696,11 +1696,12 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       stoppedByFriction.current = false;
       lastMoveTime.current = Date.now();
       
-      // Use pageX/pageY for better Android compatibility
-      const pageX = (evt.nativeEvent as any)?.pageX ?? 0;
-      const pageY = (evt.nativeEvent as any)?.pageY ?? 0;
-      const touchX = pageX - centerRef.current.x;
-      const touchY = pageY - centerRef.current.y;
+      const locX = (evt.nativeEvent as any)?.locationX ?? 0;
+      const locY = (evt.nativeEvent as any)?.locationY ?? 0;
+      const centerX = (discSize ?? 220) / 2;
+      const centerY = (discSize ?? 220) / 2;
+      const touchX = locX - centerX;
+      const touchY = locY - centerY;
       const angle = Math.atan2(touchY, touchX);
       const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
       lastAngle.current = degrees;
@@ -1709,11 +1710,12 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       if (!isDragging.current) return;
       const currentTime = Date.now();
       
-      // Use pageX/pageY for better Android compatibility
-      const pageX = (evt.nativeEvent as any)?.pageX ?? 0;
-      const pageY = (evt.nativeEvent as any)?.pageY ?? 0;
-      const touchX = pageX - centerRef.current.x;
-      const touchY = pageY - centerRef.current.y;
+      const locX = (evt.nativeEvent as any)?.locationX ?? 0;
+      const locY = (evt.nativeEvent as any)?.locationY ?? 0;
+      const centerX = (discSize ?? 220) / 2;
+      const centerY = (discSize ?? 220) / 2;
+      const touchX = locX - centerX;
+      const touchY = locY - centerY;
       const angle = Math.atan2(touchY, touchX);
       const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
       let delta = degrees - lastAngle.current;
@@ -2263,8 +2265,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 <View style={timeSelectorStyles.discContainer}>
                   <View
                     ref={discRef}
+                    collapsable={false}
                     onLayout={(e) => {
-                      measureCenter();
                       const w = (e.nativeEvent as any).layout?.width ?? 220;
                       setDiscSize(typeof w === 'number' ? w : 220);
                     }}
@@ -2393,8 +2395,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
               <View style={timeSelectorStyles.discContainer}>
                 <View
                   ref={discRef}
+                  collapsable={false}
                   onLayout={(e) => {
-                    measureCenter();
                     const w = (e.nativeEvent as any).layout?.width ?? 220;
                     setDiscSize(typeof w === 'number' ? w : 220);
                   }}
