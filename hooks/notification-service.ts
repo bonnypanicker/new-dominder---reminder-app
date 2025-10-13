@@ -10,11 +10,15 @@ import notifee, {
 import { Reminder } from '@/types/reminder';
 import { NativeModules, Platform } from 'react-native';
 
-const AlarmModule = Platform.OS === 'android' ? NativeModules.AlarmModule : null;
+const AlarmModule: {
+  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number) => void;
+  cancelAlarm?: (reminderId: string) => void;
+} | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
 if (Platform.OS === 'android') {
-  console.log('[NotificationService] AlarmModule availability:', AlarmModule ? 'Available' : 'NULL');
-  if (AlarmModule) {
+  const available = !!(AlarmModule && (typeof AlarmModule.scheduleAlarm === 'function'));
+  console.log('[NotificationService] AlarmModule availability:', available ? 'Available' : 'NULL');
+  if (available && AlarmModule) {
     console.log('[NotificationService] AlarmModule methods:', Object.keys(AlarmModule));
   }
 }
@@ -57,12 +61,17 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   const isRinger = reminder.priority === 'high';
 
   if (isRinger) {
-    if (!AlarmModule) {
-      console.error('[NotificationService] AlarmModule is not available, falling back to notifee with alarm channel');
+    const canUseNative = !!(AlarmModule && typeof AlarmModule.scheduleAlarm === 'function');
+    if (!canUseNative) {
+      console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
     } else {
-      AlarmModule.scheduleAlarm(reminder.id, reminder.title, when);
-      console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
-      return;
+      try {
+        AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when);
+        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
+        return;
+      } catch (e) {
+        console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
+      }
     }
   }
   
@@ -129,9 +138,13 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 export async function cancelNotification(notificationId: string) {
   try {
     await notifee.cancelNotification(notificationId);
-    // Also try to cancel native alarm if it exists
-    if (AlarmModule) {
-      AlarmModule.cancelAlarm(notificationId.replace("rem-", ""));
+    const remId = notificationId.replace('rem-', '');
+    if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
+      try {
+        AlarmModule.cancelAlarm(remId);
+      } catch (e) {
+        console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
+      }
     }
     console.log(`[NotificationService] Cancelled notification ${notificationId}`);
   } catch (error) {
@@ -142,9 +155,12 @@ export async function cancelNotification(notificationId: string) {
 export async function cancelAllNotificationsForReminder(reminderId: string) {
   try {
     await notifee.cancelNotification(`rem-${reminderId}`);
-    // Also try to cancel native alarm if it exists
-    if (AlarmModule) {
-      AlarmModule.cancelAlarm(reminderId);
+    if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
+      try {
+        AlarmModule.cancelAlarm(reminderId);
+      } catch (e) {
+        console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
+      }
     }
     console.log(`[NotificationService] Cancelled all notifications for reminder ${reminderId}`);
   } catch (error) {
