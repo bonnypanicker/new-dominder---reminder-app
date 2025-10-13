@@ -59,3 +59,38 @@ export const useDeleteReminder = () => {
     },
   });
 };
+
+export const useBulkDeleteReminders = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (reminderIds: string[]) => {
+      await Promise.all(reminderIds.map(id => deleteReminderSvc(id)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    },
+  });
+};
+
+export const useBulkUpdateReminders = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (updates: { id: string; updates: Partial<Reminder> }[]) => {
+      const reminders = queryClient.getQueryData<Reminder[]>(['reminders']) || [];
+      await Promise.all(
+        updates.map(({ id, updates: partialUpdates }) => {
+          const reminder = reminders.find(r => r.id === id);
+          if (reminder) {
+            return updateReminderSvc({ ...reminder, ...partialUpdates });
+          }
+          return Promise.resolve();
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    },
+  });
+};
