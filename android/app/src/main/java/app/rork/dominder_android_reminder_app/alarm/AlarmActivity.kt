@@ -3,6 +3,7 @@ package app.rork.dominder_android_reminder_app.alarm
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.app.NotificationManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
@@ -63,27 +64,25 @@ class AlarmActivity : AppCompatActivity() {
     
     private fun handleSnooze() {
         if (reminderId != null) {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            launchIntent?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val intent = Intent("app.rork.dominder.ALARM_ACTION").apply {
                 putExtra("action", "snooze")
                 putExtra("reminderId", reminderId)
                 putExtra("snoozeMinutes", 10)
             }
-            startActivity(launchIntent)
+            sendBroadcast(intent)
+            Log.d("AlarmActivity", "Sent snooze broadcast for reminderId: $reminderId")
         }
         dismissAlarm()
     }
     
     private fun handleDismiss() {
         if (reminderId != null) {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            launchIntent?.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val intent = Intent("app.rork.dominder.ALARM_ACTION").apply {
                 putExtra("action", "done")
                 putExtra("reminderId", reminderId)
             }
-            startActivity(launchIntent)
+            sendBroadcast(intent)
+            Log.d("AlarmActivity", "Sent done broadcast for reminderId: $reminderId")
         }
         dismissAlarm()
     }
@@ -92,7 +91,15 @@ class AlarmActivity : AppCompatActivity() {
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
-        finishAffinity()
+        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        reminderId?.let { 
+            notificationManager.cancel(it.hashCode())
+            Log.d("AlarmActivity", "Cancelled notification for reminderId: $it")
+        }
+        
+        finish()
+        Log.d("AlarmActivity", "AlarmActivity finished")
     }
 
     override fun onDestroy() {

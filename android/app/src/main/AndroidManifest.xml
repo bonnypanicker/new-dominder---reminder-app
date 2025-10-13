@@ -46,6 +46,13 @@
         android:taskAffinity=""
         android:exported="true" />
     <receiver android:name=".alarm.AlarmReceiver" android:exported="true" />
+    <receiver 
+        android:name=".alarm.AlarmActionReceiver" 
+        android:exported="false">
+        <intent-filter>
+            <action android:name="app.rork.dominder.ALARM_ACTION" />
+        </intent-filter>
+    </receiver>
     <receiver android:name=".BootReceiver" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.BOOT_COMPLETED" />
