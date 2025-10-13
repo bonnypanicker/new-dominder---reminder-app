@@ -72,6 +72,20 @@ class AlarmReceiver : BroadcastReceiver() {
             tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )
+
+// Create full-screen intent for locked screen
+val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
+    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    putExtra("reminderId", reminderId)
+    putExtra("title", title)
+    putExtra("fromFullScreen", true)
+}
+val fullScreenPendingIntent = PendingIntent.getActivity(
+    context,
+    (reminderId.hashCode() + 1000),
+    fullScreenIntent,
+    PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+)
         
         val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle(title)
@@ -82,6 +96,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(tapPendingIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true)  // ADD THIS LINE
             .build()
         
         notificationManager.notify(reminderId.hashCode(), notification)

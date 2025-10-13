@@ -12,6 +12,7 @@ import org.json.JSONObject
 import kotlin.concurrent.thread
 import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
 object AsyncStorage {
     private lateinit var prefs: SharedPreferences
@@ -66,6 +67,27 @@ class RescheduleAlarmsService : Service() {
                     
                     storage.setItem("dominder_reminders", reminders.toString())
                     Log.d("RescheduleAlarmsService", "Action $action completed for reminderId: $reminderId")
+
+// Notify React Native about the change
+try {
+    val app = application as? MainApplication
+    if (app != null) {
+        val reactInstanceManager = app.reactNativeHost.reactInstanceManager
+        val reactContext = reactInstanceManager.currentReactContext
+        
+        if (reactContext != null) {
+            reactContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit("remindersChanged", null)
+            
+            Log.d("RescheduleAlarmsService", "Emitted remindersChanged event")
+        } else {
+            Log.w("RescheduleAlarmsService", "React context not available")
+        }
+    }
+} catch (e: Exception) {
+    Log.e("RescheduleAlarmsService", "Error emitting event", e)
+}
                     
                 } catch (e: Exception) {
                     Log.e("RescheduleAlarmsService", "Error handling action", e)
@@ -236,13 +258,101 @@ class RescheduleAlarmsService : Service() {
     }
     
     private fun calculateNextReminderDate(reminder: JSONObject): String? {
-        // Simplified next date calculation - you may need to enhance this
         val repeatType = reminder.optString("repeatType", "none")
         if (repeatType == "none") return null
         
-        // For now, return null - this should be implemented based on your repeat logic
-        // You can port the logic from reminder-utils.ts
-        return null
+        val date = reminder.getString("date")
+        val time = reminder.getString("time")
+        val parts = date.split("-")
+        val timeParts = time.split(":")
+        
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt(), timeParts[0].toInt(), timeParts[1].toInt(), 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        
+        val now = java.util.Calendar.getInstance()
+        
+        when (repeatType) {
+            "daily" -> {
+                // Move to next day if time has passed today
+                if (calendar.before(now)) {
+                    calendar.add(java.util.Calendar.DAY_OF_MONTH, 1)
+                }
+                
+                // Check if specific days are set
+                val repeatDays = reminder.optJSONArray("repeatDays")
+                if (repeatDays != null && repeatDays.length() > 0) {
+                    val allowedDays = mutableListOf<Int>()
+                    for (i in 0 until repeatDays.length()) {
+                        allowedDays.add(repeatDays.getInt(i))
+                    }
+                    
+                    // Find next allowed day (convert Calendar.DAY_OF_WEEK to 0=Sun format)
+                    var attempts = 0
+                    while (attempts < 7) {
+                        val dayOfWeek = (calendar.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+                        if (allowedDays.contains(dayOfWeek)) {
+                            break
+                        }
+                        calendar.add(java.util.Calendar.DAY_OF_MONTH, 1)
+                        attempts++
+                    }
+                }
+            }
+            "weekly" -> {
+                // Check if specific days are set
+                val repeatDays = reminder.optJSONArray("repeatDays")
+                if (repeatDays != null && repeatDays.length() > 0) {
+                    val allowedDays = mutableListOf<Int>()
+                    for (i in 0 until repeatDays.length()) {
+                        allowedDays.add(repeatDays.getInt(i))
+                    }
+                    
+                    // Move to next day first
+                    calendar.add(java.util.Calendar.DAY_OF_MONTH, 1)
+                    
+                    // Find next allowed day
+                    var attempts = 0
+                    while (attempts < 7) {
+                        val dayOfWeek = (calendar.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+                        if (allowedDays.contains(dayOfWeek)) {
+                            break
+                        }
+                        calendar.add(java.util.Calendar.DAY_OF_MONTH, 1)
+                        attempts++
+                    }
+                } else {
+                    // No specific days, just add 7 days
+                    calendar.add(java.util.Calendar.WEEK_OF_YEAR, 1)
+                }
+            }
+            "monthly" -> {
+                calendar.add(java.util.Calendar.MONTH, 1)
+            }
+            "yearly" -> {
+                calendar.add(java.util.Calendar.YEAR, 1)
+            }
+            "every" -> {
+                val everyInterval = reminder.optJSONObject("everyInterval")
+                if (everyInterval != null) {
+                    val value = everyInterval.optInt("value", 1)
+                    val unit = everyInterval.optString("unit", "hours")
+                    
+                    when (unit) {
+                        "minutes" -> calendar.add(java.util.Calendar.MINUTE, value)
+                        "hours" -> calendar.add(java.util.Calendar.HOUR_OF_DAY, value)
+                        "days" -> calendar.add(java.util.Calendar.DAY_OF_MONTH, value)
+                        "weeks" -> calendar.add(java.util.Calendar.WEEK_OF_YEAR, value)
+                        "months" -> calendar.add(java.util.Calendar.MONTH, value)
+                    }
+                } else {
+                    return null
+                }
+            }
+            else -> return null
+        }
+        
+        return formatISODate(calendar.timeInMillis)
     }
     
     private fun parseISODate(isoString: String): Long {
