@@ -1696,22 +1696,25 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       stoppedByFriction.current = false;
       lastMoveTime.current = Date.now();
       
-      const lx = (evt.nativeEvent as any)?.locationX ?? (gestureState as any).x0 ?? 0;
-      const ly = (evt.nativeEvent as any)?.locationY ?? (gestureState as any).y0 ?? 0;
-      const cx = discSize / 2;
-      const cy = discSize / 2;
-      const angle = Math.atan2(ly - cy, lx - cx);
+      // Use pageX/pageY for better Android compatibility
+      const pageX = (evt.nativeEvent as any)?.pageX ?? 0;
+      const pageY = (evt.nativeEvent as any)?.pageY ?? 0;
+      const touchX = pageX - centerRef.current.x;
+      const touchY = pageY - centerRef.current.y;
+      const angle = Math.atan2(touchY, touchX);
       const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
       lastAngle.current = degrees;
     },
     onPanResponderMove: (evt, gestureState) => {
       if (!isDragging.current) return;
       const currentTime = Date.now();
-      const lx = (evt.nativeEvent as any)?.locationX ?? (gestureState as any).moveX ?? 0;
-      const ly = (evt.nativeEvent as any)?.locationY ?? (gestureState as any).moveY ?? 0;
-      const cx = discSize / 2;
-      const cy = discSize / 2;
-      const angle = Math.atan2(ly - cy, lx - cx);
+      
+      // Use pageX/pageY for better Android compatibility
+      const pageX = (evt.nativeEvent as any)?.pageX ?? 0;
+      const pageY = (evt.nativeEvent as any)?.pageY ?? 0;
+      const touchX = pageX - centerRef.current.x;
+      const touchY = pageY - centerRef.current.y;
+      const angle = Math.atan2(touchY, touchX);
       const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
       let delta = degrees - lastAngle.current;
       if (delta > 180) delta -= 360;
