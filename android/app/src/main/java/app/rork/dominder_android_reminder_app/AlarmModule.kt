@@ -14,7 +14,12 @@ import app.rork.dominder_android_reminder_app.alarm.AlarmReceiver
 
 class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
+    init {
+        Log.d("AlarmModule", "AlarmModule initialized - getName will return: AlarmModule")
+    }
+
     override fun getName(): String {
+        Log.d("AlarmModule", "getName() called, returning: AlarmModule")
         return "AlarmModule"
     }
 
