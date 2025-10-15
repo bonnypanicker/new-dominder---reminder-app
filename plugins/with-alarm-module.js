@@ -201,6 +201,7 @@ class MainApplication : Application(), ReactApplication {
     content: `package app.rork.dominder_android_reminder_app
 
 import android.content.Intent
+import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultReactActivityDelegate
@@ -211,12 +212,13 @@ class MainActivity : ReactActivity() {
   override fun getMainComponentName(): String = "main"
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(null)
+    super.onCreate(savedInstanceState)
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
+    handleAlarmIntent(intent)
   }
 
   override fun createReactActivityDelegate(): ReactActivityDelegate {
