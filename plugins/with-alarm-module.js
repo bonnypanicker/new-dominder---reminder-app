@@ -201,50 +201,26 @@ class MainApplication : Application(), ReactApplication {
     content: `package app.rork.dominder_android_reminder_app
 
 import android.content.Intent
-import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
-import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactActivityDelegate
-import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
 class MainActivity : ReactActivity() {
 
   override fun getMainComponentName(): String = "main"
 
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+  }
+
   override fun createReactActivityDelegate(): ReactActivityDelegate {
     return DefaultReactActivityDelegate(
-        this,
-        mainComponentName,
-        DefaultNewArchitectureEntryPoint.fabricEnabled,
-        DefaultNewArchitectureEntryPoint.concurrentReactEnabled
+      this,
+      mainComponentName,
+      DefaultNewArchitectureEntryPoint.fabricEnabled
     )
-  }
-
-  override fun onNewIntent(intent: Intent?) {
-      super.onNewIntent(intent)
-      handleAlarmIntent(intent)
-  }
-
-  override fun onCreate(savedInstanceState: Bundle?) {
-      super.onCreate(null)
-      handleAlarmIntent(intent)
-  }
-
-  private fun handleAlarmIntent(intent: Intent?) {
-      intent?.let {
-          val reminderId = it.getStringExtra("reminderId")
-          val action = it.getStringExtra("action")
-          if (reminderId != null && action != null) {
-              val event = Bundle().apply {
-                  putString("reminderId", reminderId)
-                  putString("action", action)
-              }
-              reactApplication.reactNativeHost.reactInstanceManager.currentReactContext
-                  ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                  ?.emit("onAlarmAction", event)
-          }
-      }
   }
 }`
   },
@@ -354,19 +330,42 @@ const withKotlinFiles = (config) => {
 
 const withAlarmManifest = (config) => {
   return withAndroidManifest(config, async (config) => {
-    const application = config.modResults.manifest.application[0];
+    const manifest = config.modResults.manifest;
 
+    // Add permissions
+    if (!manifest["uses-permission"]) manifest["uses-permission"] = [];
+    const requiredPermissions = [
+      'android.permission.WAKE_LOCK',
+      'android.permission.USE_FULL_SCREEN_INTENT',
+      'android.permission.SCHEDULE_EXACT_ALARM',
+      'android.permission.POST_NOTIFICATIONS'
+    ];
+    requiredPermissions.forEach(permission => {
+      if (!manifest["uses-permission"].some(p => p.$['android:name'] === permission)) {
+        manifest["uses-permission"].push({ $: { 'android:name': permission } });
+      }
+    });
+
+    const application = manifest.application[0];
+
+    // Update or add AlarmActivity
     if (!application.activity) application.activity = [];
     const activities = application.activity.filter(a => a.$['android:name'] !== '.alarm.AlarmActivity');
     activities.push({
       $: {
         'android:name': '.alarm.AlarmActivity',
-        'android:showWhenLocked': 'true',
-        'android:turnScreenOn': 'true',
-        'android:excludeFromRecents': 'true',
-        'android:launchMode': 'singleTask',
-        'android:taskAffinity': '',
         'android:exported': 'true',
+        'android:showOnLockScreen': 'true',
+        'android:turnScreenOn': 'true',
+        'android:launchMode': 'singleInstance',
+        'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar',
+        'android:excludeFromRecents': 'true',
+        'android:taskAffinity': '',
+        'android:showWhenLocked': 'true',
+        'android:screenOrientation': 'portrait',
+        'android:resizeableActivity': 'false',
+        'android:windowSoftInputMode': 'stateAlwaysHidden|adjustPan',
+        'android:configChanges': 'orientation|keyboardHidden|screenSize'
       },
     });
     application.activity = activities;
