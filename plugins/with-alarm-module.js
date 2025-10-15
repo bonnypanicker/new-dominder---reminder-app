@@ -210,10 +210,6 @@ class MainActivity : ReactActivity() {
 
   override fun getMainComponentName(): String = "main"
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(null)
-  }
-
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
