@@ -2,10 +2,12 @@ package app.rork.dominder_android_reminder_app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.content.Intent
+import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
+import app.rork.dominder_android_reminder_app.DebugLogger
 
 class MainActivity : ReactActivity() {
 
@@ -18,9 +20,12 @@ class MainActivity : ReactActivity() {
     super.onCreate(null)
   }
 
-  override fun onNewIntent(intent: Intent) {
+  override fun onNewIntent(intent: Intent?) {
     super.onNewIntent(intent)
     setIntent(intent)
+    intent?.getStringExtra("reminderId")?.let {
+        DebugLogger.log("MainActivity: Alarm intent received for reminderId=$it")
+    }
   }
 
   override fun createReactActivityDelegate(): ReactActivityDelegate {

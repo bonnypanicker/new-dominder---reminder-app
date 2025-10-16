@@ -312,6 +312,20 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             pendingIntent
         )
     }
+
+    @ReactMethod
+    fun cancelAlarm(reminderId: String) {
+        DebugLogger.log("Cancelling alarm for reminderId: $reminderId")
+        val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(reactContext, AlarmActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            reactContext,
+            reminderId.hashCode(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        alarmManager.cancel(pendingIntent)
+    }
 }`
   }
 ];
@@ -368,7 +382,7 @@ const withAlarmManifest = (config) => {
         'android:excludeFromRecents': 'true',
         'android:exported': 'true',
         'android:launchMode': 'singleTop',
-        'android:theme': ' @style/Theme.AppCompat.NoActionBar'
+        'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar'
       },
     });
     application.activity = activities;
@@ -412,10 +426,13 @@ const withAppGradle = (config) => {
       if (!buildGradle.includes('kotlinOptions')) {
         buildGradle = buildGradle.replace(
           /(\n\s*android\s*{\s*)/,
-          `$1    kotlinOptions {
-        jvmTarget = "17"
-    }
-`
+          `$1    kotlinOptions {\n        jvmTarget = "17"\n    }\n`
+        );
+      }
+      if (!buildGradle.includes('compileOptions')) {
+        buildGradle = buildGradle.replace(
+          /(\n\s*android\s*{\s*)/,
+          `$1    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }\n`
         );
       }
       config.modResults.contents = buildGradle;
