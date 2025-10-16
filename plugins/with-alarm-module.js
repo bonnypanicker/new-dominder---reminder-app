@@ -1,7 +1,7 @@
 // plugins/with-alarm-module.js
 const fs = require('fs');
 const path = require('path');
-const { withDangerousMod } = require(' @expo/config-plugins');
+const { withDangerousMod } = require('@expo/config-plugins');
 
 function copyTemplateFile(projectRoot, relativeSrc, targetPath) {
   const src = path.join(projectRoot, 'plugins', 'templates', relativeSrc);
