@@ -44,8 +44,8 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "./plugins/with-alarm-module",
-      "./plugins/with-alarm-manifest",
+      "./plugins/with-fullscreen-alarm",
+      "./plugins/with-alarm-module.js",
       [
         "expo-router",
         {
