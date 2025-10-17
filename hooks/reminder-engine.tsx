@@ -95,6 +95,13 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         }
       } else {
         console.log(`[ReminderEngine] No valid fire time for reminder ${reminder.id}`);
+        console.log(`[ReminderEngine] Reminder details:`, {
+          date: reminder.date,
+          time: reminder.time,
+          snoozeUntil: reminder.snoozeUntil,
+          nextReminderDate: reminder.nextReminderDate,
+          repeatType: reminder.repeatType
+        });
         processedReminders.current.delete(reminder.id);
       }
     }

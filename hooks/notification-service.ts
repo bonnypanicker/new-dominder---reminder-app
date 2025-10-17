@@ -46,6 +46,19 @@ function reminderToTimestamp(reminder: Reminder): number {
 }
 
 export async function scheduleReminderByModel(reminder: Reminder) {
+  // At the start of scheduleReminderByModel
+  let permissionSettings = await notifee.getNotificationSettings();
+  if (permissionSettings.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
+    console.log('[NotificationService] Requesting notification permission...');
+    await notifee.requestPermission();
+    permissionSettings = await notifee.getNotificationSettings();
+  }
+
+  if (permissionSettings.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
+    console.error('[NotificationService] Notification permission denied');
+    throw new Error('Notification permission denied');
+  }
+
   console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
   
   const when = reminderToTimestamp(reminder);
@@ -107,9 +120,9 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       },
       android: {
         channelId,
-        importance: AndroidImportance.DEFAULT,
-        category: AndroidCategory.REMINDER,
-        lightUpScreen: false,
+        importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
+        category: reminder.priority === 'high' ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
+        lightUpScreen: reminder.priority === 'high',
         ongoing: true,
         autoCancel: false,
         pressAction: { 

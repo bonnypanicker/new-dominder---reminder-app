@@ -21,13 +21,13 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="alarm" 
-        options={{ 
+      <Stack.Screen
+        name="alarm"
+        options={{
           presentation: "fullScreenModal",
           headerShown: false,
           gestureEnabled: false,
-        }} 
+        }}
       />
       <Stack.Screen name="notifications-debug" options={{ title: 'Notifications Debug' }} />
     </Stack>
@@ -36,6 +36,138 @@ function RootLayoutNav() {
 
 function AppContent() {
   const { isLoading } = useSettings();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('remindersChanged', () => {
+      console.log('[RootLayout] remindersChanged event received, invalidating queries.');
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    console.log('[RootLayout] Setting up notification handlers');
+
+    // Handle alarm actions from native AlarmActivity
+    const alarmActionListener = DeviceEventEmitter.addListener('alarmAction', async (data) => {
+      console.log('[RootLayout] Received alarmAction event:', data);
+      const { action, reminderId, snoozeMinutes } = data;
+
+      if (action === 'snooze' && reminderId) {
+        const { rescheduleReminderById } = require('@/services/reminder-scheduler');
+        await rescheduleReminderById(reminderId, snoozeMinutes || 10);
+      } else if (action === 'done' && reminderId) {
+        const { markReminderDone } = require('@/services/reminder-scheduler');
+        await markReminderDone(reminderId);
+      }
+    });
+
+    (async () => {
+      try {
+        const initial = await notifee.getInitialNotification();
+        console.log('[RootLayout] Initial notification:', initial);
+
+        if (initial?.notification) {
+          const reminderId = initial.notification.data?.reminderId as string;
+          const priority = initial.notification.data?.priority as string;
+          const title = (initial.notification.data?.title as string) || initial.notification.title || 'Reminder';
+
+          console.log('[RootLayout] Initial notification data:', {
+            reminderId,
+            priority,
+            title,
+            pressAction: initial.pressAction?.id
+          });
+
+          const isRinger = priority === 'high';
+
+          if (initial.pressAction?.id === 'default' && !isRinger) {
+            console.log('[RootLayout] Body tap detected for standard/silent');
+            router.replace('/');
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('[RootLayout] Initial notification error:', e);
+      }
+    })();
+
+    const unsub = notifee.onForegroundEvent(async ({ type, detail }) => {
+      try {
+        const { notification, pressAction } = detail || {};
+        console.log('[RootLayout] Foreground event:', { type, pressAction: pressAction?.id });
+
+        if (type === EventType.PRESS && notification) {
+          const reminderId = notification.data?.reminderId as string;
+          const priority = notification.data?.priority as string;
+          const title = notification.title;
+          const isRinger = priority === 'high';
+
+          console.log('[RootLayout] Notification pressed:', { reminderId, priority, isRinger });
+
+          if (pressAction?.id === 'open_alarm' && isRinger) {
+            setAlarmLaunchOrigin('inapp');
+            router.push(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
+            return;
+          }
+
+          if (pressAction?.id === 'default' && !isRinger) {
+            router.push('/');
+            return;
+          }
+        }
+
+        if (type === EventType.ACTION_PRESS && notification && pressAction) {
+          const reminderId = notification.data?.reminderId as string;
+          console.log('[RootLayout] Action pressed:', { action: pressAction.id, reminderId });
+
+          if (!reminderId) return;
+
+          await notifee.cancelNotification(notification.id!);
+
+          if (pressAction.id === 'done') {
+        const { markReminderDone } = require('@/services/reminder-scheduler');
+            await markReminderDone(reminderId);
+            return;
+          }
+
+          const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction.id);
+          if (snoozeMatch) {
+            const mins = parseInt(snoozeMatch[1], 10);
+            const { rescheduleReminderById } = require('@/services/reminder-scheduler');
+            await rescheduleReminderById(reminderId, mins);
+          }
+        }
+      } catch (e) {
+        console.error('[RootLayout] Foreground event error:', e);
+      }
+    });
+
+    return () => {
+      try {
+        console.log('[RootLayout] Cleaning up notification handlers');
+        alarmActionListener.remove();
+        unsub && unsub();
+      } catch {}
+    };
+  }, [router, queryClient]);
+
+  // Other setup effects
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 5000);
+    (async () => {
+      try {
+        await ensureBaseChannels();
+      } catch {}
+    })();
+    return () => clearTimeout(timer);
+  }, []);
 
   const onLayoutRootView = React.useCallback(async () => {
     if (!isLoading) {
@@ -61,147 +193,10 @@ function AppContent() {
   );
 }
 
-function App() {
-  const queryClient = useQueryClient();
-  const router = useRouter();
-
-  useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('remindersChanged', () => {
-      console.log('[RootLayout] remindersChanged event received, invalidating queries.');
-      queryClient.invalidateQueries({ queryKey: ['reminders'] });
-    });
-    return () => {
-      subscription.remove();
-    };
-  }, [queryClient]);
-
-  useEffect(() => {
-    console.log('[RootLayout] Setting up notification handlers');
-    
-    // Handle alarm actions from native AlarmActivity
-    const alarmActionListener = DeviceEventEmitter.addListener('alarmAction', async (data) => {
-      console.log('[RootLayout] Received alarmAction event:', data);
-      const { action, reminderId, snoozeMinutes } = data;
-      
-      if (action === 'snooze' && reminderId) {
-        const { rescheduleReminderById } = require('@/services/reminder-scheduler');
-        await rescheduleReminderById(reminderId, snoozeMinutes || 10);
-      } else if (action === 'done' && reminderId) {
-        const { markReminderDone } = require('@/services/reminder-scheduler');
-        await markReminderDone(reminderId);
-      }
-    });
-    
-    (async () => {
-      try {
-        const initial = await notifee.getInitialNotification();
-        console.log('[RootLayout] Initial notification:', initial);
-
-        if (initial?.notification) {
-          const reminderId = initial.notification.data?.reminderId as string;
-          const priority = initial.notification.data?.priority as string;
-          const title = (initial.notification.data?.title as string) || initial.notification.title || 'Reminder';
-          
-          console.log('[RootLayout] Initial notification data:', { 
-            reminderId, 
-            priority, 
-            title,
-            pressAction: initial.pressAction?.id
-          });
-          
-          const isRinger = priority === 'high';
-          
-          if (initial.pressAction?.id === 'default' && !isRinger) {
-            console.log('[RootLayout] Body tap detected for standard/silent');
-            router.replace('/');
-            return;
-          }
-        }
-      } catch (e) { 
-        console.error('[RootLayout] Initial notification error:', e); 
-      }
-    })();
-
-    const unsub = notifee.onForegroundEvent(async ({ type, detail }) => {
-      try {
-        const { notification, pressAction } = detail || {};
-        console.log('[RootLayout] Foreground event:', { type, pressAction: pressAction?.id });
-
-        if (type === EventType.PRESS && notification) {
-          const reminderId = notification.data?.reminderId as string;
-          const priority = notification.data?.priority as string;
-          const title = notification.title;
-          const isRinger = priority === 'high';
-          
-          console.log('[RootLayout] Notification pressed:', { reminderId, priority, isRinger });
-          
-          if (pressAction?.id === 'open_alarm' && isRinger) {
-            setAlarmLaunchOrigin('inapp');
-            router.push(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
-            return;
-          }
-          
-          if (pressAction?.id === 'default' && !isRinger) {
-            router.push('/');
-            return;
-          }
-        }
-
-        if (type === EventType.ACTION_PRESS && notification && pressAction) {
-          const reminderId = notification.data?.reminderId as string;
-          console.log('[RootLayout] Action pressed:', { action: pressAction.id, reminderId });
-          
-          if (!reminderId) return;
-
-          await notifee.cancelNotification(notification.id!);
-
-          if (pressAction.id === 'done') {
-            const { markReminderDone } = require('@/services/reminder-scheduler');
-            await markReminderDone(reminderId);
-            return;
-          }
-
-          const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction.id);
-          if (snoozeMatch) {
-            const mins = parseInt(snoozeMatch[1], 10);
-            const { rescheduleReminderById } = require('@/services/reminder-scheduler');
-            await rescheduleReminderById(reminderId, mins);
-          }
-        }
-      } catch (e) { 
-        console.error('[RootLayout] Foreground event error:', e); 
-      }
-    });
-
-    return () => { 
-      try { 
-        console.log('[RootLayout] Cleaning up notification handlers');
-        alarmActionListener.remove();
-        unsub && unsub(); 
-      } catch {} 
-    };
-  }, [router, queryClient]);
-
-  // Other setup effects
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      SplashScreen.hideAsync();
-    }, 5000);
-    (async () => {
-      try {
-        await ensureBaseChannels();
-      } catch {}
-    })();
-    return () => clearTimeout(timer);
-  }, []);
-
-  return <AppContent />;
-}
-
 export default function RootLayout() {
   return (
     <QueryClientProvider client={rootQueryClient}>
-      <App />
+      <AppContent />
     </QueryClientProvider>
   );
 }

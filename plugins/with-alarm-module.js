@@ -10,25 +10,90 @@ const files = [
     path: 'alarm/AlarmReceiver.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         DebugLogger.log("AlarmReceiver: Received broadcast")
         val reminderId = intent.getStringExtra("reminderId")
+        val title = intent.getStringExtra("title") ?: "Reminder"
+        
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
             return
         }
 
-        val intent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("reminderId", reminderId)
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId")
+        
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        // Step 1: Create HIGH importance notification channel (Android 8+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "alarm_channel_v2",
+                "Alarms",
+                NotificationManager.IMPORTANCE_HIGH  // CRITICAL: Must be HIGH
+            ).apply {
+                description = "Full screen alarm notifications"
+                setSound(null, null)
+                enableLights(true)
+                enableVibration(true)
+                setBypassDnd(true)  // Bypass Do Not Disturb
+            }
+            notificationManager.createNotificationChannel(channel)
         }
-        context.startActivity(intent)
+        
+        // Step 2: Create fullScreenIntent pointing to AlarmActivity
+        val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
+            putExtra("reminderId", reminderId)
+            putExtra("title", title)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context,
+            reminderId.hashCode(),
+            fullScreenIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        // Step 3: Create content intent for notification tap
+        val contentIntent = Intent(context, AlarmActivity::class.java).apply {
+            putExtra("reminderId", reminderId)
+            putExtra("title", title)
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            reminderId.hashCode() + 1,
+            contentIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        // Step 4: Build notification with fullScreenIntent
+        val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(title)
+            .setContentText("Tap to view alarm")
+            .setPriority(NotificationCompat.PRIORITY_MAX)  // CRITICAL
+            .setCategory(NotificationCompat.CATEGORY_ALARM)  // CRITICAL
+            .setFullScreenIntent(fullScreenPendingIntent, true)  // CRITICAL: Shows full screen
+            .setContentIntent(contentPendingIntent)
+            .setAutoCancel(true)
+            .setOngoing(true)
+            .setVibrate(longArrayOf(0, 1000, 500, 1000))
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .build()
+        
+        // Step 5: Show notification (triggers fullScreenIntent on locked devices)
+        notificationManager.notify(reminderId.hashCode(), notification)
+        DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
     }
 }`
   },
@@ -61,15 +126,29 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.MainActivity
 
 class AlarmActivity : AppCompatActivity() {
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
+
+        // Acquire wake lock
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or 
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or 
+            PowerManager.ON_AFTER_RELEASE,
+            "DoMinder:AlarmWakeLock"
+        ).apply {
+            acquire(30000) // 30 seconds max
+        }
 
         val reminderId = intent.getStringExtra("reminderId")
         if (reminderId == null) {
@@ -97,6 +176,13 @@ class AlarmActivity : AppCompatActivity() {
         }
         startActivity(intent)
         finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+        }
     }
 }`
   },
@@ -281,6 +367,8 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -292,38 +380,71 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, triggerTime: Double) {
-        val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(reactContext, AlarmActivity::class.java).apply {
-            putExtra("reminderId", reminderId)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, promise: Promise? = null) {
+        try {
+            val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            // Check exact alarm permission (Android 12+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (!alarmManager.canScheduleExactAlarms()) {
+                    DebugLogger.log("AlarmModule: SCHEDULE_EXACT_ALARM permission not granted")
+                    promise?.reject("PERMISSION_DENIED", "SCHEDULE_EXACT_ALARM permission not granted")
+                    return
+                }
+            }
+            
+            // CRITICAL FIX: Create broadcast intent to AlarmReceiver
+            val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_FIRED"  // Custom action
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+            }
+            
+            // CRITICAL FIX: Use getBroadcast instead of getActivity
+            val pendingIntent = PendingIntent.getBroadcast(
+                reactContext,
+                reminderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
+            
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerTime.toLong(),
+                pendingIntent
+            )
+            
+            DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error scheduling alarm: ${e.message}")
+            promise?.reject("SCHEDULE_ERROR", e.message, e)
         }
-        val pendingIntent = PendingIntent.getActivity(
-            reactContext,
-            reminderId.hashCode(),
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        DebugLogger.log("Scheduling alarm $reminderId at $triggerTime")
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            triggerTime.toLong(),
-            pendingIntent
-        )
     }
 
     @ReactMethod
-    fun cancelAlarm(reminderId: String) {
-        DebugLogger.log("Cancelling alarm for reminderId: $reminderId")
-        val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(reactContext, AlarmActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            reactContext,
-            reminderId.hashCode(),
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        alarmManager.cancel(pendingIntent)
+    fun cancelAlarm(reminderId: String, promise: Promise? = null) {
+        try {
+            val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            // Must match the intent used in scheduleAlarm
+            val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_FIRED"
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                reactContext,
+                reminderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            promise?.reject("CANCEL_ERROR", e.message, e)
+        }
     }
 }`
   }
@@ -360,6 +481,7 @@ const withAlarmManifest = (config) => {
       'android.permission.WAKE_LOCK',
       'android.permission.USE_FULL_SCREEN_INTENT',
       'android.permission.SCHEDULE_EXACT_ALARM',
+      'android.permission.USE_EXACT_ALARM',
       'android.permission.POST_NOTIFICATIONS'
     ];
     requiredPermissions.forEach(permission => {
@@ -379,8 +501,8 @@ const withAlarmManifest = (config) => {
         'android:showWhenLocked': 'true',
         'android:turnScreenOn': 'true',
         'android:excludeFromRecents': 'true',
-        'android:exported': 'true',
-        'android:launchMode': 'singleTop',
+        'android:exported': 'false',  // FIXED: Changed from 'true' (security)
+        'android:launchMode': 'singleTask',  // FIXED: Changed from 'singleTop'
         'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar'
       },
     });
@@ -395,21 +517,34 @@ const withAlarmManifest = (config) => {
     );
     receivers.push({
       $: { 'android:name': '.alarm.AlarmReceiver', 'android:exported': 'true' },
+      'intent-filter': [{
+        action: [{ $: { 'android:name': 'app.rork.dominder.ALARM_FIRED' } }]
+      }]
     });
     receivers.push({
       $: { 'android:name': '.alarm.AlarmActionReceiver', 'android:exported': 'false' },
       'intent-filter': [ { action: [ { $: { 'android:name': 'app.rork.dominder.ALARM_ACTION' } } ] } ],
     });
     receivers.push({
-      $: { 'android:name': '.BootReceiver', 'android:exported': 'true' },
-      'intent-filter': [ { action: [ { $: { 'android:name': 'android.intent.action.BOOT_COMPLETED' } } ] } ],
+      $: { 'android:name': '.BootReceiver', 'android:exported': 'true', 'android:enabled': 'true' },
+      'intent-filter': [{
+        action: [
+          { $: { 'android:name': 'android.intent.action.BOOT_COMPLETED' } },
+          { $: { 'android:name': 'android.intent.action.QUICKBOOT_POWERON' } }
+        ]
+      }]
     });
     application.receiver = receivers;
 
     if (!application.service) application.service = [];
     const services = application.service.filter(s => s.$['android:name'] !== '.RescheduleAlarmsService');
     services.push({
-      $: { 'android:name': '.RescheduleAlarmsService' },
+      $: { 
+        'android:name': '.RescheduleAlarmsService',
+        'android:exported': 'false',
+        'android:foregroundServiceType': 'shortService',  // ADDED for Android 14+
+        'android:stopWithTask': 'false'
+      },
     });
     application.service = services;
 
