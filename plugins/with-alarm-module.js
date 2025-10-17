@@ -31,7 +31,7 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId")
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
@@ -201,7 +201,7 @@ class AlarmActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
         val reminderId = intent.getStringExtra("reminderId")
-        DebugLogger.log("AlarmActionReceiver: Received action: $action for reminderId: $reminderId")
+        DebugLogger.log("AlarmActionReceiver: Received action: \$action for reminderId: \$reminderId")
 
         val mainActivityIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -313,7 +313,7 @@ class MainActivity : ReactActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     intent.getStringExtra("reminderId")?.let {
-        DebugLogger.log("MainActivity: Alarm intent received for reminderId=$it")
+        DebugLogger.log("MainActivity: Alarm intent received for reminderId=\$it")
     }
   }
 
@@ -408,7 +408,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -419,7 +419,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: ${e.message}")
+            DebugLogger.log("AlarmModule: Error scheduling alarm: \${e.message}")
             promise?.reject("SCHEDULE_ERROR", e.message, e)
         }
     }

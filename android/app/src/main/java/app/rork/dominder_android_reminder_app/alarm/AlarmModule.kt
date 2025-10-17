@@ -4,6 +4,8 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -15,37 +17,70 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, triggerTime: Double) {
-        val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(reactContext, AlarmActivity::class.java).apply {
-            putExtra("reminderId", reminderId)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, promise: Promise? = null) {
+        try {
+            val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            // Check exact alarm permission (Android 12+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (!alarmManager.canScheduleExactAlarms()) {
+                    DebugLogger.log("AlarmModule: SCHEDULE_EXACT_ALARM permission not granted")
+                    promise?.reject("PERMISSION_DENIED", "SCHEDULE_EXACT_ALARM permission not granted")
+                    return
+                }
+            }
+            
+            // CRITICAL FIX: Create broadcast intent to AlarmReceiver
+            val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_FIRED"  // Custom action
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+            }
+            
+            // CRITICAL FIX: Use getBroadcast instead of getActivity
+            val pendingIntent = PendingIntent.getBroadcast(
+                reactContext,
+                reminderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
+            
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerTime.toLong(),
+                pendingIntent
+            )
+            
+            DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error scheduling alarm: ${e.message}")
+            promise?.reject("SCHEDULE_ERROR", e.message, e)
         }
-        val pendingIntent = PendingIntent.getActivity(
-            reactContext,
-            reminderId.hashCode(),
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        DebugLogger.log("Scheduling alarm $reminderId at $triggerTime")
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            triggerTime.toLong(),
-            pendingIntent
-        )
     }
 
     @ReactMethod
-    fun cancelAlarm(reminderId: String) {
-        DebugLogger.log("Cancelling alarm for reminderId: $reminderId")
-        val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(reactContext, AlarmActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            reactContext,
-            reminderId.hashCode(),
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        alarmManager.cancel(pendingIntent)
+    fun cancelAlarm(reminderId: String, promise: Promise? = null) {
+        try {
+            val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            // Must match the intent used in scheduleAlarm
+            val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_FIRED"
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                reactContext,
+                reminderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            promise?.reject("CANCEL_ERROR", e.message, e)
+        }
     }
 }
