@@ -20,10 +20,10 @@ class MainActivity : ReactActivity() {
     super.onCreate(null)
   }
 
-  override fun onNewIntent(intent: Intent?) {
+  override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
-    intent?.getStringExtra("reminderId")?.let {
+    intent.getStringExtra("reminderId")?.let {
         DebugLogger.log("MainActivity: Alarm intent received for reminderId=$it")
     }
   }
