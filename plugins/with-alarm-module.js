@@ -289,6 +289,7 @@ class AlarmReceiver : BroadcastReceiver() {
             notificationManager.createNotificationChannel(channel)
         }
         
+        // Intent for the full-screen activity
         val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
@@ -300,6 +301,20 @@ class AlarmReceiver : BroadcastReceiver() {
             fullScreenIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+        // FIX: Create a content intent for when the user taps the notification itself.
+        // This should also open the AlarmActivity.
+        val contentIntent = Intent(context, AlarmActivity::class.java).apply {
+            putExtra("reminderId", reminderId)
+            putExtra("title", title)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            reminderId.hashCode() + 1, // Use a different request code from fullScreenPendingIntent
+            contentIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -308,8 +323,12 @@ class AlarmReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            // FIX: Add content intent for notification tap handling.
+            .setContentIntent(contentPendingIntent)
+            // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
             .setAutoCancel(true)
-            .setOngoing(true)
+            // FIX: Add vibration pattern for better user alert.
+            .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .build()
         
         notificationManager.notify(reminderId.hashCode(), notification)
@@ -619,7 +638,9 @@ const withAlarmManifest = (config) => {
       'android.permission.WAKE_LOCK',
       'android.permission.USE_FULL_SCREEN_INTENT',
       'android.permission.SCHEDULE_EXACT_ALARM',
-      'android.permission.POST_NOTIFICATIONS'
+      'android.permission.POST_NOTIFICATIONS',
+      // FIX: VIBRATE permission is needed for the custom vibration pattern.
+      'android.permission.VIBRATE'
     ];
     requiredPermissions.forEach(permission => {
       if (!manifest["uses-permission"].some(p => p.$['android:name'] === permission)) {
@@ -650,9 +671,18 @@ const withAlarmManifest = (config) => {
         r.$['android:name'] !== '.BootReceiver' &&
         r.$['android:name'] !== '.alarm.AlarmActionBridge' // Filter out old one if present
     );
+    
+    // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
+    // which is crucial for Android 12+ compatibility.
     receivers.push({
       $: { 'android:name': '.alarm.AlarmReceiver', 'android:exported': 'false' },
+      'intent-filter': [{
+        action: [
+          { $: { 'android:name': 'app.rork.dominder.ALARM_FIRED' } }
+        ]
+      }]
     });
+
     receivers.push({
       $: { 'android:name': '.BootReceiver', 'android:exported': 'true', 'android:enabled': 'true' },
       'intent-filter': [{
@@ -662,9 +692,12 @@ const withAlarmManifest = (config) => {
         ]
       }]
     });
+    
     // NEW: Register AlarmActionBridge
+    // FIX: Change 'android:exported' from a boolean to a string 'false' for consistency
+    // with other manifest entries.
     receivers.push({
-        $: { 'android:name': '.alarm.AlarmActionBridge', 'android:exported': false },
+        $: { 'android:name': '.alarm.AlarmActionBridge', 'android:exported': 'false' },
         'intent-filter': [{
             action: [
                 { $: { 'android:name': 'app.rork.dominder.ALARM_DONE' } },
@@ -695,13 +728,20 @@ const withAppGradle = (config) => {
       if (!buildGradle.includes('kotlinOptions')) {
         buildGradle = buildGradle.replace(
           /(\n\s*android\s*{\s*)/,
-          `$1    kotlinOptions {\n        jvmTarget = "17"\n    }\n`
+          `$1    kotlinOptions {
+        jvmTarget = "17"
+    }
+`
         );
       }
       if (!buildGradle.includes('compileOptions')) {
         buildGradle = buildGradle.replace(
           /(\n\s*android\s*{\s*)/,
-          `$1    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }\n`
+          `$1    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+`
         );
       }
       config.modResults.contents = buildGradle;
