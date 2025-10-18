@@ -554,7 +554,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: ${e.message}")
+            DebugLogger.log("AlarmModule: Error scheduling alarm: \${e.message}")
             promise?.reject("SCHEDULE_ERROR", e.message, e)
         }
     }
