@@ -21,7 +21,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
-            // Check exact alarm permission (Android 12+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (!alarmManager.canScheduleExactAlarms()) {
                     DebugLogger.log("AlarmModule: SCHEDULE_EXACT_ALARM permission not granted")
@@ -30,14 +29,12 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 }
             }
             
-            // CRITICAL FIX: Create broadcast intent to AlarmReceiver
             val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"  // Custom action
+                action = "app.rork.dominder.ALARM_FIRED"
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
             }
             
-            // CRITICAL FIX: Use getBroadcast instead of getActivity
             val pendingIntent = PendingIntent.getBroadcast(
                 reactContext,
                 reminderId.hashCode(),
@@ -66,7 +63,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
-            // Must match the intent used in scheduleAlarm
             val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
                 action = "app.rork.dominder.ALARM_FIRED"
             }

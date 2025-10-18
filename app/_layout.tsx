@@ -13,8 +13,49 @@ import { StatusBar } from "expo-status-bar";
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
 
+// Import your reminder store to get access to the functions
+import { useReminderStore } from '@/hooks/reminder-store';
+
 SplashScreen.preventAutoHideAsync();
 const rootQueryClient = new QueryClient();
+
+// 1. Define the new listener hook
+const useAlarmListeners = () => {
+  // Get the functions from your Zustand store
+  const { markReminderDone, rescheduleReminderById } = useReminderStore();
+
+  useEffect(() => {
+    console.log('[useAlarmListeners] Setting up native alarm event listeners...');
+
+    const doneSubscription = DeviceEventEmitter.addListener(
+      'alarmDone',
+      (event: { reminderId: string }) => {
+        console.log('Native alarm DONE event received for:', event.reminderId);
+        if (event.reminderId) {
+          markReminderDone(event.reminderId);
+        }
+      }
+    );
+
+    const snoozeSubscription = DeviceEventEmitter.addListener(
+      'alarmSnooze',
+      (event: { reminderId: string; snoozeMinutes: number }) => {
+        console.log(`Native alarm SNOOZE event for ${event.reminderId}, minutes: ${event.snoozeMinutes}`);
+        if (event.reminderId && event.snoozeMinutes) {
+          rescheduleReminderById(event.reminderId, event.snoozeMinutes);
+        }
+      }
+    );
+
+    return () => {
+      console.log('[useAlarmListeners] Cleaning up native alarm event listeners.');
+      doneSubscription.remove();
+      snoozeSubscription.remove();
+    };
+    // Add dependencies to re-run the effect if functions change
+  }, [markReminderDone, rescheduleReminderById]);
+};
+
 
 function RootLayoutNav() {
   return (
@@ -39,6 +80,9 @@ function AppContent() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
+  // 2. Call the new hook here
+  useAlarmListeners();
+
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('remindersChanged', () => {
       console.log('[RootLayout] remindersChanged event received, invalidating queries.');
@@ -52,9 +96,11 @@ function AppContent() {
   useEffect(() => {
     console.log('[RootLayout] Setting up notification handlers');
 
-    // Handle alarm actions from native AlarmActivity
+    // This listener for 'alarmAction' seems to be for a different, older implementation.
+    // It can likely be removed once the new native screen is fully functional,
+    // but we'll leave it for now to be safe.
     const alarmActionListener = DeviceEventEmitter.addListener('alarmAction', async (data) => {
-      console.log('[RootLayout] Received alarmAction event:', data);
+      console.log('[RootLayout] Received legacy alarmAction event:', data);
       const { action, reminderId, snoozeMinutes } = data;
 
       if (action === 'snooze' && reminderId) {
@@ -74,21 +120,10 @@ function AppContent() {
         if (initial?.notification) {
           const reminderId = initial.notification.data?.reminderId as string;
           const priority = initial.notification.data?.priority as string;
-          const title = (initial.notification.data?.title as string) || initial.notification.title || 'Reminder';
 
-          console.log('[RootLayout] Initial notification data:', {
-            reminderId,
-            priority,
-            title,
-            pressAction: initial.pressAction?.id
-          });
-
-          const isRinger = priority === 'high';
-
-          if (initial.pressAction?.id === 'default' && !isRinger) {
+          if (initial.pressAction?.id === 'default' && priority !== 'high') {
             console.log('[RootLayout] Body tap detected for standard/silent');
             router.replace('/');
-            return;
           }
         }
       } catch (e) {
@@ -107,8 +142,6 @@ function AppContent() {
           const title = notification.title;
           const isRinger = priority === 'high';
 
-          console.log('[RootLayout] Notification pressed:', { reminderId, priority, isRinger });
-
           if (pressAction?.id === 'open_alarm' && isRinger) {
             setAlarmLaunchOrigin('inapp');
             router.push(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
@@ -123,14 +156,12 @@ function AppContent() {
 
         if (type === EventType.ACTION_PRESS && notification && pressAction) {
           const reminderId = notification.data?.reminderId as string;
-          console.log('[RootLayout] Action pressed:', { action: pressAction.id, reminderId });
-
           if (!reminderId) return;
 
           await notifee.cancelNotification(notification.id!);
 
           if (pressAction.id === 'done') {
-        const { markReminderDone } = require('@/services/reminder-scheduler');
+            const { markReminderDone } = require('@/services/reminder-scheduler');
             await markReminderDone(reminderId);
             return;
           }

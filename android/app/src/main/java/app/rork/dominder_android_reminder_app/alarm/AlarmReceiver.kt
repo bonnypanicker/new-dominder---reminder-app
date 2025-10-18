@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
+import app.rork.dominder_android_reminder_app.R
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -25,23 +26,21 @@ class AlarmReceiver : BroadcastReceiver() {
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        // Step 1: Create HIGH importance notification channel (Android 8+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 "alarm_channel_v2",
                 "Alarms",
-                NotificationManager.IMPORTANCE_HIGH  // CRITICAL: Must be HIGH
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Full screen alarm notifications"
                 setSound(null, null)
                 enableLights(true)
                 enableVibration(true)
-                setBypassDnd(true)  // Bypass Do Not Disturb
+                setBypassDnd(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
         
-        // Step 2: Create fullScreenIntent pointing to AlarmActivity
         val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
@@ -54,34 +53,17 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        // Step 3: Create content intent for notification tap
-        val contentIntent = Intent(context, AlarmActivity::class.java).apply {
-            putExtra("reminderId", reminderId)
-            putExtra("title", title)
-        }
-        val contentPendingIntent = PendingIntent.getActivity(
-            context,
-            reminderId.hashCode() + 1,
-            contentIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        
-        // Step 4: Build notification with fullScreenIntent
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
-            .setContentText("Tap to view alarm")
-            .setPriority(NotificationCompat.PRIORITY_MAX)  // CRITICAL
-            .setCategory(NotificationCompat.CATEGORY_ALARM)  // CRITICAL
-            .setFullScreenIntent(fullScreenPendingIntent, true)  // CRITICAL: Shows full screen
-            .setContentIntent(contentPendingIntent)
+            .setContentText("Alarm is ringing")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setAutoCancel(true)
             .setOngoing(true)
-            .setVibrate(longArrayOf(0, 1000, 500, 1000))
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
         
-        // Step 5: Show notification (triggers fullScreenIntent on locked devices)
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
     }

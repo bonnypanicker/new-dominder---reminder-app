@@ -1,18 +1,20 @@
 package app.rork.dominder_android_reminder_app
 
 import android.app.Application
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
-
+import app.rork.dominder_android_reminder_app.alarm.AlarmActionBridge
+import app.rork.dominder_android_reminder_app.alarm.AlarmPackage
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
+import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
-import com.facebook.react.ReactHost
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
-
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
@@ -23,8 +25,7 @@ class MainApplication : Application(), ReactApplication {
         object : DefaultReactNativeHost(this) {
           override fun getPackages(): List<ReactPackage> {
             val packages = PackageList(this).packages
-            // Packages that cannot be autolinked yet can be added manually here, for example:
-            packages.add(app.rork.dominder_android_reminder_app.alarm.AlarmPackage())
+            packages.add(AlarmPackage())
             return packages
           }
 
@@ -44,10 +45,20 @@ class MainApplication : Application(), ReactApplication {
     super.onCreate()
     SoLoader.init(this, OpenSourceMergedSoMapping)
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
       load()
     }
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+
+    // Register the broadcast receiver
+    val reactContext = reactNativeHost.reactInstanceManager.currentReactContext
+    if (reactContext != null) {
+        val receiver = AlarmActionBridge(reactContext)
+        val filter = IntentFilter().apply {
+            addAction("app.rork.dominder.ALARM_DONE")
+            addAction("app.rork.dominder.ALARM_SNOOZE")
+        }
+        registerReceiver(receiver, filter)
+    }
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
