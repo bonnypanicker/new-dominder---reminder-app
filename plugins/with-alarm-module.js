@@ -1,5 +1,3 @@
-
-
 const { withDangerousMod, withPlugins, withAndroidManifest, withAppBuildGradle } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
@@ -30,7 +28,7 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:id="@+id/snooze_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/alarm_title"
+        android:layout_below="@+id/alarm_title"
         android:layout_marginTop="48dp"
         android:orientation="horizontal"
         android:gravity="center">
@@ -100,49 +98,23 @@ const files = [
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.modules.core.DeviceEventManagerModule
 import app.rork.dominder_android_reminder_app.DebugLogger
 
-class AlarmActionBridge(private val reactContext: ReactApplicationContext) : BroadcastReceiver() {
+class AlarmActionBridge : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        DebugLogger.log("AlarmActionBridge: Received action: \$action")
-
+        DebugLogger.log("AlarmActionBridge: Received action: $action")
         when (action) {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                if (reminderId != null) {
-                    val params = Arguments.createMap().apply {
-                        putString("reminderId", reminderId)
-                    }
-                    sendEvent("alarmDone", params)
-                }
+                DebugLogger.log("AlarmActionBridge: Done for $reminderId")
             }
             "app.rork.dominder.ALARM_SNOOZE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
                 val snoozeMinutes = intent.getIntExtra("snoozeMinutes", 0)
-                if (reminderId != null && snoozeMinutes > 0) {
-                    val params = Arguments.createMap().apply {
-                        putString("reminderId", reminderId)
-                        putInt("snoozeMinutes", snoozeMinutes)
-                    }
-                    sendEvent("alarmSnooze", params)
-                }
+                DebugLogger.log("AlarmActionBridge: Snooze $reminderId for $snoozeMinutes min")
             }
-        }
-    }
-
-    private fun sendEvent(eventName: String, params: Any?) {
-        try {
-            reactContext
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                .emit(eventName, params)
-            DebugLogger.log("AlarmActionBridge: Emitted event '\$eventName'")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error sending event '\$eventName': \${e.message}")
         }
     }
 }`
@@ -203,7 +175,7 @@ class AlarmActivity : AppCompatActivity() {
     }
 
     private fun handleSnooze(minutes: Int) {
-        DebugLogger.log("AlarmActivity: Snoozing for \$minutes minutes.")
+        DebugLogger.log("AlarmActivity: Snoozing for $minutes minutes.")
         val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName) // Important for explicit broadcast
             putExtra("reminderId", reminderId)
@@ -229,7 +201,7 @@ class AlarmActivity : AppCompatActivity() {
         if (notificationId != 0) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(notificationId)
-            DebugLogger.log("AlarmActivity: Canceled notification with ID: \$notificationId")
+            DebugLogger.log("AlarmActivity: Canceled notification with ID: $notificationId")
         }
     }
 
@@ -298,7 +270,7 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId")
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
@@ -330,7 +302,7 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText("Alarm is ringing")
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -430,16 +402,7 @@ class MainApplication : Application(), ReactApplication {
     }
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
 
-    // Register the broadcast receiver
-    val reactContext = reactNativeHost.reactInstanceManager.currentReactContext
-    if (reactContext != null) {
-        val receiver = AlarmActionBridge(reactContext)
-        val filter = IntentFilter().apply {
-            addAction("app.rork.dominder.ALARM_DONE")
-            addAction("app.rork.dominder.ALARM_SNOOZE")
-        }
-        registerReceiver(receiver, filter)
-    }
+    // Note: AlarmActionBridge is registered via AndroidManifest.xml
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
@@ -472,7 +435,7 @@ class MainActivity : ReactActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     intent.getStringExtra("reminderId")?.let {
-        DebugLogger.log("MainActivity: Alarm intent received for reminderId=\$it")
+        DebugLogger.log("MainActivity: Alarm intent received for reminderId=$it")
     }
   }
 
@@ -561,7 +524,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -572,7 +535,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: \${e.message}")
+            DebugLogger.log("AlarmModule: Error scheduling alarm: ${e.message}")
             promise?.reject("SCHEDULE_ERROR", e.message, e)
         }
     }
@@ -701,7 +664,7 @@ const withAlarmManifest = (config) => {
     });
     // NEW: Register AlarmActionBridge
     receivers.push({
-        $: { 'android:name': '.alarm.AlarmActionBridge', 'android:exported': true },
+        $: { 'android:name': '.alarm.AlarmActionBridge', 'android:exported': false },
         'intent-filter': [{
             action: [
                 { $: { 'android:name': 'app.rork.dominder.ALARM_DONE' } },
@@ -731,14 +694,14 @@ const withAppGradle = (config) => {
       let buildGradle = config.modResults.contents;
       if (!buildGradle.includes('kotlinOptions')) {
         buildGradle = buildGradle.replace(
-          /(\\n\\s*android\\s*{\\s*)/,
-          `$1    kotlinOptions {\\n        jvmTarget = "17"\\n    }\\n`
+          /(\n\s*android\s*{\s*)/,
+          `$1    kotlinOptions {\n        jvmTarget = "17"\n    }\n`
         );
       }
       if (!buildGradle.includes('compileOptions')) {
         buildGradle = buildGradle.replace(
-          /(\\n\\s*android\\s*{\\s*)/,
-          `$1    compileOptions {\\n        sourceCompatibility JavaVersion.VERSION_17\\n        targetCompatibility JavaVersion.VERSION_17\\n    }\\n`
+          /(\n\s*android\s*{\s*)/,
+          `$1    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }\n`
         );
       }
       config.modResults.contents = buildGradle;
