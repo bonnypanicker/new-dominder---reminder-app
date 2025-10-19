@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking, NativeModules } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bell, Volume2, Vibrate, ChevronRight, Clock, AlertCircle, FileText } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -7,14 +7,33 @@ import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
 
+const { AlarmModule } = NativeModules;
+
 export default function SettingsScreen() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const [defaultsModalVisible, setDefaultsModalVisible] = useState<boolean>(false);
   const [licensesModalVisible, setLicensesModalVisible] = useState<boolean>(false);
   const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState<boolean>(false);
-  const [currentRingerTone, setCurrentRingerTone] = useState('Default');
+  const [currentRingtone, setCurrentRingtone] = useState<string>('Default Alarm');
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
+
+  // Load current ringtone on mount
+  useEffect(() => {
+    const loadRingtone = async () => {
+      if (Platform.OS === 'android' && AlarmModule?.getAlarmRingtone) {
+        try {
+          const result = await AlarmModule.getAlarmRingtone();
+          if (result?.title) {
+            setCurrentRingtone(result.title);
+          }
+        } catch (error) {
+          console.log('Error loading ringtone:', error);
+        }
+      }
+    };
+    loadRingtone();
+  }, []);
 
   if (isLoading || !settings) {
     return (
@@ -148,6 +167,39 @@ export default function SettingsScreen() {
                 />
               </TouchableOpacity>
             </View>
+
+            {Platform.OS === 'android' && (
+              <TouchableOpacity 
+                style={styles.ringtoneCard}
+                onPress={async () => {
+                  if (!AlarmModule?.openRingtonePicker) {
+                    console.log('AlarmModule.openRingtonePicker not available');
+                    return;
+                  }
+                  try {
+                    const result = await AlarmModule.openRingtonePicker();
+                    if (result?.title) {
+                      setCurrentRingtone(result.title);
+                    }
+                  } catch (error: any) {
+                    if (error?.code !== 'CANCELLED') {
+                      console.error('Error selecting ringtone:', error);
+                    }
+                  }
+                }}
+                testID="ringtone-picker"
+              >
+                <View style={styles.ringtoneIcon}>
+                  <Volume2 size={20} color={Material3Colors.light.primary} />
+                </View>
+                <View style={styles.ringtoneContent}>
+                  <Text style={styles.ringtoneTitle}>Alarm Ringtone</Text>
+                  <Text style={styles.ringtoneValue}>{currentRingtone}</Text>
+                  <Text style={styles.ringtoneHint}>Only for High Priority alarms</Text>
+                </View>
+                <ChevronRight size={20} color={Material3Colors.light.onSurfaceVariant} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -745,6 +797,42 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: Material3Colors.light.onSurfaceVariant,
+  },
+  ringtoneCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+  },
+  ringtoneIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Material3Colors.light.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  ringtoneContent: {
+    flex: 1,
+  },
+  ringtoneTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: Material3Colors.light.onSurface,
+    marginBottom: 2,
+  },
+  ringtoneValue: {
+    fontSize: 13,
+    color: Material3Colors.light.primary,
+    marginBottom: 4,
+  },
+  ringtoneHint: {
+    fontSize: 11,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontStyle: 'italic',
   },
 });
 

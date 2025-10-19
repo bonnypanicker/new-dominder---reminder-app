@@ -4,9 +4,16 @@ import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Vibrator
+import android.os.VibrationEffect
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -18,6 +25,8 @@ class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
     private var notificationId: Int = 0
+    private var ringtone: Ringtone? = null
+    private var vibrator: Vibrator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +52,10 @@ class AlarmActivity : AppCompatActivity() {
         val alarmTitle: TextView = findViewById(R.id.alarm_title)
         alarmTitle.text = title
 
+        // --- Start Ringtone and Vibration ---
+        playAlarmRingtone()
+        startVibration()
+
         findViewById<Button>(R.id.snooze_5m).setOnClickListener { handleSnooze(5) }
         findViewById<Button>(R.id.snooze_10m).setOnClickListener { handleSnooze(10) }
         findViewById<Button>(R.id.snooze_15m).setOnClickListener { handleSnooze(15) }
@@ -52,6 +65,10 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes, reminderId: ${reminderId}")
+        
+        // Stop ringtone and vibration
+        stopRingtone()
+        stopVibration()
         
         // NEW: Persist to SharedPreferences immediately
         try {
@@ -84,6 +101,10 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: ${reminderId}")
+        
+        // Stop ringtone and vibration
+        stopRingtone()
+        stopVibration()
         
         // NEW: Persist to SharedPreferences immediately
         try {
@@ -148,8 +169,113 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 
+    private fun playAlarmRingtone() {
+        try {
+            // Get saved ringtone URI from SharedPreferences
+            val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            val savedUriString = prefs.getString("alarm_ringtone_uri", null)
+            
+            val ringtoneUri = if (savedUriString != null) {
+                DebugLogger.log("AlarmActivity: Using saved ringtone: $savedUriString")
+                Uri.parse(savedUriString)
+            } else {
+                DebugLogger.log("AlarmActivity: Using default alarm ringtone")
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            }
+            
+            ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+            
+            if (ringtone != null) {
+                // Set audio attributes for alarm
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    ringtone?.audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                }
+                
+                // Configure looping
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    ringtone?.isLooping = true
+                }
+                
+                // Ensure volume is audible
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+                if (currentVolume == 0) {
+                    audioManager.setStreamVolume(
+                        AudioManager.STREAM_ALARM,
+                        audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) / 2,
+                        0
+                    )
+                }
+                
+                ringtone?.play()
+                DebugLogger.log("AlarmActivity: Ringtone started playing")
+            } else {
+                DebugLogger.log("AlarmActivity: Failed to get ringtone")
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error playing ringtone: ${e.message}")
+        }
+    }
+    
+    private fun stopRingtone() {
+        try {
+            ringtone?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                    DebugLogger.log("AlarmActivity: Ringtone stopped")
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error stopping ringtone: ${e.message}")
+        }
+    }
+    
+    private fun startVibration() {
+        try {
+            vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            
+            if (vibrator?.hasVibrator() == true) {
+                // Vibration pattern: [delay, vibrate, sleep, vibrate, ...]
+                // Pattern: 0ms delay, 1000ms vibrate, 1000ms pause, repeat
+                val pattern = longArrayOf(0, 1000, 1000)
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val vibrationEffect = VibrationEffect.createWaveform(
+                        pattern,
+                        0 // Repeat from index 0 (loops the entire pattern)
+                    )
+                    vibrator?.vibrate(vibrationEffect)
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(pattern, 0) // 0 = repeat from start
+                }
+                
+                DebugLogger.log("AlarmActivity: Vibration started")
+            } else {
+                DebugLogger.log("AlarmActivity: Device has no vibrator")
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error starting vibration: ${e.message}")
+        }
+    }
+    
+    private fun stopVibration() {
+        try {
+            vibrator?.cancel()
+            DebugLogger.log("AlarmActivity: Vibration stopped")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error stopping vibration: ${e.message}")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        stopRingtone()
+        stopVibration()
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()

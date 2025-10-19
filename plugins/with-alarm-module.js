@@ -201,9 +201,16 @@ import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Vibrator
+import android.os.VibrationEffect
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -215,6 +222,8 @@ class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
     private var notificationId: Int = 0
+    private var ringtone: Ringtone? = null
+    private var vibrator: Vibrator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -240,6 +249,10 @@ class AlarmActivity : AppCompatActivity() {
         val alarmTitle: TextView = findViewById(R.id.alarm_title)
         alarmTitle.text = title
 
+        // --- Start Ringtone and Vibration ---
+        playAlarmRingtone()
+        startVibration()
+
         findViewById<Button>(R.id.snooze_5m).setOnClickListener { handleSnooze(5) }
         findViewById<Button>(R.id.snooze_10m).setOnClickListener { handleSnooze(10) }
         findViewById<Button>(R.id.snooze_15m).setOnClickListener { handleSnooze(15) }
@@ -249,6 +262,10 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
+        
+        // Stop ringtone and vibration
+        stopRingtone()
+        stopVibration()
         
         // NEW: Persist to SharedPreferences immediately
         try {
@@ -281,6 +298,10 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: \${reminderId}")
+        
+        // Stop ringtone and vibration
+        stopRingtone()
+        stopVibration()
         
         // NEW: Persist to SharedPreferences immediately
         try {
@@ -345,8 +366,113 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 
+    private fun playAlarmRingtone() {
+        try {
+            // Get saved ringtone URI from SharedPreferences
+            val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            val savedUriString = prefs.getString("alarm_ringtone_uri", null)
+            
+            val ringtoneUri = if (savedUriString != null) {
+                DebugLogger.log("AlarmActivity: Using saved ringtone: \$savedUriString")
+                Uri.parse(savedUriString)
+            } else {
+                DebugLogger.log("AlarmActivity: Using default alarm ringtone")
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            }
+            
+            ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+            
+            if (ringtone != null) {
+                // Set audio attributes for alarm
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    ringtone?.audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                }
+                
+                // Configure looping
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    ringtone?.isLooping = true
+                }
+                
+                // Ensure volume is audible
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+                if (currentVolume == 0) {
+                    audioManager.setStreamVolume(
+                        AudioManager.STREAM_ALARM,
+                        audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) / 2,
+                        0
+                    )
+                }
+                
+                ringtone?.play()
+                DebugLogger.log("AlarmActivity: Ringtone started playing")
+            } else {
+                DebugLogger.log("AlarmActivity: Failed to get ringtone")
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error playing ringtone: \${e.message}")
+        }
+    }
+    
+    private fun stopRingtone() {
+        try {
+            ringtone?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                    DebugLogger.log("AlarmActivity: Ringtone stopped")
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error stopping ringtone: \${e.message}")
+        }
+    }
+    
+    private fun startVibration() {
+        try {
+            vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            
+            if (vibrator?.hasVibrator() == true) {
+                // Vibration pattern: [delay, vibrate, sleep, vibrate, ...]
+                // Pattern: 0ms delay, 1000ms vibrate, 1000ms pause, repeat
+                val pattern = longArrayOf(0, 1000, 1000)
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val vibrationEffect = VibrationEffect.createWaveform(
+                        pattern,
+                        0 // Repeat from index 0 (loops the entire pattern)
+                    )
+                    vibrator?.vibrate(vibrationEffect)
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(pattern, 0) // 0 = repeat from start
+                }
+                
+                DebugLogger.log("AlarmActivity: Vibration started")
+            } else {
+                DebugLogger.log("AlarmActivity: Device has no vibrator")
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error starting vibration: \${e.message}")
+        }
+    }
+    
+    private fun stopVibration() {
+        try {
+            vibrator?.cancel()
+            DebugLogger.log("AlarmActivity: Vibration stopped")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error stopping vibration: \${e.message}")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        stopRingtone()
+        stopVibration()
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()
@@ -614,20 +740,45 @@ class BootReceiver : BroadcastReceiver() {
     path: 'alarm/AlarmModule.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
+import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import com.facebook.react.bridge.ActivityEventListener
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.BaseActivityEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
-import com.facebook.react.bridge.Arguments
 
 class AlarmModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
+
+    private var ringtonePickerPromise: Promise? = null
+    private val RINGTONE_PICKER_REQUEST_CODE = 1001
+
+    private val activityEventListener = object : BaseActivityEventListener() {
+        override fun onActivityResult(
+            activity: Activity?,
+            requestCode: Int,
+            resultCode: Int,
+            data: Intent?
+        ) {
+            if (requestCode == RINGTONE_PICKER_REQUEST_CODE) {
+                handleRingtonePickerResult(resultCode, data)
+            }
+        }
+    }
+
+    init {
+        reactContext.addActivityEventListener(activityEventListener)
+    }
 
     override fun getName(): String = "AlarmModule"
 
@@ -759,6 +910,124 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error clearing snoozed alarm: \${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun openRingtonePicker(promise: Promise) {
+        try {
+            val activity = reactContext.currentActivity
+            if (activity == null) {
+                promise.reject("NO_ACTIVITY", "Activity not available")
+                return
+            }
+
+            if (ringtonePickerPromise != null) {
+                promise.reject("ALREADY_OPEN", "Ringtone picker is already open")
+                return
+            }
+
+            ringtonePickerPromise = promise
+
+            // Get currently selected ringtone
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            val savedUriString = prefs.getString("alarm_ringtone_uri", null)
+            val currentUri = if (savedUriString != null) Uri.parse(savedUriString) else null
+
+            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Alarm Sound")
+                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, currentUri)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+            }
+
+            activity.startActivityForResult(intent, RINGTONE_PICKER_REQUEST_CODE)
+            DebugLogger.log("AlarmModule: Launched ringtone picker")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error opening ringtone picker: \${e.message}")
+            ringtonePickerPromise?.reject("ERROR", e.message, e)
+            ringtonePickerPromise = null
+        }
+    }
+
+    private fun handleRingtonePickerResult(resultCode: Int, data: Intent?) {
+        if (ringtonePickerPromise == null) {
+            DebugLogger.log("AlarmModule: No promise for ringtone picker result")
+            return
+        }
+
+        try {
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                val uri: Uri? = data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+                
+                if (uri != null) {
+                    // Save the selected ringtone URI
+                    val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+                    prefs.edit().putString("alarm_ringtone_uri", uri.toString()).apply()
+                    
+                    // Get ringtone title for display
+                    val ringtone = RingtoneManager.getRingtone(reactContext, uri)
+                    val title = ringtone?.getTitle(reactContext) ?: "Custom Ringtone"
+                    
+                    val result = Arguments.createMap().apply {
+                        putString("uri", uri.toString())
+                        putString("title", title)
+                    }
+                    
+                    DebugLogger.log("AlarmModule: Ringtone selected: \$title")
+                    ringtonePickerPromise?.resolve(result)
+                } else {
+                    // User selected default
+                    val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+                    prefs.edit().putString("alarm_ringtone_uri", defaultUri.toString()).apply()
+                    
+                    val result = Arguments.createMap().apply {
+                        putString("uri", defaultUri.toString())
+                        putString("title", "Default Alarm")
+                    }
+                    
+                    ringtonePickerPromise?.resolve(result)
+                }
+            } else {
+                ringtonePickerPromise?.reject("CANCELLED", "User cancelled ringtone picker")
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error handling ringtone result: \${e.message}")
+            ringtonePickerPromise?.reject("ERROR", e.message, e)
+        } finally {
+            ringtonePickerPromise = null
+        }
+    }
+
+    @ReactMethod
+    fun getAlarmRingtone(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            val savedUriString = prefs.getString("alarm_ringtone_uri", null)
+            
+            if (savedUriString != null) {
+                val uri = Uri.parse(savedUriString)
+                val ringtone = RingtoneManager.getRingtone(reactContext, uri)
+                val title = ringtone?.getTitle(reactContext) ?: "Custom Ringtone"
+                
+                val result = Arguments.createMap().apply {
+                    putString("uri", savedUriString)
+                    putString("title", title)
+                }
+                promise.resolve(result)
+            } else {
+                val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                val result = Arguments.createMap().apply {
+                    putString("uri", defaultUri.toString())
+                    putString("title", "Default Alarm")
+                }
+                promise.resolve(result)
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting ringtone: \${e.message}")
             promise.reject("ERROR", e.message, e)
         }
     }
