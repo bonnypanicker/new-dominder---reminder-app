@@ -53,13 +53,16 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes.")
         val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-            setPackage(packageName) // Important for explicit broadcast
+            setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
         }
         sendBroadcast(intent)
-        cancelNotification()
-        finishAndRemoveTask()
+        
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            cancelNotification()
+            finishAndRemoveTask()
+        }, 300)
     }
 
     private fun handleDone() {

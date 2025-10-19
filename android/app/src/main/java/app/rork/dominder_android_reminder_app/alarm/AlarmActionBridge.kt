@@ -12,12 +12,12 @@ class AlarmActionBridge : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        DebugLogger.log("AlarmActionBridge: Received action: ${action}")
+        DebugLogger.log("AlarmActionBridge: Received action: $action")
         
         when (action) {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                DebugLogger.log("AlarmActionBridge: Done for ${reminderId}")
+                DebugLogger.log("AlarmActionBridge: Done for $reminderId")
                 if (reminderId != null) {
                     emitEventToReactNative(context, "alarmDone", reminderId, 0)
                 }
@@ -25,7 +25,7 @@ class AlarmActionBridge : BroadcastReceiver() {
             "app.rork.dominder.ALARM_SNOOZE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
                 val snoozeMinutes = intent.getIntExtra("snoozeMinutes", 0)
-                DebugLogger.log("AlarmActionBridge: Snooze ${reminderId} for ${snoozeMinutes} min")
+                DebugLogger.log("AlarmActionBridge: Snooze $reminderId for $snoozeMinutes min")
                 if (reminderId != null) {
                     emitEventToReactNative(context, "alarmSnooze", reminderId, snoozeMinutes)
                 }
@@ -41,7 +41,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val reactContext = reactInstanceManager.currentReactContext
                 
                 if (reactContext != null) {
-                    DebugLogger.log("AlarmActionBridge: Emitting ${eventName} event to React Native")
+                    DebugLogger.log("AlarmActionBridge: Emitting $eventName event to React Native")
                     
                     val params = Arguments.createMap().apply {
                         putString("reminderId", reminderId)
@@ -54,13 +54,13 @@ class AlarmActionBridge : BroadcastReceiver() {
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                         .emit(eventName, params)
                     
-                    DebugLogger.log("AlarmActionBridge: Event ${eventName} emitted successfully")
+                    DebugLogger.log("AlarmActionBridge: Event $eventName emitted successfully")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ReactContext is null")
                 }
             }
         } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error emitting event: ${e.message}")
+            DebugLogger.log("AlarmActionBridge: Error emitting event: $e.message")
         }
     }
 }
