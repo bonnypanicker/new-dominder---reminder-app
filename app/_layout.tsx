@@ -13,17 +13,14 @@ import { StatusBar } from "expo-status-bar";
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
 
-// Import your reminder store to get access to the functions
-import { useReminderStore } from '@/hooks/reminder-store';
+// Import the functions directly from reminder-scheduler
+import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
 
 SplashScreen.preventAutoHideAsync();
 const rootQueryClient = new QueryClient();
 
 // 1. Define the new listener hook
 const useAlarmListeners = () => {
-  // Get the functions from your Zustand store
-  const { markReminderDone, rescheduleReminderById } = useReminderStore();
-
   useEffect(() => {
     console.log('[useAlarmListeners] Setting up native alarm event listeners...');
 
@@ -52,8 +49,7 @@ const useAlarmListeners = () => {
       doneSubscription.remove();
       snoozeSubscription.remove();
     };
-    // Add dependencies to re-run the effect if functions change
-  }, [markReminderDone, rescheduleReminderById]);
+  }, []); // Empty deps since functions are imported directly
 };
 
 
