@@ -1720,10 +1720,6 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       velocity.current = 0;
       stoppedByFriction.current = false;
       lastMoveTime.current = Date.now();
-      
-      // Use absolute finger position to compute angle
-      const startDeg = getAngleFromEvent(evt);
-      lastAngle.current = startDeg;
     },
     onPanResponderMove: (evt, gestureState) => {
       if (!isDragging.current) return;
