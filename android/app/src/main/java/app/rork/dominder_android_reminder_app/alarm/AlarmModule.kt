@@ -43,7 +43,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -59,6 +59,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 action = "app.rork.dominder.ALARM_FIRED"
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
+                putExtra("priority", priority ?: "medium")
             }
             
             val pendingIntent = PendingIntent.getBroadcast(

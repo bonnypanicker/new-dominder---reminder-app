@@ -27,6 +27,7 @@ class AlarmActivity : AppCompatActivity() {
     private var notificationId: Int = 0
     private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
+    private var priority: String = "medium"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +42,10 @@ class AlarmActivity : AppCompatActivity() {
 
         reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
+        priority = intent.getStringExtra("priority") ?: "medium"
         notificationId = reminderId?.hashCode() ?: 0
+        
+        DebugLogger.log("AlarmActivity: Priority = $priority")
 
         if (reminderId == null) {
             DebugLogger.log("AlarmActivity: reminderId is null, finishing.")
@@ -171,6 +175,12 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun playAlarmRingtone() {
         try {
+            // Only play custom ringtone for high priority alarms
+            if (priority != "high") {
+                DebugLogger.log("AlarmActivity: Skipping ringtone (priority=$priority, only high priority plays custom ringtone)")
+                return
+            }
+            
             // Get saved ringtone URI from SharedPreferences
             val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)

@@ -11,7 +11,7 @@ import { Reminder } from '@/types/reminder';
 import { NativeModules, Platform } from 'react-native';
 
 const AlarmModule: {
-  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number) => void;
+  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => void;
   cancelAlarm?: (reminderId: string) => void;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
@@ -79,8 +79,8 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
     } else {
       try {
-        AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when);
-        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id}`);
+        AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
+        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
         return;
       } catch (e) {
         console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
