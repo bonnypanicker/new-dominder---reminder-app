@@ -1671,6 +1671,25 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       console.log('measureCenter error', e);
     }
   };
+
+  // Compute absolute angle (0..360) from finger position using pageX/pageY
+  const getAngleFromEvent = (evt: any) => {
+    const { pageX, pageY } = evt?.nativeEvent || {};
+    const cx = centerRef.current.x || 0;
+    const cy = centerRef.current.y || 0;
+    const dx = (pageX ?? 0) - cx;
+    const dy = (pageY ?? 0) - cy;
+    const angleRad = Math.atan2(dy, dx);
+    return (angleRad * 180 / Math.PI + 90 + 360) % 360;
+  };
+
+  // Return the minimal signed angular difference between two angles
+  const angleDelta = (fromDeg: number, toDeg: number) => {
+    let diff = toDeg - fromDeg;
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    return diff;
+  };
   
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -1680,6 +1699,10 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       isDragging.current = true;
       rotationRef.current = rotation;
       measureCenter();
+
+      // Initialize lastAngle based on absolute touch position
+      const startDeg = getAngleFromEvent(evt);
+      lastAngle.current = startDeg;
       
       // Stop any ongoing animations
       if (decayAnimation.current) {
@@ -1698,31 +1721,17 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       stoppedByFriction.current = false;
       lastMoveTime.current = Date.now();
       
-      const locX = (evt.nativeEvent as any)?.locationX ?? 0;
-      const locY = (evt.nativeEvent as any)?.locationY ?? 0;
-      const centerX = (discSize ?? 220) / 2;
-      const centerY = (discSize ?? 220) / 2;
-      const touchX = locX - centerX;
-      const touchY = locY - centerY;
-      const angle = Math.atan2(touchY, touchX);
-      const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
-      lastAngle.current = degrees;
+      // Use absolute finger position to compute angle
+      const startDeg = getAngleFromEvent(evt);
+      lastAngle.current = startDeg;
     },
     onPanResponderMove: (evt, gestureState) => {
       if (!isDragging.current) return;
       const currentTime = Date.now();
       
-      const locX = (evt.nativeEvent as any)?.locationX ?? 0;
-      const locY = (evt.nativeEvent as any)?.locationY ?? 0;
-      const centerX = (discSize ?? 220) / 2;
-      const centerY = (discSize ?? 220) / 2;
-      const touchX = locX - centerX;
-      const touchY = locY - centerY;
-      const angle = Math.atan2(touchY, touchX);
-      const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
-      let delta = degrees - lastAngle.current;
-      if (delta > 180) delta -= 360;
-      if (delta < -180) delta += 360;
+      // Use absolute finger position to compute angle
+      const degrees = getAngleFromEvent(evt);
+      let delta = angleDelta(lastAngle.current, degrees);
       if (Math.abs(delta) < DEADBAND_DEG) return;
       
       const timeDelta = currentTime - lastMoveTime.current;
@@ -1737,11 +1746,11 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       lastMoveTime.current = currentTime;
       
       delta *= activeSection === 'hour' ? HOUR_SENSITIVITY : MINUTE_SENSITIVITY;
-      rotationRef.current = (rotationRef.current + delta + 360) % 360;
       lastAngle.current = degrees;
       
-      // Update rotation immediately for smooth dragging
-      const r = rotationRef.current % 360;
+      // Set absolute rotation to follow the finger precisely
+      rotationRef.current = degrees % 360;
+      const r = rotationRef.current;
       setRotation(r);
       
       // Throttle value updates to avoid re-renders during drag
