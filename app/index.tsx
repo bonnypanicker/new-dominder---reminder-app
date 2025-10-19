@@ -1633,15 +1633,17 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const autoSwitchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppedByFriction = useRef<boolean>(false);
   const snapAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const lastValueUpdate = useRef<number>(0);
   
   const HOUR_SENSITIVITY = 1.0;
   const MINUTE_SENSITIVITY = 1.0;
-  const DEADBAND_DEG = 1.5;
+  const DEADBAND_DEG = 0.5; // Reduced for smoother tracking
   const DECAY_FRICTION = 0.85;
   const MIN_DECAY_VELOCITY = 0.3;
   const VELOCITY_THRESHOLD = 0.15; // Minimum velocity to trigger momentum
   const SNAP_THRESHOLD = 0.08; // Below this velocity, snap to nearest value
   const SNAP_DURATION = 200; // Duration of snap animation in ms
+  const VALUE_UPDATE_THROTTLE = 100; // Throttle value updates during drag
   
   useEffect(() => {
     return () => {
@@ -1737,31 +1739,31 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       delta *= activeSection === 'hour' ? HOUR_SENSITIVITY : MINUTE_SENSITIVITY;
       rotationRef.current = (rotationRef.current + delta + 360) % 360;
       lastAngle.current = degrees;
+      
       // Update rotation immediately for smooth dragging
       const r = rotationRef.current % 360;
       setRotation(r);
       
-      // Debounce value updates to prevent jitter
-      if (!framePending.current) {
-        framePending.current = true;
-        requestAnimationFrame(() => {
-          const currentR = rotationRef.current % 360;
-          if (activeSection === 'hour') {
-            const hourStep = 360 / 12;
-            const hourIndex = Math.round(currentR / hourStep) % 12;
-            const newHour = hourIndex === 0 ? 12 : hourIndex;
-            if (newHour !== currentHour) {
-              setCurrentHour(newHour);
-            }
-          } else {
-            const minuteStep = 360 / 60;
-            const minuteIndex = Math.round(currentR / minuteStep) % 60;
-            if (minuteIndex !== currentMinute) {
-              setCurrentMinute(minuteIndex);
-            }
+      // Throttle value updates to avoid re-renders during drag
+      const now = Date.now();
+      if (now - lastValueUpdate.current > VALUE_UPDATE_THROTTLE) {
+        lastValueUpdate.current = now;
+        
+        // Calculate new value without triggering immediate state update
+        if (activeSection === 'hour') {
+          const hourStep = 360 / 12;
+          const hourIndex = Math.round(r / hourStep) % 12;
+          const newHour = hourIndex === 0 ? 12 : hourIndex;
+          if (newHour !== currentHour) {
+            setCurrentHour(newHour);
           }
-          framePending.current = false;
-        });
+        } else {
+          const minuteStep = 360 / 60;
+          const minuteIndex = Math.round(r / minuteStep) % 60;
+          if (minuteIndex !== currentMinute) {
+            setCurrentMinute(minuteIndex);
+          }
+        }
       }
     },
     onPanResponderRelease: () => {
@@ -1852,6 +1854,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
           }
           
           let currentVelocity = velocity.current * 20;
+          let frameCount = 0;
           
           decayAnimation.current = setInterval(() => {
             if (Math.abs(currentVelocity) < MIN_DECAY_VELOCITY) {
@@ -1860,6 +1863,19 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 decayAnimation.current = null;
               }
               stoppedByFriction.current = true;
+              
+              // Final value update
+              const r = rotationRef.current % 360;
+              if (activeSection === 'hour') {
+                const hourStep = 360 / 12;
+                const hourIndex = Math.round(r / hourStep) % 12;
+                const newHour = hourIndex === 0 ? 12 : hourIndex;
+                setCurrentHour(newHour);
+              } else {
+                const minuteStep = 360 / 60;
+                const minuteIndex = Math.round(r / minuteStep) % 60;
+                setCurrentMinute(minuteIndex);
+              }
               return;
             }
             
@@ -1867,15 +1883,19 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
             const r = rotationRef.current % 360;
             setRotation(r);
             
-            if (activeSection === 'hour') {
-              const hourStep = 360 / 12;
-              const hourIndex = Math.round(r / hourStep) % 12;
-              const newHour = hourIndex === 0 ? 12 : hourIndex;
-              if (newHour !== currentHour) setCurrentHour(newHour);
-            } else {
-              const minuteStep = 360 / 60;
-              const minuteIndex = Math.round(r / minuteStep) % 60;
-              if (minuteIndex !== currentMinute) setCurrentMinute(minuteIndex);
+            // Only update values every 6 frames (approximately every 100ms) to reduce jitter
+            frameCount++;
+            if (frameCount % 6 === 0) {
+              if (activeSection === 'hour') {
+                const hourStep = 360 / 12;
+                const hourIndex = Math.round(r / hourStep) % 12;
+                const newHour = hourIndex === 0 ? 12 : hourIndex;
+                if (newHour !== currentHour) setCurrentHour(newHour);
+              } else {
+                const minuteStep = 360 / 60;
+                const minuteIndex = Math.round(r / minuteStep) % 60;
+                if (minuteIndex !== currentMinute) setCurrentMinute(minuteIndex);
+              }
             }
             
             currentVelocity *= DECAY_FRICTION;

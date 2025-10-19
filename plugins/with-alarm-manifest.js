@@ -20,6 +20,17 @@ module.exports = function withAlarmManifest(config) {
       });
     }
 
+    // Add RingtonePickerActivity if missing
+    if (!activities.some(a => a.$['android:name']?.includes('.alarm.RingtonePickerActivity'))) {
+      activities.push({
+        $: {
+          'android:name': '.alarm.RingtonePickerActivity',
+          'android:exported': 'false',
+          'android:theme': '@style/Theme.AppCompat.Light.NoActionBar'
+        }
+      });
+    }
+
     // Add full screen intent permissions
     config.modResults.manifest['uses-permission'] = [
       ...(config.modResults.manifest['uses-permission'] || []),
