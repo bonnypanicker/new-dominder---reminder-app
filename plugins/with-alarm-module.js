@@ -216,7 +216,7 @@ class AlarmActivity : AppCompatActivity() {
     }
 
     private fun handleSnooze(minutes: Int) {
-        DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes.")
+        DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes.")
         val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
