@@ -51,13 +51,17 @@ class AlarmActivity : AppCompatActivity() {
     }
 
     private fun handleSnooze(minutes: Int) {
-        DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes.")
+        DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes, reminderId: ${reminderId}")
+        
         val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
         }
+        
+        DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
         sendBroadcast(intent)
+        DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
@@ -66,12 +70,16 @@ class AlarmActivity : AppCompatActivity() {
     }
 
     private fun handleDone() {
-        DebugLogger.log("AlarmActivity: Done clicked.")
+        DebugLogger.log("AlarmActivity: Done clicked for reminderId: ${reminderId}")
+        
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
         }
+        
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.package}")
         sendBroadcast(intent)
+        DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
