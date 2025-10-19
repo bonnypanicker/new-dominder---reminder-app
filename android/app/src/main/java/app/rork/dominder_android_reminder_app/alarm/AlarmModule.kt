@@ -10,6 +10,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
+import com.facebook.react.bridge.Arguments
 
 class AlarmModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -77,6 +78,74 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise?.resolve(true)
         } catch (e: Exception) {
             promise?.reject("CANCEL_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun getCompletedAlarms(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            val completed = Arguments.createMap()
+            
+            prefs.all.forEach { (key, value) ->
+                if (key.startsWith("completed_")) {
+                    val reminderId = key.removePrefix("completed_")
+                    completed.putString(reminderId, value.toString())
+                }
+            }
+            
+            DebugLogger.log("AlarmModule: Retrieved ${completed.toHashMap().size} completed alarms")
+            promise.resolve(completed)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting completed alarms: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearCompletedAlarm(reminderId: String, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().remove("completed_${reminderId}").apply()
+            DebugLogger.log("AlarmModule: Cleared completed alarm ${reminderId}")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing completed alarm: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun getSnoozedAlarms(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            val snoozed = Arguments.createMap()
+            
+            prefs.all.forEach { (key, value) ->
+                if (key.startsWith("snoozed_")) {
+                    val reminderId = key.removePrefix("snoozed_")
+                    snoozed.putString(reminderId, value.toString())
+                }
+            }
+            
+            DebugLogger.log("AlarmModule: Retrieved ${snoozed.toHashMap().size} snoozed alarms")
+            promise.resolve(snoozed)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting snoozed alarms: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearSnoozedAlarm(reminderId: String, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().remove("snoozed_${reminderId}").apply()
+            DebugLogger.log("AlarmModule: Cleared snoozed alarm ${reminderId}")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing snoozed alarm: ${e.message}")
+            promise.reject("ERROR", e.message, e)
         }
     }
 }

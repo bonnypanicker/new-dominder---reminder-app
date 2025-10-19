@@ -53,6 +53,19 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes, reminderId: ${reminderId}")
         
+        // NEW: Persist to SharedPreferences immediately
+        try {
+            val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("snoozed_${reminderId}", "${System.currentTimeMillis()}:${minutes}")
+                apply()
+            }
+            DebugLogger.log("AlarmActivity: Saved snooze to SharedPreferences for ${reminderId}")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error saving snooze to SharedPreferences: ${e.message}")
+        }
+        
+        // Keep existing broadcast
         val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
@@ -72,12 +85,25 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: ${reminderId}")
         
+        // NEW: Persist to SharedPreferences immediately
+        try {
+            val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("completed_${reminderId}", System.currentTimeMillis().toString())
+                apply()
+            }
+            DebugLogger.log("AlarmActivity: Saved completion to SharedPreferences for ${reminderId}")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error saving to SharedPreferences: ${e.message}")
+        }
+        
+        // Keep existing broadcast as fallback for when app is running
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
         }
         
-DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}")
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         

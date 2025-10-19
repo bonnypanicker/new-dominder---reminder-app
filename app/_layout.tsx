@@ -12,6 +12,7 @@ import { useSettings } from '@/hooks/settings-store';
 import { StatusBar } from "expo-status-bar";
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
+import { useCompletedAlarmSync } from '../hooks/useCompletedAlarmSync';
 
 // Import the functions directly from reminder-scheduler
 import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
@@ -78,6 +79,9 @@ function AppContent() {
 
   // 2. Call the new hook here
   useAlarmListeners();
+
+  // Add this to enable SharedPreferences polling for alarm actions
+  useCompletedAlarmSync();
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('remindersChanged', () => {
