@@ -224,7 +224,6 @@ class AlarmActivity : AppCompatActivity() {
     private var notificationId: Int = 0
     private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
-    private var priority: String = "medium"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -239,10 +238,7 @@ class AlarmActivity : AppCompatActivity() {
 
         reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
-        priority = intent.getStringExtra("priority") ?: "medium"
         notificationId = reminderId?.hashCode() ?: 0
-        
-        DebugLogger.log("AlarmActivity: Priority = \$priority")
 
         if (reminderId == null) {
             DebugLogger.log("AlarmActivity: reminderId is null, finishing.")
@@ -372,12 +368,6 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun playAlarmRingtone() {
         try {
-            // Only play custom ringtone for high priority alarms
-            if (priority != "high") {
-                DebugLogger.log("AlarmActivity: Skipping ringtone (priority=\$priority, only high priority plays custom ringtone)")
-                return
-            }
-            
             // Get saved ringtone URI from SharedPreferences
             val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
@@ -513,7 +503,6 @@ class AlarmReceiver : BroadcastReceiver() {
         DebugLogger.log("AlarmReceiver: Received broadcast")
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
-        val priority = intent.getStringExtra("priority") ?: "medium"
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -543,7 +532,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
-            putExtra("priority", priority)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -558,7 +546,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val contentIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
-            putExtra("priority", priority)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
@@ -1171,7 +1158,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -1187,7 +1174,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 action = "app.rork.dominder.ALARM_FIRED"
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
-                putExtra("priority", priority ?: "medium")
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -1479,10 +1465,7 @@ const withAlarmManifest = (config) => {
     const application = manifest.application[0];
 
     if (!application.activity) application.activity = [];
-    const activities = application.activity.filter(a => 
-        a.$['android:name'] !== '.alarm.AlarmActivity' && 
-        a.$['android:name'] !== '.alarm.RingtonePickerActivity'
-    );
+    const activities = application.activity.filter(a => a.$['android:name'] !== '.alarm.AlarmActivity');
     activities.push({
       $: {
         'android:name': '.alarm.AlarmActivity',
@@ -1491,14 +1474,6 @@ const withAlarmManifest = (config) => {
         'android:excludeFromRecents': 'true',
         'android:exported': 'true', // Must be true to be started by system
         'android:launchMode': 'singleTask',
-        'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar'
-      },
-    });
-    // Add RingtonePickerActivity
-    activities.push({
-      $: {
-        'android:name': '.alarm.RingtonePickerActivity',
-        'android:exported': 'false',
         'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar'
       },
     });
