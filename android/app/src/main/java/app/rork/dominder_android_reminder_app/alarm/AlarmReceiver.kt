@@ -16,6 +16,7 @@ class AlarmReceiver : BroadcastReceiver() {
         DebugLogger.log("AlarmReceiver: Received broadcast")
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
+        val priority = intent.getStringExtra("priority") ?: "medium"
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -45,6 +46,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
+            putExtra("priority", priority)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -59,6 +61,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val contentIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
+            putExtra("priority", priority)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
