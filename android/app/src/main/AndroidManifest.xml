@@ -11,6 +11,7 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <queries>
     <intent>
@@ -23,6 +24,7 @@
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <service android:name=".RescheduleAlarmsService" android:exported="false"/>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait" android:showWhenLocked="true" android:turnScreenOn="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
@@ -35,5 +37,23 @@
         <data android:scheme="myapp"/>
       </intent-filter>
     </activity>
+    <activity android:name=".alarm.AlarmActivity" android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"/>
+    <receiver android:name=".alarm.AlarmReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="app.rork.dominder.ALARM_FIRED"/>
+      </intent-filter>
+    </receiver>
+    <receiver android:name=".BootReceiver" android:exported="true" android:enabled="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+      </intent-filter>
+    </receiver>
+    <receiver android:name=".alarm.AlarmActionBridge" android:exported="false">
+      <intent-filter>
+        <action android:name="app.rork.dominder.ALARM_DONE"/>
+        <action android:name="app.rork.dominder.ALARM_SNOOZE"/>
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>
