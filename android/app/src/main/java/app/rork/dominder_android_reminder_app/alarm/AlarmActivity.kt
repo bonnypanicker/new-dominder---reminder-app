@@ -77,7 +77,7 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("reminderId", reminderId)
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.package}")
+DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         

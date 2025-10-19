@@ -274,7 +274,7 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("reminderId", reminderId)
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.package}")
+DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
@@ -357,7 +357,7 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId")
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
@@ -630,7 +630,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -641,7 +641,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: $e.message")
+            DebugLogger.log("AlarmModule: Error scheduling alarm: \$e.message")
             promise?.reject("SCHEDULE_ERROR", e.message, e)
         }
     }
