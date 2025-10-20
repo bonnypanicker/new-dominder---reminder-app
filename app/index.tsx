@@ -711,26 +711,6 @@ export default function HomeScreen() {
         <Text style={styles.title}>DoMinder</Text>
         <TouchableOpacity
           style={styles.settingsButton}
-          onPress={async () => {
-            try {
-              const notifee = require('@notifee/react-native');
-              await notifee.default.displayNotification({
-                title: 'Test Standard Notification',
-                body: 'This is a test notification from Notifee.',
-                android: {
-                  channelId: CHANNEL_IDS.STANDARD, // Make sure this channel exists
-                },
-              });
-            } catch (e) {
-              console.error('Test notification failed:', e);
-              Alert.alert('Test Failed', 'Could not display notification. Check logs.');
-            }
-          }}
-        >
-          <Text>Test Standard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.settingsButton}
           onPress={() => router.push('/settings')}
         >
           <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
@@ -1282,6 +1262,7 @@ function CreateReminderPopup({
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const mainContentSlide = useRef(new Animated.Value(0)).current;
   const titleInputRef = useRef<TextInput>(null);
+  const [shouldFocus, setShouldFocus] = useState(false);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -1305,18 +1286,22 @@ function CreateReminderPopup({
   };
 
   useEffect(() => {
-    if (visible) {
+    if (visible && mode === 'create') {
       mainContentSlide.setValue(0);
-      if (mode === 'create') {
-        // Use InteractionManager to wait for animations to complete
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(() => {
-            titleInputRef.current?.focus();
-          }, 300);
-        });
-      }
+      setShouldFocus(true);
+    } else {
+      setShouldFocus(false);
     }
   }, [visible, mainContentSlide, mode]);
+
+  const handleInputLayout = () => {
+    if (shouldFocus && mode === 'create') {
+      // Focus immediately when input is laid out
+      setTimeout(() => {
+        titleInputRef.current?.focus();
+      }, 50);
+    }
+  };
 
   console.log('CreateReminderPopup visible prop:', visible); // Add this line
 
@@ -1357,6 +1342,7 @@ function CreateReminderPopup({
                   value={title}
                   onChangeText={onTitleChange}
                   maxLength={100}
+                  onLayout={handleInputLayout}
                   testID="title-input"
                 />
               </View>

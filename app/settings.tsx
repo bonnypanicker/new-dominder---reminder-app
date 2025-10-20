@@ -205,23 +205,6 @@ export default function SettingsScreen() {
 
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={() => router.push('/settings/notifications')}
-          testID="go-to-notification-settings"
-        >
-          <View style={styles.sectionHeaderLeft}>
-            <View style={styles.sectionIconContainer}>
-              <Bell size={20} color={Material3Colors.light.primary} />
-            </View>
-            <Text style={styles.sectionHeaderTitle}>Notification Settings</Text>
-          </View>
-          <ChevronRight
-            size={20}
-            color={Material3Colors.light.onSurfaceVariant}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.sectionHeader}
           onPress={() => setExpandedSection(expandedSection === 'preferences' ? null : 'preferences')}
           testID="section-preferences"
         >
