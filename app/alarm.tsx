@@ -105,25 +105,119 @@ export default function AlarmScreen() {
     await closePerOrigin();
   };
 
-  return (
-    <View style={{ flex:1, backgroundColor:'black', padding:24, justifyContent:'center' }}>
-      <Text style={{ color:'white', fontSize:22, opacity:0.8, textAlign:'center' }}>Alarm</Text>
-      <Text style={{ color:'white', fontSize:34, textAlign:'center', marginTop:8 }}>{title}</Text>
-      {reminderId && (
-        <Text style={{ color:'#888', fontSize:12, textAlign:'center', marginTop:4 }}>ID: {reminderId}</Text>
-      )}
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
 
-      <View style={{ flexDirection:'row', flexWrap:'wrap', justifyContent:'center', marginTop:28 }}>
-        {[5,10,15,30].map(m => (
-          <Pressable key={m} onPress={snooze(m)}
-            style={{ paddingVertical:14, paddingHorizontal:18, borderRadius:16, backgroundColor:'#222', margin:6 }}>
-            <Text style={{ color:'white', fontSize:18 }}>Snooze {m}m</Text>
-          </Pressable>
-        ))}
+  const [currentTime, setCurrentTime] = useState(getCurrentTime());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(getCurrentTime());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={{ 
+      flex: 1, 
+      backgroundColor: '#1C1B1F',
+      paddingHorizontal: 24,
+      paddingTop: 48,
+      paddingBottom: 32
+    }}>
+      {/* Header */}
+      <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <Text style={{ 
+          color: '#D0BCFF', 
+          fontSize: 14, 
+          fontWeight: '500',
+          letterSpacing: 0.5,
+          textTransform: 'uppercase'
+        }}>Reminder</Text>
       </View>
 
-      <Pressable onPress={done} style={{ marginTop:24, padding:18, borderRadius:18, backgroundColor:'#2e7d32' }}>
-        <Text style={{ color:'white', fontSize:20, fontWeight:'700', textAlign:'center' }}>Done</Text>
+      {/* Reminder Title */}
+      <View style={{ alignItems: 'center', marginBottom: 48 }}>
+        <Text style={{ 
+          color: '#E6E1E5', 
+          fontSize: 28, 
+          fontWeight: '400',
+          textAlign: 'center',
+          lineHeight: 36
+        }}>{title}</Text>
+      </View>
+
+      {/* Center Time Display */}
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 48 }}>
+        <Text style={{ 
+          color: '#D0BCFF', 
+          fontSize: 72, 
+          fontWeight: '300',
+          letterSpacing: -2
+        }}>{currentTime}</Text>
+      </View>
+
+      {/* Snooze Buttons */}
+      <View style={{ marginBottom: 24 }}>
+        <Text style={{ 
+          color: '#CAC4D0', 
+          fontSize: 12, 
+          fontWeight: '500',
+          textAlign: 'center',
+          marginBottom: 16,
+          letterSpacing: 0.5
+        }}>SNOOZE FOR</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
+          {[5, 10, 15, 30].map(m => (
+            <Pressable 
+              key={m} 
+              onPress={snooze(m)}
+              style={({ pressed }) => ({
+                paddingVertical: 12,
+                paddingHorizontal: 20,
+                borderRadius: 20,
+                backgroundColor: pressed ? '#3E3742' : '#2B2930',
+                borderWidth: 1,
+                borderColor: '#49454F',
+                minWidth: 70,
+                alignItems: 'center'
+              })}>
+              <Text style={{ 
+                color: '#D0BCFF', 
+                fontSize: 14,
+                fontWeight: '500'
+              }}>{m}m</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {/* Done Button */}
+      <Pressable 
+        onPress={done} 
+        style={({ pressed }) => ({
+          paddingVertical: 20,
+          borderRadius: 28,
+          backgroundColor: pressed ? '#7F56D9' : '#6750A4',
+          elevation: 3,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 4
+        })}>
+        <Text style={{ 
+          color: '#FFFFFF', 
+          fontSize: 16, 
+          fontWeight: '600', 
+          textAlign: 'center',
+          letterSpacing: 0.5
+        }}>Done</Text>
       </Pressable>
     </View>
   );
