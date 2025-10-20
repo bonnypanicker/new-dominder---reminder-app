@@ -5,11 +5,13 @@ module.exports = (config) =>
     const manifest = cfg.modResults;
     const app = AndroidConfig.Manifest.getMainApplicationOrThrow(manifest);
 
-    // Ensure MainActivity wake flags
+    // MainActivity should NOT have showWhenLocked/turnScreenOn
+    // Only AlarmActivity should have these flags to appear over lock screen
     const main = (app.activity || []).find(a => a['$']['android:name']?.endsWith('.MainActivity'));
     if (main) {
-      main['$']['android:showWhenLocked'] = 'true';
-      main['$']['android:turnScreenOn'] = 'true';
+      // Remove these flags if they exist
+      delete main['$']['android:showWhenLocked'];
+      delete main['$']['android:turnScreenOn'];
     }
 
     // Ensure permission USE_FULL_SCREEN_INTENT
