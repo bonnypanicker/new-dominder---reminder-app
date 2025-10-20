@@ -115,7 +115,7 @@ export default function CustomizePanel({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
       <View style={styles.repeatOptionsContainer}>
         {repeatOptions.map((option) => (
           <TouchableOpacity
