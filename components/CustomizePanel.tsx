@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard } from 'react-native';
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
@@ -45,6 +45,17 @@ export default function CustomizePanel({
       onRepeatDaysChange([0, 1, 2, 3, 4, 5, 6]);
     }
   }, [repeatType, repeatDays.length, onRepeatDaysChange]);
+
+  // Close dropdowns when keyboard state changes
+  useEffect(() => {
+    const keyboardDidHideListener = RNKeyboard.addListener('keyboardDidHide', () => {
+      setMenuOpen(false);
+    });
+
+    return () => {
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
   const [anchor, setAnchor] = useState<AnchorRect | null>(null);
