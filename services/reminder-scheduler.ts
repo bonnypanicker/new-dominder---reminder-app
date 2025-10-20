@@ -13,6 +13,11 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
     return;
   }
 
+  if (reminder.isCompleted) {
+    console.log(`[Scheduler] Reminder ${reminderId} is already completed, skipping snooze.`);
+    return;
+  }
+
   const nextTime = Date.now() + minutes * 60 * 1000;
   
   await notificationService.cancelAllNotificationsForReminder(reminderId);
