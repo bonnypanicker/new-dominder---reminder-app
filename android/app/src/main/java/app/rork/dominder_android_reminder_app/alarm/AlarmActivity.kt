@@ -20,6 +20,8 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
+import java.text.SimpleDateFormat
+import java.util.*
 
 class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -28,6 +30,8 @@ class AlarmActivity : AppCompatActivity() {
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var priority: String = "medium"
+    private var timeUpdateRunnable: Runnable? = null
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +59,18 @@ class AlarmActivity : AppCompatActivity() {
 
         val alarmTitle: TextView = findViewById(R.id.alarm_title)
         alarmTitle.text = title
+
+        // --- Update current time display ---
+        val currentTimeView: TextView = findViewById(R.id.current_time)
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        
+        timeUpdateRunnable = object : Runnable {
+            override fun run() {
+                currentTimeView.text = timeFormat.format(Date())
+                handler.postDelayed(this, 1000) // Update every second
+            }
+        }
+        timeUpdateRunnable?.run()
 
         // --- Start Ringtone and Vibration ---
         playAlarmRingtone()
@@ -283,6 +299,7 @@ class AlarmActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        timeUpdateRunnable?.let { handler.removeCallbacks(it) }
         stopRingtone()
         stopVibration()
         wakeLock?.let {
