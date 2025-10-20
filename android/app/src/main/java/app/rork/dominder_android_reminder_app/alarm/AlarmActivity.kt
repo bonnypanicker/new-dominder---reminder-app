@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioManager
-import android.media.Ringtone
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -25,7 +25,7 @@ class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
     private var notificationId: Int = 0
-    private var ringtone: Ringtone? = null
+    private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var priority: String = "medium"
 
@@ -194,38 +194,35 @@ class AlarmActivity : AppCompatActivity() {
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             }
             
-            ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+            // Set alarm volume to maximum
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
+            DebugLogger.log("AlarmActivity: Set alarm volume to max: $maxVolume")
             
-            if (ringtone != null) {
-                // Set audio attributes for alarm
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    ringtone?.audioAttributes = AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                }
+            // Use MediaPlayer for full song playback
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(applicationContext, ringtoneUri)
                 
-                // Configure looping
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    ringtone?.isLooping = true
-                }
-                
-                // Ensure volume is audible
-                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
-                if (currentVolume == 0) {
-                    audioManager.setStreamVolume(
-                        AudioManager.STREAM_ALARM,
-                        audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) / 2,
-                        0
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
                     )
+                } else {
+                    @Suppress("DEPRECATION")
+                    setAudioStreamType(AudioManager.STREAM_ALARM)
                 }
                 
-                ringtone?.play()
-                DebugLogger.log("AlarmActivity: Ringtone started playing")
-            } else {
-                DebugLogger.log("AlarmActivity: Failed to get ringtone")
+                isLooping = true
+                setVolume(1.0f, 1.0f) // Max volume
+                prepare()
+                start()
             }
+            
+            DebugLogger.log("AlarmActivity: MediaPlayer started playing full song")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error playing ringtone: ${e.message}")
         }
@@ -233,12 +230,14 @@ class AlarmActivity : AppCompatActivity() {
     
     private fun stopRingtone() {
         try {
-            ringtone?.let {
+            mediaPlayer?.let {
                 if (it.isPlaying) {
                     it.stop()
-                    DebugLogger.log("AlarmActivity: Ringtone stopped")
                 }
+                it.release()
+                DebugLogger.log("AlarmActivity: MediaPlayer stopped and released")
             }
+            mediaPlayer = null
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error stopping ringtone: ${e.message}")
         }
