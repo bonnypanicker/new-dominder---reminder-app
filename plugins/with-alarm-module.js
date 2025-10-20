@@ -477,26 +477,49 @@ class AlarmActivity : AppCompatActivity() {
             
             // Use MediaPlayer for full song playback
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(applicationContext, ringtoneUri)
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    setAudioStreamType(AudioManager.STREAM_ALARM)
+                try {
+                    setDataSource(applicationContext, ringtoneUri)
+                    
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_ALARM)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .build()
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        setAudioStreamType(AudioManager.STREAM_ALARM)
+                    }
+                    
+                    // Set looping and completion listener as backup
+                    isLooping = true
+                    setOnCompletionListener {
+                        // Restart if somehow looping fails
+                        try {
+                            if (!it.isLooping) {
+                                it.seekTo(0)
+                                it.start()
+                            }
+                        } catch (e: Exception) {
+                            DebugLogger.log("AlarmActivity: Error in completion listener: \${e.message}")
+                        }
+                    }
+                    
+                    setOnErrorListener { mp, what, extra ->
+                        DebugLogger.log("AlarmActivity: MediaPlayer error: what=\$what, extra=\$extra")
+                        false // Return false to trigger OnCompletionListener
+                    }
+                    
+                    prepare()
+                    start()
+                    
+                    DebugLogger.log("AlarmActivity: MediaPlayer started playing full song (looping=\${isLooping})")
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmActivity: Error preparing MediaPlayer: \${e.message}")
+                    throw e
                 }
-                
-                isLooping = true
-                prepare()
-                start()
             }
-            
-            DebugLogger.log("AlarmActivity: MediaPlayer started playing full song")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error playing ringtone: \${e.message}")
         }
