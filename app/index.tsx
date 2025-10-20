@@ -1308,7 +1308,11 @@ function CreateReminderPopup({
     if (visible) {
       mainContentSlide.setValue(0);
       if (mode === 'create') {
-        titleInputRef.current?.focus();
+        // Delay focus to ensure modal animation completes
+        const timer = setTimeout(() => {
+          titleInputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
       }
     }
   }, [visible, mainContentSlide, mode]);
