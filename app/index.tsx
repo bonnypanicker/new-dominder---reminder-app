@@ -1308,11 +1308,12 @@ function CreateReminderPopup({
     if (visible) {
       mainContentSlide.setValue(0);
       if (mode === 'create') {
-        // Delay focus to ensure modal animation completes
-        const timer = setTimeout(() => {
-          titleInputRef.current?.focus();
-        }, 100);
-        return () => clearTimeout(timer);
+        // Use InteractionManager to wait for animations to complete
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            titleInputRef.current?.focus();
+          }, 300);
+        });
       }
     }
   }, [visible, mainContentSlide, mode]);
@@ -1356,7 +1357,6 @@ function CreateReminderPopup({
                   value={title}
                   onChangeText={onTitleChange}
                   maxLength={100}
-                  autoFocus={mode === 'create'}
                   testID="title-input"
                 />
               </View>
