@@ -475,12 +475,6 @@ class AlarmActivity : AppCompatActivity() {
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             }
             
-            // Set alarm volume to maximum
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
-            DebugLogger.log("AlarmActivity: Set alarm volume to max: \$maxVolume")
-            
             // Use MediaPlayer for full song playback
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(applicationContext, ringtoneUri)
@@ -498,7 +492,6 @@ class AlarmActivity : AppCompatActivity() {
                 }
                 
                 isLooping = true
-                setVolume(1.0f, 1.0f) // Max volume
                 prepare()
                 start()
             }

@@ -292,11 +292,15 @@ export default function CustomizePanel({
         onSelectDate={(date) => {
           onDateChange(date);
           setCalendarOpen(false);
-          try {
-            RNKeyboard.dismiss();
-            onOpenTime?.();
-          } catch (e) {
-            console.log('open time after once date error', e);
+          // Don't dismiss keyboard when selecting date
+          // Only dismiss when opening time picker
+          if (repeatType === 'every') {
+            try {
+              RNKeyboard.dismiss();
+              onOpenTime?.();
+            } catch (e) {
+              console.log('open time after once date error', e);
+            }
           }
         }}
       />
@@ -308,8 +312,9 @@ export default function CustomizePanel({
         onSelectDate={(date) => {
           onDateChange(date);
           setYearlyCalendarOpen(false);
+          // Don't dismiss keyboard when selecting date
+          // Only dismiss when opening time picker
           try {
-            RNKeyboard.dismiss();
             onOpenTime?.();
           } catch (e) {
             console.log('open time after yearly date error', e);
@@ -325,8 +330,9 @@ export default function CustomizePanel({
         onSelectDate={(date) => {
           setMonthlyDate(date);
           setMonthlyCalendarOpen(false);
+          // Don't dismiss keyboard when selecting date
+          // Only dismiss when opening time picker
           try {
-            RNKeyboard.dismiss();
             onOpenTime?.();
           } catch (e) {
             console.log('open time after monthly day error', e);

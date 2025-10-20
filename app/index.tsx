@@ -1262,7 +1262,6 @@ function CreateReminderPopup({
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const mainContentSlide = useRef(new Animated.Value(0)).current;
   const titleInputRef = useRef<TextInput>(null);
-  const [shouldFocus, setShouldFocus] = useState(false);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -1286,24 +1285,19 @@ function CreateReminderPopup({
   };
 
   useEffect(() => {
-    if (visible && mode === 'create') {
+    if (visible) {
       mainContentSlide.setValue(0);
-      setShouldFocus(true);
-    } else {
-      setShouldFocus(false);
+      if (mode === 'create') {
+        // Use InteractionManager to ensure animations complete before focusing
+        InteractionManager.runAfterInteractions(() => {
+          // Additional delay to ensure modal is fully rendered
+          setTimeout(() => {
+            titleInputRef.current?.focus();
+          }, 150);
+        });
+      }
     }
   }, [visible, mainContentSlide, mode]);
-
-  const handleInputLayout = () => {
-    if (shouldFocus && mode === 'create') {
-      // Focus immediately when input is laid out
-      setTimeout(() => {
-        titleInputRef.current?.focus();
-      }, 50);
-    }
-  };
-
-  console.log('CreateReminderPopup visible prop:', visible); // Add this line
 
   if (!visible) return null;
 
@@ -1342,7 +1336,7 @@ function CreateReminderPopup({
                   value={title}
                   onChangeText={onTitleChange}
                   maxLength={100}
-                  onLayout={handleInputLayout}
+                  autoFocus={mode === 'create'}
                   testID="title-input"
                 />
               </View>
