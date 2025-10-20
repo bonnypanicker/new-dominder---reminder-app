@@ -32,13 +32,20 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
   const reminders = await getReminders();
   const originalReminder = reminders.find(r => r.id === updatedReminder.id);
 
-  // If this is a reschedule, cancel all existing notifications for this reminder
-  if (originalReminder && (
+  // Cancel notifications if:
+  // 1. Reminder is marked as completed
+  // 2. Reminder is paused
+  // 3. This is a reschedule (date/time/repeatType changed)
+  const shouldCancelNotifications = originalReminder && (
+    updatedReminder.isCompleted ||
+    updatedReminder.isPaused ||
     originalReminder.date !== updatedReminder.date ||
     originalReminder.time !== updatedReminder.time ||
     originalReminder.repeatType !== updatedReminder.repeatType
-  )) {
-    console.log(`Detected reschedule for reminder ${updatedReminder.id}, cancelling all notifications`);
+  );
+
+  if (shouldCancelNotifications) {
+    console.log(`Cancelling notifications for reminder ${updatedReminder.id} (completed: ${updatedReminder.isCompleted}, paused: ${updatedReminder.isPaused})`);
     await notificationService.cancelAllNotificationsForReminder(updatedReminder.id);
     updatedReminder.notificationId = undefined;
   }
@@ -56,9 +63,10 @@ export async function deleteReminder(id: string): Promise<void> {
   const reminders = await getReminders();
   const reminderToDelete = reminders.find(r => r.id === id);
 
-  if (reminderToDelete?.notificationId) {
-    await notificationService.cancelNotification(reminderToDelete.notificationId);
-    console.log(`Cancelled notification for deleted reminder: ${id}`);
+  // Cancel all notifications for this reminder (both notifee and native alarms)
+  if (reminderToDelete) {
+    console.log(`Cancelling all notifications for deleted reminder: ${id}`);
+    await notificationService.cancelAllNotificationsForReminder(id);
   }
   
   const updated = reminders.filter(r => r.id !== id);
