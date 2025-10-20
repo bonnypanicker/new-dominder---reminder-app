@@ -135,7 +135,7 @@ export default function CustomizePanel({
                 label={`${formattedSelectedDate} • ${displayTime}`}
                 open={menuOpen}
                 onOpen={() => setMenuOpen(true)}
-                onToggle={() => { RNKeyboard.dismiss(); setMenuOpen(v => !v); }}
+                onToggle={() => { setMenuOpen(v => !v); }}
                 onMeasure={(coords) => setAnchor(coords)}
               />
             </View>
@@ -214,7 +214,7 @@ export default function CustomizePanel({
               <TouchableOpacity
                 testID="monthly-open-calendar"
                 style={styles.menuButton}
-                onPress={() => { RNKeyboard.dismiss(); setMonthlyCalendarOpen(true); }}
+                onPress={() => { setMonthlyCalendarOpen(true); }}
               >
                 <CalendarIcon size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>
@@ -235,7 +235,7 @@ export default function CustomizePanel({
               <TouchableOpacity
                 testID="yearly-open-calendar"
                 style={styles.menuButton}
-                onPress={() => { RNKeyboard.dismiss(); setYearlyCalendarOpen(true); }}
+                onPress={() => { setYearlyCalendarOpen(true); }}
               >
                 <CalendarIcon size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
@@ -267,7 +267,6 @@ export default function CustomizePanel({
             setMenuOpen(false);
           }}
           onCustom={() => {
-            RNKeyboard.dismiss();
             setMenuOpen(false);
             setCalendarOpen(true);
           }}

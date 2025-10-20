@@ -1345,7 +1345,7 @@ function CreateReminderPopup({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
             style={{ maxHeight: '100%' }}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
               <View style={createPopupStyles.mainContent}>
               <View style={createPopupStyles.section}>
@@ -1370,14 +1370,7 @@ function CreateReminderPopup({
                   selectedDate={selectedDate}
                   onDateChange={(date) => {
                     onDateChange(date);
-                    if (repeatType === 'none' || repeatType === 'monthly' || repeatType === 'yearly') {
-                      try {
-                        RNKeyboard.dismiss();
-                        onTimeSelect();
-                      } catch (e) {
-                        console.log('open time selector error', e);
-                      }
-                    }
+                    // Don't dismiss keyboard on date change - only when opening time picker
                   }}
                   onOpenTime={() => { RNKeyboard.dismiss(); onTimeSelect(); }}
                   displayTime={`${formatTime(selectedTime, isAM)}`}
