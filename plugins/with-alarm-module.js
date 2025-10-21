@@ -1035,8 +1035,20 @@ class RingtonePickerActivity : AppCompatActivity() {
                     
                     DebugLogger.log("RingtonePickerActivity: Selected custom song: \${customSongName}")
                     
-                    // Recreate the activity to show the custom song
-                    recreate()
+                    // Persist immediately so next open shows latest selection without recreate
+                    try {
+                        val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+                        prefs.edit().putString("alarm_ringtone_uri", uri.toString()).apply()
+                    } catch (e: Exception) {
+                        DebugLogger.log("RingtonePickerActivity: Error saving selected uri: \${e.message}")
+                    }
+
+                    // Return result immediately and finish (no recreate)
+                    val result = Intent().apply {
+                        putExtra("selectedUri", selectedUri.toString())
+                    }
+                    setResult(Activity.RESULT_OK, result)
+                    finish()
                 } catch (e: Exception) {
                     DebugLogger.log("RingtonePickerActivity: Error handling selected file: \${e.message}")
                     Toast.makeText(this, "Error loading audio file", Toast.LENGTH_SHORT).show()
