@@ -2427,8 +2427,12 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                   {...panResponder.panHandlers}
                   testID="time-disc"
                 >
-                  {renderTickMarks()}
-                  <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+                  {/* Rotating disc container with all ticks */}
+                  <View style={[timeSelectorStyles.rotatingDiscContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+                    {renderTickMarks()}
+                  </View>
+                  {/* Stationary pointer at top */}
+                  <View style={timeSelectorStyles.stationaryPointer}>
                     <View style={timeSelectorStyles.discIndicator} />
                   </View>
                 </View>
@@ -2584,6 +2588,21 @@ const timeSelectorStyles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
+  },
+  rotatingDiscContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stationaryPointer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    pointerEvents: 'none',
   },
   handContainer: {
     position: 'absolute',
