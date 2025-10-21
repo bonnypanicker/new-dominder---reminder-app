@@ -1,6 +1,7 @@
 package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.media.Ringtone
 import android.media.RingtoneManager
@@ -134,7 +135,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 openFilePicker()
             }
         }
-        mainLayout.addView(browseButton, mainLayout.childCount - 1) // Insert before footer
+        mainLayout.addView(browseButton)
         
         // Show custom song if one is selected
         if (customSongUri != null && customSongName != null) {
@@ -183,7 +184,7 @@ class RingtonePickerActivity : AppCompatActivity() {
 
             customSongView.addView(radioButton)
             customSongView.addView(textView)
-            mainLayout.addView(customSongView, mainLayout.childCount - 1)
+            mainLayout.addView(customSongView)
         }
 
         // Create adapter
@@ -343,8 +344,20 @@ class RingtonePickerActivity : AppCompatActivity() {
                     
                     DebugLogger.log("RingtonePickerActivity: Selected custom song: ${customSongName}")
                     
-                    // Recreate the activity to show the custom song
-                    recreate()
+                    // Persist immediately so next open shows latest selection without recreate
+                    try {
+                        val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+                        prefs.edit().putString("alarm_ringtone_uri", uri.toString()).apply()
+                    } catch (e: Exception) {
+                        DebugLogger.log("RingtonePickerActivity: Error saving selected uri: ${e.message}")
+                    }
+
+                    // Return result immediately and finish (no recreate)
+                    val result = Intent().apply {
+                        putExtra("selectedUri", selectedUri.toString())
+                    }
+                    setResult(Activity.RESULT_OK, result)
+                    finish()
                 } catch (e: Exception) {
                     DebugLogger.log("RingtonePickerActivity: Error handling selected file: ${e.message}")
                     Toast.makeText(this, "Error loading audio file", Toast.LENGTH_SHORT).show()

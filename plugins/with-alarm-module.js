@@ -693,6 +693,7 @@ class AlarmReceiver : BroadcastReceiver() {
     content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.media.Ringtone
 import android.media.RingtoneManager
@@ -826,7 +827,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 openFilePicker()
             }
         }
-        mainLayout.addView(browseButton, mainLayout.childCount - 1) // Insert before footer
+        mainLayout.addView(browseButton)
         
         // Show custom song if one is selected
         if (customSongUri != null && customSongName != null) {
@@ -875,7 +876,7 @@ class RingtonePickerActivity : AppCompatActivity() {
 
             customSongView.addView(radioButton)
             customSongView.addView(textView)
-            mainLayout.addView(customSongView, mainLayout.childCount - 1)
+            mainLayout.addView(customSongView)
         }
 
         // Create adapter
