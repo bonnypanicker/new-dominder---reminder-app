@@ -63,17 +63,23 @@ export async function markReminderDone(reminderId: string) {
       reminder.lastTriggeredAt = new Date().toISOString();
       reminder.snoozeUntil = undefined;
       reminder.wasSnoozed = undefined;
+      // Explicitly preserve active state for repeating reminders
+      reminder.isActive = true;
+      reminder.isCompleted = false;
+      reminder.isPaused = false;
+      reminder.isExpired = false;
       
       await updateReminder(reminder);
       await notificationService.scheduleReminderByModel(reminder);
     } else {
       console.log(`[Scheduler] No next occurrence found for ${reminderId}, marking as complete.`);
       reminder.isCompleted = true;
+      reminder.isActive = false;
       reminder.snoozeUntil = undefined;
       reminder.wasSnoozed = undefined;
       await updateReminder(reminder);
     }
-  } else {
+  }
     console.log(`[Scheduler] Marking one-time reminder ${reminderId} as complete.`);
     reminder.isCompleted = true;
     reminder.snoozeUntil = undefined;

@@ -21,6 +21,7 @@ export async function getReminder(id: string): Promise<Reminder | undefined> {
 }
 
 export async function addReminder(newReminder: Reminder): Promise<Reminder> {
+  console.log(`[ReminderService] Adding reminder ${newReminder.id}: isActive=${newReminder.isActive}, isCompleted=${newReminder.isCompleted}, repeatType=${newReminder.repeatType}`);
   const reminders = await getReminders();
   const updated = [...reminders, newReminder];
   
@@ -53,6 +54,8 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
   const cleanedReminder = { ...updatedReminder };
   delete cleanedReminder.snoozeClearing;
   delete cleanedReminder.notificationUpdating;
+  
+  console.log(`[ReminderService] Updating reminder ${updatedReminder.id}: isActive=${updatedReminder.isActive}, isCompleted=${updatedReminder.isCompleted}, repeatType=${updatedReminder.repeatType}`);
   
   const updated = reminders.map(r => r.id === updatedReminder.id ? cleanedReminder : r);
   
