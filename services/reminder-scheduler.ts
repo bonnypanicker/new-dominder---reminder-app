@@ -79,7 +79,7 @@ export async function markReminderDone(reminderId: string) {
       reminder.wasSnoozed = undefined;
       await updateReminder(reminder);
     }
-  }
+  } else {
     console.log(`[Scheduler] Marking one-time reminder ${reminderId} as complete.`);
     reminder.isCompleted = true;
     reminder.snoozeUntil = undefined;
