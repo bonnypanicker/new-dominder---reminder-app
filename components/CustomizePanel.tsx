@@ -264,8 +264,8 @@ export default function CustomizePanel({
           onToday={() => {
             setToday();
             setMenuOpen(false);
-            // Trigger time picker for 'every' repeat type
-            if (repeatType === 'every') {
+            // Trigger time picker for 'every' and 'none' repeat types
+            if (repeatType === 'every' || repeatType === 'none') {
               try {
                 onOpenTime?.();
               } catch (e) {
@@ -276,6 +276,14 @@ export default function CustomizePanel({
           onTomorrow={() => {
             setTomorrow();
             setMenuOpen(false);
+            // Trigger time picker for 'none' repeat type (once reminders)
+            if (repeatType === 'none') {
+              try {
+                onOpenTime?.();
+              } catch (e) {
+                console.log('open time after tomorrow selection error', e);
+              }
+            }
           }}
           onCustom={() => {
             setMenuOpen(false);
@@ -294,12 +302,12 @@ export default function CustomizePanel({
           setCalendarOpen(false);
           // Don't dismiss keyboard when selecting date
           // Only dismiss when opening time picker
-          if (repeatType === 'every') {
+          if (repeatType === 'every' || repeatType === 'none') {
             try {
               RNKeyboard.dismiss();
               onOpenTime?.();
             } catch (e) {
-              console.log('open time after once date error', e);
+              console.log('open time after calendar date selection error', e);
             }
           }
         }}
