@@ -2272,15 +2272,14 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                       const w = (e.nativeEvent as any).layout?.width ?? 220;
                       setDiscSize(typeof w === 'number' ? w : 220);
                     }}
-                    style={[
-                      timeSelectorStyles.discBackground,
-                      { transform: [{ rotate: `${rotation}deg` }] }
-                    ]}
+                    style={timeSelectorStyles.discBackground}
                     {...panResponder.panHandlers}
                     testID="time-disc"
                   >
                     {renderTickMarks()}
-                    <View style={timeSelectorStyles.discIndicator} />
+                    <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+                      <View style={timeSelectorStyles.discIndicator} />
+                    </View>
                   </View>
                 </View>
               </View>
@@ -2402,15 +2401,14 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                     const w = (e.nativeEvent as any).layout?.width ?? 220;
                     setDiscSize(typeof w === 'number' ? w : 220);
                   }}
-                  style={[
-                    timeSelectorStyles.discBackground,
-                    { transform: [{ rotate: `${rotation}deg` }] }
-                  ]}
+                  style={timeSelectorStyles.discBackground}
                   {...panResponder.panHandlers}
                   testID="time-disc"
                 >
                   {renderTickMarks()}
-                  <View style={timeSelectorStyles.discIndicator} />
+                  <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+                    <View style={timeSelectorStyles.discIndicator} />
+                  </View>
                 </View>
               </View>
 
@@ -2565,11 +2563,16 @@ const timeSelectorStyles = StyleSheet.create({
     top: '50%',
     left: '50%',
   },
+  handContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   discIndicator: {
     position: 'absolute',
     top: 4,
-    left: '50%',
-    marginLeft: -2,
     width: 4,
     height: 18,
     backgroundColor: '#1E3A8A',
