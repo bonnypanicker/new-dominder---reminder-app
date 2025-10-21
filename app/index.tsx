@@ -1329,6 +1329,8 @@ function CreateReminderPopup({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
     >
       <TouchableOpacity 
         style={createPopupStyles.overlay} 
@@ -1374,7 +1376,7 @@ function CreateReminderPopup({
                     onDateChange(date);
                     // Don't dismiss keyboard on date change - only when opening time picker
                   }}
-                  onOpenTime={() => { RNKeyboard.dismiss(); onTimeSelect(); }}
+                  onOpenTime={() => { onTimeSelect(); }}
                   displayTime={`${formatTime(selectedTime, isAM)}`}
                   everyValue={everyValue}
                   everyUnit={everyUnit}
@@ -2083,6 +2085,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
     >
       <TouchableOpacity 
         style={timeSelectorStyles.overlay} 

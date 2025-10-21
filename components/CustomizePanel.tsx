@@ -182,7 +182,7 @@ export default function CustomizePanel({
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 style={styles.menuButton}
-                onPress={() => { RNKeyboard.dismiss(); onOpenTime?.(); }}
+                onPress={() => { onOpenTime?.(); }}
                 testID="daily-time-button"
               >
                 <Clock size={16} color="#111827" />
@@ -300,11 +300,9 @@ export default function CustomizePanel({
         onSelectDate={(date) => {
           onDateChange(date);
           setCalendarOpen(false);
-          // Don't dismiss keyboard when selecting date
-          // Only dismiss when opening time picker
+          // Keep keyboard as-is on date selection; opening time will handle focus
           if (repeatType === 'every' || repeatType === 'none') {
             try {
-              RNKeyboard.dismiss();
               onOpenTime?.();
             } catch (e) {
               console.log('open time after calendar date selection error', e);
@@ -430,7 +428,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent>
       <TouchableOpacity style={calendarStyles.overlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity style={calendarStyles.container} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <View style={calendarStyles.header}>
@@ -631,7 +629,7 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   const left = Math.min(Math.max(8, rawLeft), winW - estimatedWidth - 8);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent>
       <TouchableOpacity 
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.15)' }} 
         activeOpacity={1} 
@@ -1053,7 +1051,7 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
   if (!visible || !selectedDate) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent>
       <TouchableOpacity style={monthlyPopupStyles.overlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity style={monthlyPopupStyles.container} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <View style={monthlyPopupStyles.header}>
