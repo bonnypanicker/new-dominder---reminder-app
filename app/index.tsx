@@ -1288,12 +1288,32 @@ function CreateReminderPopup({
     if (visible) {
       mainContentSlide.setValue(0);
       if (mode === 'create') {
-        // Use InteractionManager to ensure animations complete before focusing
+        // Continuously retry focusing until keyboard appears or timeout
+        const maxRetries = 20; // Maximum attempts
+        const retryInterval = 100; // Retry every 100ms
+        const timeout = 3000; // Stop trying after 3 seconds
+        let retryCount = 0;
+        let startTime = Date.now();
+        
+        const tryFocus = () => {
+          const elapsed = Date.now() - startTime;
+          
+          // Stop if timeout reached
+          if (elapsed >= timeout || retryCount >= maxRetries) {
+            return;
+          }
+          
+          // Try to focus
+          titleInputRef.current?.focus();
+          retryCount++;
+          
+          // Schedule next retry
+          setTimeout(tryFocus, retryInterval);
+        };
+        
+        // Start trying after InteractionManager completes
         InteractionManager.runAfterInteractions(() => {
-          // Additional delay to ensure modal is fully rendered
-          setTimeout(() => {
-            titleInputRef.current?.focus();
-          }, 150);
+          setTimeout(tryFocus, 50);
         });
       }
     }
