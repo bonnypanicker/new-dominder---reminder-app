@@ -1092,6 +1092,7 @@ export default function HomeScreen() {
               isCompleted: false,
               isActive: true,
               isPaused: false,
+              isExpired: false,
               snoozeUntil: undefined, // Clear snooze when rescheduling
               nextReminderDate: undefined, // Clear cached next date to force recalculation
               notificationId: undefined, // Clear notification ID to force rescheduling
@@ -1144,6 +1145,7 @@ export default function HomeScreen() {
             everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
             ringerSound: undefined,
             isCompleted: false,
+            isExpired: false,
           };
 
           addReminder.mutate(newReminder, {
