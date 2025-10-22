@@ -23,11 +23,59 @@ if (Platform.OS === 'android') {
   }
 }
 
-function bodyWithTime(desc: string | undefined, when: number) {
-  const formatted = new Date(when).toLocaleString([], {
-    hour: '2-digit', minute: '2-digit', weekday: 'short', day: 'numeric', month: 'short',
+function formatSmartDateTime(when: number): string {
+  const reminderDate = new Date(when);
+  const now = new Date();
+  
+  // Reset time to start of day for date comparison
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const reminderStart = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  
+  const timeStr = reminderDate.toLocaleString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
   });
-  return [desc?.trim(), `⏰ ${formatted}`].filter(Boolean).join('\n');
+  
+  if (reminderStart.getTime() === todayStart.getTime()) {
+    return `Today ${timeStr}`;
+  } else if (reminderStart.getTime() === yesterdayStart.getTime()) {
+    return `Yesterday ${timeStr}`;
+  } else {
+    // Full date and time
+    return reminderDate.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+}
+
+function formatRepeatType(repeatType: string, everyInterval?: { value: number; unit: string }): string {
+  switch (repeatType) {
+    case 'none': return 'Once';
+    case 'daily': return 'Daily';
+    case 'weekly': return 'Weekly';
+    case 'monthly': return 'Monthly';
+    case 'yearly': return 'Yearly';
+    case 'every':
+      if (everyInterval) {
+        return `Every ${everyInterval.value} ${everyInterval.unit}`;
+      }
+      return 'Every';
+    case 'custom': return 'Custom';
+    default: return 'Once';
+  }
+}
+
+function bodyWithTime(desc: string | undefined, when: number) {
+  const formatted = formatSmartDateTime(when);
+  return [desc?.trim(), formatted].filter(Boolean).join('\n');
 }
 
 function reminderToTimestamp(reminder: Reminder): number {
@@ -107,10 +155,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
                       reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
 
     const body = bodyWithTime(reminder.description, when);
+    const repeatTypeLabel = formatRepeatType(reminder.repeatType, reminder.everyInterval);
 
     const notificationConfig: any = {
       id: `rem-${reminder.id}`,
       title: reminder.title,
+      subtitle: repeatTypeLabel, // Add repeat type next to app name
       body,
       data: { 
         reminderId: reminder.id, 
@@ -129,9 +179,11 @@ export async function scheduleReminderByModel(reminder: Reminder) {
           id: 'default',
           launchActivity: 'default'
         },
-        showTimestamp: true,
-        timestamp: when,
-        style: { type: AndroidStyle.BIGTEXT, text: body },
+        showTimestamp: false, // Remove clock icon by disabling timestamp
+        style: { 
+          type: AndroidStyle.BIGTEXT, 
+          text: body 
+        },
         actions: [
           { title: 'Done',      pressAction: { id: 'done' } },
           { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
