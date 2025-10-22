@@ -62,6 +62,9 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           updateReminderRef.current.mutate({
             ...reminder,
             nextReminderDate: nextFireTime.toISOString(),
+            isActive: true, // Explicitly preserve active state
+            isCompleted: false, // Explicitly preserve completed state
+            isExpired: false, // Explicitly preserve expired state
           });
         }
       }
