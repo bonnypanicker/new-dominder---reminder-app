@@ -43,7 +43,33 @@ export const useUpdateReminder = () => {
   
   return useMutation({
     mutationFn: updateReminderSvc,
-    onSuccess: () => {
+    onMutate: async (updatedReminder) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: ['reminders'] });
+      
+      // Snapshot the previous value
+      const previousReminders = queryClient.getQueryData<Reminder[]>(['reminders']);
+      
+      // Optimistically update to the new value
+      if (previousReminders) {
+        queryClient.setQueryData<Reminder[]>(
+          ['reminders'],
+          previousReminders.map(r => 
+            r.id === updatedReminder.id ? updatedReminder : r
+          )
+        );
+      }
+      
+      return { previousReminders };
+    },
+    onError: (err, updatedReminder, context) => {
+      // Rollback on error
+      if (context?.previousReminders) {
+        queryClient.setQueryData(['reminders'], context.previousReminders);
+      }
+    },
+    onSettled: () => {
+      // Refetch to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['reminders'] });
     },
   });
