@@ -58,10 +58,18 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         ? reminder.repeatDays
         : [0,1,2,3,4,5,6];
       console.log(`[calculateNextReminderDate] Daily reminder, selected days: ${JSON.stringify(selected)}`);
+      
+      // Use nextReminderDate as reference if available (for recurring reminders that have already triggered)
+      let referenceDate = fromDate;
+      if (reminder.nextReminderDate) {
+        referenceDate = new Date(reminder.nextReminderDate);
+        console.log(`[calculateNextReminderDate] Using nextReminderDate as reference: ${referenceDate.toISOString()}`);
+      }
+      
       for (let add = 0; add < 8; add++) {
-        const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
-        console.log(`[calculateNextReminderDate] Checking day ${add}: ${check.toISOString()}, dayOfWeek: ${check.getDay()}, isSelected: ${selected.includes(check.getDay())}, isAfterNow: ${check > fromDate}`);
-        if (selected.includes(check.getDay()) && check > fromDate) {
+        const check = setTime(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate() + add));
+        console.log(`[calculateNextReminderDate] Checking day ${add}: ${check.toISOString()}, dayOfWeek: ${check.getDay()}, isSelected: ${selected.includes(check.getDay())}, isAfterNow: ${check > referenceDate}`);
+        if (selected.includes(check.getDay()) && check > referenceDate) {
           console.log(`[calculateNextReminderDate] Found next daily occurrence: ${check.toISOString()}`);
           return check;
         }
@@ -73,21 +81,37 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       const dateParts = reminder.date.split('-');
       const day = parseInt(dateParts[2] || '1', 10);
       const desiredDay = reminder.monthlyDay ?? day;
-      const result = nextMonthlyOccurrenceFrom(fromDate, desiredDay, hh, mm);
-      console.log(`[calculateNextReminderDate] Monthly desired=${desiredDay}, from=${fromDate.toISOString()}, result=${result.toISOString()}`);
+      
+      // Use nextReminderDate as reference if available (for recurring reminders that have already triggered)
+      let referenceDate = fromDate;
+      if (reminder.nextReminderDate) {
+        referenceDate = new Date(reminder.nextReminderDate);
+        console.log(`[calculateNextReminderDate] Using nextReminderDate as reference: ${referenceDate.toISOString()}`);
+      }
+      
+      const result = nextMonthlyOccurrenceFrom(referenceDate, desiredDay, hh, mm);
+      console.log(`[calculateNextReminderDate] Monthly desired=${desiredDay}, from=${referenceDate.toISOString()}, result=${result.toISOString()}`);
       return result;
     }
     case 'yearly': {
       const dateParts = reminder.date.split('-');
       const month = parseInt(dateParts[1] || '1', 10);
       const day = parseInt(dateParts[2] || '1', 10);
-      // Try this year first
-      let target = setTime(new Date(fromDate.getFullYear(), month - 1, day));
-      // If it's in the past, use next year
-      if (target <= fromDate) {
-        target = setTime(new Date(fromDate.getFullYear() + 1, month - 1, day));
+      
+      // Use nextReminderDate as reference if available (for recurring reminders that have already triggered)
+      let referenceDate = fromDate;
+      if (reminder.nextReminderDate) {
+        referenceDate = new Date(reminder.nextReminderDate);
+        console.log(`[calculateNextReminderDate] Using nextReminderDate as reference: ${referenceDate.toISOString()}`);
       }
-      console.log(`[calculateNextReminderDate] Yearly result: ${target.toISOString()}`);
+      
+      // Try this year first
+      let target = setTime(new Date(referenceDate.getFullYear(), month - 1, day));
+      // If it's in the past, use next year
+      if (target <= referenceDate) {
+        target = setTime(new Date(referenceDate.getFullYear() + 1, month - 1, day));
+      }
+      console.log(`[calculateNextReminderDate] Yearly from=${referenceDate.toISOString()}, result: ${target.toISOString()}`);
       return target;
     }
     case 'every': {
@@ -96,17 +120,40 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         console.log(`[calculateNextReminderDate] Invalid interval for 'every' reminder`);
         return null;
       }
-      const baseStart = new Date(reminder.date);
-      baseStart.setHours(hh, mm, 0, 0);
-      if (fromDate <= baseStart) {
-        console.log(`[calculateNextReminderDate] Using base start time: ${baseStart.toISOString()}`);
-        return baseStart;
+      
+      // Determine the reference point: use lastTriggeredAt if available, otherwise use original date
+      let referenceTime: Date;
+      if (reminder.nextReminderDate) {
+        // If there's a nextReminderDate, use it as the reference (this is the last scheduled time)
+        referenceTime = new Date(reminder.nextReminderDate);
+        console.log(`[calculateNextReminderDate] Using nextReminderDate as reference: ${referenceTime.toISOString()}`);
+      } else if (reminder.lastTriggeredAt) {
+        // If the reminder has triggered before, use that as reference
+        referenceTime = new Date(reminder.lastTriggeredAt);
+        console.log(`[calculateNextReminderDate] Using lastTriggeredAt as reference: ${referenceTime.toISOString()}`);
+      } else {
+        // First time scheduling, use the original date
+        referenceTime = new Date(reminder.date);
+        referenceTime.setHours(hh, mm, 0, 0);
+        console.log(`[calculateNextReminderDate] Using original date as reference: ${referenceTime.toISOString()}`);
       }
-      const addMs = interval.unit === 'minutes' ? interval.value * 60 * 1000 : interval.unit === 'hours' ? interval.value * 60 * 60 * 1000 : interval.value * 24 * 60 * 60 * 1000;
-      const diff = fromDate.getTime() - baseStart.getTime();
-      const steps = Math.floor(diff / addMs) + 1;
-      const result = new Date(baseStart.getTime() + steps * addMs);
-      console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, result: ${result.toISOString()}`);
+      
+      // If fromDate is before or equal to reference time, return reference time
+      if (fromDate <= referenceTime) {
+        console.log(`[calculateNextReminderDate] Using reference time: ${referenceTime.toISOString()}`);
+        return referenceTime;
+      }
+      
+      // Calculate the interval in milliseconds
+      const addMs = interval.unit === 'minutes' 
+        ? interval.value * 60 * 1000 
+        : interval.unit === 'hours' 
+        ? interval.value * 60 * 60 * 1000 
+        : interval.value * 24 * 60 * 60 * 1000;
+      
+      // Calculate next occurrence by adding one interval to the reference time
+      const result = new Date(referenceTime.getTime() + addMs);
+      console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, next occurrence: ${result.toISOString()}`);
       return result;
     }
     case 'weekly':
