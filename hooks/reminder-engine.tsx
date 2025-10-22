@@ -31,7 +31,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         continue;
       }
       
-      const reminderKey = `${reminder.id}-${reminder.date}-${reminder.time}-${reminder.snoozeUntil || ''}-${reminder.nextReminderDate || ''}`;
+      const reminderKey = `${reminder.id}-${reminder.date}-${reminder.time}-${reminder.priority}-${reminder.snoozeUntil || ''}-${reminder.nextReminderDate || ''}`;
       const lastProcessedHash = processedReminders.current.get(reminder.id);
       const currentHash = reminderKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       

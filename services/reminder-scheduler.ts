@@ -29,7 +29,14 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   await updateReminder(reminder);
   console.log(`[Scheduler] Snoozed reminder ${reminderId} until ${new Date(nextTime).toISOString()}`);
   
-  await notificationService.scheduleReminderByModel(reminder);
+  // Refetch to get latest priority and other fields that may have changed
+  const updatedReminder = await getReminder(reminderId);
+  if (!updatedReminder) {
+    console.error(`[Scheduler] Failed to refetch reminder ${reminderId} after snooze update`);
+    return;
+  }
+  
+  await notificationService.scheduleReminderByModel(updatedReminder);
 
   DeviceEventEmitter.emit('remindersChanged');
 }

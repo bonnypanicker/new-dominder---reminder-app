@@ -36,13 +36,14 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
   // Cancel notifications if:
   // 1. Reminder is marked as completed
   // 2. Reminder is paused
-  // 3. This is a reschedule (date/time/repeatType changed)
+  // 3. This is a reschedule (date/time/repeatType/priority changed)
   const shouldCancelNotifications = originalReminder && (
     updatedReminder.isCompleted ||
     updatedReminder.isPaused ||
     originalReminder.date !== updatedReminder.date ||
     originalReminder.time !== updatedReminder.time ||
-    originalReminder.repeatType !== updatedReminder.repeatType
+    originalReminder.repeatType !== updatedReminder.repeatType ||
+    originalReminder.priority !== updatedReminder.priority
   );
 
   if (shouldCancelNotifications) {
