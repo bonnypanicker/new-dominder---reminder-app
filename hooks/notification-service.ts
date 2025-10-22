@@ -150,7 +150,13 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
 export async function cancelNotification(notificationId: string) {
   try {
+    // Cancel scheduled (trigger) notification
     await notifee.cancelNotification(notificationId);
+    
+    // Cancel displayed notification (if showing in notification center)
+    await notifee.cancelDisplayedNotification(notificationId);
+    
+    // Cancel native alarm
     const remId = notificationId.replace('rem-', '');
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
       try {
@@ -159,7 +165,7 @@ export async function cancelNotification(notificationId: string) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
       }
     }
-    console.log(`[NotificationService] Cancelled notification ${notificationId}`);
+    console.log(`[NotificationService] Cancelled notification (scheduled + displayed) ${notificationId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notification ${notificationId}:`, error);
   }
@@ -167,7 +173,13 @@ export async function cancelNotification(notificationId: string) {
 
 export async function cancelAllNotificationsForReminder(reminderId: string) {
   try {
+    // Cancel scheduled (trigger) notifications
     await notifee.cancelNotification(`rem-${reminderId}`);
+    
+    // Cancel displayed notifications (notifications already showing in notification center)
+    await notifee.cancelDisplayedNotification(`rem-${reminderId}`);
+    
+    // Cancel native alarms
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
       try {
         AlarmModule.cancelAlarm(reminderId);
@@ -175,7 +187,7 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
       }
     }
-    console.log(`[NotificationService] Cancelled all notifications for reminder ${reminderId}`);
+    console.log(`[NotificationService] Cancelled all notifications (scheduled + displayed) for reminder ${reminderId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
   }
