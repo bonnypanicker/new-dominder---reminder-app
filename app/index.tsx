@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, RotateCcw, AlertCircle, X, Square, CheckSquare, Repeat, Keyboard } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -13,6 +13,22 @@ import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
 import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Helper to configure smooth layout animation
+const configureLayoutAnimation = () => {
+  LayoutAnimation.configureNext(
+    LayoutAnimation.create(
+      200,
+      LayoutAnimation.Types.easeInEaseOut,
+      LayoutAnimation.Properties.opacity
+    )
+  );
+};
 
 const calculateDefaultTime = () => {
   const now = new Date();
@@ -179,6 +195,7 @@ export default function HomeScreen() {
   }, [reminders]);
 
   const completeReminder = useCallback((reminder: Reminder) => {
+    configureLayoutAnimation();
     if (reminder.repeatType === 'none') {
       // For non-repeating reminders, mark as completed
       updateReminder.mutate({
@@ -198,6 +215,7 @@ export default function HomeScreen() {
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
+    configureLayoutAnimation();
     updateReminder.mutate({ ...reminder, isPaused: !reminder.isPaused });
   }, [updateReminder]);
 
@@ -276,6 +294,7 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder) => {
+    configureLayoutAnimation();
     deleteReminder.mutate(reminder.id);
   }, [deleteReminder]);
 
@@ -684,6 +703,24 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </SwipeableRow>
     );
+  }, (prevProps, nextProps) => {
+    // More strict equality check
+    if (prevProps.reminder.id !== nextProps.reminder.id) return false;
+    if (prevProps.listType !== nextProps.listType) return false;
+    
+    // Check only relevant fields that affect rendering
+    const prev = prevProps.reminder;
+    const next = nextProps.reminder;
+    
+    return prev.title === next.title &&
+           prev.time === next.time &&
+           prev.date === next.date &&
+           prev.priority === next.priority &&
+           prev.isActive === next.isActive &&
+           prev.isPaused === next.isPaused &&
+           prev.isCompleted === next.isCompleted &&
+           prev.isExpired === next.isExpired &&
+           prev.repeatType === next.repeatType;
   });
   ReminderCard.displayName = 'ReminderCard';
 
@@ -861,30 +898,11 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View 
-              style={[
-                styles.section,
-                {
-                  transform: [{
-                    translateY: scrollY.interpolate({
-                      inputRange: [-150, -50, 0, 1],
-                      outputRange: [-30, -10, 0, 0],
-                      extrapolate: 'clamp'
-                    })
-                  }, {
-                    scale: scrollY.interpolate({
-                      inputRange: [-150, -50, 0, 1],
-                      outputRange: [1.08, 1.03, 1, 1],
-                      extrapolate: 'clamp'
-                    })
-                  }]
-                }
-              ]}
-            >
+            <View style={styles.section}>
               {activeReminders.map((reminder) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="active" />
               ))}
-            </Animated.View>
+            </View>
           )
         )}
         
@@ -898,30 +916,11 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View 
-              style={[
-                styles.section,
-                {
-                  transform: [{
-                    translateY: scrollY.interpolate({
-                      inputRange: [-150, -50, 0, 1],
-                      outputRange: [-30, -10, 0, 0],
-                      extrapolate: 'clamp'
-                    })
-                  }, {
-                    scale: scrollY.interpolate({
-                      inputRange: [-150, -50, 0, 1],
-                      outputRange: [1.08, 1.03, 1, 1],
-                      extrapolate: 'clamp'
-                    })
-                  }]
-                }
-              ]}
-            >
+            <View style={styles.section}>
               {completedReminders.map((reminder) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="completed" />
               ))}
-            </Animated.View>
+            </View>
           )
         )}
         
@@ -935,30 +934,11 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View 
-              style={[
-                styles.section,
-                {
-                  transform: [{
-                    translateY: scrollY.interpolate({
-                      inputRange: [-150, -50, 0, 1],
-                      outputRange: [-30, -10, 0, 0],
-                      extrapolate: 'clamp'
-                    })
-                  }, {
-                    scale: scrollY.interpolate({
-                      inputRange: [-150, -50, 0, 1],
-                      outputRange: [1.08, 1.03, 1, 1],
-                      extrapolate: 'clamp'
-                    })
-                  }]
-                }
-              ]}
-            >
+            <View style={styles.section}>
               {expiredReminders.map((reminder) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="expired" />
               ))}
-            </Animated.View>
+            </View>
           )
         )}
       </Animated.ScrollView>
@@ -1287,39 +1267,16 @@ function CreateReminderPopup({
   };
 
   useEffect(() => {
-    if (visible) {
+    if (visible && mode === 'create') {
       mainContentSlide.setValue(0);
-      if (mode === 'create') {
-        // Continuously retry focusing until keyboard appears or timeout
-        const maxRetries = 20; // Maximum attempts
-        const retryInterval = 100; // Retry every 100ms
-        const timeout = 3000; // Stop trying after 3 seconds
-        let retryCount = 0;
-        let startTime = Date.now();
-        
-        const tryFocus = () => {
-          const elapsed = Date.now() - startTime;
-          
-          // Stop if timeout reached
-          if (elapsed >= timeout || retryCount >= maxRetries) {
-            return;
-          }
-          
-          // Try to focus
+      // Use a single requestAnimationFrame + setTimeout for reliable focus
+      requestAnimationFrame(() => {
+        setTimeout(() => {
           titleInputRef.current?.focus();
-          retryCount++;
-          
-          // Schedule next retry
-          setTimeout(tryFocus, retryInterval);
-        };
-        
-        // Start trying after InteractionManager completes
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(tryFocus, 50);
-        });
-      }
+        }, 100);
+      });
     }
-  }, [visible, mainContentSlide, mode]);
+  }, [visible, mode, mainContentSlide]);
 
   if (!visible) return null;
 
@@ -1327,7 +1284,7 @@ function CreateReminderPopup({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
       presentationStyle="overFullScreen"
       statusBarTranslucent
@@ -1360,7 +1317,6 @@ function CreateReminderPopup({
                   value={title}
                   onChangeText={onTitleChange}
                   maxLength={100}
-                  autoFocus={mode === 'create'}
                   testID="title-input"
                 />
               </View>
@@ -2733,46 +2689,43 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
     if (isRemoving || isAnimating.current) return;
     setIsRemoving(true);
     isAnimating.current = true;
+    
+    // Immediately hide actions
+    setShowActions(false);
+    
     const screenW = Dimensions.get('window').width;
     const offscreen = direction === 'left' ? -Math.max(160, screenW) : Math.max(160, screenW);
 
-    // First slide out the card
+    // Animate out and collapse simultaneously for smoother effect
     Animated.parallel([
       Animated.timing(translateX, { 
         toValue: offscreen, 
-        duration: 200, 
+        duration: 250, 
         easing: Easing.out(Easing.cubic), 
         useNativeDriver: true 
       }),
       Animated.timing(opacity, { 
         toValue: 0, 
-        duration: 200, 
+        duration: 250, 
         easing: Easing.out(Easing.cubic), 
         useNativeDriver: true 
-      })
-    ]).start(() => {
-      // Hide background action pills early to avoid showing in the gap while list collapses
-      setShowActions(false);
-      // Then collapse the height after card is gone
-      containerMargin.setValue(0);
+      }),
       Animated.timing(containerHeight, { 
         toValue: 0, 
-        duration: 150, 
+        duration: 250, 
         easing: Easing.out(Easing.cubic), 
         useNativeDriver: false 
-      }).start(() => {
-        // Use InteractionManager to defer the deletion on Android
-        InteractionManager.runAfterInteractions(() => {
-          if (direction === 'left') {
-            onSwipeLeft?.();
-          } else {
-            onSwipeRight?.();
-          }
-          isAnimating.current = false;
-        });
-      });
+      })
+    ]).start(() => {
+      // Execute action immediately after animation
+      if (direction === 'left') {
+        onSwipeLeft?.();
+      } else {
+        onSwipeRight?.();
+      }
+      isAnimating.current = false;
     });
-  }, [containerHeight, containerMargin, isRemoving, onSwipeLeft, onSwipeRight, opacity, translateX]);
+  }, [containerHeight, isRemoving, onSwipeLeft, onSwipeRight, opacity, translateX]);
 
   const panResponder = useRef(
     PanResponder.create({

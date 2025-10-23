@@ -258,39 +258,41 @@ export default function CustomizePanel({
       )}
 
       {menuOpen && (
-        <DropdownModal
-          onClose={() => setMenuOpen(false)}
-          anchor={anchor}
-          onToday={() => {
-            setToday();
-            setMenuOpen(false);
-            // Trigger time picker for 'every' and 'none' repeat types
-            if (repeatType === 'every' || repeatType === 'none') {
-              try {
-                onOpenTime?.();
-              } catch (e) {
-                console.log('open time after today selection error', e);
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9997 }}>
+          <DropdownModal
+            onClose={() => setMenuOpen(false)}
+            anchor={anchor}
+            onToday={() => {
+              setToday();
+              setMenuOpen(false);
+              // Trigger time picker for 'every' and 'none' repeat types
+              if (repeatType === 'every' || repeatType === 'none') {
+                try {
+                  onOpenTime?.();
+                } catch (e) {
+                  console.log('open time after today selection error', e);
+                }
               }
-            }
-          }}
-          onTomorrow={() => {
-            setTomorrow();
-            setMenuOpen(false);
-            // Trigger time picker for 'none' repeat type (once reminders)
-            if (repeatType === 'none') {
-              try {
-                onOpenTime?.();
-              } catch (e) {
-                console.log('open time after tomorrow selection error', e);
+            }}
+            onTomorrow={() => {
+              setTomorrow();
+              setMenuOpen(false);
+              // Trigger time picker for 'none' repeat type (once reminders)
+              if (repeatType === 'none') {
+                try {
+                  onOpenTime?.();
+                } catch (e) {
+                  console.log('open time after tomorrow selection error', e);
+                }
               }
-            }
-          }}
-          onCustom={() => {
-            setMenuOpen(false);
-            setCalendarOpen(true);
-          }}
-          hideTomorrow={repeatType === 'every'}
-        />
+            }}
+            onCustom={() => {
+              setMenuOpen(false);
+              setCalendarOpen(true);
+            }}
+            hideTomorrow={repeatType === 'every'}
+          />
+        </View>
       )}
 
       <CalendarModal
@@ -591,15 +593,17 @@ function UnitDropdown({ unit, onChange }: { unit: EveryUnit; onChange: (unit: Ev
         <ChevronDown size={14} color="#111827" />
       </TouchableOpacity>
       {open && (
-        <UnitDropdownModal
-          visible={open}
-          anchor={anchor}
-          unit={unit}
-          units={units}
-          getUnitLabel={getUnitLabel}
-          onChange={onChange}
-          onClose={() => setOpen(false)}
-        />
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9997 }}>
+          <UnitDropdownModal
+            visible={open}
+            anchor={anchor}
+            unit={unit}
+            units={units}
+            getUnitLabel={getUnitLabel}
+            onChange={onChange}
+            onClose={() => setOpen(false)}
+          />
+        </View>
       )}
     </View>
   );
@@ -616,6 +620,8 @@ interface UnitDropdownModalProps {
 }
 
 function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChange, onClose }: UnitDropdownModalProps) {
+  if (!visible) return null;
+  
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
   const estimatedWidth = 140;
   const estimatedHeight = 140;
@@ -629,49 +635,48 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   const left = Math.min(Math.max(8, rawLeft), winW - estimatedWidth - 8);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent>
+    <>
+      {/* Backdrop overlay */}
       <TouchableOpacity 
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.15)' }} 
+        style={styles.unitOverlayAbsolute} 
         activeOpacity={1} 
         onPress={onClose}
+      />
+      
+      {/* Dropdown content */}
+      <View
+        style={[
+          styles.unitDropdownModalAbsolute,
+          {
+            top,
+            left,
+            minWidth: estimatedWidth,
+          },
+        ]}
       >
-        <TouchableOpacity
-          style={[
-            styles.unitDropdownModal,
-            {
-              position: 'absolute',
-              top,
-              left,
-              minWidth: estimatedWidth,
-            },
-          ]}
-          activeOpacity={1}
-          onPress={(e) => e.stopPropagation()}
-        >
-          {units.map(u => (
-            <TouchableOpacity 
-              key={u} 
-              style={[
-                styles.unitDropdownItem,
-                unit === u && styles.unitDropdownItemSelected
-              ]} 
-              onPress={() => { 
-                onChange(u); 
-                onClose(); 
-              }} 
-              testID={`unit-${u}`}
-            >
-              <Text style={[
-                styles.unitDropdownItemText,
-                unit === u && styles.unitDropdownItemTextSelected
-              ]}>
-                {getUnitLabel(u)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+        {units.map(u => (
+          <TouchableOpacity 
+            key={u} 
+            style={[
+              styles.unitDropdownItem,
+              unit === u && styles.unitDropdownItemSelected
+            ]} 
+            onPress={() => { 
+              onChange(u); 
+              onClose(); 
+            }} 
+            testID={`unit-${u}`}
+          >
+            <Text style={[
+              styles.unitDropdownItemText,
+              unit === u && styles.unitDropdownItemTextSelected
+            ]}>
+              {getUnitLabel(u)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </>
   );
 }
 
@@ -865,7 +870,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minWidth: 160,
   },
-  unitDropdownModal: {
+  unitOverlayAbsolute: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    zIndex: 9998,
+  },
+  unitDropdownModalAbsolute: {
+    position: 'absolute',
     backgroundColor: Material3Colors.light.surfaceContainerLow,
     borderRadius: 12,
     borderWidth: 1,
@@ -877,6 +892,7 @@ const styles = StyleSheet.create({
     elevation: 12,
     overflow: 'hidden',
     paddingVertical: 4,
+    zIndex: 9999,
   },
   unitDropdownItem: {
     paddingHorizontal: 16,
@@ -1515,70 +1531,81 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
   const left = Math.min(Math.max(8, rawLeft), winW - estimatedWidth - 8);
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={dropdownModalStyles.overlay} activeOpacity={1} onPress={onClose}>
+    <>
+      {/* Backdrop overlay - dismisses dropdown on tap */}
+      <TouchableOpacity 
+        style={dropdownModalStyles.overlayAbsolute} 
+        activeOpacity={1} 
+        onPress={onClose}
+      />
+      
+      {/* Dropdown content */}
+      <View
+        style={[
+          dropdownModalStyles.dropdownAbsolute,
+          {
+            top,
+            left,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[
-            dropdownModalStyles.dropdown,
-            {
-              top,
-              left,
-            },
-          ]}
-          activeOpacity={1}
-          onPress={(e) => e.stopPropagation()}
+          testID="menu-today"
+          style={dropdownModalStyles.itemRow}
+          onPress={onToday}
         >
-          <TouchableOpacity
-            testID="menu-today"
-            style={dropdownModalStyles.itemRow}
-            onPress={onToday}
-          >
-            <View style={dropdownModalStyles.itemLeft}>
-              <Clock size={16} color={Material3Colors.light.primary} />
-              <Text style={dropdownModalStyles.itemText}>Today</Text>
-            </View>
-            <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
-          </TouchableOpacity>
-          {!hideTomorrow && (
-            <>
-              <View style={dropdownModalStyles.divider} />
-              <TouchableOpacity
-                testID="menu-tomorrow"
-                style={dropdownModalStyles.itemRow}
-                onPress={onTomorrow}
-              >
-                <View style={dropdownModalStyles.itemLeft}>
-                  <Clock size={16} color={Material3Colors.light.primary} />
-                  <Text style={dropdownModalStyles.itemText}>Tomorrow</Text>
-                </View>
-                <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
-              </TouchableOpacity>
-            </>
-          )}
-          <View style={dropdownModalStyles.divider} />
-          <TouchableOpacity
-            testID="menu-custom"
-            style={dropdownModalStyles.itemRow}
-            onPress={onCustom}
-          >
-            <View style={dropdownModalStyles.itemLeft}>
-              <CalendarIcon size={16} color={Material3Colors.light.primary} />
-              <Text style={dropdownModalStyles.itemText}>Custom date…</Text>
-            </View>
-            <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
-          </TouchableOpacity>
+          <View style={dropdownModalStyles.itemLeft}>
+            <Clock size={16} color={Material3Colors.light.primary} />
+            <Text style={dropdownModalStyles.itemText}>Today</Text>
+          </View>
+          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
         </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+        {!hideTomorrow && (
+          <>
+            <View style={dropdownModalStyles.divider} />
+            <TouchableOpacity
+              testID="menu-tomorrow"
+              style={dropdownModalStyles.itemRow}
+              onPress={onTomorrow}
+            >
+              <View style={dropdownModalStyles.itemLeft}>
+                <Clock size={16} color={Material3Colors.light.primary} />
+                <Text style={dropdownModalStyles.itemText}>Tomorrow</Text>
+              </View>
+              <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+            </TouchableOpacity>
+          </>
+        )}
+        <View style={dropdownModalStyles.divider} />
+        <TouchableOpacity
+          testID="menu-custom"
+          style={dropdownModalStyles.itemRow}
+          onPress={onCustom}
+        >
+          <View style={dropdownModalStyles.itemLeft}>
+            <CalendarIcon size={16} color={Material3Colors.light.primary} />
+            <Text style={dropdownModalStyles.itemText}>Custom date…</Text>
+          </View>
+          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+        </TouchableOpacity>
+      </View>
+    </>
   );
 }
 
 const dropdownModalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
+  // Full-screen absolute backdrop
+  overlayAbsolute: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    zIndex: 9998,
   },
-  dropdown: {
+  // Dropdown positioned absolutely
+  dropdownAbsolute: {
     position: 'absolute',
     backgroundColor: Material3Colors.light.surfaceContainerLow,
     borderRadius: 16,
@@ -1592,6 +1619,7 @@ const dropdownModalStyles = StyleSheet.create({
     minWidth: 200,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
+    zIndex: 9999,
   },
   itemRow: {
     flexDirection: 'row',
