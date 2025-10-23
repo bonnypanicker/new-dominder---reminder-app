@@ -32,6 +32,7 @@ export default function CustomizePanel({
   everyUnit,
   onEveryChange,
 }: CustomizePanelProps) {
+  const containerRef = useRef<View>(null);
   const repeatOptions: { value: RepeatType; label: string }[] = [
     { value: 'none', label: 'Once' },
     { value: 'daily', label: 'Daily' },
@@ -66,6 +67,8 @@ export default function CustomizePanel({
     return now.getDate();
   });
   const [yearlyCalendarOpen, setYearlyCalendarOpen] = useState<boolean>(false);
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState<boolean>(false);
+  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<AnchorRect | null>(null);
 
   const formattedSelectedDate = useMemo(() => {
     try {
@@ -115,7 +118,8 @@ export default function CustomizePanel({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
+    <View ref={containerRef} style={{ flex: 1, position: 'relative' }}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
       <View style={styles.repeatOptionsContainer}>
         {repeatOptions.map((option) => (
           <TouchableOpacity
@@ -166,9 +170,13 @@ export default function CustomizePanel({
                 }}
                 testID="every-value-input"
               />
-              <UnitDropdown
+              <UnitDropdownButton
                 unit={everyUnit ?? 'hours'}
                 onChange={(unit) => onEveryChange?.(everyValue ?? 1, unit)}
+                onOpenDropdown={(coords) => {
+                  setUnitDropdownAnchor(coords);
+                  setUnitDropdownOpen(true);
+                }}
               />
             </View>
           )}
@@ -257,44 +265,6 @@ export default function CustomizePanel({
         </View>
       )}
 
-      {menuOpen && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9997 }}>
-          <DropdownModal
-            onClose={() => setMenuOpen(false)}
-            anchor={anchor}
-            onToday={() => {
-              setToday();
-              setMenuOpen(false);
-              // Trigger time picker for 'every' and 'none' repeat types
-              if (repeatType === 'every' || repeatType === 'none') {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after today selection error', e);
-                }
-              }
-            }}
-            onTomorrow={() => {
-              setTomorrow();
-              setMenuOpen(false);
-              // Trigger time picker for 'none' repeat type (once reminders)
-              if (repeatType === 'none') {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after tomorrow selection error', e);
-                }
-              }
-            }}
-            onCustom={() => {
-              setMenuOpen(false);
-              setCalendarOpen(true);
-            }}
-            hideTomorrow={repeatType === 'every'}
-          />
-        </View>
-      )}
-
       <CalendarModal
         visible={calendarOpen}
         onClose={() => setCalendarOpen(false)}
@@ -347,7 +317,65 @@ export default function CustomizePanel({
           }
         }}
       />
-    </ScrollView>
+      </ScrollView>
+      
+      {/* Render dropdown outside ScrollView to avoid clipping */}
+      {menuOpen && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, pointerEvents: 'box-none' }}>
+          <DropdownModal
+            onClose={() => setMenuOpen(false)}
+            anchor={anchor}
+            onToday={() => {
+              setToday();
+              setMenuOpen(false);
+              // Trigger time picker for 'every' and 'none' repeat types
+              if (repeatType === 'every' || repeatType === 'none') {
+                try {
+                  onOpenTime?.();
+                } catch (e) {
+                  console.log('open time after today selection error', e);
+                }
+              }
+            }}
+            onTomorrow={() => {
+              setTomorrow();
+              setMenuOpen(false);
+              // Trigger time picker for 'none' repeat type (once reminders)
+              if (repeatType === 'none') {
+                try {
+                  onOpenTime?.();
+                } catch (e) {
+                  console.log('open time after tomorrow selection error', e);
+                }
+              }
+            }}
+            onCustom={() => {
+              setMenuOpen(false);
+              setCalendarOpen(true);
+            }}
+            hideTomorrow={repeatType === 'every'}
+          />
+        </View>
+      )}
+      
+      {/* Render unit dropdown outside ScrollView to avoid clipping */}
+      {unitDropdownOpen && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, pointerEvents: 'box-none' }}>
+          <UnitDropdownModal
+            visible={unitDropdownOpen}
+            anchor={unitDropdownAnchor}
+            unit={everyUnit ?? 'hours'}
+            units={['minutes', 'hours', 'days']}
+            getUnitLabel={(u) => u.charAt(0).toUpperCase() + u.slice(1)}
+            onChange={(unit) => {
+              onEveryChange?.(everyValue ?? 1, unit);
+              setUnitDropdownOpen(false);
+            }}
+            onClose={() => setUnitDropdownOpen(false)}
+          />
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -555,11 +583,8 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   );
 }
 
-function UnitDropdown({ unit, onChange }: { unit: EveryUnit; onChange: (unit: EveryUnit) => void }) {
-  const [open, setOpen] = useState<boolean>(false);
-  const [anchor, setAnchor] = useState<AnchorRect | null>(null);
+function UnitDropdownButton({ unit, onChange, onOpenDropdown }: { unit: EveryUnit; onChange: (unit: EveryUnit) => void; onOpenDropdown: (coords: AnchorRect) => void }) {
   const buttonRef = useRef<View | null>(null);
-  const units: EveryUnit[] = ['minutes', 'hours', 'days'];
   
   const getUnitLabel = (u: EveryUnit) => {
     return u.charAt(0).toUpperCase() + u.slice(1);
@@ -568,44 +593,23 @@ function UnitDropdown({ unit, onChange }: { unit: EveryUnit; onChange: (unit: Ev
   const measureButton = () => {
     try {
       buttonRef.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
-        setAnchor({ x, y, width, height });
+        onOpenDropdown({ x, y, width, height });
       });
     } catch (e) {
       console.log('measure error', e);
-      setAnchor(null);
     }
   };
   
-  const handleOpen = () => {
-    measureButton();
-    setOpen(true);
-  };
-  
   return (
-    <View style={{ position: 'relative', zIndex: 1000 }}>
-      <TouchableOpacity
-        ref={buttonRef as any}
-        style={styles.unitButton}
-        onPress={handleOpen}
-        testID="every-unit-button"
-      >
-        <Text style={styles.unitButtonText}>{getUnitLabel(unit)}</Text>
-        <ChevronDown size={14} color="#111827" />
-      </TouchableOpacity>
-      {open && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9997 }}>
-          <UnitDropdownModal
-            visible={open}
-            anchor={anchor}
-            unit={unit}
-            units={units}
-            getUnitLabel={getUnitLabel}
-            onChange={onChange}
-            onClose={() => setOpen(false)}
-          />
-        </View>
-      )}
-    </View>
+    <TouchableOpacity
+      ref={buttonRef as any}
+      style={styles.unitButton}
+      onPress={measureButton}
+      testID="every-unit-button"
+    >
+      <Text style={styles.unitButtonText}>{getUnitLabel(unit)}</Text>
+      <ChevronDown size={14} color="#111827" />
+    </TouchableOpacity>
   );
 }
 
@@ -876,7 +880,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    backgroundColor: 'transparent',
     zIndex: 9998,
   },
   unitDropdownModalAbsolute: {
@@ -1524,8 +1528,9 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
   const estimatedWidth = 220;
   const estimatedHeight = hideTomorrow ? 120 : 180;
 
-  const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 6;
-  const rawLeft = (anchor?.x ?? 0);
+  // Position dropdown below and aligned to the right edge of the button
+  const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 4;
+  const rawLeft = (anchor?.x ?? 0) + (anchor?.width ?? 0) - estimatedWidth;
 
   const top = Math.min(Math.max(8, rawTop), winH - estimatedHeight - 8);
   const left = Math.min(Math.max(8, rawLeft), winW - estimatedWidth - 8);
@@ -1601,7 +1606,7 @@ const dropdownModalStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'transparent',
     zIndex: 9998,
   },
   // Dropdown positioned absolutely
