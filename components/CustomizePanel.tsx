@@ -17,6 +17,8 @@ interface CustomizePanelProps {
   everyValue?: number;
   everyUnit?: EveryUnit;
   onEveryChange?: (value: number, unit: EveryUnit) => void;
+  onOpenDateDropdown?: (anchor: { x: number; y: number; width: number; height: number }) => void;
+  onOpenUnitDropdown?: (anchor: { x: number; y: number; width: number; height: number }) => void;
 }
 
 export default function CustomizePanel({
@@ -58,8 +60,6 @@ export default function CustomizePanel({
     };
   }, []);
 
-  const [menuOpen, setMenuOpen] = useState<boolean>(false);
-  const [anchor, setAnchor] = useState<AnchorRect | null>(null);
   const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
   const [monthlyCalendarOpen, setMonthlyCalendarOpen] = useState<boolean>(false);
   const [monthlyDate, setMonthlyDate] = useState<number>(() => {
@@ -67,8 +67,6 @@ export default function CustomizePanel({
     return now.getDate();
   });
   const [yearlyCalendarOpen, setYearlyCalendarOpen] = useState<boolean>(false);
-  const [unitDropdownOpen, setUnitDropdownOpen] = useState<boolean>(false);
-  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<AnchorRect | null>(null);
 
   const formattedSelectedDate = useMemo(() => {
     try {
@@ -153,10 +151,14 @@ export default function CustomizePanel({
             <View style={styles.menuWrapper}>
               <DropdownAnchor
                 label={`${formattedSelectedDate} • ${displayTime}`}
-                open={menuOpen}
-                onOpen={() => setMenuOpen(true)}
-                onToggle={() => { setMenuOpen(v => !v); }}
-                onMeasure={(coords) => setAnchor(coords)}
+                open={false}
+                onOpen={() => {}}
+                onToggle={() => {}}
+                onMeasure={(coords) => {
+                  if (coords) {
+                    onOpenDateDropdown?.(coords);
+                  }
+                }}
               />
             </View>
           </View>
@@ -179,8 +181,7 @@ export default function CustomizePanel({
                 unit={everyUnit ?? 'hours'}
                 onChange={(unit) => onEveryChange?.(everyValue ?? 1, unit)}
                 onOpenDropdown={(coords) => {
-                  setUnitDropdownAnchor(coords);
-                  setUnitDropdownOpen(true);
+                  onOpenUnitDropdown?.(coords);
                 }}
               />
             </View>
@@ -324,84 +325,7 @@ export default function CustomizePanel({
       />
       </ScrollView>
       
-      {/* Render dropdowns at absolute root level, outside all constraints */}
-      {menuOpen && (
-        <View 
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            zIndex: 999999, 
-            pointerEvents: 'box-none' 
-          }}
-          // Force render outside parent bounds
-          collapsable={false}
-        >
-          <DropdownModal
-            onClose={() => setMenuOpen(false)}
-            anchor={anchor}
-            onToday={() => {
-              setToday();
-              setMenuOpen(false);
-              if (repeatType === 'every' || repeatType === 'none') {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after today selection error', e);
-                }
-              }
-            }}
-            onTomorrow={() => {
-              setTomorrow();
-              setMenuOpen(false);
-              if (repeatType === 'none') {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after tomorrow selection error', e);
-                }
-              }
-            }}
-            onCustom={() => {
-              setMenuOpen(false);
-              setCalendarOpen(true);
-            }}
-            hideTomorrow={repeatType === 'every'}
-          />
-        </View>
-      )}
 
-      {/* Unit dropdown with same pattern */}
-      {unitDropdownOpen && (
-        <View 
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            zIndex: 999999, 
-            pointerEvents: 'box-none' 
-          }}
-          collapsable={false}
-        >
-          <UnitDropdownModal
-            visible={unitDropdownOpen}
-            anchor={unitDropdownAnchor}
-            unit={everyUnit ?? 'hours'}
-            units={['minutes', 'hours', 'days']}
-            getUnitLabel={(u) => u.charAt(0).toUpperCase() + u.slice(1)}
-            onChange={(unit) => {
-              onEveryChange?.(everyValue ?? 1, unit);
-              setUnitDropdownOpen(false);
-            }}
-            onClose={() => setUnitDropdownOpen(false)}
-          />
-        </View>
-      )}
-    </View>
   );
 }
 
@@ -661,18 +585,17 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   
   // Position calculation
   // Place dropdown below button with 8px gap
-  const preferredTop = anchor.y + anchor.height + 8;
+  const idealTop = anchor.y + anchor.height + 8;
   
   // Center align with trigger button
-  const preferredLeft = anchor.x + (anchor.width / 2) - (dropdownWidth / 2);
-  
-  // Boundary checks with 16px padding from screen edges
-  const top = Math.max(16, Math.min(preferredTop, winH - dropdownHeight - 16));
-  const left = Math.max(16, Math.min(preferredLeft, winW - dropdownWidth - 16));
+  const idealLeft = anchor.x + (anchor.width / 2) - (dropdownWidth / 2);
   
   // If dropdown would go below screen, position it above the button
-  const shouldFlipUp = preferredTop + dropdownHeight > winH - 16;
-  const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
+  const fitsBelow = idealTop + dropdownHeight < winH - 20;
+  const finalTop = fitsBelow ? idealTop : Math.max(20, anchor.y - dropdownHeight - 8);
+
+  // Ensure bounds: finalLeft = Math.max(20, Math.min(idealLeft, winW - dropdownWidth - 20))
+  const finalLeft = Math.max(20, Math.min(idealLeft, winW - dropdownWidth - 20));
 
   return (
     <>
@@ -689,7 +612,7 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
           styles.unitDropdownModalAbsolute,
           {
             top: finalTop,
-            left,
+            left: finalLeft,
             width: dropdownWidth,
           },
         ]}
@@ -1572,18 +1495,17 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
   
   // Position calculation
   // Place dropdown below button with 8px gap
-  const preferredTop = anchor.y + anchor.height + 8;
+  const idealTop = anchor.y + anchor.height + 8;
   
   // Align to right edge of trigger button
-  const preferredLeft = anchor.x + anchor.width - dropdownWidth;
-  
-  // Boundary checks with 16px padding from screen edges
-  const top = Math.max(16, Math.min(preferredTop, winH - dropdownHeight - 16));
-  const left = Math.max(16, Math.min(preferredLeft, winW - dropdownWidth - 16));
+  const idealLeft = anchor.x + anchor.width - dropdownWidth;
   
   // If dropdown would go below screen, position it above the button
-  const shouldFlipUp = preferredTop + dropdownHeight > winH - 16;
-  const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
+  const fitsBelow = idealTop + dropdownHeight < winH - 20;
+  const finalTop = fitsBelow ? idealTop : Math.max(20, anchor.y - dropdownHeight - 8);
+
+  // Ensure bounds: finalLeft = Math.max(20, Math.min(idealLeft, winW - dropdownWidth - 20))
+  const finalLeft = Math.max(20, Math.min(idealLeft, winW - dropdownWidth - 20));
 
   return (
     <>
@@ -1600,7 +1522,7 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
           dropdownModalStyles.dropdownAbsolute,
           {
             top: finalTop,
-            left,
+            left: finalLeft,
             width: dropdownWidth,
           },
         ]}
@@ -1707,3 +1629,6 @@ const dropdownModalStyles = StyleSheet.create({
     marginVertical: 4,
   },
 });
+
+export { DropdownModal, UnitDropdownModal };
+export type { AnchorRect };
