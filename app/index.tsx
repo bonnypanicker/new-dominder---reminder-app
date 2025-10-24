@@ -2682,48 +2682,52 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
   const isAnimating = useRef<boolean>(false);
 
   const reset = useCallback(() => {
-    Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+    Animated.timing(translateX, { 
+      toValue: 0, 
+      duration: 200, 
+      easing: Easing.out(Easing.ease), 
+      useNativeDriver: true 
+    }).start();
   }, [translateX]);
 
   const runRemoveSequence = useCallback((direction: 'left' | 'right') => {
     if (isRemoving || isAnimating.current) return;
     setIsRemoving(true);
     isAnimating.current = true;
-    
-    // Immediately hide actions
     setShowActions(false);
     
     const screenW = Dimensions.get('window').width;
     const offscreen = direction === 'left' ? -Math.max(160, screenW) : Math.max(160, screenW);
 
-    // Animate out and collapse simultaneously for smoother effect
+    // Phase 1: Fade out and slide simultaneously (faster)
     Animated.parallel([
       Animated.timing(translateX, { 
         toValue: offscreen, 
-        duration: 250, 
-        easing: Easing.out(Easing.cubic), 
+        duration: 180, 
+        easing: Easing.in(Easing.cubic), 
         useNativeDriver: true 
       }),
       Animated.timing(opacity, { 
         toValue: 0, 
-        duration: 250, 
-        easing: Easing.out(Easing.cubic), 
+        duration: 150, 
+        easing: Easing.in(Easing.ease), 
         useNativeDriver: true 
-      }),
-      Animated.timing(containerHeight, { 
-        toValue: 0, 
-        duration: 250, 
-        easing: Easing.out(Easing.cubic), 
-        useNativeDriver: false 
       })
     ]).start(() => {
-      // Execute action immediately after animation
-      if (direction === 'left') {
-        onSwipeLeft?.();
-      } else {
-        onSwipeRight?.();
-      }
-      isAnimating.current = false;
+      // Phase 2: Collapse height after card is invisible (isolated)
+      Animated.timing(containerHeight, { 
+        toValue: 0, 
+        duration: 150, 
+        easing: Easing.out(Easing.ease), 
+        useNativeDriver: false 
+      }).start(() => {
+        if (direction === 'left') {
+          onSwipeLeft?.();
+        } else {
+          onSwipeRight?.();
+        }
+        isAnimating.current = false;
+      });
     });
   }, [containerHeight, isRemoving, onSwipeLeft, onSwipeRight, opacity, translateX]);
 
@@ -2781,6 +2785,7 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
           height: isRemoving ? containerHeight : undefined,
           marginBottom: containerMargin,
           overflow: 'hidden',
+          zIndex: isRemoving ? -1 : 0,
         }}
         onLayout={(e) => {
           const h = (e.nativeEvent as any).layout?.height ?? 0;
