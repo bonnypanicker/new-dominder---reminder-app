@@ -118,8 +118,13 @@ export default function CustomizePanel({
   };
 
   return (
-    <View ref={containerRef} style={{ flex: 1, position: 'relative' }}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
+    <View ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'visible' }}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false} 
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled={true}
+      >
       <View style={styles.repeatOptionsContainer}>
         {repeatOptions.map((option) => (
           <TouchableOpacity
@@ -319,16 +324,27 @@ export default function CustomizePanel({
       />
       </ScrollView>
       
-      {/* Render dropdown outside ScrollView to avoid clipping */}
+      {/* Render dropdowns at absolute root level, outside all constraints */}
       {menuOpen && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, pointerEvents: 'box-none' }}>
+        <View 
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 999999, 
+            pointerEvents: 'box-none' 
+          }}
+          // Force render outside parent bounds
+          collapsable={false}
+        >
           <DropdownModal
             onClose={() => setMenuOpen(false)}
             anchor={anchor}
             onToday={() => {
               setToday();
               setMenuOpen(false);
-              // Trigger time picker for 'every' and 'none' repeat types
               if (repeatType === 'every' || repeatType === 'none') {
                 try {
                   onOpenTime?.();
@@ -340,7 +356,6 @@ export default function CustomizePanel({
             onTomorrow={() => {
               setTomorrow();
               setMenuOpen(false);
-              // Trigger time picker for 'none' repeat type (once reminders)
               if (repeatType === 'none') {
                 try {
                   onOpenTime?.();
@@ -357,10 +372,21 @@ export default function CustomizePanel({
           />
         </View>
       )}
-      
-      {/* Render unit dropdown outside ScrollView to avoid clipping */}
+
+      {/* Unit dropdown with same pattern */}
       {unitDropdownOpen && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, pointerEvents: 'box-none' }}>
+        <View 
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 999999, 
+            pointerEvents: 'box-none' 
+          }}
+          collapsable={false}
+        >
           <UnitDropdownModal
             visible={unitDropdownOpen}
             anchor={unitDropdownAnchor}
@@ -624,20 +650,29 @@ interface UnitDropdownModalProps {
 }
 
 function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChange, onClose }: UnitDropdownModalProps) {
-  if (!visible) return null;
+  if (!visible || !anchor) return null;
   
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
-  const estimatedWidth = 140;
-  const estimatedHeight = 140;
-
-  // Position dropdown below the anchor button
-const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 8;
-// Center align with button
-const rawLeft = (anchor?.x ?? 0) + ((anchor?.width ?? 0) / 2) - (estimatedWidth / 2);
-
-// Ensure dropdown stays within screen bounds with padding
-const top = Math.max(16, Math.min(rawTop, winH - estimatedHeight - 16));
-const left = Math.max(16, Math.min(rawLeft, winW - estimatedWidth - 16));
+  
+  // Calculate dropdown dimensions
+  const dropdownWidth = 140;
+  const itemHeight = 44; // height per item
+  const dropdownHeight = units.length * itemHeight + 16; // +16 for padding
+  
+  // Position calculation
+  // Place dropdown below button with 8px gap
+  const preferredTop = anchor.y + anchor.height + 8;
+  
+  // Center align with trigger button
+  const preferredLeft = anchor.x + (anchor.width / 2) - (dropdownWidth / 2);
+  
+  // Boundary checks with 16px padding from screen edges
+  const top = Math.max(16, Math.min(preferredTop, winH - dropdownHeight - 16));
+  const left = Math.max(16, Math.min(preferredLeft, winW - dropdownWidth - 16));
+  
+  // If dropdown would go below screen, position it above the button
+  const shouldFlipUp = preferredTop + dropdownHeight > winH - 16;
+  const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
 
   return (
     <>
@@ -653,9 +688,9 @@ const left = Math.max(16, Math.min(rawLeft, winW - estimatedWidth - 16));
         style={[
           styles.unitDropdownModalAbsolute,
           {
-            top,
+            top: finalTop,
             left,
-            minWidth: estimatedWidth,
+            width: dropdownWidth,
           },
         ]}
       >
@@ -1525,37 +1560,54 @@ interface DropdownModalProps {
 }
 
 function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
+  const [layout, setLayout] = React.useState<{ width: number; height: number } | null>(null);
+  
+  if (!anchor) return null;
+  
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
-  const estimatedWidth = 220;
-  const estimatedHeight = hideTomorrow ? 120 : 180;
-
-  // Position dropdown below the anchor button
-const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 8;
-// Align to right edge of button
-const rawLeft = (anchor?.x ?? 0) + (anchor?.width ?? 0) - estimatedWidth;
-
-// Ensure dropdown stays within screen bounds with padding
-const top = Math.max(16, Math.min(rawTop, winH - estimatedHeight - 16));
-const left = Math.max(16, Math.min(rawLeft, winW - estimatedWidth - 16));
+  
+  // Calculate dropdown dimensions
+  const dropdownWidth = 220;
+  const dropdownHeight = hideTomorrow ? 120 : 180;
+  
+  // Position calculation
+  // Place dropdown below button with 8px gap
+  const preferredTop = anchor.y + anchor.height + 8;
+  
+  // Align to right edge of trigger button
+  const preferredLeft = anchor.x + anchor.width - dropdownWidth;
+  
+  // Boundary checks with 16px padding from screen edges
+  const top = Math.max(16, Math.min(preferredTop, winH - dropdownHeight - 16));
+  const left = Math.max(16, Math.min(preferredLeft, winW - dropdownWidth - 16));
+  
+  // If dropdown would go below screen, position it above the button
+  const shouldFlipUp = preferredTop + dropdownHeight > winH - 16;
+  const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
 
   return (
     <>
-      {/* Backdrop overlay - dismisses dropdown on tap */}
+      {/* Full-screen backdrop */}
       <TouchableOpacity 
         style={dropdownModalStyles.overlayAbsolute} 
         activeOpacity={1} 
         onPress={onClose}
       />
       
-      {/* Dropdown content */}
+      {/* Dropdown content with measured layout */}
       <View
         style={[
           dropdownModalStyles.dropdownAbsolute,
           {
-            top,
+            top: finalTop,
             left,
+            width: dropdownWidth,
           },
         ]}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setLayout({ width, height });
+        }}
       >
         <TouchableOpacity
           testID="menu-today"
@@ -1602,7 +1654,6 @@ const left = Math.max(16, Math.min(rawLeft, winW - estimatedWidth - 16));
 }
 
 const dropdownModalStyles = StyleSheet.create({
-  // Full-screen absolute backdrop
   overlayAbsolute: {
     position: 'absolute',
     top: 0,
@@ -1612,7 +1663,6 @@ const dropdownModalStyles = StyleSheet.create({
     backgroundColor: 'transparent',
     zIndex: 999998,
   },
-  // Dropdown positioned absolutely
   dropdownAbsolute: {
     position: 'absolute',
     backgroundColor: Material3Colors.light.surfaceContainerLow,
@@ -1620,23 +1670,25 @@ const dropdownModalStyles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 8,
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 20,
     elevation: 24,
-    minWidth: 200,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     zIndex: 999999,
+    // Ensure dropdown is never clipped
+    overflow: 'visible',
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: 'transparent',
+    minHeight: 44,
   },
   itemLeft: {
     flexDirection: 'row',
@@ -1652,5 +1704,6 @@ const dropdownModalStyles = StyleSheet.create({
     height: 1,
     backgroundColor: Material3Colors.light.surfaceVariant,
     marginHorizontal: 8,
+    marginVertical: 4,
   },
 });
