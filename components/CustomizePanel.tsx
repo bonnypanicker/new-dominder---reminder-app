@@ -321,7 +321,7 @@ export default function CustomizePanel({
       
       {/* Render dropdown outside ScrollView to avoid clipping */}
       {menuOpen && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, pointerEvents: 'box-none' }}>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, pointerEvents: 'box-none' }}>
           <DropdownModal
             onClose={() => setMenuOpen(false)}
             anchor={anchor}
@@ -360,7 +360,7 @@ export default function CustomizePanel({
       
       {/* Render unit dropdown outside ScrollView to avoid clipping */}
       {unitDropdownOpen && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, pointerEvents: 'box-none' }}>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, pointerEvents: 'box-none' }}>
           <UnitDropdownModal
             visible={unitDropdownOpen}
             anchor={unitDropdownAnchor}
@@ -630,13 +630,14 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   const estimatedWidth = 140;
   const estimatedHeight = 140;
 
-  // Position dropdown below the button
-  const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 4;
-  const rawLeft = (anchor?.x ?? 0) + ((anchor?.width ?? 0) / 2) - (estimatedWidth / 2);
+  // Position dropdown below the anchor button
+const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 8;
+// Center align with button
+const rawLeft = (anchor?.x ?? 0) + ((anchor?.width ?? 0) / 2) - (estimatedWidth / 2);
 
-  // Ensure dropdown stays within screen bounds
-  const top = Math.min(Math.max(8, rawTop), winH - estimatedHeight - 8);
-  const left = Math.min(Math.max(8, rawLeft), winW - estimatedWidth - 8);
+// Ensure dropdown stays within screen bounds with padding
+const top = Math.max(16, Math.min(rawTop, winH - estimatedHeight - 16));
+const left = Math.max(16, Math.min(rawLeft, winW - estimatedWidth - 16));
 
   return (
     <>
@@ -881,7 +882,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'transparent',
-    zIndex: 9998,
+    zIndex: 999998,
   },
   unitDropdownModalAbsolute: {
     position: 'absolute',
@@ -893,10 +894,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
-    elevation: 12,
+    elevation: 24,
     overflow: 'hidden',
     paddingVertical: 4,
-    zIndex: 9999,
+    zIndex: 999999,
   },
   unitDropdownItem: {
     paddingHorizontal: 16,
@@ -1528,12 +1529,14 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
   const estimatedWidth = 220;
   const estimatedHeight = hideTomorrow ? 120 : 180;
 
-  // Position dropdown below and aligned to the right edge of the button
-  const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 4;
-  const rawLeft = (anchor?.x ?? 0) + (anchor?.width ?? 0) - estimatedWidth;
+  // Position dropdown below the anchor button
+const rawTop = (anchor?.y ?? 100) + (anchor?.height ?? 0) + 8;
+// Align to right edge of button
+const rawLeft = (anchor?.x ?? 0) + (anchor?.width ?? 0) - estimatedWidth;
 
-  const top = Math.min(Math.max(8, rawTop), winH - estimatedHeight - 8);
-  const left = Math.min(Math.max(8, rawLeft), winW - estimatedWidth - 8);
+// Ensure dropdown stays within screen bounds with padding
+const top = Math.max(16, Math.min(rawTop, winH - estimatedHeight - 16));
+const left = Math.max(16, Math.min(rawLeft, winW - estimatedWidth - 16));
 
   return (
     <>
@@ -1607,7 +1610,7 @@ const dropdownModalStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'transparent',
-    zIndex: 9998,
+    zIndex: 999998,
   },
   // Dropdown positioned absolutely
   dropdownAbsolute: {
@@ -1620,11 +1623,11 @@ const dropdownModalStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
-    elevation: 12,
+    elevation: 24,
     minWidth: 200,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
-    zIndex: 9999,
+    zIndex: 999999,
   },
   itemRow: {
     flexDirection: 'row',
