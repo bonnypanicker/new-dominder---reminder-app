@@ -110,6 +110,7 @@ export default function CustomizePanel({
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     onDateChange(`${yyyy}-${mm}-${dd}`);
+    onOpenTime?.();
   };
 
   const setTomorrow = () => {
@@ -119,6 +120,7 @@ export default function CustomizePanel({
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     onDateChange(`${yyyy}-${mm}-${dd}`);
+    onOpenTime?.();
   };
 
   const handleDropdownOpen = (coords: AnchorRect) => {
@@ -131,7 +133,7 @@ export default function CustomizePanel({
     setUnitDropdownOpen(true);
   };
 
-  const units: EveryUnit[] = ['minutes', 'hours', 'days', 'weeks', 'months', 'years'];
+  const units: EveryUnit[] = ['minutes', 'hours', 'days'];
   
   const getUnitLabel = (unit: EveryUnit): string => {
     const labels: Record<EveryUnit, string> = {
@@ -1642,13 +1644,26 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
   
-  // Position calculation relative to container
-  const preferredTop = anchor.y + anchor.height + 8;
-  const preferredLeft = anchor.x + anchor.width - dropdownWidth;
+  // Measure container position in window to convert anchor to container-relative coords
+  const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  React.useEffect(() => {
+    try {
+      containerRef?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
+        setContainerOffset({ x, y, width, height });
+      });
+    } catch {}
+  }, [visible]);
+  const containerX = containerOffset?.x ?? 0;
+  const containerY = containerOffset?.y ?? 0;
+  const containerW = containerOffset?.width ?? 300;
   
-  // Simple boundary checks - keep within reasonable bounds
+  // Position calculation relative to container
+  const preferredTop = (anchor.y - containerY) + anchor.height + 8;
+  const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
+  
+  // Boundary checks within container width
   const top = Math.max(8, preferredTop);
-  const left = Math.max(8, Math.min(preferredLeft, 300 - dropdownWidth));
+  const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
 
   return (
     <>
@@ -1737,13 +1752,26 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   const itemHeight = 44;
   const dropdownHeight = units.length * itemHeight + 16;
   
-  // Position calculation relative to container
-  const preferredTop = anchor.y + anchor.height + 8;
-  const preferredLeft = anchor.x + (anchor.width / 2) - (dropdownWidth / 2);
+  // Measure container position to convert anchor coordinates
+  const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  React.useEffect(() => {
+    try {
+      containerRef?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
+        setContainerOffset({ x, y, width, height });
+      });
+    } catch {}
+  }, [visible]);
+  const containerX = containerOffset?.x ?? 0;
+  const containerY = containerOffset?.y ?? 0;
+  const containerW = containerOffset?.width ?? 300;
   
-  // Simple boundary checks
+  // Position calculation relative to container
+  const preferredTop = (anchor.y - containerY) + anchor.height + 8;
+  const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
+  
+  // Boundary checks within container width
   const top = Math.max(8, preferredTop);
-  const left = Math.max(8, Math.min(preferredLeft, 300 - dropdownWidth));
+  const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
 
   return (
     <>

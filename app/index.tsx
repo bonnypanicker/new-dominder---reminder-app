@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Clock, Settings, PauseCircle, PlayCircle, CheckCircle, Trash2, RotateCcw, AlertCircle, X, Square, CheckSquare, Repeat, Keyboard } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -1291,16 +1291,14 @@ function CreateReminderPopup({
       presentationStyle="overFullScreen"
       statusBarTranslucent
     >
-      <TouchableOpacity 
+      <Pressable 
         style={createPopupStyles.overlay} 
-        activeOpacity={1} 
         onPress={() => {
           RNKeyboard.dismiss();
           onClose();
         }}
       >
-        <TouchableOpacity
-          activeOpacity={1}
+        <Pressable
           onPress={(e) => e.stopPropagation()}
           style={[createPopupStyles.popup, { height: popupHeight }]}
         >
@@ -1369,8 +1367,8 @@ function CreateReminderPopup({
               </Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </Pressable>
+      </Pressable>
       
       <TimeSelector
         visible={showTimeSelector}
@@ -1418,7 +1416,6 @@ const createPopupStyles = StyleSheet.create({
   },
   customizeContent: {
     zIndex: 20,
-    minHeight: 250,
     overflow: 'visible',
   },
   section: {
