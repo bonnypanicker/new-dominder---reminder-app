@@ -37,9 +37,6 @@ export default function CustomizePanel({
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownAnchor, setDropdownAnchor] = useState<AnchorRect | null>(null);
-  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
-  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<AnchorRect | null>(null);
-  
   const repeatOptions: { value: RepeatType; label: string }[] = [
     { value: 'none', label: 'Once' },
     { value: 'daily', label: 'Daily' },
@@ -128,10 +125,7 @@ export default function CustomizePanel({
     setDropdownOpen(true);
   };
 
-  const handleUnitDropdownOpen = (coords: AnchorRect) => {
-    setUnitDropdownAnchor(coords);
-    setUnitDropdownOpen(true);
-  };
+
 
   const units: EveryUnit[] = ['minutes', 'hours', 'days'];
   
@@ -181,7 +175,8 @@ export default function CustomizePanel({
         <View style={styles.dateSelectionContainer}>
           <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 8 }]}>
             <Text style={styles.topRowLabel}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
-            <View style={styles.menuWrapper}>
+            <View style={styles.menuWrapper}
+              >
               <DropdownAnchor
                 label={`${formattedSelectedDate} • ${displayTime}`}
                 open={dropdownOpen}
@@ -189,6 +184,40 @@ export default function CustomizePanel({
                 onToggle={() => setDropdownOpen(!dropdownOpen)}
                 onMeasure={(coords) => coords && handleDropdownOpen(coords)}
               />
+              {dropdownOpen && (
+                <View style={styles.dropdown}>
+                  <TouchableOpacity
+                    testID="menu-today-inline"
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setToday();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>Today</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="menu-tomorrow-inline"
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setTomorrow();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>Tomorrow</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="menu-custom-inline"
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setCalendarOpen(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>Custom date…</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -206,11 +235,20 @@ export default function CustomizePanel({
                 }}
                 testID="every-value-input"
               />
-              <UnitDropdownButton
-                unit={everyUnit ?? 'hours'}
-                onChange={(unit) => onEveryChange?.(everyValue ?? 1, unit)}
-                onOpenDropdown={(coords) => handleUnitDropdownOpen(coords)}
-              />
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {units.map((u) => (
+                  <TouchableOpacity
+                    key={u}
+                    style={[(everyUnit ?? 'hours') === u ? styles.unitButtonSelected : styles.unitButton]}
+                    onPress={() => onEveryChange?.(everyValue ?? 1, u)}
+                    testID={`unit-${u}`}
+                  >
+                    <Text style={[(everyUnit ?? 'hours') === u ? styles.unitButtonTextSelected : styles.unitButtonText]}>
+                      {getUnitLabel(u)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
         </View>
@@ -352,39 +390,7 @@ export default function CustomizePanel({
       />
       </ScrollView>
       
-      {/* Inline dropdowns */}
-      <InlineDropdown
-        visible={dropdownOpen}
-        onClose={() => setDropdownOpen(false)}
-        anchor={dropdownAnchor}
-        onToday={() => {
-          setToday();
-          setDropdownOpen(false);
-        }}
-        onTomorrow={() => {
-          setTomorrow();
-          setDropdownOpen(false);
-        }}
-        onCustom={() => {
-          setCalendarOpen(true);
-          setDropdownOpen(false);
-        }}
-        containerRef={containerRef}
-      />
 
-      <InlineUnitDropdown
-        visible={unitDropdownOpen}
-        anchor={unitDropdownAnchor}
-        unit={everyUnit ?? 'hours'}
-        units={units}
-        getUnitLabel={getUnitLabel}
-        onChange={(unit) => {
-          onEveryChange?.(everyValue ?? 1, unit);
-          setUnitDropdownOpen(false);
-        }}
-        onClose={() => setUnitDropdownOpen(false)}
-        containerRef={containerRef}
-      />
 
     </View>
   );
@@ -882,6 +888,22 @@ const styles = StyleSheet.create({
   },
   unitButtonText: {
     color: '#111827',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  unitButtonSelected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#1E3A8A',
+    borderWidth: 1,
+    borderColor: '#1E3A8A',
+  },
+  unitButtonTextSelected: {
+    color: 'white',
     fontSize: 14,
     fontWeight: '500',
   },
