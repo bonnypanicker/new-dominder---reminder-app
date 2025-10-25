@@ -3,7 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Priority } from '@/types/reminder';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
-import { AlertTriangle, Bell, Info } from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
+const AlertTriangle = (props: any) => <Feather name="alert-triangle" {...props} />;
+const Bell = (props: any) => <Feather name="bell" {...props} />;
+const Info = (props: any) => <Feather name="info" {...props} />;
 
 interface PrioritySelectorProps {
   priority: Priority;

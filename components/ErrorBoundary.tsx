@@ -1,7 +1,9 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AlertCircle, RefreshCw } from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
+const AlertCircle = (props: any) => <Feather name="alert-circle" {...props} />;
+const RefreshCw = (props: any) => <Feather name="refresh-cw" {...props} />;
 
 interface Props {
   children: ReactNode;

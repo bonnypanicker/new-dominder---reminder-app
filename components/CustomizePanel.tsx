@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard } from 'react-native';
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react-native';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
 
 interface CustomizePanelProps {
@@ -37,6 +37,8 @@ export default function CustomizePanel({
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownAnchor, setDropdownAnchor] = useState<AnchorRect | null>(null);
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<AnchorRect | null>(null);
   const repeatOptions: { value: RepeatType; label: string }[] = [
     { value: 'none', label: 'Once' },
     { value: 'daily', label: 'Daily' },
@@ -125,6 +127,11 @@ export default function CustomizePanel({
     setDropdownOpen(true);
   };
 
+  const handleUnitDropdownOpen = (coords: AnchorRect) => {
+    setUnitDropdownAnchor(coords);
+    setUnitDropdownOpen(true);
+  };
+
 
 
   const units: EveryUnit[] = ['minutes', 'hours', 'days'];
@@ -184,40 +191,7 @@ export default function CustomizePanel({
                 onToggle={() => setDropdownOpen(!dropdownOpen)}
                 onMeasure={(coords) => coords && handleDropdownOpen(coords)}
               />
-              {dropdownOpen && (
-                <View style={styles.dropdown}>
-                  <TouchableOpacity
-                    testID="menu-today-inline"
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setToday();
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>Today</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="menu-tomorrow-inline"
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setTomorrow();
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>Tomorrow</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="menu-custom-inline"
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setCalendarOpen(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>Custom date…</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+
             </View>
           </View>
 
@@ -235,20 +209,11 @@ export default function CustomizePanel({
                 }}
                 testID="every-value-input"
               />
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {units.map((u) => (
-                  <TouchableOpacity
-                    key={u}
-                    style={[(everyUnit ?? 'hours') === u ? styles.unitButtonSelected : styles.unitButton]}
-                    onPress={() => onEveryChange?.(everyValue ?? 1, u)}
-                    testID={`unit-${u}`}
-                  >
-                    <Text style={[(everyUnit ?? 'hours') === u ? styles.unitButtonTextSelected : styles.unitButtonText]}>
-                      {getUnitLabel(u)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <UnitDropdownButton
+                unit={everyUnit ?? 'hours'}
+                onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
+                onOpenDropdown={handleUnitDropdownOpen}
+              />
             </View>
           )}
         </View>
@@ -264,9 +229,9 @@ export default function CustomizePanel({
                 onPress={() => { onOpenTime?.(); }}
                 testID="daily-time-button"
               >
-                <Clock size={16} color="#111827" />
+                <Feather name="clock" size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>{displayTime}</Text>
-                <ChevronDown size={16} color="#111827" />
+                <Feather name="chevron-down" size={16} color="#111827" />
               </TouchableOpacity>
             </View>
           </View>
@@ -306,11 +271,11 @@ export default function CustomizePanel({
                 style={styles.menuButton}
                 onPress={() => { setMonthlyCalendarOpen(true); }}
               >
-                <CalendarIcon size={16} color="#111827" />
+                <MaterialIcons name="calendar-today" size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>
                   Day {monthlyDate} • {displayTime}
                 </Text>
-                <ChevronDown size={16} color="#111827" />
+                <Feather name="chevron-down" size={16} color="#111827" />
               </TouchableOpacity>
             </View>
           </View>
@@ -327,9 +292,9 @@ export default function CustomizePanel({
                 style={styles.menuButton}
                 onPress={() => { setYearlyCalendarOpen(true); }}
               >
-                <CalendarIcon size={16} color="#111827" />
+                <MaterialIcons name="calendar-today" size={16} color="#111827" />
                 <Text style={styles.menuButtonText}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
-                <ChevronDown size={16} color="#111827" />
+                <Feather name="chevron-down" size={16} color="#111827" />
               </TouchableOpacity>
             </View>
           </View>
@@ -389,7 +354,28 @@ export default function CustomizePanel({
         }}
       />
       </ScrollView>
-      
+
+      <InlineDropdown
+        visible={dropdownOpen}
+        anchor={dropdownAnchor}
+        onClose={() => setDropdownOpen(false)}
+        onToday={() => { setToday(); setDropdownOpen(false); }}
+        onTomorrow={() => { setTomorrow(); setDropdownOpen(false); }}
+        onCustom={() => { setCalendarOpen(true); setDropdownOpen(false); }}
+        hideTomorrow={repeatType === 'every'}
+        containerRef={containerRef}
+      />
+
+      <InlineUnitDropdown
+        visible={unitDropdownOpen}
+        anchor={unitDropdownAnchor}
+        unit={everyUnit ?? 'hours'}
+        units={units}
+        getUnitLabel={getUnitLabel}
+        onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
+        onClose={() => setUnitDropdownOpen(false)}
+        containerRef={containerRef}
+      />
 
 
     </View>
@@ -486,7 +472,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                 testID="prev-year"
                 disabled={!canGoPrevYear()}
               >
-                <ChevronLeft size={16} color={canGoPrevYear() ? "#111827" : "#D1D5DB"} />
+                <Feather name="chevron-left" size={16} color={canGoPrevYear() ? "#111827" : "#D1D5DB"} />
                 <Text style={[calendarStyles.navText, !canGoPrevYear() && calendarStyles.navTextDisabled]}>Year</Text>
               </TouchableOpacity>
             ) : (
@@ -507,7 +493,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                 testID="prev-month"
                 disabled={!canGoPrevMonth()}
               >
-                <ChevronLeft size={20} color={canGoPrevMonth() ? "#111827" : "#D1D5DB"} />
+                <Feather name="chevron-left" size={20} color={canGoPrevMonth() ? "#111827" : "#D1D5DB"} />
               </TouchableOpacity>
               <Text style={calendarStyles.titleText}>{hideYear ? monthNames[month] : `${monthNames[month]} ${year}`}</Text>
               <TouchableOpacity 
@@ -521,7 +507,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                 }} 
                 testID="next-month"
               >
-                <ChevronRight size={20} color="#111827" />
+                <Feather name="chevron-right" size={20} color="#111827" />
               </TouchableOpacity>
             </View>
             {!hideYear ? (
@@ -531,7 +517,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                 testID="next-year"
               >
                 <Text style={calendarStyles.navText}>Year</Text>
-                <ChevronRight size={16} color="#111827" />
+                <Feather name="chevron-right" size={16} color="#111827" />
               </TouchableOpacity>
             ) : (
               <View style={{ width: 76 }} />
@@ -625,7 +611,7 @@ function UnitDropdownButton({ unit, onChange, onOpenDropdown }: { unit: EveryUni
       testID="every-unit-button"
     >
       <Text style={styles.unitButtonText}>{getUnitLabel(unit)}</Text>
-      <ChevronDown size={14} color="#111827" />
+      <Feather name="chevron-down" size={14} color="#111827" />
     </TouchableOpacity>
   );
 }
@@ -1015,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   inlineDropdownContent: {
     position: 'absolute',
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: Material3Colors.light.primaryContainer,
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 8,
@@ -1025,7 +1011,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 24,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: Material3Colors.light.primary,
     overflow: 'visible',
   },
   inlineDropdownItem: {
@@ -1056,10 +1042,10 @@ const styles = StyleSheet.create({
   },
   inlineUnitDropdownContent: {
     position: 'absolute',
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: Material3Colors.light.primaryContainer,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: Material3Colors.light.primary,
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -1208,7 +1194,7 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
       <TouchableOpacity style={monthlyPopupStyles.overlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity style={monthlyPopupStyles.container} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <View style={monthlyPopupStyles.header}>
-            <AlertTriangle size={24} color="#F59E0B" />
+            <Feather name="alert-triangle" size={24} color="#F59E0B" />
             <Text style={monthlyPopupStyles.title}>Monthly Reminder Options</Text>
           </View>
           
@@ -1640,9 +1626,9 @@ function DropdownAnchor({ label, open, onOpen, onToggle, onMeasure }: DropdownAn
         if (open) measureNow();
       }}
     >
-      <CalendarIcon size={16} color="#111827" />
+      <MaterialIcons name="calendar-today" size={16} color="#111827" />
       <Text style={styles.menuButtonText}>{label}</Text>
-      <ChevronDown size={16} color="#111827" />
+      <Feather name="chevron-down" size={16} color="#111827" />
     </TouchableOpacity>
   );
 }
@@ -1717,10 +1703,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           onPress={onToday}
         >
           <View style={styles.inlineDropdownItemLeft}>
-            <Clock size={16} color={Material3Colors.light.primary} />
+            <Feather name="clock" size={16} color={Material3Colors.light.primary} />
             <Text style={styles.inlineDropdownItemText}>Today</Text>
           </View>
-          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+          <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
         </TouchableOpacity>
         {!hideTomorrow && (
           <>
@@ -1731,10 +1717,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
               onPress={onTomorrow}
             >
               <View style={styles.inlineDropdownItemLeft}>
-                <Clock size={16} color={Material3Colors.light.primary} />
+                <Feather name="clock" size={16} color={Material3Colors.light.primary} />
                 <Text style={styles.inlineDropdownItemText}>Tomorrow</Text>
               </View>
-              <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+              <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
             </TouchableOpacity>
           </>
         )}
@@ -1745,10 +1731,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           onPress={onCustom}
         >
           <View style={styles.inlineDropdownItemLeft}>
-            <CalendarIcon size={16} color={Material3Colors.light.primary} />
+            <MaterialIcons name="calendar-today" size={16} color={Material3Colors.light.primary} />
             <Text style={styles.inlineDropdownItemText}>Custom date…</Text>
           </View>
-          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+          <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
         </TouchableOpacity>
       </View>
     </>
@@ -1917,10 +1903,10 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
           onPress={onToday}
         >
           <View style={dropdownModalStyles.itemLeft}>
-            <Clock size={16} color={Material3Colors.light.primary} />
+            <Feather name="clock" size={16} color={Material3Colors.light.primary} />
             <Text style={dropdownModalStyles.itemText}>Today</Text>
           </View>
-          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+          <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
         </TouchableOpacity>
         {!hideTomorrow && (
           <>
@@ -1931,10 +1917,10 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
               onPress={onTomorrow}
             >
               <View style={dropdownModalStyles.itemLeft}>
-                <Clock size={16} color={Material3Colors.light.primary} />
+                <Feather name="clock" size={16} color={Material3Colors.light.primary} />
                 <Text style={dropdownModalStyles.itemText}>Tomorrow</Text>
               </View>
-              <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+              <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
             </TouchableOpacity>
           </>
         )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking, NativeModules } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Bell, Volume2, Vibrate, ChevronRight, Clock, AlertCircle, FileText } from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
@@ -40,7 +40,7 @@ export default function SettingsScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
-            <ArrowLeft size={24} color={Material3Colors.light.onSurface} />
+            <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
           </TouchableOpacity>
           <Text style={styles.title}>Settings</Text>
           <View style={styles.placeholder} />
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
-          <ArrowLeft size={24} color={Material3Colors.light.onSurface} />
+          <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
         <View style={styles.placeholder} />
@@ -92,11 +92,12 @@ export default function SettingsScreen() {
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <Bell size={20} color={Material3Colors.light.primary} />
+              <Feather name="bell" size={20} color={Material3Colors.light.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>Notifications</Text>
           </View>
-          <ChevronRight 
+          <Feather 
+            name="chevron-right"
             size={20} 
             color={Material3Colors.light.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'notifications' && styles.chevronExpanded]}
@@ -111,7 +112,7 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ notificationsEnabled: !settings.notificationsEnabled })}
                 testID="toggle-notifications"
               >
-                <Bell size={20} color={settings.notificationsEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="bell" size={20} color={settings.notificationsEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.notificationsEnabled && styles.toggleLabelActive]}>Notifications</Text>
                 <Switch
                   value={settings.notificationsEnabled}
@@ -132,7 +133,7 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ soundEnabled: !settings.soundEnabled })}
                 testID="toggle-sound"
               >
-                <Volume2 size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="volume-2" size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Sound</Text>
                 <Switch
                   value={settings.soundEnabled}
@@ -153,7 +154,7 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ vibrationEnabled: !settings.vibrationEnabled })}
                 testID="toggle-vibration"
               >
-                <Vibrate size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="vibrate" size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Vibration</Text>
                 <Switch
                   value={settings.vibrationEnabled}
@@ -190,14 +191,14 @@ export default function SettingsScreen() {
                 testID="ringtone-picker"
               >
                 <View style={styles.ringtoneIcon}>
-                  <Volume2 size={20} color={Material3Colors.light.primary} />
+                  <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
                 </View>
                 <View style={styles.ringtoneContent}>
                   <Text style={styles.ringtoneTitle}>Alarm Ringtone</Text>
                   <Text style={styles.ringtoneValue}>{currentRingtone}</Text>
                   <Text style={styles.ringtoneHint}>Only for High Priority alarms</Text>
                 </View>
-                <ChevronRight size={20} color={Material3Colors.light.onSurfaceVariant} />
+                <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
               </TouchableOpacity>
             )}
           </View>
@@ -209,18 +210,18 @@ export default function SettingsScreen() {
           testID="section-preferences"
         >
           <View style={styles.sectionHeaderLeft}>
-            <View style={styles.sectionIconContainer}>
-              <AlertCircle size={20} color={Material3Colors.light.primary} />
+              <View style={styles.sectionIconContainer}>
+                <Feather name="alert-circle" size={20} color={Material3Colors.light.primary} />
+              </View>
+              <Text style={styles.sectionHeaderTitle}>Preferences</Text>
             </View>
-            <Text style={styles.sectionHeaderTitle}>Preferences</Text>
-          </View>
-          <ChevronRight 
-            size={20} 
-            color={Material3Colors.light.onSurfaceVariant}
-            style={[styles.chevron, expandedSection === 'preferences' && styles.chevronExpanded]}
-          />
+            <Feather 
+              name="chevron-right"
+              size={20} 
+              color={Material3Colors.light.onSurfaceVariant}
+              style={[styles.chevron, expandedSection === 'preferences' && styles.chevronExpanded]}
+            />
         </TouchableOpacity>
-        
         {expandedSection === 'preferences' && (
           <View style={styles.sectionContent}>
             <TouchableOpacity 
@@ -229,7 +230,7 @@ export default function SettingsScreen() {
               testID="open-defaults"
             >
               <View style={styles.preferenceIcon}>
-                <AlertCircle size={20} color={Material3Colors.light.primary} />
+                <Feather name="alert-circle" size={20} color={Material3Colors.light.primary} />
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceTitle}>Reminder Defaults</Text>
@@ -237,7 +238,7 @@ export default function SettingsScreen() {
                   {getRepeatModeLabel(settings.defaultReminderMode)} • {getPriorityLabel(settings.defaultPriority)}
                 </Text>
               </View>
-              <ChevronRight size={20} color={Material3Colors.light.onSurfaceVariant} />
+              <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -249,7 +250,7 @@ export default function SettingsScreen() {
               testID="toggle-sort-mode"
             >
               <View style={styles.preferenceIcon}>
-                <Clock size={20} color={Material3Colors.light.primary} />
+                <Feather name="clock" size={20} color={Material3Colors.light.primary} />
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceTitle}>Sort Order</Text>
@@ -273,11 +274,12 @@ export default function SettingsScreen() {
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <FileText size={20} color={Material3Colors.light.primary} />
+              <Feather name="file-text" size={20} color={Material3Colors.light.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>About</Text>
           </View>
-          <ChevronRight 
+          <Feather 
+            name="chevron-right"
             size={20} 
             color={Material3Colors.light.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'about' && styles.chevronExpanded]}
@@ -308,9 +310,9 @@ export default function SettingsScreen() {
                 onPress={() => setLicensesModalVisible(true)}
                 testID="open-licenses"
               >
-                <FileText size={16} color={Material3Colors.light.primary} />
+                <Feather name="file-text" size={16} color={Material3Colors.light.primary} />
                 <Text style={styles.licensesButtonText}>Open Source Licenses</Text>
-                <ChevronRight size={16} color={Material3Colors.light.primary} />
+                <Feather name="chevron-right" size={16} color={Material3Colors.light.primary} />
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -318,9 +320,9 @@ export default function SettingsScreen() {
                 onPress={() => setPrivacyPolicyVisible(true)}
                 testID="open-privacy"
               >
-                <FileText size={16} color={Material3Colors.light.primary} />
+                <Feather name="file-text" size={16} color={Material3Colors.light.primary} />
                 <Text style={styles.licensesButtonText}>Privacy Policy</Text>
-                <ChevronRight size={16} color={Material3Colors.light.primary} />
+                <Feather name="chevron-right" size={16} color={Material3Colors.light.primary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -371,10 +373,10 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
     { value: 'every', label: 'Every' },
   ];
 
-  const priorities: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: any }[] = [
-    { value: 'standard', label: 'Standard', icon: Bell },
-    { value: 'silent', label: 'Silent', icon: Volume2 },
-    { value: 'ringer', label: 'High Priority', icon: AlertCircle },
+  const priorities: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: string }[] = [
+    { value: 'standard', label: 'Standard', icon: 'bell' },
+    { value: 'silent', label: 'Silent', icon: 'volume-2' },
+    { value: 'ringer', label: 'High Priority', icon: 'alert-circle' },
   ];
 
   if (!visible) return null;
@@ -421,14 +423,13 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
             <View style={modalStyles.priorityOptions}>
               {priorities.map((priority) => {
                 const isSelected = priority.value === selectedPriority;
-                const Icon = priority.icon;
                 return (
                   <TouchableOpacity
                     key={priority.value}
                     style={[modalStyles.priorityOption, isSelected && modalStyles.priorityOptionSelected]}
                     onPress={() => onSelectPriority(priority.value)}
                   >
-                    <Icon size={24} color={isSelected ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                    <Feather name={priority.icon} size={24} color={isSelected ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
                     <Text style={[modalStyles.priorityOptionText, isSelected && modalStyles.priorityOptionTextSelected]}>
                       {priority.label}
                     </Text>
