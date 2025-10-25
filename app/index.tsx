@@ -11,7 +11,7 @@ import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
 import PrioritySelector from '@/components/PrioritySelector';
-import CustomizePanel, { DropdownModal, UnitDropdownModal, AnchorRect } from '@/components/CustomizePanel';
+import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 
 // Enable LayoutAnimation on Android
@@ -105,11 +105,6 @@ export default function HomeScreen() {
     const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   });
-
-  const [dateDropdownOpen, setDateDropdownOpen] = useState<boolean>(false);
-  const [dateDropdownAnchor, setDateDropdownAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [unitDropdownOpen, setUnitDropdownOpen] = useState<boolean>(false);
-  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
@@ -1180,60 +1175,6 @@ export default function HomeScreen() {
         onHide={() => setToastVisible(false)}
       />
 
-      {/* Date Dropdown Modal */}
-      <Modal
-        visible={dateDropdownOpen}
-        transparent
-        animationType="none"
-        onRequestClose={() => setDateDropdownOpen(false)}
-        presentationStyle="overFullScreen"
-        statusBarTranslucent
-      >
-        <DropdownModal
-          onClose={() => setDateDropdownOpen(false)}
-          anchor={dateDropdownAnchor}
-          onToday={() => {
-            // Logic for Today
-            setDateDropdownOpen(false);
-            // ... (existing logic for setting date and opening time picker)
-          }}
-          onTomorrow={() => {
-            // Logic for Tomorrow
-            setDateDropdownOpen(false);
-            // ... (existing logic for setting date and opening time picker)
-          }}
-          onCustom={() => {
-            // Logic for Custom Date
-            setDateDropdownOpen(false);
-            // ... (existing logic for opening calendar modal)
-          }}
-          hideTomorrow={repeatType === 'every'}
-        />
-      </Modal>
-
-      {/* Unit Dropdown Modal */}
-      <Modal
-        visible={unitDropdownOpen}
-        transparent
-        animationType="none"
-        onRequestClose={() => setUnitDropdownOpen(false)}
-        presentationStyle="overFullScreen"
-        statusBarTranslucent
-      >
-        <UnitDropdownModal
-          visible={unitDropdownOpen}
-          anchor={unitDropdownAnchor}
-          unit={everyUnit ?? 'hours'}
-          units={['minutes', 'hours', 'days']}
-          getUnitLabel={(u) => u.charAt(0).toUpperCase() + u.slice(1)}
-          onChange={(unit) => {
-            setEveryUnit(unit);
-            setUnitDropdownOpen(false);
-          }}
-          onClose={() => setUnitDropdownOpen(false)}
-        />
-      </Modal>
-
     </SafeAreaView>
   );
 }
@@ -1396,14 +1337,6 @@ function CreateReminderPopup({
                   everyValue={everyValue}
                   everyUnit={everyUnit}
                   onEveryChange={onEveryChange}
-                  onOpenDateDropdown={(coords) => {
-                    setDateDropdownAnchor(coords);
-                    setDateDropdownOpen(true);
-                  }}
-                  onOpenUnitDropdown={(coords) => {
-                    setUnitDropdownAnchor(coords);
-                    setUnitDropdownOpen(true);
-                  }}
                 />
               </View>
               
