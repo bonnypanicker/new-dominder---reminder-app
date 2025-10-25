@@ -1,4 +1,7 @@
-import './services/headless-task';
+import { Platform } from 'react-native';
+if (Platform.OS !== 'web') {
+  require('./services/headless-task');
+}
 import 'expo-router/entry';
 import notifee, { EventType } from '@notifee/react-native';
 

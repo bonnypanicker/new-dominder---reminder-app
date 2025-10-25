@@ -17,11 +17,6 @@ interface CustomizePanelProps {
   everyValue?: number;
   everyUnit?: EveryUnit;
   onEveryChange?: (value: number, unit: EveryUnit) => void;
-  // Dropdown callbacks
-  onDropdownOpen?: (anchor: AnchorRect) => void;
-  onDropdownClose?: () => void;
-  onUnitDropdownOpen?: (anchor: AnchorRect) => void;
-  onUnitDropdownClose?: () => void;
 }
 
 export default function CustomizePanel({
@@ -36,12 +31,15 @@ export default function CustomizePanel({
   everyValue,
   everyUnit,
   onEveryChange,
-  onDropdownOpen,
-  onDropdownClose,
-  onUnitDropdownOpen,
-  onUnitDropdownClose,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
+  
+  // Local state for inline dropdowns
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownAnchor, setDropdownAnchor] = useState<AnchorRect | null>(null);
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<AnchorRect | null>(null);
+  
   const repeatOptions: { value: RepeatType; label: string }[] = [
     { value: 'none', label: 'Once' },
     { value: 'daily', label: 'Daily' },
@@ -59,13 +57,14 @@ export default function CustomizePanel({
   // Close dropdowns when keyboard state changes
   useEffect(() => {
     const keyboardDidHideListener = RNKeyboard.addListener('keyboardDidHide', () => {
-      onDropdownClose?.();
+      setDropdownOpen(false);
+      setUnitDropdownOpen(false);
     });
 
     return () => {
       keyboardDidHideListener.remove();
     };
-  }, [onDropdownClose]);
+  }, []);
 
   const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
   const [monthlyCalendarOpen, setMonthlyCalendarOpen] = useState<boolean>(false);
@@ -122,11 +121,36 @@ export default function CustomizePanel({
     onDateChange(`${yyyy}-${mm}-${dd}`);
   };
 
+  const handleDropdownOpen = (coords: AnchorRect) => {
+    setDropdownAnchor(coords);
+    setDropdownOpen(true);
+  };
+
+  const handleUnitDropdownOpen = (coords: AnchorRect) => {
+    setUnitDropdownAnchor(coords);
+    setUnitDropdownOpen(true);
+  };
+
+  const units: EveryUnit[] = ['minutes', 'hours', 'days', 'weeks', 'months', 'years'];
+  
+  const getUnitLabel = (unit: EveryUnit): string => {
+    const labels: Record<EveryUnit, string> = {
+      minutes: 'Minutes',
+      hours: 'Hours',
+      days: 'Days',
+      weeks: 'Weeks',
+      months: 'Months',
+      years: 'Years',
+    };
+    return labels[unit];
+  };
+
   return (
     <View ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'visible' }}>
       <ScrollView 
         style={styles.container} 
         showsVerticalScrollIndicator={false} 
+        keyboardDismissMode="none"
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled={true}
       >
@@ -158,10 +182,10 @@ export default function CustomizePanel({
             <View style={styles.menuWrapper}>
               <DropdownAnchor
                 label={`${formattedSelectedDate} • ${displayTime}`}
-                open={false}
+                open={dropdownOpen}
                 onOpen={() => {}}
-                onToggle={() => {}}
-                onMeasure={(coords) => coords && onDropdownOpen?.(coords)}
+                onToggle={() => setDropdownOpen(!dropdownOpen)}
+                onMeasure={(coords) => coords && handleDropdownOpen(coords)}
               />
             </View>
           </View>
@@ -183,7 +207,7 @@ export default function CustomizePanel({
               <UnitDropdownButton
                 unit={everyUnit ?? 'hours'}
                 onChange={(unit) => onEveryChange?.(everyValue ?? 1, unit)}
-                onOpenDropdown={(coords) => onUnitDropdownOpen?.(coords)}
+                onOpenDropdown={(coords) => handleUnitDropdownOpen(coords)}
               />
             </View>
           )}
@@ -326,8 +350,39 @@ export default function CustomizePanel({
       />
       </ScrollView>
       
+      {/* Inline dropdowns */}
+      <InlineDropdown
+        visible={dropdownOpen}
+        onClose={() => setDropdownOpen(false)}
+        anchor={dropdownAnchor}
+        onToday={() => {
+          setToday();
+          setDropdownOpen(false);
+        }}
+        onTomorrow={() => {
+          setTomorrow();
+          setDropdownOpen(false);
+        }}
+        onCustom={() => {
+          setCalendarOpen(true);
+          setDropdownOpen(false);
+        }}
+        containerRef={containerRef}
+      />
 
-
+      <InlineUnitDropdown
+        visible={unitDropdownOpen}
+        anchor={unitDropdownAnchor}
+        unit={everyUnit ?? 'hours'}
+        units={units}
+        getUnitLabel={getUnitLabel}
+        onChange={(unit) => {
+          onEveryChange?.(everyValue ?? 1, unit);
+          setUnitDropdownOpen(false);
+        }}
+        onClose={() => setUnitDropdownOpen(false)}
+        containerRef={containerRef}
+      />
 
     </View>
   );
@@ -584,8 +639,8 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   
   // Calculate dropdown dimensions
   const dropdownWidth = 140;
-  const itemHeight = 44; // height per item
-  const dropdownHeight = units.length * itemHeight + 16; // +16 for padding
+  const itemHeight = 44;
+  const dropdownHeight = units.length * itemHeight + 16;
   
   // Position calculation
   // Place dropdown below button with 8px gap
@@ -923,6 +978,89 @@ const styles = StyleSheet.create({
   timeButtonText: {
     color: '#111827',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  // Inline dropdown styles
+  inlineDropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
+  inlineDropdownContent: {
+    position: 'absolute',
+    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    shadowColor: Material3Colors.light.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 20,
+    elevation: 24,
+    borderWidth: 1,
+    borderColor: Material3Colors.light.outlineVariant,
+    overflow: 'visible',
+  },
+  inlineDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    minHeight: 44,
+  },
+  inlineDropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  inlineDropdownItemText: {
+    fontSize: 14,
+    color: Material3Colors.light.onSurface,
+    fontWeight: '500',
+  },
+  inlineDropdownDivider: {
+    height: 1,
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    marginHorizontal: 8,
+    marginVertical: 4,
+  },
+  inlineUnitDropdownContent: {
+    position: 'absolute',
+    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Material3Colors.light.outlineVariant,
+    shadowColor: Material3Colors.light.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 24,
+    overflow: 'hidden',
+    paddingVertical: 4,
+  },
+  inlineUnitDropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    marginVertical: 2,
+    borderRadius: 8,
+  },
+  inlineUnitDropdownItemSelected: {
+    backgroundColor: Material3Colors.light.primaryContainer,
+  },
+  inlineUnitDropdownItemText: {
+    fontSize: 14,
+    color: Material3Colors.light.onSurface,
+    fontWeight: '500',
+  },
+  inlineUnitDropdownItemTextSelected: {
+    color: Material3Colors.light.primary,
     fontWeight: '600',
   },
 });
@@ -1485,6 +1623,178 @@ function DropdownAnchor({ label, open, onOpen, onToggle, onMeasure }: DropdownAn
   );
 }
 
+// New inline dropdown components that don't use Modal
+interface InlineDropdownProps {
+  visible: boolean;
+  onClose: () => void;
+  anchor: AnchorRect | null | undefined;
+  onToday: () => void;
+  onTomorrow: () => void;
+  onCustom: () => void;
+  hideTomorrow?: boolean;
+  containerRef?: React.RefObject<View>;
+}
+
+function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false, containerRef }: InlineDropdownProps) {
+  if (!visible || !anchor) return null;
+  
+  // Calculate dropdown dimensions
+  const dropdownWidth = 220;
+  const dropdownHeight = hideTomorrow ? 120 : 180;
+  
+  // Position calculation relative to container
+  const preferredTop = anchor.y + anchor.height + 8;
+  const preferredLeft = anchor.x + anchor.width - dropdownWidth;
+  
+  // Simple boundary checks - keep within reasonable bounds
+  const top = Math.max(8, preferredTop);
+  const left = Math.max(8, Math.min(preferredLeft, 300 - dropdownWidth));
+
+  return (
+    <>
+      {/* Backdrop overlay within container */}
+      <TouchableOpacity 
+        style={[
+          styles.inlineDropdownOverlay,
+          { zIndex: 999998 }
+        ]}
+        activeOpacity={1} 
+        onPress={onClose}
+      />
+      
+      {/* Dropdown content */}
+      <View
+        style={[
+          styles.inlineDropdownContent,
+          {
+            top,
+            left,
+            width: dropdownWidth,
+            zIndex: 999999,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          testID="menu-today"
+          style={styles.inlineDropdownItem}
+          onPress={onToday}
+        >
+          <View style={styles.inlineDropdownItemLeft}>
+            <Clock size={16} color={Material3Colors.light.primary} />
+            <Text style={styles.inlineDropdownItemText}>Today</Text>
+          </View>
+          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+        </TouchableOpacity>
+        {!hideTomorrow && (
+          <>
+            <View style={styles.inlineDropdownDivider} />
+            <TouchableOpacity
+              testID="menu-tomorrow"
+              style={styles.inlineDropdownItem}
+              onPress={onTomorrow}
+            >
+              <View style={styles.inlineDropdownItemLeft}>
+                <Clock size={16} color={Material3Colors.light.primary} />
+                <Text style={styles.inlineDropdownItemText}>Tomorrow</Text>
+              </View>
+              <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+            </TouchableOpacity>
+          </>
+        )}
+        <View style={styles.inlineDropdownDivider} />
+        <TouchableOpacity
+          testID="menu-custom"
+          style={styles.inlineDropdownItem}
+          onPress={onCustom}
+        >
+          <View style={styles.inlineDropdownItemLeft}>
+            <CalendarIcon size={16} color={Material3Colors.light.primary} />
+            <Text style={styles.inlineDropdownItemText}>Custom date…</Text>
+          </View>
+          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
+interface InlineUnitDropdownProps {
+  visible: boolean;
+  anchor: AnchorRect | null;
+  unit: EveryUnit;
+  units: EveryUnit[];
+  getUnitLabel: (u: EveryUnit) => string;
+  onChange: (unit: EveryUnit) => void;
+  onClose: () => void;
+  containerRef?: React.RefObject<View>;
+}
+
+function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef }: InlineUnitDropdownProps) {
+  if (!visible || !anchor) return null;
+  
+  // Calculate dropdown dimensions
+  const dropdownWidth = 140;
+  const itemHeight = 44;
+  const dropdownHeight = units.length * itemHeight + 16;
+  
+  // Position calculation relative to container
+  const preferredTop = anchor.y + anchor.height + 8;
+  const preferredLeft = anchor.x + (anchor.width / 2) - (dropdownWidth / 2);
+  
+  // Simple boundary checks
+  const top = Math.max(8, preferredTop);
+  const left = Math.max(8, Math.min(preferredLeft, 300 - dropdownWidth));
+
+  return (
+    <>
+      {/* Backdrop overlay within container */}
+      <TouchableOpacity 
+         style={[
+           styles.inlineDropdownOverlay,
+           { zIndex: 999998 }
+         ]}
+         activeOpacity={1} 
+         onPress={onClose}
+       />
+      
+      {/* Dropdown content */}
+      <View
+        style={[
+          styles.inlineUnitDropdownContent,
+          {
+            top,
+            left,
+            width: dropdownWidth,
+            zIndex: 999999,
+          },
+        ]}
+      >
+        {units.map(u => (
+          <TouchableOpacity 
+            key={u} 
+            style={[
+              styles.inlineUnitDropdownItem,
+              unit === u && styles.inlineUnitDropdownItemSelected
+            ]} 
+            onPress={() => { 
+              onChange(u); 
+              onClose(); 
+            }} 
+            testID={`unit-${u}`}
+          >
+            <Text style={[
+              styles.inlineUnitDropdownItemText,
+              unit === u && styles.inlineUnitDropdownItemTextSelected
+            ]}>
+              {getUnitLabel(u)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </>
+  );
+}
+
 interface DropdownModalProps {
   visible: boolean;
   onClose: () => void;
@@ -1652,4 +1962,4 @@ const dropdownModalStyles = StyleSheet.create({
 });
 
 // Export components for use in parent
-export { DropdownModal, UnitDropdownModal, type AnchorRect };
+export { DropdownModal, UnitDropdownModal, InlineDropdown, InlineUnitDropdown, type AnchorRect };
