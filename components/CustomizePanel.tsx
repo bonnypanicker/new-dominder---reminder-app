@@ -17,6 +17,11 @@ interface CustomizePanelProps {
   everyValue?: number;
   everyUnit?: EveryUnit;
   onEveryChange?: (value: number, unit: EveryUnit) => void;
+  // Dropdown callbacks
+  onDropdownOpen?: (anchor: AnchorRect) => void;
+  onDropdownClose?: () => void;
+  onUnitDropdownOpen?: (anchor: AnchorRect) => void;
+  onUnitDropdownClose?: () => void;
 }
 
 export default function CustomizePanel({
@@ -31,6 +36,10 @@ export default function CustomizePanel({
   everyValue,
   everyUnit,
   onEveryChange,
+  onDropdownOpen,
+  onDropdownClose,
+  onUnitDropdownOpen,
+  onUnitDropdownClose,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const repeatOptions: { value: RepeatType; label: string }[] = [
@@ -50,16 +59,14 @@ export default function CustomizePanel({
   // Close dropdowns when keyboard state changes
   useEffect(() => {
     const keyboardDidHideListener = RNKeyboard.addListener('keyboardDidHide', () => {
-      setMenuOpen(false);
+      onDropdownClose?.();
     });
 
     return () => {
       keyboardDidHideListener.remove();
     };
-  }, []);
+  }, [onDropdownClose]);
 
-  const [menuOpen, setMenuOpen] = useState<boolean>(false);
-  const [anchor, setAnchor] = useState<AnchorRect | null>(null);
   const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
   const [monthlyCalendarOpen, setMonthlyCalendarOpen] = useState<boolean>(false);
   const [monthlyDate, setMonthlyDate] = useState<number>(() => {
@@ -67,8 +74,6 @@ export default function CustomizePanel({
     return now.getDate();
   });
   const [yearlyCalendarOpen, setYearlyCalendarOpen] = useState<boolean>(false);
-  const [unitDropdownOpen, setUnitDropdownOpen] = useState<boolean>(false);
-  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<AnchorRect | null>(null);
 
   const formattedSelectedDate = useMemo(() => {
     try {
@@ -153,10 +158,10 @@ export default function CustomizePanel({
             <View style={styles.menuWrapper}>
               <DropdownAnchor
                 label={`${formattedSelectedDate} • ${displayTime}`}
-                open={menuOpen}
-                onOpen={() => setMenuOpen(true)}
-                onToggle={() => { setMenuOpen(v => !v); }}
-                onMeasure={(coords) => setAnchor(coords)}
+                open={false}
+                onOpen={() => {}}
+                onToggle={() => {}}
+                onMeasure={(coords) => coords && onDropdownOpen?.(coords)}
               />
             </View>
           </View>
@@ -178,10 +183,7 @@ export default function CustomizePanel({
               <UnitDropdownButton
                 unit={everyUnit ?? 'hours'}
                 onChange={(unit) => onEveryChange?.(everyValue ?? 1, unit)}
-                onOpenDropdown={(coords) => {
-                  setUnitDropdownAnchor(coords);
-                  setUnitDropdownOpen(true);
-                }}
+                onOpenDropdown={(coords) => onUnitDropdownOpen?.(coords)}
               />
             </View>
           )}
@@ -324,83 +326,9 @@ export default function CustomizePanel({
       />
       </ScrollView>
       
-      {/* Render dropdowns at absolute root level, outside all constraints */}
-      {menuOpen && (
-        <View 
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            zIndex: 999999, 
-            pointerEvents: 'box-none' 
-          }}
-          // Force render outside parent bounds
-          collapsable={false}
-        >
-          <DropdownModal
-            onClose={() => setMenuOpen(false)}
-            anchor={anchor}
-            onToday={() => {
-              setToday();
-              setMenuOpen(false);
-              if (repeatType === 'every' || repeatType === 'none') {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after today selection error', e);
-                }
-              }
-            }}
-            onTomorrow={() => {
-              setTomorrow();
-              setMenuOpen(false);
-              if (repeatType === 'none') {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after tomorrow selection error', e);
-                }
-              }
-            }}
-            onCustom={() => {
-              setMenuOpen(false);
-              setCalendarOpen(true);
-            }}
-            hideTomorrow={repeatType === 'every'}
-          />
-        </View>
-      )}
 
-      {/* Unit dropdown with same pattern */}
-      {unitDropdownOpen && (
-        <View 
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            zIndex: 999999, 
-            pointerEvents: 'box-none' 
-          }}
-          collapsable={false}
-        >
-          <UnitDropdownModal
-            visible={unitDropdownOpen}
-            anchor={unitDropdownAnchor}
-            unit={everyUnit ?? 'hours'}
-            units={['minutes', 'hours', 'days']}
-            getUnitLabel={(u) => u.charAt(0).toUpperCase() + u.slice(1)}
-            onChange={(unit) => {
-              onEveryChange?.(everyValue ?? 1, unit);
-              setUnitDropdownOpen(false);
-            }}
-            onClose={() => setUnitDropdownOpen(false)}
-          />
-        </View>
-      )}
+
+
     </View>
   );
 }
@@ -675,48 +603,55 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
 
   return (
-    <>
-      {/* Backdrop overlay */}
-      <TouchableOpacity 
-        style={styles.unitOverlayAbsolute} 
-        activeOpacity={1} 
-        onPress={onClose}
-      />
-      
-      {/* Dropdown content */}
-      <View
-        style={[
-          styles.unitDropdownModalAbsolute,
-          {
-            top: finalTop,
-            left,
-            width: dropdownWidth,
-          },
-        ]}
-      >
-        {units.map(u => (
-          <TouchableOpacity 
-            key={u} 
-            style={[
-              styles.unitDropdownItem,
-              unit === u && styles.unitDropdownItemSelected
-            ]} 
-            onPress={() => { 
-              onChange(u); 
-              onClose(); 
-            }} 
-            testID={`unit-${u}`}
-          >
-            <Text style={[
-              styles.unitDropdownItemText,
-              unit === u && styles.unitDropdownItemTextSelected
-            ]}>
-              {getUnitLabel(u)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1 }}>
+        {/* Backdrop overlay */}
+        <TouchableOpacity 
+          style={styles.unitOverlayAbsolute} 
+          activeOpacity={1} 
+          onPress={onClose}
+        />
+        
+        {/* Dropdown content */}
+        <View
+          style={[
+            styles.unitDropdownModalAbsolute,
+            {
+              top: finalTop,
+              left,
+              width: dropdownWidth,
+            },
+          ]}
+        >
+          {units.map(u => (
+            <TouchableOpacity 
+              key={u} 
+              style={[
+                styles.unitDropdownItem,
+                unit === u && styles.unitDropdownItemSelected
+              ]} 
+              onPress={() => { 
+                onChange(u); 
+                onClose(); 
+              }} 
+              testID={`unit-${u}`}
+            >
+              <Text style={[
+                styles.unitDropdownItemText,
+                unit === u && styles.unitDropdownItemTextSelected
+              ]}>
+                {getUnitLabel(u)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
-    </>
+    </Modal>
   );
 }
 
@@ -1551,6 +1486,7 @@ function DropdownAnchor({ label, open, onOpen, onToggle, onMeasure }: DropdownAn
 }
 
 interface DropdownModalProps {
+  visible: boolean;
   onClose: () => void;
   anchor: AnchorRect | null | undefined;
   onToday: () => void;
@@ -1559,10 +1495,10 @@ interface DropdownModalProps {
   hideTomorrow?: boolean;
 }
 
-function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
+function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
   const [layout, setLayout] = React.useState<{ width: number; height: number } | null>(null);
   
-  if (!anchor) return null;
+  if (!visible || !anchor) return null;
   
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
   
@@ -1586,29 +1522,35 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
   const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
 
   return (
-    <>
-      {/* Full-screen backdrop */}
-      <TouchableOpacity 
-        style={dropdownModalStyles.overlayAbsolute} 
-        activeOpacity={1} 
-        onPress={onClose}
-      />
-      
-      {/* Dropdown content with measured layout */}
-      <View
-        style={[
-          dropdownModalStyles.dropdownAbsolute,
-          {
-            top: finalTop,
-            left,
-            width: dropdownWidth,
-          },
-        ]}
-        onLayout={(e) => {
-          const { width, height } = e.nativeEvent.layout;
-          setLayout({ width, height });
-        }}
-      >
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1 }}>
+        {/* Full-screen backdrop */}
+        <TouchableOpacity 
+          style={dropdownModalStyles.overlayAbsolute} 
+          activeOpacity={1} 
+          onPress={onClose}
+        />
+        
+        {/* Dropdown content with measured layout */}
+        <View
+          style={[
+            dropdownModalStyles.dropdownAbsolute,
+            {
+              top: finalTop,
+              left,
+              width: dropdownWidth,
+            },
+          ]}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            setLayout({ width, height });
+          }}
+        >
         <TouchableOpacity
           testID="menu-today"
           style={dropdownModalStyles.itemRow}
@@ -1649,7 +1591,8 @@ function DropdownModal({ onClose, anchor, onToday, onTomorrow, onCustom, hideTom
           <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
         </TouchableOpacity>
       </View>
-    </>
+      </View>
+    </Modal>
   );
 }
 
@@ -1707,3 +1650,6 @@ const dropdownModalStyles = StyleSheet.create({
     marginVertical: 4,
   },
 });
+
+// Export components for use in parent
+export { DropdownModal, UnitDropdownModal, type AnchorRect };

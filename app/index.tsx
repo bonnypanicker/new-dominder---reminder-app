@@ -11,7 +11,7 @@ import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
 import PrioritySelector from '@/components/PrioritySelector';
-import CustomizePanel from '@/components/CustomizePanel';
+import CustomizePanel, { DropdownModal, UnitDropdownModal, AnchorRect } from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 
 // Enable LayoutAnimation on Android
@@ -1245,6 +1245,33 @@ function CreateReminderPopup({
   const mainContentSlide = useRef(new Animated.Value(0)).current;
   const titleInputRef = useRef<TextInput>(null);
 
+  // Dropdown state management
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownAnchor, setDropdownAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [unitDropdownAnchor, setUnitDropdownAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Dropdown callbacks
+  const handleDropdownOpen = useCallback((anchor: { x: number; y: number; width: number; height: number }) => {
+    setDropdownAnchor(anchor);
+    setDropdownOpen(true);
+  }, []);
+
+  const handleDropdownClose = useCallback(() => {
+    setDropdownOpen(false);
+    setDropdownAnchor(null);
+  }, []);
+
+  const handleUnitDropdownOpen = useCallback((anchor: { x: number; y: number; width: number; height: number }) => {
+    setUnitDropdownAnchor(anchor);
+    setUnitDropdownOpen(true);
+  }, []);
+
+  const handleUnitDropdownClose = useCallback(() => {
+    setUnitDropdownOpen(false);
+    setUnitDropdownAnchor(null);
+  }, []);
+
   useEffect(() => {
     const updateHeight = () => {
       const winH = Dimensions.get('window').height;
@@ -1337,6 +1364,8 @@ function CreateReminderPopup({
                   everyValue={everyValue}
                   everyUnit={everyUnit}
                   onEveryChange={onEveryChange}
+                  onDropdownOpen={handleDropdownOpen}
+                  onUnitDropdownOpen={handleUnitDropdownOpen}
                 />
               </View>
               
@@ -1377,6 +1406,47 @@ function CreateReminderPopup({
         selectedDate={selectedDate}
         repeatType={repeatType}
         onPastTimeError={(msg) => onShowToast(msg ?? 'Please select a future time', 'error')}
+      />
+      
+      <DropdownModal
+        visible={dropdownOpen}
+        anchor={dropdownAnchor}
+        onClose={handleDropdownClose}
+        onToday={() => {
+          const today = new Date().toISOString().split('T')[0];
+          onDateChange(today);
+          handleDropdownClose();
+        }}
+        onTomorrow={() => {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          onDateChange(tomorrow.toISOString().split('T')[0]);
+          handleDropdownClose();
+        }}
+        onCustom={() => {
+          // This would open a calendar modal - for now just close
+          handleDropdownClose();
+        }}
+      />
+      
+      <UnitDropdownModal
+        visible={unitDropdownOpen}
+        anchor={unitDropdownAnchor}
+        unit={everyUnit}
+        units={['minutes', 'hours', 'days']}
+        getUnitLabel={(unit: EveryUnit) => {
+          const labels = {
+            minutes: 'Minutes',
+            hours: 'Hours', 
+            days: 'Days'
+          };
+          return labels[unit] || unit;
+        }}
+        onChange={(unit: EveryUnit) => {
+          onEveryChange(everyValue, unit);
+          handleUnitDropdownClose();
+        }}
+        onClose={handleUnitDropdownClose}
       />
     </Modal>
   );
