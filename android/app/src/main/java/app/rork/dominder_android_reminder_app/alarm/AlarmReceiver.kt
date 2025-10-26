@@ -1,9 +1,9 @@
 package app.rork.dominder_android_reminder_app.alarm
 
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -19,8 +19,9 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
         val repeatType = intent.getStringExtra("repeatType")
-        val everyValue = intent.getIntExtra("everyValue", 0)
+        val everyValue = intent.getIntExtra("everyValue", -1)
         val everyUnit = intent.getStringExtra("everyUnit")
+        val triggerTimeMs = intent.getLongExtra("triggerTimeMs", System.currentTimeMillis())
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -60,7 +61,6 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Content intent for notification tap
         val contentIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
@@ -91,33 +91,40 @@ class AlarmReceiver : BroadcastReceiver() {
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
 
-        // NEW: Auto-schedule next occurrence for 'every' repeats even without user action
-        if (repeatType == "every" && everyValue > 0) {
+        // Auto-reschedule for 'every' repeats
+        if (repeatType == "every" && everyValue > 0 && everyUnit != null) {
             val intervalMs = when (everyUnit) {
                 "minutes" -> everyValue * 60_000L
                 "hours" -> everyValue * 3_600_000L
                 "days" -> everyValue * 86_400_000L
-                else -> everyValue * 60_000L
+                else -> 0L
             }
-            val nextTrigger = System.currentTimeMillis() + intervalMs
-            val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority)
-                putExtra("repeatType", repeatType)
-                putExtra("everyValue", everyValue)
-                if (everyUnit != null) putExtra("everyUnit", everyUnit)
+            if (intervalMs > 0L) {
+                val nextTrigger = triggerTimeMs + intervalMs
+                val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
+                    action = "app.rork.dominder.ALARM_FIRED"
+                    putExtra("reminderId", reminderId)
+                    putExtra("title", title)
+                    putExtra("priority", priority)
+                    putExtra("triggerTimeMs", nextTrigger)
+                    putExtra("repeatType", repeatType)
+                    putExtra("everyValue", everyValue)
+                    putExtra("everyUnit", everyUnit)
+                }
+                val nextPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    reminderId.hashCode(),
+                    nextIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    nextTrigger,
+                    nextPendingIntent
+                )
+                DebugLogger.log("AlarmReceiver: Auto-rescheduled repeating alarm for id=$reminderId next=$nextTrigger ($everyValue $everyUnit)")
             }
-            val nextPending = PendingIntent.getBroadcast(
-                context,
-                reminderId.hashCode(),
-                nextIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTrigger, nextPending)
-            DebugLogger.log("AlarmReceiver: Auto-scheduled next 'every' alarm for $reminderId at $nextTrigger")
         }
     }
 }
