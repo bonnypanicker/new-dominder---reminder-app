@@ -867,6 +867,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingVertical: 4,
     paddingHorizontal: 6,
+    color: '#000000',
+    fontWeight: 'bold',
   },
   unitButton: {
     flexDirection: 'row',

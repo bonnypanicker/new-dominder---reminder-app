@@ -1718,9 +1718,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       delta *= activeSection === 'hour' ? HOUR_SENSITIVITY : MINUTE_SENSITIVITY;
       lastAngle.current = degrees;
       
-      // Set absolute rotation to follow the finger precisely
-      rotationRef.current = degrees % 360;
-      const r = rotationRef.current;
+      // Apply delta to current rotation to avoid jumping to touch
+      rotationRef.current = (rotationRef.current + delta + 360) % 360;
+      const r = rotationRef.current % 360;
       setRotation(r);
       
       // Throttle value updates to avoid re-renders during drag
