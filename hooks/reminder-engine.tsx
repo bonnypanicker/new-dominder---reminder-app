@@ -20,6 +20,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
   updateReminderRef.current = updateReminder;
   
   useEffect(() => {
+    const tick = setInterval(() => setLastTick(Date.now()), 30000);
+    return () => clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
     console.log('[ReminderEngine] Processing reminders, count:', reminders.length);
     
     const now = new Date();
@@ -47,6 +52,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       console.log(`[ReminderEngine] Processing reminder ${reminder.id}, repeatType: ${reminder.repeatType}`);
       
       let nextFireTime: Date | null = null;
+      let reminderToSchedule: Reminder = reminder;
       
       if (reminder.snoozeUntil) {
         nextFireTime = new Date(reminder.snoozeUntil);
@@ -59,13 +65,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         
         if (nextFireTime && reminder.repeatType !== 'none') {
           console.log(`[ReminderEngine] Calculated next fire time for ${reminder.id}: ${nextFireTime.toISOString()}, updating reminder`);
-          updateReminderRef.current.mutate({
+          const updatedModel: Reminder = {
             ...reminder,
             nextReminderDate: nextFireTime.toISOString(),
-            isActive: true, // Explicitly preserve active state
-            isCompleted: false, // Explicitly preserve completed state
-            isExpired: false, // Explicitly preserve expired state
-          });
+            isActive: true,
+            isCompleted: false,
+            isExpired: false,
+          };
+          updateReminderRef.current.mutate(updatedModel);
+          // Use updated model for immediate scheduling
+          reminderToSchedule = updatedModel;
         }
       }
       
@@ -74,9 +83,11 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         
         schedulingInProgress.current.add(reminder.id);
         
-        notificationService.scheduleReminderByModel(reminder)
+        notificationService.scheduleReminderByModel(reminderToSchedule)
           .then(() => {
-            processedReminders.current.set(reminder.id, currentHash);
+            const scheduledKey = `${reminderToSchedule.id}-${reminderToSchedule.date}-${reminderToSchedule.time}-${reminderToSchedule.priority}-${reminderToSchedule.snoozeUntil || ''}-${reminderToSchedule.nextReminderDate || ''}`;
+            const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            processedReminders.current.set(reminder.id, scheduledHash);
             schedulingInProgress.current.delete(reminder.id);
             console.log(`[ReminderEngine] Successfully scheduled ${reminder.id}`);
           })
@@ -95,6 +106,41 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             isActive: false,
           });
           processedReminders.current.delete(reminder.id);
+        } else if (reminder.repeatType !== 'none') {
+          // Auto-advance repeating reminders (e.g., Every X minutes)
+          const nextDate = calculateNextReminderDate(reminder, now);
+          if (nextDate) {
+            const updated = {
+              ...reminder,
+              nextReminderDate: nextDate.toISOString(),
+              lastTriggeredAt: new Date().toISOString(),
+              snoozeUntil: undefined,
+              isActive: true,
+              isCompleted: false,
+              isExpired: false,
+            } as Reminder;
+
+            console.log(`[ReminderEngine] Advancing ${reminder.id} to next occurrence at ${updated.nextReminderDate}`);
+            updateReminderRef.current.mutate(updated);
+
+            // Schedule immediately using the updated object so timestamp uses nextReminderDate
+            schedulingInProgress.current.add(reminder.id);
+            notificationService.scheduleReminderByModel(updated)
+              .then(() => {
+                const scheduledKey = `${updated.id}-${updated.date}-${updated.time}-${updated.priority}-${updated.snoozeUntil || ''}-${updated.nextReminderDate || ''}`;
+                const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                processedReminders.current.set(reminder.id, scheduledHash);
+                schedulingInProgress.current.delete(reminder.id);
+                console.log(`[ReminderEngine] Auto-rescheduled ${reminder.id}`);
+              })
+              .catch((error) => {
+                console.error(`[ReminderEngine] Failed to auto-reschedule ${reminder.id}:`, error);
+                schedulingInProgress.current.delete(reminder.id);
+              });
+          } else {
+            console.log(`[ReminderEngine] No next occurrence computed for ${reminder.id}`);
+            processedReminders.current.delete(reminder.id);
+          }
         }
       } else {
         console.log(`[ReminderEngine] No valid fire time for reminder ${reminder.id}`);
@@ -120,7 +166,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     }, 60000);
     
     return () => clearInterval(cleanupInterval);
-  }, [reminders]);
+  }, [reminders, lastTick]);
 
   return React.useMemo(() => ({ lastTick }), [lastTick]);
 });
