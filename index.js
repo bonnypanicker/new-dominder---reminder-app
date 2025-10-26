@@ -26,9 +26,9 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         return;
       }
 
-      // Only auto-reschedule "every" type reminders
-      if (reminder.repeatType === 'every' && reminder.everyInterval) {
-        console.log(`[onBackgroundEvent] Auto-rescheduling 'every' reminder ${reminderId}`);
+      // Auto-reschedule all repeating reminder types (not just 'every')
+      if (reminder.repeatType !== 'none') {
+        console.log(`[onBackgroundEvent] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId}`);
         
         const reminderUtils = require('./services/reminder-utils');
         const nextDate = reminderUtils.calculateNextReminderDate(reminder, new Date());

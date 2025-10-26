@@ -726,7 +726,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(0xFFFAFAFA.toInt()) // Material3 background
+            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3 surface
             setPadding(0, 0, 0, 0)
         }
 
@@ -1624,7 +1624,7 @@ const withAlarmManifest = (config) => {
         'android:excludeFromRecents': 'true',
         'android:exported': 'true', // Must be true to be started by system
         'android:launchMode': 'singleTask',
-        'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar'
+        'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
       },
     });
     // Add RingtonePickerActivity
@@ -1632,7 +1632,7 @@ const withAlarmManifest = (config) => {
       $: {
         'android:name': '.alarm.RingtonePickerActivity',
         'android:exported': 'false',
-        'android:theme': '@style/Theme.AppCompat.DayNight.NoActionBar'
+        'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
       },
     });
     application.activity = activities;

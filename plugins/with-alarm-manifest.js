@@ -15,7 +15,7 @@ module.exports = function withAlarmManifest(config) {
           'android:turnScreenOn': 'true',
           'android:excludeFromRecents': 'true',
           'android:launchMode': 'singleTop',
-          'android:theme': ' @style/Theme.AppCompat.NoActionBar'
+          'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
         }
       });
     }

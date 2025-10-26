@@ -136,6 +136,53 @@ function AppContent() {
         const { notification, pressAction } = detail || {};
         console.log('[RootLayout] Foreground event:', { type, pressAction: pressAction?.id });
 
+        // Handle notification delivered events for automatic rescheduling (foreground)
+        if (type === EventType.DELIVERED) {
+          if (!notification || !notification.data) return;
+
+          const reminderId = notification.data.reminderId;
+          if (!reminderId) return;
+
+          console.log(`[RootLayout] Foreground notification delivered for reminder ${reminderId}`);
+
+          // Get reminder and check if it's an "every" type that needs automatic rescheduling
+          const reminderService = require('../services/reminder-service');
+          const reminder = await reminderService.getReminder(reminderId);
+          
+          if (!reminder) {
+            console.log(`[RootLayout] Reminder ${reminderId} not found for delivered event`);
+            return;
+          }
+
+          // Auto-reschedule all repeating reminder types (not just 'every')
+          if (reminder.repeatType !== 'none') {
+            console.log(`[RootLayout] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId} (foreground)`);
+            
+            const reminderUtils = require('../services/reminder-utils');
+            const nextDate = reminderUtils.calculateNextReminderDate(reminder, new Date());
+            
+            if (nextDate) {
+              // Update the reminder with the next occurrence
+              const updatedReminder = {
+                ...reminder,
+                nextReminderDate: nextDate.toISOString(),
+                lastTriggeredAt: new Date().toISOString(),
+              };
+              
+              await reminderService.updateReminder(updatedReminder);
+              
+              // Schedule the next notification
+              const notificationService = require('../hooks/notification-service');
+              await notificationService.scheduleReminderByModel(updatedReminder);
+              
+              console.log(`[RootLayout] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()} (foreground)`);
+            } else {
+              console.log(`[RootLayout] No next occurrence found for ${reminderId} (foreground)`);
+            }
+          }
+          return;
+        }
+
         if (type === EventType.PRESS && notification) {
           const reminderId = notification.data?.reminderId as string;
           const priority = notification.data?.priority as string;
