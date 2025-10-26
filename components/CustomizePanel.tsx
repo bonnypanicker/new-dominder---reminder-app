@@ -1684,11 +1684,9 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     const fallbackFromAnchorRect = () => {
       if (!anchor) return;
       const preferredTop = (anchor.y - containerY) + anchor.height + 8;
-      const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
+      const preferredLeft = (anchor.x - containerX);
       const top = Math.max(8, preferredTop);
-      const left = isPortrait
-        ? Math.max(8, containerW - dropdownWidth - rightMarginPortrait)
-        : Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
       if (!cancelled) setComputedPos({ top, left });
     };
 
@@ -1698,11 +1696,9 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           containerRef.current,
           (left: number, top: number, width: number, height: number) => {
             const preferredTop = top + height + 8;
-            const preferredLeft = left + width - dropdownWidth;
+            const preferredLeft = left;
             const topBounded = Math.max(8, preferredTop);
-            const leftBounded = isPortrait
-              ? Math.max(8, containerW - dropdownWidth - rightMarginPortrait)
-              : Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
             if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
           },
           () => fallbackFromAnchorRect()
