@@ -43,7 +43,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, repeatType: String? = null, everyValue: Int = 0, everyUnit: String? = null, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -60,6 +60,10 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority ?: "medium")
+                // NEW: pass repeat extras for native auto-rescheduling
+                if (repeatType != null) putExtra("repeatType", repeatType)
+                if (everyValue > 0) putExtra("everyValue", everyValue)
+                if (everyUnit != null) putExtra("everyUnit", everyUnit)
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -69,7 +73,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime (repeatType=$repeatType, every=$everyValue $everyUnit)")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
