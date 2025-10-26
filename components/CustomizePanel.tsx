@@ -1684,7 +1684,8 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     const fallbackFromAnchorRect = () => {
       if (!anchor) return;
       const preferredTop = (anchor.y - containerY) + anchor.height + 8;
-      const preferredLeft = (anchor.x - containerX);
+      // Align dropdown's right edge with anchor's right edge
+      const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
       const top = Math.max(8, preferredTop);
       const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
       if (!cancelled) setComputedPos({ top, left });
@@ -1696,7 +1697,8 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           containerRef.current,
           (left: number, top: number, width: number, height: number) => {
             const preferredTop = top + height + 8;
-            const preferredLeft = left;
+            // Align dropdown's right edge with anchor's right edge
+            const preferredLeft = left + width - dropdownWidth;
             const topBounded = Math.max(8, preferredTop);
             const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
             if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
@@ -1714,6 +1716,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor, hideTomorrow]);
 
   const top = computedPos?.top ?? (anchor ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
+  // Align dropdown's right edge with anchor's right edge
   const left = computedPos?.left ?? (anchor ? Math.max(8, Math.min((anchor.x - containerX) + anchor.width - dropdownWidth, containerW - dropdownWidth - 8)) : 8);
 
   return (
