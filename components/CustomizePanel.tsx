@@ -33,6 +33,7 @@ export default function CustomizePanel({
   onEveryChange,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
+  const dateAnchorRef = useRef<View>(null);
   
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -185,6 +186,7 @@ export default function CustomizePanel({
             <View style={styles.menuWrapper}
               >
               <DropdownAnchor
+                ref={dateAnchorRef}
                 label={`${formattedSelectedDate} • ${displayTime}`}
                 open={dropdownOpen}
                 onOpen={() => {}}
@@ -364,6 +366,7 @@ export default function CustomizePanel({
         onCustom={() => { setCalendarOpen(true); setDropdownOpen(false); }}
         hideTomorrow={repeatType === 'every'}
         containerRef={containerRef}
+        anchorRef={dateAnchorRef}
       />
 
       <InlineUnitDropdown
@@ -1599,12 +1602,10 @@ interface DropdownAnchorProps {
   onMeasure: (rect: AnchorRect | null) => void;
 }
 
-function DropdownAnchor({ label, open, onOpen, onToggle, onMeasure }: DropdownAnchorProps) {
-  const ref = useRef<View | null>(null);
-
+const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, open, onOpen, onToggle, onMeasure }, ref) => {
   const measureNow = () => {
     try {
-      ref.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
+      (ref as any)?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
         onMeasure({ x, y, width, height });
       });
     } catch (e) {
@@ -1631,7 +1632,7 @@ function DropdownAnchor({ label, open, onOpen, onToggle, onMeasure }: DropdownAn
       <Feather name="chevron-down" size={16} color="#111827" />
     </TouchableOpacity>
   );
-}
+});
 
 // New inline dropdown components that don't use Modal
 interface InlineDropdownProps {
@@ -1643,16 +1644,17 @@ interface InlineDropdownProps {
   onCustom: () => void;
   hideTomorrow?: boolean;
   containerRef?: React.RefObject<View>;
+  anchorRef?: React.RefObject<View>;
 }
 
-function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false, containerRef }: InlineDropdownProps) {
-  if (!visible || !anchor) return null;
+function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false, containerRef, anchorRef }: InlineDropdownProps) {
+  if (!visible || (!anchorRef && !anchor)) return null;
   
   // Calculate dropdown dimensions
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
   
-  // Measure container position in window to convert anchor to container-relative coords
+  // Measure container to bound positioning within it
   const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
   React.useEffect(() => {
     try {
@@ -1660,18 +1662,51 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
         setContainerOffset({ x, y, width, height });
       });
     } catch {}
-  }, [visible]);
+  }, [visible, containerRef?.current]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
   
-  // Position calculation relative to container
-  const preferredTop = (anchor.y - containerY) + anchor.height + 8;
-  const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
-  
-  // Boundary checks within container width
-  const top = Math.max(8, preferredTop);
-  const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+  // Compute anchor-relative position using ref when available; fallback to provided anchor rect
+  const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
+  React.useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+
+    const fallbackFromAnchorRect = () => {
+      if (!anchor) return;
+      const preferredTop = (anchor.y - containerY) + anchor.height + 8;
+      const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
+      const top = Math.max(8, preferredTop);
+      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      if (!cancelled) setComputedPos({ top, left });
+    };
+
+    if (anchorRef?.current && containerRef?.current && (anchorRef.current as any).measureLayout) {
+      try {
+        (anchorRef.current as any).measureLayout(
+          containerRef.current,
+          (left: number, top: number, width: number, height: number) => {
+            const preferredTop = top + height + 8;
+            const preferredLeft = left + width - dropdownWidth;
+            const topBounded = Math.max(8, preferredTop);
+            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
+          },
+          () => fallbackFromAnchorRect()
+        );
+      } catch {
+        fallbackFromAnchorRect();
+      }
+    } else {
+      fallbackFromAnchorRect();
+    }
+
+    return () => { cancelled = true; };
+  }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor, hideTomorrow]);
+
+  const top = computedPos?.top ?? (anchor ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
+  const left = computedPos?.left ?? (anchor ? Math.max(8, Math.min((anchor.x - containerX) + anchor.width - dropdownWidth, containerW - dropdownWidth - 8)) : 8);
 
   return (
     <>
