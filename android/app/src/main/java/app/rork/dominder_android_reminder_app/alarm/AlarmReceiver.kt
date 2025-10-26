@@ -72,7 +72,7 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.small_icon)
             .setContentTitle(title)
             .setContentText("Alarm is ringing")
             .setPriority(NotificationCompat.PRIORITY_MAX)

@@ -172,6 +172,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
         channelId,
         importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
         category: reminder.priority === 'high' ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
+        smallIcon: 'small_icon',
         lightUpScreen: reminder.priority === 'high',
         ongoing: true,
         autoCancel: false,
