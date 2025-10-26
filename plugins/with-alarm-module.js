@@ -8,9 +8,10 @@ const path = require('path');
 const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1C1B1F"
+    android:background="?attr/colorSurface"
     android:orientation="vertical"
     android:paddingStart="24dp"
     android:paddingEnd="24dp"
@@ -22,7 +23,7 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="REMINDER"
-        android:textColor="#D0BCFF"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="14sp"
         android:fontFamily="sans-serif-medium"
         android:letterSpacing="0.05"
@@ -34,7 +35,7 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:id="@+id/alarm_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#E6E1E5"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="28sp"
         android:fontFamily="sans-serif"
         android:gravity="center"
@@ -54,7 +55,7 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
             android:id="@+id/current_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#D0BCFF"
+            android:textColor="?attr/colorPrimary"
             android:textSize="72sp"
             android:fontFamily="sans-serif-light"
             android:letterSpacing="-0.02"
@@ -66,7 +67,7 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="SNOOZE FOR"
-        android:textColor="#CAC4D0"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="12sp"
         android:fontFamily="sans-serif-medium"
         android:letterSpacing="0.05"
@@ -82,75 +83,81 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:gravity="center"
         android:layout_marginBottom="24dp">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_5m"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:backgroundTint="#2B2930"
-            android:textColor="#D0BCFF"
+            android:textColor="?attr/colorPrimary"
             android:text="5m"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
             android:paddingVertical="12dp"
             android:layout_marginEnd="6dp"
-            style="?attr/materialButtonOutlinedStyle" />
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorPrimary" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_10m"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:backgroundTint="#2B2930"
-            android:textColor="#D0BCFF"
+            android:textColor="?attr/colorPrimary"
             android:text="10m"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
             android:paddingVertical="12dp"
             android:layout_marginEnd="6dp"
-            style="?attr/materialButtonOutlinedStyle" />
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorPrimary" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_15m"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:backgroundTint="#2B2930"
-            android:textColor="#D0BCFF"
+            android:textColor="?attr/colorPrimary"
             android:text="15m"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
             android:paddingVertical="12dp"
             android:layout_marginEnd="6dp"
-            style="?attr/materialButtonOutlinedStyle" />
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorPrimary" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_30m"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:backgroundTint="#2B2930"
-            android:textColor="#D0BCFF"
+            android:textColor="?attr/colorPrimary"
             android:text="30m"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
             android:paddingVertical="12dp"
-            style="?attr/materialButtonOutlinedStyle" />
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorPrimary" />
     </LinearLayout>
 
     <!-- Done Button -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/done_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:backgroundTint="#6750A4"
-        android:textColor="#FFFFFF"
+        android:textColor="?attr/colorOnPrimary"
         android:text="Done"
         android:textSize="16sp"
         android:fontFamily="sans-serif-medium"
         android:letterSpacing="0.05"
         android:paddingVertical="20dp"
-        android:elevation="3dp" />
+        style="@style/Widget.Material3.Button"
+        app:cornerRadius="8dp"
+        app:rippleColor="?attr/colorPrimaryContainer"
+        app:backgroundTint="?attr/colorPrimary" />
 
 </LinearLayout>`;
 
@@ -1699,7 +1706,7 @@ const withAppGradle = (config) => {
       let buildGradle = config.modResults.contents;
       if (!buildGradle.includes('kotlinOptions')) {
         buildGradle = buildGradle.replace(
-          /(\n\s*android\s*{\s*)/,
+          /(\n\s*android\s*{\s*)/, 
           `$1    kotlinOptions {
         jvmTarget = "17"
     }
@@ -1708,13 +1715,24 @@ const withAppGradle = (config) => {
       }
       if (!buildGradle.includes('compileOptions')) {
         buildGradle = buildGradle.replace(
-          /(\n\s*android\s*{\s*)/,
+          /(\n\s*android\s*{\s*)/, 
           `$1    compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 `
         );
+      }
+      // Ensure Material Components library for Material 3 widgets
+      if (!buildGradle.includes('com.google.android.material:material')) {
+        if (/dependencies\s*{/.test(buildGradle)) {
+          buildGradle = buildGradle.replace(
+            /dependencies\s*{/,
+            `dependencies {\n    implementation 'com.google.android.material:material:1.11.0'`
+          );
+        } else {
+          buildGradle += `\n\ndependencies {\n    implementation 'com.google.android.material:material:1.11.0'\n}\n`;
+        }
       }
       config.modResults.contents = buildGradle;
     }

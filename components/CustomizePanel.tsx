@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard } from 'react-native';
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
@@ -1714,7 +1715,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
 
   const top = computedPos?.top ?? (anchor ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
   // Force align near right border of the container (easy way)
-  const left = Math.max(8, containerW - dropdownWidth - 8);
+  const left = Math.max(8, containerW - dropdownWidth - (Platform.OS === 'android' ? 24 : 8));
 
   return (
     <>

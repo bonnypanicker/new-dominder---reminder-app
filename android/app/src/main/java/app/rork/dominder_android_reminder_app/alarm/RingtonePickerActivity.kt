@@ -32,7 +32,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(0xFFFAFAFA.toInt()) // Material3 background
+            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3 surface
             setPadding(0, 0, 0, 0)
         }
 

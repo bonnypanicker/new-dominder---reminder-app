@@ -1329,6 +1329,7 @@ function CreateReminderPopup({
                   ref={titleInputRef}
                   style={createPopupStyles.titleInput}
                   placeholder="Enter reminder"
+                  placeholderTextColor="#9CA3AF"
                   value={title}
                   onChangeText={onTitleChange}
                   blurOnSubmit={false}

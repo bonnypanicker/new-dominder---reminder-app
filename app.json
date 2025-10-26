@@ -3,7 +3,7 @@
     "name": "DoMinder - Reminder App",
     "slug": "new-dominder-reminder-app",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -46,6 +46,7 @@
     "plugins": [
       "./plugins/with-fullscreen-alarm",
       "./plugins/with-alarm-module.js",
+      "./plugins/with-orientation.js",
       [
         "expo-router",
         {
