@@ -1669,7 +1669,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   }, [visible, containerRef?.current]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
-  const containerW = containerOffset?.width ?? require('react-native').Dimensions.get('window').width;
+  const containerW = containerOffset?.width ?? 300;
   
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
   const isPortrait = winH >= winW;
@@ -1818,7 +1818,7 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   }, [visible]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
-  const containerW = containerOffset?.width ?? require('react-native').Dimensions.get('window').width;
+  const containerW = containerOffset?.width ?? 300;
   
   // Compute anchor-relative position using ref when available; fallback to provided anchor rect
   const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);

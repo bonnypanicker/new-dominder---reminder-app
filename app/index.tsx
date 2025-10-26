@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
 const Clock = (props: any) => <Feather name="clock" {...props} />;
 const Settings = (props: any) => <Feather name="settings" {...props} />;
@@ -15,7 +15,7 @@ const X = (props: any) => <Feather name="x" {...props} />;
 const Square = (props: any) => <Feather name="square" {...props} />;
 const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
-const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
+const Keyboard = (props: any) => <Feather name="keyboard" {...props} />;
 import { router } from 'expo-router';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
@@ -1598,7 +1598,6 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const lastAngle = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
   const rotationRef = useRef<number>(0);
-  const initialAngleOffset = useRef<number>(0);
   const animatedRotation = useRef(new Animated.Value(0)).current;
   const framePending = useRef<boolean>(false);
   const centerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -1675,15 +1674,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       rotationRef.current = rotation;
       measureCenter();
 
-      // Track the offset between current pointer position and touch position
-      // This prevents the pointer from jumping to the touch position
-      const touchAngle = getAngleFromEvent(evt);
-      const currentPointerAngle = rotation % 360;
-      const angleOffset = angleDelta(touchAngle, currentPointerAngle);
-      lastAngle.current = touchAngle;
-      
-      // Store the initial offset to maintain relative movement
-      initialAngleOffset.current = angleOffset;
+      // Initialize lastAngle based on absolute touch position
+      const startDeg = getAngleFromEvent(evt);
+      lastAngle.current = startDeg;
       
       // Stop any ongoing animations
       if (decayAnimation.current) {
@@ -1706,9 +1699,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       if (!isDragging.current) return;
       const currentTime = Date.now();
       
-      // Use relative movement from the initial touch position
-      const currentTouchAngle = getAngleFromEvent(evt);
-      let delta = angleDelta(lastAngle.current, currentTouchAngle);
+      // Use absolute finger position to compute angle
+      const degrees = getAngleFromEvent(evt);
+      let delta = angleDelta(lastAngle.current, degrees);
       if (Math.abs(delta) < DEADBAND_DEG) return;
       
       const timeDelta = currentTime - lastMoveTime.current;
@@ -1723,11 +1716,10 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       lastMoveTime.current = currentTime;
       
       delta *= activeSection === 'hour' ? HOUR_SENSITIVITY : MINUTE_SENSITIVITY;
-      lastAngle.current = currentTouchAngle;
+      lastAngle.current = degrees;
       
-      // Apply relative rotation change instead of absolute positioning
-      rotationRef.current = (rotationRef.current + delta) % 360;
-      if (rotationRef.current < 0) rotationRef.current += 360;
+      // Set absolute rotation to follow the finger precisely
+      rotationRef.current = degrees % 360;
       const r = rotationRef.current;
       setRotation(r);
       
