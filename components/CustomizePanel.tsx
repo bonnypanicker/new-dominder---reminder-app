@@ -1010,17 +1010,12 @@ const styles = StyleSheet.create({
   },
   inlineDropdownContent: {
     position: 'absolute',
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 8,
-    shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 20,
-    elevation: 24,
     borderWidth: 1,
-    borderColor: Material3Colors.light.primary,
+    borderColor: '#E5E7EB',
     overflow: 'visible',
   },
   inlineDropdownItem: {
@@ -1045,7 +1040,7 @@ const styles = StyleSheet.create({
   },
   inlineDropdownDivider: {
     height: 1,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: '#E5E7EB',
     marginHorizontal: 8,
     marginVertical: 4,
   },
@@ -1718,8 +1713,8 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor, hideTomorrow]);
 
   const top = computedPos?.top ?? (anchor ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
-  // Align dropdown's right edge with anchor's right edge
-  const left = computedPos?.left ?? (anchor ? Math.max(8, Math.min((anchor.x - containerX) + anchor.width - dropdownWidth, containerW - dropdownWidth - 8)) : 8);
+  // Force align near right border of the container (easy way)
+  const left = Math.max(8, containerW - dropdownWidth - 8);
 
   return (
     <>
@@ -1751,10 +1746,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           onPress={onToday}
         >
           <View style={styles.inlineDropdownItemLeft}>
-            <Feather name="clock" size={16} color={Material3Colors.light.primary} />
+            <Feather name="clock" size={16} color="#111827" />
             <Text style={styles.inlineDropdownItemText}>Today</Text>
           </View>
-          <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+          <Feather name="chevron-right" size={16} color="#6B7280" />
         </TouchableOpacity>
         {!hideTomorrow && (
           <>
@@ -1765,10 +1760,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
               onPress={onTomorrow}
             >
               <View style={styles.inlineDropdownItemLeft}>
-                <Feather name="clock" size={16} color={Material3Colors.light.primary} />
+                <Feather name="clock" size={16} color="#111827" />
                 <Text style={styles.inlineDropdownItemText}>Tomorrow</Text>
               </View>
-              <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+              <Feather name="chevron-right" size={16} color="#6B7280" />
             </TouchableOpacity>
           </>
         )}
@@ -1779,10 +1774,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           onPress={onCustom}
         >
           <View style={styles.inlineDropdownItemLeft}>
-            <MaterialIcons name="calendar-today" size={16} color={Material3Colors.light.primary} />
+            <MaterialIcons name="calendar-today" size={16} color="#111827" />
             <Text style={styles.inlineDropdownItemText}>Custom date…</Text>
           </View>
-          <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+          <Feather name="chevron-right" size={16} color="#6B7280" />
         </TouchableOpacity>
       </View>
     </>
