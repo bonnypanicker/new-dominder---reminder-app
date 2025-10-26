@@ -108,8 +108,32 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           processedReminders.current.delete(reminder.id);
         } else if (reminder.repeatType !== 'none') {
           // Auto-advance repeating reminders (e.g., Every X minutes)
-          const nextDate = calculateNextReminderDate(reminder, now);
-          if (nextDate) {
+          // For recurring reminders, we need to advance to the next occurrence automatically
+          // This ensures that "every X minutes" reminders continue to fire even if user doesn't interact
+          
+          let nextDate = calculateNextReminderDate(reminder, now);
+          
+          // For 'every' type reminders, if the calculated next date is still in the past,
+          // we need to keep advancing until we get a future date
+          if (reminder.repeatType === 'every' && reminder.everyInterval && nextDate && nextDate <= now) {
+            console.log(`[ReminderEngine] Next calculated date ${nextDate.toISOString()} is still in past, advancing further`);
+            
+            const interval = reminder.everyInterval;
+            const addMs = interval.unit === 'minutes' 
+              ? interval.value * 60 * 1000 
+              : interval.unit === 'hours' 
+              ? interval.value * 60 * 60 * 1000 
+              : interval.value * 24 * 60 * 60 * 1000;
+            
+            // Calculate how many intervals we need to skip to get to the future
+            const timeDiff = now.getTime() - nextDate.getTime();
+            const intervalsToSkip = Math.ceil(timeDiff / addMs);
+            nextDate = new Date(nextDate.getTime() + (intervalsToSkip * addMs));
+            
+            console.log(`[ReminderEngine] Advanced ${reminder.id} by ${intervalsToSkip} intervals to ${nextDate.toISOString()}`);
+          }
+          
+          if (nextDate && nextDate > now) {
             const updated = {
               ...reminder,
               nextReminderDate: nextDate.toISOString(),
@@ -138,7 +162,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
                 schedulingInProgress.current.delete(reminder.id);
               });
           } else {
-            console.log(`[ReminderEngine] No next occurrence computed for ${reminder.id}`);
+            console.log(`[ReminderEngine] No valid future occurrence computed for ${reminder.id}`);
             processedReminders.current.delete(reminder.id);
           }
         }

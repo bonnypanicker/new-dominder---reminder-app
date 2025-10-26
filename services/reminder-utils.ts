@@ -121,8 +121,9 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         return null;
       }
       
-      // Determine the reference point: use lastTriggeredAt if available, otherwise use original date
+      // Determine the reference point for calculating the next occurrence
       let referenceTime: Date;
+      
       if (reminder.nextReminderDate) {
         // If there's a nextReminderDate, use it as the reference (this is the last scheduled time)
         referenceTime = new Date(reminder.nextReminderDate);
@@ -138,18 +139,18 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         console.log(`[calculateNextReminderDate] Using original date as reference: ${referenceTime.toISOString()}`);
       }
       
-      // If fromDate is before or equal to reference time, return reference time
-      if (fromDate <= referenceTime) {
-        console.log(`[calculateNextReminderDate] Using reference time: ${referenceTime.toISOString()}`);
-        return referenceTime;
-      }
-      
       // Calculate the interval in milliseconds
       const addMs = interval.unit === 'minutes' 
         ? interval.value * 60 * 1000 
         : interval.unit === 'hours' 
         ? interval.value * 60 * 60 * 1000 
         : interval.value * 24 * 60 * 60 * 1000;
+      
+      // If the reference time is in the future relative to fromDate, return it
+      if (referenceTime > fromDate) {
+        console.log(`[calculateNextReminderDate] Reference time is in future: ${referenceTime.toISOString()}`);
+        return referenceTime;
+      }
       
       // Calculate next occurrence by adding one interval to the reference time
       const result = new Date(referenceTime.getTime() + addMs);
