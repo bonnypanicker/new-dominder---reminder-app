@@ -34,6 +34,7 @@ export default function CustomizePanel({
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const dateAnchorRef = useRef<View>(null);
+  const unitAnchorRef = useRef<View>(null);
   
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -212,6 +213,7 @@ export default function CustomizePanel({
                 testID="every-value-input"
               />
               <UnitDropdownButton
+                ref={unitAnchorRef}
                 unit={everyUnit ?? 'hours'}
                 onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
                 onOpenDropdown={handleUnitDropdownOpen}
@@ -378,6 +380,7 @@ export default function CustomizePanel({
         onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
         onClose={() => setUnitDropdownOpen(false)}
         containerRef={containerRef}
+        anchorRef={unitAnchorRef}
       />
 
 
@@ -589,35 +592,36 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   );
 }
 
-function UnitDropdownButton({ unit, onChange, onOpenDropdown }: { unit: EveryUnit; onChange: (unit: EveryUnit) => void; onOpenDropdown: (coords: AnchorRect) => void }) {
-  const buttonRef = useRef<View | null>(null);
-  
-  const getUnitLabel = (u: EveryUnit) => {
-    return u.charAt(0).toUpperCase() + u.slice(1);
-  };
-  
-  const measureButton = () => {
-    try {
-      buttonRef.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
-        onOpenDropdown({ x, y, width, height });
-      });
-    } catch (e) {
-      console.log('measure error', e);
-    }
-  };
-  
-  return (
-    <TouchableOpacity
-      ref={buttonRef as any}
-      style={styles.unitButton}
-      onPress={measureButton}
-      testID="every-unit-button"
-    >
-      <Text style={styles.unitButtonText}>{getUnitLabel(unit)}</Text>
-      <Feather name="chevron-down" size={14} color="#111827" />
-    </TouchableOpacity>
-  );
-}
+const UnitDropdownButton = React.forwardRef<View, { unit: EveryUnit; onChange: (unit: EveryUnit) => void; onOpenDropdown: (coords: AnchorRect) => void }>(
+  ({ unit, onChange, onOpenDropdown }, ref) => {
+    const getUnitLabel = (u: EveryUnit) => {
+      return u.charAt(0).toUpperCase() + u.slice(1);
+    };
+
+    const measureButton = () => {
+      try {
+        (ref as any)?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
+          onOpenDropdown({ x, y, width, height });
+        });
+      } catch (e) {
+        console.log('measure error', e);
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        ref={ref as any}
+        style={styles.unitButton}
+        onPress={measureButton}
+        testID="every-unit-button"
+      >
+        <Text style={styles.unitButtonText}>{getUnitLabel(unit)}</Text>
+        <Feather name="chevron-down" size={14} color="#111827" />
+      </TouchableOpacity>
+    );
+  }
+);
+UnitDropdownButton.displayName = 'UnitDropdownButton';
 
 interface UnitDropdownModalProps {
   visible: boolean;
@@ -1667,6 +1671,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
   
+  const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
+  const isPortrait = winH >= winW;
+  const rightMarginPortrait = 12;
+  
   // Compute anchor-relative position using ref when available; fallback to provided anchor rect
   const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
   React.useEffect(() => {
@@ -1678,7 +1686,9 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
       const preferredTop = (anchor.y - containerY) + anchor.height + 8;
       const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
       const top = Math.max(8, preferredTop);
-      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      const left = isPortrait
+        ? Math.max(8, containerW - dropdownWidth - rightMarginPortrait)
+        : Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
       if (!cancelled) setComputedPos({ top, left });
     };
 
@@ -1690,7 +1700,9 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
             const preferredTop = top + height + 8;
             const preferredLeft = left + width - dropdownWidth;
             const topBounded = Math.max(8, preferredTop);
-            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            const leftBounded = isPortrait
+              ? Math.max(8, containerW - dropdownWidth - rightMarginPortrait)
+              : Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
             if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
           },
           () => fallbackFromAnchorRect()
@@ -1785,9 +1797,10 @@ interface InlineUnitDropdownProps {
   onChange: (unit: EveryUnit) => void;
   onClose: () => void;
   containerRef?: React.RefObject<View>;
+  anchorRef?: React.RefObject<View>;
 }
 
-function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef }: InlineUnitDropdownProps) {
+function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef, anchorRef }: InlineUnitDropdownProps) {
   if (!visible || !anchor) return null;
   
   // Calculate dropdown dimensions
@@ -1808,13 +1821,44 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
   
-  // Position calculation relative to container
-  const preferredTop = (anchor.y - containerY) + anchor.height + 8;
-  const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
-  
-  // Boundary checks within container width
-  const top = Math.max(8, preferredTop);
-  const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+  // Compute anchor-relative position using ref when available; fallback to provided anchor rect
+  const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const fallbackFromAnchorRect = () => {
+      const preferredTop = (anchor.y - containerY) + anchor.height + 8;
+      const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
+      const top = Math.max(8, preferredTop);
+      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      if (!cancelled) setComputedPos({ top, left });
+    };
+
+    if (anchorRef?.current && containerRef?.current && (anchorRef.current as any).measureLayout) {
+      try {
+        (anchorRef.current as any).measureLayout(
+          containerRef.current,
+          (left: number, top: number, width: number, height: number) => {
+            const preferredTop = top + height + 8;
+            const preferredLeft = left + (width / 2) - (dropdownWidth / 2);
+            const topBounded = Math.max(8, preferredTop);
+            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
+          },
+          () => fallbackFromAnchorRect()
+        );
+      } catch {
+        fallbackFromAnchorRect();
+      }
+    } else {
+      fallbackFromAnchorRect();
+    }
+
+    return () => { cancelled = true; };
+  }, [visible, anchorRef, containerRef, anchor, containerOffset]);
+
+  const top = computedPos?.top ?? Math.max(8, (anchor.y - containerY) + anchor.height + 8);
+  const left = computedPos?.left ?? Math.max(8, Math.min((anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2), containerW - dropdownWidth - 8));
 
   return (
     <>
