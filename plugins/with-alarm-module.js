@@ -669,7 +669,7 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
-            .setSmallIcon(R.drawable.small_icon_noti)
+            .setSmallIcon(R.drawable.small_icon_card)
             .setColor(0xFF6750A4.toInt())
             .setColorized(true)
             .setContentTitle(title)
@@ -1543,22 +1543,22 @@ const withResourceFiles = (config) => {
       
       fs.writeFileSync(path.join(layoutDir, 'activity_alarm.xml'), activityAlarmXml);
 
-      // Copy small_icon_noti.png into res/drawable (no compression)
+      // Copy small_icon_card.png into res/drawable (no compression)
       try {
         const drawableDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'drawable');
         if (!fs.existsSync(drawableDir)) {
           fs.mkdirSync(drawableDir, { recursive: true });
         }
-        const sourceIcon = path.join(projectRoot, 'small_icon_noti.png');
-        const targetIcon = path.join(drawableDir, 'small_icon_noti.png');
+        const sourceIcon = path.join(projectRoot, 'small_icon_card.png');
+        const targetIcon = path.join(drawableDir, 'small_icon_card.png');
         if (fs.existsSync(sourceIcon)) {
           fs.copyFileSync(sourceIcon, targetIcon);
-          console.log('✅ Copied small_icon_noti.png to res/drawable');
+          console.log('✅ Copied small_icon_card.png to res/drawable');
         } else {
-          console.warn('⚠️ small_icon_noti.png not found at project root; skipping copy.');
+          console.warn('⚠️ small_icon_card.png not found at project root; skipping copy.');
         }
       } catch (e) {
-        console.warn('⚠️ Could not copy small_icon_noti.png:', e);
+        console.warn('⚠️ Could not copy small_icon_card.png:', e);
       }
       
       return config;

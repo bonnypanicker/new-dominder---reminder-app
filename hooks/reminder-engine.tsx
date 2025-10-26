@@ -40,7 +40,17 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       const lastProcessedHash = processedReminders.current.get(reminder.id);
       const currentHash = reminderKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       
-      if (lastProcessedHash === currentHash && !schedulingInProgress.current.has(reminder.id)) {
+      // Check if reminder needs re-evaluation due to past nextReminderDate
+      let needsReEvaluation = false;
+      if (reminder.nextReminderDate && reminder.repeatType === 'every') {
+        const nextFireTime = new Date(reminder.nextReminderDate);
+        if (nextFireTime <= now) {
+          needsReEvaluation = true;
+          console.log(`[ReminderEngine] Reminder ${reminder.id} needs re-evaluation - nextReminderDate ${nextFireTime.toISOString()} is in past`);
+        }
+      }
+      
+      if (lastProcessedHash === currentHash && !schedulingInProgress.current.has(reminder.id) && !needsReEvaluation) {
         continue;
       }
       
@@ -60,6 +70,36 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       } else if (reminder.nextReminderDate) {
         nextFireTime = new Date(reminder.nextReminderDate);
         console.log(`[ReminderEngine] Reminder ${reminder.id} has nextReminderDate: ${nextFireTime.toISOString()}`);
+        
+        // Check if the nextReminderDate is in the past and needs to be advanced
+        if (nextFireTime <= now && reminder.repeatType === 'every' && reminder.everyInterval) {
+          console.log(`[ReminderEngine] nextReminderDate ${nextFireTime.toISOString()} is in past, recalculating`);
+          
+          const interval = reminder.everyInterval;
+          const addMs = interval.unit === 'minutes' 
+            ? interval.value * 60 * 1000 
+            : interval.unit === 'hours' 
+            ? interval.value * 60 * 60 * 1000 
+            : interval.value * 24 * 60 * 60 * 1000;
+          
+          // Calculate how many intervals we need to skip to get to the future
+          const timeDiff = now.getTime() - nextFireTime.getTime();
+          const intervalsToSkip = Math.ceil(timeDiff / addMs);
+          nextFireTime = new Date(nextFireTime.getTime() + (intervalsToSkip * addMs));
+          
+          console.log(`[ReminderEngine] Advanced ${reminder.id} by ${intervalsToSkip} intervals to ${nextFireTime.toISOString()}`);
+          
+          // Update the reminder with the new nextReminderDate
+          const updatedModel: Reminder = {
+            ...reminder,
+            nextReminderDate: nextFireTime.toISOString(),
+            isActive: true,
+            isCompleted: false,
+            isExpired: false,
+          };
+          updateReminderRef.current.mutate(updatedModel);
+          reminderToSchedule = updatedModel;
+        }
       } else {
         nextFireTime = calculateNextReminderDate(reminder, now);
         
