@@ -1598,6 +1598,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const lastAngle = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
   const rotationRef = useRef<number>(0);
+  const initialAngleOffset = useRef<number>(0);
   const animatedRotation = useRef(new Animated.Value(0)).current;
   const framePending = useRef<boolean>(false);
   const centerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -1674,9 +1675,15 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       rotationRef.current = rotation;
       measureCenter();
 
-      // Initialize lastAngle based on current touch position for delta calculation
-      const startDeg = getAngleFromEvent(evt);
-      lastAngle.current = startDeg;
+      // Track the offset between current pointer position and touch position
+      // This prevents the pointer from jumping to the touch position
+      const touchAngle = getAngleFromEvent(evt);
+      const currentPointerAngle = rotation % 360;
+      const angleOffset = angleDelta(touchAngle, currentPointerAngle);
+      lastAngle.current = touchAngle;
+      
+      // Store the initial offset to maintain relative movement
+      initialAngleOffset.current = angleOffset;
       
       // Stop any ongoing animations
       if (decayAnimation.current) {
@@ -1699,9 +1706,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       if (!isDragging.current) return;
       const currentTime = Date.now();
       
-      // Use absolute finger position to compute angle
-      const degrees = getAngleFromEvent(evt);
-      let delta = angleDelta(lastAngle.current, degrees);
+      // Use relative movement from the initial touch position
+      const currentTouchAngle = getAngleFromEvent(evt);
+      let delta = angleDelta(lastAngle.current, currentTouchAngle);
       if (Math.abs(delta) < DEADBAND_DEG) return;
       
       const timeDelta = currentTime - lastMoveTime.current;
@@ -1716,10 +1723,11 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       lastMoveTime.current = currentTime;
       
       delta *= activeSection === 'hour' ? HOUR_SENSITIVITY : MINUTE_SENSITIVITY;
-      lastAngle.current = degrees;
+      lastAngle.current = currentTouchAngle;
       
-      // Apply delta rotation instead of absolute positioning
-      rotationRef.current = (rotationRef.current + delta + 360) % 360;
+      // Apply relative rotation change instead of absolute positioning
+      rotationRef.current = (rotationRef.current + delta) % 360;
+      if (rotationRef.current < 0) rotationRef.current += 360;
       const r = rotationRef.current;
       setRotation(r);
       

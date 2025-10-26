@@ -1,6 +1,5 @@
 package app.rork.dominder_android_reminder_app.alarm
 
-import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -18,10 +17,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
-        val repeatType = intent.getStringExtra("repeatType")
-        val everyValue = intent.getIntExtra("everyValue", -1)
-        val everyUnit = intent.getStringExtra("everyUnit")
-        val triggerTimeMs = intent.getLongExtra("triggerTimeMs", System.currentTimeMillis())
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -61,6 +56,8 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // FIX: Create a content intent for when the user taps the notification itself.
+        // This should also open the AlarmActivity.
         val contentIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
@@ -69,7 +66,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
-            reminderId.hashCode() + 1,
+            reminderId.hashCode() + 1, // Use a different request code from fullScreenPendingIntent
             contentIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -83,48 +80,15 @@ class AlarmReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            // FIX: Add content intent for notification tap handling.
             .setContentIntent(contentPendingIntent)
+            // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
             .setAutoCancel(true)
+            // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .build()
         
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
-
-        // Auto-reschedule for 'every' repeats
-        if (repeatType == "every" && everyValue > 0 && everyUnit != null) {
-            val intervalMs = when (everyUnit) {
-                "minutes" -> everyValue * 60_000L
-                "hours" -> everyValue * 3_600_000L
-                "days" -> everyValue * 86_400_000L
-                else -> 0L
-            }
-            if (intervalMs > 0L) {
-                val nextTrigger = triggerTimeMs + intervalMs
-                val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
-                    action = "app.rork.dominder.ALARM_FIRED"
-                    putExtra("reminderId", reminderId)
-                    putExtra("title", title)
-                    putExtra("priority", priority)
-                    putExtra("triggerTimeMs", nextTrigger)
-                    putExtra("repeatType", repeatType)
-                    putExtra("everyValue", everyValue)
-                    putExtra("everyUnit", everyUnit)
-                }
-                val nextPendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    reminderId.hashCode(),
-                    nextIntent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    nextTrigger,
-                    nextPendingIntent
-                )
-                DebugLogger.log("AlarmReceiver: Auto-rescheduled repeating alarm for id=$reminderId next=$nextTrigger ($everyValue $everyUnit)")
-            }
-        }
     }
 }

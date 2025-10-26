@@ -11,14 +11,15 @@ import { Reminder } from '@/types/reminder';
 import { NativeModules, Platform } from 'react-native';
 
 const AlarmModule: {
-  scheduleAlarm?: (
+  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => void;
+  scheduleRepeatingAlarm?: (
     reminderId: string,
     title: string,
     triggerTimeMillis: number,
-    priority?: string,
-    repeatType?: string,
-    everyValue?: number,
-    everyUnit?: string
+    priority: string,
+    repeatType: string,
+    everyValue: number,
+    everyUnit: string,
   ) => void;
   cancelAlarm?: (reminderId: string) => void;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
@@ -127,27 +128,42 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
-  const shouldUseNative = Platform.OS === 'android' && (reminder.priority === 'high' || reminder.repeatType === 'every');
+  const isRinger = reminder.priority === 'high';
+  const isEveryRepeat = reminder.repeatType === 'every' && reminder.everyInterval && reminder.everyInterval.value > 0;
 
-  if (shouldUseNative) {
-    const canUseNative = !!(AlarmModule && typeof AlarmModule.scheduleAlarm === 'function');
-    if (!canUseNative) {
-      console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
-    } else {
-      try {
-        const everyValue = reminder.everyInterval?.value ?? 0;
-        const everyUnit = reminder.everyInterval?.unit ?? undefined;
-        AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority, reminder.repeatType, everyValue, everyUnit);
-        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority} repeatType ${reminder.repeatType}`);
-        return; // Avoid scheduling duplicate notifee notification
-      } catch (e) {
-        console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
+  // Prefer native scheduling for 'every' repeats (all priorities) and for high-priority alarms
+  const canUseNative = !!(AlarmModule && (typeof AlarmModule.scheduleAlarm === 'function'));
+  if (!canUseNative) {
+    console.warn('[NotificationService] AlarmModule unavailable (Expo Go or not linked). Using notifee for scheduling.');
+  }
+
+  if (canUseNative && (isEveryRepeat || isRinger)) {
+    try {
+      if (isEveryRepeat && typeof AlarmModule?.scheduleRepeatingAlarm === 'function') {
+        const interval = reminder.everyInterval!;
+        AlarmModule?.scheduleRepeatingAlarm?.(
+          reminder.id,
+          reminder.title,
+          when,
+          reminder.priority,
+          'every',
+          interval.value,
+          interval.unit,
+        );
+        console.log(`[NotificationService] Scheduled native repeating alarm for rem-${reminder.id} every ${interval.value} ${interval.unit}`);
+        return;
+      } else {
+        AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
+        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
+        return;
       }
+    } catch (e) {
+      console.error('[NotificationService] Native scheduling threw, falling back to notifee:', e);
     }
   }
   
   {
-    // Use notifee for medium/low priority OR as fallback
+    // Use notifee for medium/low priority OR when native module is unavailable
     let s = await notifee.getNotificationSettings();
     if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
       await notifee.requestPermission();
@@ -229,51 +245,37 @@ export async function cancelNotification(notificationId: string) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
       }
     }
-    console.log(`[NotificationService] Cancelled notification (scheduled + displayed) ${notificationId}`);
-  } catch (error) {
-    console.error(`[NotificationService] Error cancelling notification ${notificationId}:`, error);
+  } catch (e) {
+    console.error('[NotificationService] cancelNotification failed:', e);
   }
 }
 
 export async function cancelAllNotificationsForReminder(reminderId: string) {
   try {
-    // Cancel scheduled (trigger) notifications
     await notifee.cancelNotification(`rem-${reminderId}`);
-    
-    // Cancel displayed notifications (notifications already showing in notification center)
     await notifee.cancelDisplayedNotification(`rem-${reminderId}`);
-    
-    // Cancel native alarms
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
-      try {
-        AlarmModule.cancelAlarm(reminderId);
-      } catch (e) {
-        console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
-      }
+      try { AlarmModule.cancelAlarm(reminderId); } catch {}
     }
-    console.log(`[NotificationService] Cancelled all notifications (scheduled + displayed) for reminder ${reminderId}`);
-  } catch (error) {
-    console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
+  } catch (e) {
+    console.error('[NotificationService] cancelAllNotificationsForReminder failed:', e);
   }
 }
 
 export async function cleanupOrphanedNotifications() {
   try {
-    const displayed = await notifee.getDisplayedNotifications();
-    const triggered = await notifee.getTriggerNotifications();
-    console.log(`[NotificationService] Cleanup: ${displayed.length} displayed, ${triggered.length} triggered`);
-  } catch (error) {
-    console.error('[NotificationService] Error during cleanup:', error);
+    await notifee.cancelAllNotifications();
+  } catch (e) {
+    console.error('[NotificationService] cleanupOrphanedNotifications failed:', e);
   }
 }
 
 export async function initialize() {
   try {
-    const { ensureBaseChannels } = require('@/services/channels');
-    await ensureBaseChannels();
-    console.log('[NotificationService] Initialized');
-  } catch (error) {
-    console.error('[NotificationService] Initialization error:', error);
+    // Any initialization required for notifee channels can be done here
+    console.log('[NotificationService] initialize called');
+  } catch (e) {
+    console.error('[NotificationService] initialize failed:', e);
   }
 }
 

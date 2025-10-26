@@ -43,16 +43,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(
-        reminderId: String,
-        title: String,
-        triggerTime: Double,
-        priority: String? = null,
-        repeatType: String? = null,
-        everyValue: Int? = null,
-        everyUnit: String? = null,
-        promise: Promise? = null
-    ) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -69,14 +60,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority ?: "medium")
-                putExtra("triggerTimeMs", triggerTime.toLong())
-                if (repeatType != null) {
-                    putExtra("repeatType", repeatType)
-                    if (repeatType == "every" && everyValue != null && everyUnit != null) {
-                        putExtra("everyValue", everyValue)
-                        putExtra("everyUnit", everyUnit)
-                    }
-                }
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
