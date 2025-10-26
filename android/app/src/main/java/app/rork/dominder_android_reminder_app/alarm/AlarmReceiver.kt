@@ -72,7 +72,9 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
-            .setSmallIcon(R.drawable.small_icon)
+            .setSmallIcon(R.drawable.small_icon_noti)
+            .setColor(0xFF6750A4.toInt())
+            .setColorized(true)
             .setContentTitle(title)
             .setContentText("Alarm is ringing")
             .setPriority(NotificationCompat.PRIORITY_MAX)

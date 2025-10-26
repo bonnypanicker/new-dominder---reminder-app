@@ -121,6 +121,13 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         return null;
       }
       
+      // Calculate the interval in milliseconds
+      const addMs = interval.unit === 'minutes' 
+        ? interval.value * 60 * 1000 
+        : interval.unit === 'hours' 
+        ? interval.value * 60 * 60 * 1000 
+        : interval.value * 24 * 60 * 60 * 1000;
+      
       // Determine the reference point for calculating the next occurrence
       let referenceTime: Date;
       
@@ -139,21 +146,15 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         console.log(`[calculateNextReminderDate] Using original date as reference: ${referenceTime.toISOString()}`);
       }
       
-      // Calculate the interval in milliseconds
-      const addMs = interval.unit === 'minutes' 
-        ? interval.value * 60 * 1000 
-        : interval.unit === 'hours' 
-        ? interval.value * 60 * 60 * 1000 
-        : interval.value * 24 * 60 * 60 * 1000;
+      // Always ensure the result is in the future relative to fromDate
+      let result = new Date(referenceTime.getTime() + addMs);
       
-      // If the reference time is in the future relative to fromDate, return it
-      if (referenceTime > fromDate) {
-        console.log(`[calculateNextReminderDate] Reference time is in future: ${referenceTime.toISOString()}`);
-        return referenceTime;
+      // If the calculated result is still in the past, keep adding intervals until we get a future time
+      while (result <= fromDate) {
+        result = new Date(result.getTime() + addMs);
+        console.log(`[calculateNextReminderDate] Result was in past, advancing to: ${result.toISOString()}`);
       }
       
-      // Calculate next occurrence by adding one interval to the reference time
-      const result = new Date(referenceTime.getTime() + addMs);
       console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, next occurrence: ${result.toISOString()}`);
       return result;
     }

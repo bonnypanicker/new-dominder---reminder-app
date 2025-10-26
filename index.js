@@ -7,6 +7,55 @@ import notifee, { EventType } from '@notifee/react-native';
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   try {
+    // Handle notification delivered events for automatic rescheduling
+    if (type === EventType.DELIVERED) {
+      const { notification } = detail || {};
+      if (!notification || !notification.data) return;
+
+      const reminderId = notification.data.reminderId;
+      if (!reminderId) return;
+
+      console.log(`[onBackgroundEvent] Notification delivered for reminder ${reminderId}`);
+
+      // Get reminder and check if it's an "every" type that needs automatic rescheduling
+      const reminderService = require('./services/reminder-service');
+      const reminder = await reminderService.getReminder(reminderId);
+      
+      if (!reminder) {
+        console.log(`[onBackgroundEvent] Reminder ${reminderId} not found for delivered event`);
+        return;
+      }
+
+      // Only auto-reschedule "every" type reminders
+      if (reminder.repeatType === 'every' && reminder.everyInterval) {
+        console.log(`[onBackgroundEvent] Auto-rescheduling 'every' reminder ${reminderId}`);
+        
+        const reminderUtils = require('./services/reminder-utils');
+        const nextDate = reminderUtils.calculateNextReminderDate(reminder, new Date());
+        
+        if (nextDate) {
+          // Update the reminder with the next occurrence
+          const updatedReminder = {
+            ...reminder,
+            nextReminderDate: nextDate.toISOString(),
+            lastTriggeredAt: new Date().toISOString(),
+          };
+          
+          await reminderService.updateReminder(updatedReminder);
+          
+          // Schedule the next notification
+          const notificationService = require('./hooks/notification-service');
+          await notificationService.scheduleReminderByModel(updatedReminder);
+          
+          console.log(`[onBackgroundEvent] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()}`);
+        } else {
+          console.log(`[onBackgroundEvent] No next occurrence found for ${reminderId}`);
+        }
+      }
+      return;
+    }
+
+    // Handle action press events (existing logic)
     if (type !== EventType.ACTION_PRESS) return;
     const { notification, pressAction } = detail || {};
     if (!notification || !pressAction) return;

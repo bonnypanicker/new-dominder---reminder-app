@@ -109,12 +109,29 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
   console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
   
-  const when = reminderToTimestamp(reminder);
+  let when = reminderToTimestamp(reminder);
   const now = Date.now();
   
   if (when <= now) {
-    console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past, skipping`);
-    return;
+    console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past`);
+    
+    // For 'every' reminders, recalculate from current time instead of skipping
+     if (reminder.repeatType === 'every') {
+      console.log(`[NotificationService] Recalculating 'every' reminder from current time`);
+      const { calculateNextReminderDate } = require('../services/reminder-utils');
+      const newWhen = calculateNextReminderDate(reminder, new Date(now));
+      
+      if (newWhen) {
+        when = newWhen.getTime();
+        console.log(`[NotificationService] Rescheduled to: ${new Date(when).toISOString()}`);
+      } else {
+        console.log(`[NotificationService] Failed to recalculate reminder time, skipping`);
+        return;
+      }
+    } else {
+      console.log(`[NotificationService] Non-repeating reminder in past, skipping`);
+      return;
+    }
   }
   
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
