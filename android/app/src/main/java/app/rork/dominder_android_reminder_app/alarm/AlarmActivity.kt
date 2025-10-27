@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Process
 import android.os.Vibrator
 import android.os.VibrationEffect
 import android.view.WindowManager
@@ -27,8 +28,6 @@ class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
     private var notificationId: Int = 0
-    private var mediaPlayer: MediaPlayer? = null
-    private var vibrator: Vibrator? = null
     private var priority: String = "medium"
     private var timeUpdateRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -72,9 +71,8 @@ class AlarmActivity : AppCompatActivity() {
         }
         timeUpdateRunnable?.run()
 
-        // --- Start Ringtone and Vibration ---
-        playAlarmRingtone()
-        startVibration()
+        // --- Ringtone Service Already Playing ---
+        DebugLogger.log("AlarmActivity: Ringtone service should already be playing")
 
         findViewById<Button>(R.id.snooze_5m).setOnClickListener { handleSnooze(5) }
         findViewById<Button>(R.id.snooze_10m).setOnClickListener { handleSnooze(10) }
@@ -86,9 +84,8 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for ${minutes} minutes, reminderId: ${reminderId}")
         
-        // Stop ringtone and vibration
-        stopRingtone()
-        stopVibration()
+        // Stop ringtone service
+        AlarmRingtoneService.stopAlarmRingtone(this)
         
         // NEW: Persist to SharedPreferences immediately
         try {
@@ -115,16 +112,15 @@ class AlarmActivity : AppCompatActivity() {
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
-            finishAndRemoveTask()
+            finishAlarmProperly()
         }, 300)
     }
 
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: ${reminderId}")
         
-        // Stop ringtone and vibration
-        stopRingtone()
-        stopVibration()
+        // Stop ringtone service
+        AlarmRingtoneService.stopAlarmRingtone(this)
         
         // NEW: Persist to SharedPreferences immediately
         try {
@@ -150,7 +146,7 @@ class AlarmActivity : AppCompatActivity() {
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
-            finishAndRemoveTask()
+            finishAlarmProperly()
         }, 300)
     }
 
@@ -189,135 +185,49 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 
-    private fun playAlarmRingtone() {
+
+
+    /**
+     * Properly finish the alarm activity without bringing the main app to foreground
+     * when it's in a minimized/backgrounded state.
+     */
+    private fun finishAlarmProperly() {
         try {
-            // Only play custom ringtone for high priority alarms
-            if (priority != "high") {
-                DebugLogger.log("AlarmActivity: Skipping ringtone (priority=$priority, only high priority plays custom ringtone)")
-                return
-            }
+            DebugLogger.log("AlarmActivity: Finishing alarm activity properly")
             
-            // Get saved ringtone URI from SharedPreferences
-            val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-            val savedUriString = prefs.getString("alarm_ringtone_uri", null)
+            // Method 1: Move task to back before finishing
+            // This ensures we don't bring the main app forward if it's backgrounded
+            moveTaskToBack(true)
             
-            val ringtoneUri = if (savedUriString != null) {
-                DebugLogger.log("AlarmActivity: Using saved ringtone: $savedUriString")
-                Uri.parse(savedUriString)
-            } else {
-                DebugLogger.log("AlarmActivity: Using default alarm ringtone")
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            }
+            // Method 2: Finish this activity
+            finish()
             
-            // Use MediaPlayer for full song playback
-            mediaPlayer = MediaPlayer().apply {
+            // Method 3: As a final cleanup, exit this process after a delay
+            // This ensures the alarm activity process is completely cleaned up
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 try {
-                    setDataSource(applicationContext, ringtoneUri)
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        setAudioAttributes(
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_ALARM)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                .build()
-                        )
-                    } else {
-                        @Suppress("DEPRECATION")
-                        setAudioStreamType(AudioManager.STREAM_ALARM)
-                    }
-                    
-                    // Set looping and completion listener as backup
-                    isLooping = true
-                    setOnCompletionListener {
-                        // Restart if somehow looping fails
-                        try {
-                            if (!it.isLooping) {
-                                it.seekTo(0)
-                                it.start()
-                            }
-                        } catch (e: Exception) {
-                            DebugLogger.log("AlarmActivity: Error in completion listener: ${e.message}")
-                        }
-                    }
-                    
-                    setOnErrorListener { mp, what, extra ->
-                        DebugLogger.log("AlarmActivity: MediaPlayer error: what=$what, extra=$extra")
-                        false // Return false to trigger OnCompletionListener
-                    }
-                    
-                    prepare()
-                    start()
-                    
-                    DebugLogger.log("AlarmActivity: MediaPlayer started playing full song (looping=${isLooping})")
+                    // Only kill this specific activity's process, not the main app
+                    Process.killProcess(Process.myPid())
                 } catch (e: Exception) {
-                    DebugLogger.log("AlarmActivity: Error preparing MediaPlayer: ${e.message}")
-                    throw e
+                    DebugLogger.log("AlarmActivity: Error killing process: ${e.message}")
                 }
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error playing ringtone: ${e.message}")
-        }
-    }
-    
-    private fun stopRingtone() {
-        try {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
-                }
-                it.release()
-                DebugLogger.log("AlarmActivity: MediaPlayer stopped and released")
-            }
-            mediaPlayer = null
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error stopping ringtone: ${e.message}")
-        }
-    }
-    
-    private fun startVibration() {
-        try {
-            vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }, 500)
             
-            if (vibrator?.hasVibrator() == true) {
-                // Vibration pattern: [delay, vibrate, sleep, vibrate, ...]
-                // Pattern: 0ms delay, 1000ms vibrate, 1000ms pause, repeat
-                val pattern = longArrayOf(0, 1000, 1000)
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val vibrationEffect = VibrationEffect.createWaveform(
-                        pattern,
-                        0 // Repeat from index 0 (loops the entire pattern)
-                    )
-                    vibrator?.vibrate(vibrationEffect)
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(pattern, 0) // 0 = repeat from start
-                }
-                
-                DebugLogger.log("AlarmActivity: Vibration started")
-            } else {
-                DebugLogger.log("AlarmActivity: Device has no vibrator")
-            }
+            DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error starting vibration: ${e.message}")
-        }
-    }
-    
-    private fun stopVibration() {
-        try {
-            vibrator?.cancel()
-            DebugLogger.log("AlarmActivity: Vibration stopped")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error stopping vibration: ${e.message}")
+            DebugLogger.log("AlarmActivity: Error in finishAlarmProperly: ${e.message}")
+            // Fallback to standard finish
+            finish()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         timeUpdateRunnable?.let { handler.removeCallbacks(it) }
-        stopRingtone()
-        stopVibration()
+        
+        // Stop the ringtone service if it's running
+        AlarmRingtoneService.stopAlarmRingtone(this)
+        
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()

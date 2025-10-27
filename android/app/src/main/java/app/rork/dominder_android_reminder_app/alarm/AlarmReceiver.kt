@@ -23,6 +23,12 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        // Start AlarmRingtoneService for high priority reminders
+        if (priority == "high") {
+            DebugLogger.log("AlarmReceiver: Starting AlarmRingtoneService for high priority")
+            AlarmRingtoneService.startAlarmRingtone(context, reminderId, title, priority)
+        }
+
         DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
