@@ -208,23 +208,34 @@ export default function HomeScreen() {
     });
   }, [reminders]);
 
-  const completeReminder = useCallback((reminder: Reminder) => {
-    configureLayoutAnimation();
-    if (reminder.repeatType === 'none') {
-      // For non-repeating reminders, mark as completed
-      updateReminder.mutate({
-        ...reminder,
-        isCompleted: true,
-      });
+  const completeReminder = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
+    if (!fromSwipe) {
+      configureLayoutAnimation();
+    }
+    
+    const executeUpdate = () => {
+      if (reminder.repeatType === 'none') {
+        // For non-repeating reminders, mark as completed
+        updateReminder.mutate({
+          ...reminder,
+          isCompleted: true,
+        });
+      } else {
+        // For repeating reminders, calculate next reminder date and keep active
+        const nextDate = calculateNextReminderDate(reminder);
+        updateReminder.mutate({
+          ...reminder,
+          nextReminderDate: nextDate?.toISOString(),
+          lastTriggeredAt: new Date().toISOString(),
+          snoozeUntil: undefined, // Clear any snooze
+        });
+      }
+    };
+    
+    if (fromSwipe) {
+      setTimeout(executeUpdate, 50);
     } else {
-      // For repeating reminders, calculate next reminder date and keep active
-      const nextDate = calculateNextReminderDate(reminder);
-      updateReminder.mutate({
-        ...reminder,
-        nextReminderDate: nextDate?.toISOString(),
-        lastTriggeredAt: new Date().toISOString(),
-        snoozeUntil: undefined, // Clear any snooze
-      });
+      executeUpdate();
     }
   }, [updateReminder]);
 
@@ -307,9 +318,16 @@ export default function HomeScreen() {
     setShowCreatePopup(true);
   }, [to12h]);
 
-  const handleDelete = useCallback((reminder: Reminder) => {
-    configureLayoutAnimation();
-    deleteReminder.mutate(reminder.id);
+  const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
+    if (!fromSwipe) {
+      configureLayoutAnimation();
+    }
+    
+    if (fromSwipe) {
+      setTimeout(() => deleteReminder.mutate(reminder.id), 50);
+    } else {
+      deleteReminder.mutate(reminder.id);
+    }
   }, [deleteReminder]);
 
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
@@ -456,14 +474,16 @@ export default function HomeScreen() {
     return (
       <SwipeableRow 
         reminder={reminder}
-        onSwipeRight={isActive && !isSelectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder) : () => {
+        onSwipeRight={isActive && !isSelectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
           // For repeating reminders, swipe right completes entirely
-          updateReminder.mutate({
-            ...reminder,
-            isCompleted: true,
-          });
+          setTimeout(() => {
+            updateReminder.mutate({
+              ...reminder,
+              isCompleted: true,
+            });
+          }, 50);
         }) : undefined} 
-        onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder) : undefined}
+        onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
       >
         <TouchableOpacity
           activeOpacity={0.85}
