@@ -284,6 +284,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Process
 import android.os.Vibrator
 import android.os.VibrationEffect
 import android.view.WindowManager
@@ -387,7 +388,7 @@ class AlarmActivity : AppCompatActivity() {
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
-            finishAndRemoveTask()
+            finishAlarmProperly()
         }, 300)
     }
 
@@ -422,7 +423,7 @@ class AlarmActivity : AppCompatActivity() {
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
-            finishAndRemoveTask()
+            finishAlarmProperly()
         }, 300)
     }
 
@@ -582,6 +583,40 @@ class AlarmActivity : AppCompatActivity() {
             DebugLogger.log("AlarmActivity: Vibration stopped")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error stopping vibration: \${e.message}")
+        }
+    }
+
+    /**
+     * Properly finish the alarm activity without bringing the main app to foreground
+     * when it's in a minimized/backgrounded state.
+     */
+    private fun finishAlarmProperly() {
+        try {
+            DebugLogger.log("AlarmActivity: Finishing alarm activity properly")
+            
+            // Method 1: Move task to back before finishing
+            // This ensures we don't bring the main app forward if it's backgrounded
+            moveTaskToBack(true)
+            
+            // Method 2: Finish this activity
+            finish()
+            
+            // Method 3: As a final cleanup, exit this process after a delay
+            // This ensures the alarm activity process is completely cleaned up
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    // Only kill this specific activity's process, not the main app
+                    Process.killProcess(Process.myPid())
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmActivity: Error killing process: \${e.message}")
+                }
+            }, 500)
+            
+            DebugLogger.log("AlarmActivity: Finish sequence initiated")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error in finishAlarmProperly: \${e.message}")
+            // Fallback to standard finish
+            finish()
         }
     }
 
