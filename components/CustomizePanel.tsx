@@ -398,6 +398,7 @@ interface CalendarModalProps {
 }
 
 function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear = false }: CalendarModalProps) {
+  const [isReady, setIsReady] = useState(false);
   const [y, m, d] = selectedDate.split('-').map(Number);
   const [month, setMonth] = useState<number>(() => {
     const now = new Date();
@@ -465,12 +466,47 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     return year > currentYear;
   };
 
+  // Reset ready state when modal is closed
+  useEffect(() => {
+    if (!visible) {
+      setIsReady(false);
+    } else {
+      // Use requestAnimationFrame with Android-specific delay
+      requestAnimationFrame(() => {
+        setTimeout(() => setIsReady(true), Platform.OS === 'android' ? 50 : 0);
+      });
+    }
+  }, [visible]);
+
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent>
+    <Modal 
+      visible={visible} 
+      transparent 
+      animationType="fade" 
+      onRequestClose={onClose} 
+      presentationStyle="overFullScreen" 
+      statusBarTranslucent
+      onShow={() => setIsReady(true)}
+    >
       <TouchableOpacity style={calendarStyles.overlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity style={calendarStyles.container} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+        <TouchableOpacity 
+          style={[
+            calendarStyles.container,
+            {
+              opacity: isReady ? 1 : 0,
+              ...Platform.select({
+                android: {
+                  elevation: 24,
+                  transform: [{ translateZ: 0 }],
+                },
+              }),
+            }
+          ]} 
+          activeOpacity={1} 
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={calendarStyles.header}>
             {!hideYear ? (
               <TouchableOpacity
@@ -635,6 +671,22 @@ interface UnitDropdownModalProps {
 }
 
 function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChange, onClose }: UnitDropdownModalProps) {
+  const [isPositioned, setIsPositioned] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setIsPositioned(false);
+    } else if (anchor) {
+      requestAnimationFrame(() => {
+        if (Platform.OS === 'android') {
+          setTimeout(() => setIsPositioned(true), 50);
+        } else {
+          setIsPositioned(true);
+        }
+      });
+    }
+  }, [visible, anchor]);
+
   if (!visible || !anchor) return null;
   
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
@@ -665,6 +717,7 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      onShow={() => setIsPositioned(true)}
     >
       <View style={{ flex: 1 }}>
         {/* Backdrop overlay */}
@@ -682,6 +735,11 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
               top: finalTop,
               left,
               width: dropdownWidth,
+              opacity: isPositioned ? 1 : 0,
+              ...(Platform.OS === 'android' && {
+                elevation: 24,
+                transform: [{ translateZ: 0 }],
+              }),
             },
           ]}
         >
@@ -1091,6 +1149,7 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: Mont
   const [showMonthlyPopup, setShowMonthlyPopup] = useState<boolean>(false);
   const [pendingDate, setPendingDate] = useState<number | null>(null);
   const [touchedDate, setTouchedDate] = useState<number | null>(null);
+  const [isReady, setIsReady] = useState<boolean>(false);
 
   const daysGrid = useMemo(() => {
     const days: number[] = [];
@@ -1119,13 +1178,45 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: Mont
     }
   };
 
+  useEffect(() => {
+    if (!visible) {
+      setIsReady(false);
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      setTimeout(() => setIsReady(true), Platform.OS === 'android' ? 50 : 0);
+    });
+  }, [visible]);
+
   if (!visible) return null;
 
   return (
     <>
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Modal 
+        visible={visible} 
+        transparent 
+        animationType="fade" 
+        onRequestClose={onClose}
+        onShow={() => setIsReady(true)}
+      >
         <TouchableOpacity style={monthlyStyles.overlay} activeOpacity={1} onPress={onClose}>
-          <TouchableOpacity style={monthlyStyles.container} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+          <TouchableOpacity 
+            style={[
+              monthlyStyles.container,
+              {
+                opacity: isReady ? 1 : 0,
+                ...Platform.select({
+                  android: {
+                    elevation: 24,
+                    transform: [{ translateZ: 0 }],
+                  },
+                }),
+              }
+            ]} 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
             <Text style={monthlyStyles.title}>Select Day of Month</Text>
             <View style={monthlyStyles.daysGrid}>
               {daysGrid.map((day) => {
@@ -1192,12 +1283,48 @@ interface MonthlyOptionsPopupProps {
 }
 
 function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }: MonthlyOptionsPopupProps) {
+  const [isReady, setIsReady] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setIsReady(false);
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      setTimeout(() => setIsReady(true), Platform.OS === 'android' ? 50 : 0);
+    });
+  }, [visible]);
+
   if (!visible || !selectedDate) return null;
 
   return (
-<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen" statusBarTranslucent>
+<Modal 
+        visible={visible} 
+        transparent 
+        animationType="fade" 
+        onRequestClose={onClose} 
+        presentationStyle="overFullScreen" 
+        statusBarTranslucent
+        onShow={() => setIsReady(true)}
+      >
       <TouchableOpacity style={monthlyPopupStyles.overlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity style={monthlyPopupStyles.container} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+        <TouchableOpacity 
+          style={[
+            monthlyPopupStyles.container,
+            {
+              opacity: isReady ? 1 : 0,
+              ...Platform.select({
+                android: {
+                  elevation: 24,
+                  transform: [{ translateZ: 0 }],
+                },
+              }),
+            }
+          ]} 
+          activeOpacity={1} 
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={monthlyPopupStyles.header}>
             <Feather name="alert-triangle" size={24} color="#F59E0B" />
             <Text style={monthlyPopupStyles.title}>Monthly Reminder Options</Text>
@@ -1656,6 +1783,9 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
   
+  // State for opacity control to prevent flashing
+  const [isPositioned, setIsPositioned] = React.useState(false);
+  
   // Measure container to bound positioning within it
   const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
   React.useEffect(() => {
@@ -1676,7 +1806,11 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   // Compute anchor-relative position using ref when available; fallback to provided anchor rect
   const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
   React.useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      setIsPositioned(false);
+      return;
+    }
+    
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
@@ -1686,7 +1820,15 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
       const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
       const top = Math.max(8, preferredTop);
       const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
-      if (!cancelled) setComputedPos({ top, left });
+      if (!cancelled) {
+        setComputedPos({ top, left });
+        // Use requestAnimationFrame and small delay for Android
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (!cancelled) setIsPositioned(true);
+          }, Platform.OS === 'android' ? 50 : 0);
+        });
+      }
     };
 
     if (anchorRef?.current && containerRef?.current && (anchorRef.current as any).measureLayout) {
@@ -1699,7 +1841,15 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
             const preferredLeft = left + width - dropdownWidth;
             const topBounded = Math.max(8, preferredTop);
             const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
-            if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
+            if (!cancelled) {
+              setComputedPos({ top: topBounded, left: leftBounded });
+              // Use requestAnimationFrame and small delay for Android
+              requestAnimationFrame(() => {
+                setTimeout(() => {
+                  if (!cancelled) setIsPositioned(true);
+                }, Platform.OS === 'android' ? 50 : 0);
+              });
+            }
           },
           () => fallbackFromAnchorRect()
         );
@@ -1738,6 +1888,14 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
             left,
             width: dropdownWidth,
             zIndex: 999999,
+            opacity: isPositioned ? 1 : 0,
+            ...Platform.select({
+              android: {
+                elevation: 24,
+                // Force GPU rendering for smoother animations
+                transform: [{ translateZ: 0 }],
+              },
+            }),
           },
         ]}
       >
@@ -1805,6 +1963,9 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   const itemHeight = 44;
   const dropdownHeight = units.length * itemHeight + 16;
   
+  // Add positioning state for opacity control
+  const [isPositioned, setIsPositioned] = React.useState(false);
+  
   // Measure container position to convert anchor coordinates
   const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
   React.useEffect(() => {
@@ -1821,6 +1982,11 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   // Compute anchor-relative position using ref when available; fallback to provided anchor rect
   const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
   React.useEffect(() => {
+    if (!visible) {
+      setIsPositioned(false);
+      return;
+    }
+
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
@@ -1828,7 +1994,18 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
       const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
       const top = Math.max(8, preferredTop);
       const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
-      if (!cancelled) setComputedPos({ top, left });
+      if (!cancelled) {
+        setComputedPos({ top, left });
+        
+        // Use requestAnimationFrame with Android delay for smooth positioning
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (!cancelled) {
+              setIsPositioned(true);
+            }
+          }, Platform.OS === 'android' ? 50 : 0);
+        });
+      }
     };
 
     if (anchorRef?.current && containerRef?.current && (anchorRef.current as any).measureLayout) {
@@ -1840,7 +2017,18 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
             const preferredLeft = left + (width / 2) - (dropdownWidth / 2);
             const topBounded = Math.max(8, preferredTop);
             const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
-            if (!cancelled) setComputedPos({ top: topBounded, left: leftBounded });
+            if (!cancelled) {
+              setComputedPos({ top: topBounded, left: leftBounded });
+              
+              // Use requestAnimationFrame with Android delay for smooth positioning
+              requestAnimationFrame(() => {
+                setTimeout(() => {
+                  if (!cancelled) {
+                    setIsPositioned(true);
+                  }
+                }, Platform.OS === 'android' ? 50 : 0);
+              });
+            }
           },
           () => fallbackFromAnchorRect()
         );
@@ -1878,6 +2066,12 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
             left,
             width: dropdownWidth,
             zIndex: 999999,
+            opacity: isPositioned ? 1 : 0, // Hide until positioned
+          },
+          // Android-specific styling for smoother animations
+          Platform.OS === 'android' && {
+            elevation: 24,
+            transform: [{ translateZ: 0 }],
           },
         ]}
       >

@@ -1276,6 +1276,7 @@ function CreateReminderPopup({
 }: CreateReminderPopupProps) {
   const { data: reminders } = useReminders();
   const [popupHeight, setPopupHeight] = useState<number>(480);
+  const [isReady, setIsReady] = useState(false);
   const mainContentSlide = useRef(new Animated.Value(0)).current;
   const titleInputRef = useRef<TextInput>(null);
 
@@ -1303,14 +1304,22 @@ function CreateReminderPopup({
   };
 
   useEffect(() => {
-    if (visible && mode === 'create') {
-      mainContentSlide.setValue(0);
-      // Use a single requestAnimationFrame + setTimeout for reliable focus
+    if (visible) {
+      setIsReady(false);
+      if (mode === 'create') {
+        mainContentSlide.setValue(0);
+      }
+      // Use a single requestAnimationFrame + setTimeout for reliable focus and opacity control
       requestAnimationFrame(() => {
         setTimeout(() => {
-          titleInputRef.current?.focus();
-        }, 100);
+          setIsReady(true);
+          if (mode === 'create') {
+            titleInputRef.current?.focus();
+          }
+        }, Platform.OS === 'android' ? 50 : 100);
       });
+    } else {
+      setIsReady(false);
     }
   }, [visible, mode, mainContentSlide]);
 
@@ -1324,6 +1333,7 @@ function CreateReminderPopup({
       onRequestClose={onClose}
       presentationStyle="overFullScreen"
       statusBarTranslucent
+      onShow={() => setIsReady(true)}
     >
       <Pressable 
         style={createPopupStyles.overlay} 
@@ -1334,7 +1344,17 @@ function CreateReminderPopup({
       >
         <Pressable
           onPress={(e) => e.stopPropagation()}
-          style={[createPopupStyles.popup, { height: popupHeight }]}
+          style={[
+            createPopupStyles.popup, 
+            { 
+              height: popupHeight,
+              opacity: isReady ? 1 : 0,
+              ...(Platform.OS === 'android' && {
+                elevation: isReady ? 8 : 0,
+                transform: [{ translateZ: 0 }]
+              })
+            }
+          ]}
         >
           <ScrollView 
             showsVerticalScrollIndicator={false}
@@ -1561,6 +1581,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     const { width, height } = Dimensions.get('window');
     return width > height;
   });
+  const [isReady, setIsReady] = useState(false);
   useEffect(() => {
     const onChange = () => {
       const { width, height } = Dimensions.get('window');
@@ -1610,6 +1631,24 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       rotationRef.current = targetRotation;
     }
   }, [visible, activeSection]); // Remove currentHour and currentMinute to prevent jitter
+  
+  // Opacity control to prevent flashing
+  useEffect(() => {
+    if (!visible) {
+      setIsReady(false);
+      return;
+    }
+    
+    // Use requestAnimationFrame to ensure the modal is rendered before showing
+    requestAnimationFrame(() => {
+      // Add platform-specific delay for Android
+      const delay = Platform.OS === 'android' ? 50 : 100;
+      setTimeout(() => {
+        setIsReady(true);
+      }, delay);
+    });
+  }, [visible]);
+  
   const [rotation, setRotation] = useState<number>(0);
   const [showManualEntry, setShowManualEntry] = useState<boolean>(false);
   const [manualTimeInput, setManualTimeInput] = useState<string>('');
@@ -2081,6 +2120,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       onRequestClose={onClose}
       presentationStyle="overFullScreen"
       statusBarTranslucent
+      onShow={() => setIsReady(true)}
     >
       <TouchableOpacity 
         style={timeSelectorStyles.overlay} 
@@ -2120,7 +2160,17 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         }}
       >
         <TouchableOpacity 
-          style={[timeSelectorStyles.container, isLandscape && timeSelectorStyles.containerLandscape]} 
+          style={[
+            timeSelectorStyles.container, 
+            isLandscape && timeSelectorStyles.containerLandscape,
+            {
+              opacity: isReady ? 1 : 0,
+              ...(Platform.OS === 'android' && {
+                elevation: isReady ? 10 : 0,
+                transform: [{ translateZ: 0 }]
+              })
+            }
+          ]} 
           activeOpacity={1} 
           onPress={(e) => e.stopPropagation()}
         >
