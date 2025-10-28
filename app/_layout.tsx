@@ -262,7 +262,7 @@ function AppContent() {
       <ErrorBoundary>
         <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
           <ReminderEngineProvider>
-            <StatusBar hidden={true} />
+            <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
             <RootLayoutNav />
           </ReminderEngineProvider>
         </GestureHandlerRootView>
