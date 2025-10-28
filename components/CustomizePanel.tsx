@@ -6,6 +6,9 @@ import { DAYS_OF_WEEK } from '@/constants/reminders';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
 
+const CalendarIcon = (props: any) => <Feather name="calendar" {...props} />;
+const ChevronRight = (props: any) => <Feather name="chevron-right" {...props} />;
+
 interface CustomizePanelProps {
   repeatType: RepeatType;
   repeatDays: number[];

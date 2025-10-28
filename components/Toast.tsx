@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, Modal, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, Modal, Platform } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming, 
+  withSpring,
+  runOnJS 
+} from 'react-native-reanimated';
 import { Material3Colors } from '@/constants/colors';
 
 interface ToastProps {
@@ -11,8 +18,8 @@ interface ToastProps {
 }
 
 export default function Toast({ message, visible, duration = 3000, onHide, type = 'info' }: ToastProps) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-100)).current;
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(-100);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -26,19 +33,11 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
         setTimeout(() => {
           setIsReady(true);
           
-          Animated.parallel([
-            Animated.timing(fadeAnim, {
-              toValue: 1,
-              duration: 300,
-              useNativeDriver: true,
-            }),
-            Animated.spring(translateY, {
-              toValue: 0,
-              tension: 50,
-              friction: 8,
-              useNativeDriver: true,
-            }),
-          ]).start();
+          opacity.value = withTiming(1, { duration: 300 });
+          translateY.value = withSpring(0, {
+            damping: 15,
+            stiffness: 150,
+          });
         }, delay);
       });
 
@@ -50,23 +49,13 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
     } else {
       setIsReady(false);
     }
-  }, [visible, duration, fadeAnim, translateY]);
+  }, [visible, duration]);
 
   const hideToast = () => {
     console.log('[Toast] hide');
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onHide?.();
+    opacity.value = withTiming(0, { duration: 200 });
+    translateY.value = withTiming(-100, { duration: 200 }, () => {
+      runOnJS(() => onHide?.())();
     });
   };
 
@@ -82,6 +71,17 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
     ? Material3Colors.light.onPrimaryContainer
     : Material3Colors.light.onSurfaceVariant;
 
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: isReady ? opacity.value : 0,
+      transform: [{ translateY: translateY.value }],
+      backgroundColor,
+      ...(Platform.OS === 'android' && {
+        elevation: isReady ? 24 : 0,
+      })
+    };
+  });
+
   return (
     <Modal
       visible={visible}
@@ -93,18 +93,7 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
     >
       <View style={styles.modalOverlay} pointerEvents="none" testID="toast-overlay">
         <Animated.View
-          style={[
-            styles.container,
-            {
-              opacity: isReady ? fadeAnim : 0,
-              transform: [{ translateY }],
-              backgroundColor,
-              ...(Platform.OS === 'android' && {
-                elevation: isReady ? 24 : 0,
-                transform: [{ translateZ: 0 }, { translateY }]
-              })
-            },
-          ]}
+          style={[styles.container, animatedStyle]}
           pointerEvents="none"
           testID="toast"
         >

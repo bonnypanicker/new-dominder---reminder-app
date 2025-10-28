@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -27,22 +27,9 @@ import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
 import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
+import SwipeableRow from '@/components/SwipeableRow';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
-// Helper to configure smooth layout animation
-const configureLayoutAnimation = () => {
-  LayoutAnimation.configureNext(
-    LayoutAnimation.create(
-      200,
-      LayoutAnimation.Types.easeInEaseOut,
-      LayoutAnimation.Properties.opacity
-    )
-  );
-};
 
 const calculateDefaultTime = () => {
   const now = new Date();
@@ -88,7 +75,6 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<ScrollView>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -903,17 +889,12 @@ export default function HomeScreen() {
       )}
 
       {/* Main Content */}
-      <Animated.ScrollView 
+      <ScrollView 
         ref={contentScrollRef}
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
         keyboardShouldPersistTaps="handled"
         pointerEvents={showCreatePopup ? 'none' : 'auto'}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
         bounces={true}
         bouncesZoom={false}
         alwaysBounceVertical={true}
@@ -975,7 +956,7 @@ export default function HomeScreen() {
             </View>
           )
         )}
-      </Animated.ScrollView>
+      </ScrollView>
       
       {!isSelectionMode && (
         <View style={styles.bottomContainer}>
@@ -1277,7 +1258,6 @@ function CreateReminderPopup({
   const { data: reminders } = useReminders();
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [isReady, setIsReady] = useState(false);
-  const mainContentSlide = useRef(new Animated.Value(0)).current;
   const titleInputRef = useRef<TextInput>(null);
 
 
@@ -1306,9 +1286,6 @@ function CreateReminderPopup({
   useEffect(() => {
     if (visible) {
       setIsReady(false);
-      if (mode === 'create') {
-        mainContentSlide.setValue(0);
-      }
       // Use a single requestAnimationFrame + setTimeout for reliable focus and opacity control
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -1323,7 +1300,7 @@ function CreateReminderPopup({
     } else {
       setIsReady(false);
     }
-  }, [visible, mode, mainContentSlide]);
+  }, [visible, mode]);
 
   if (!visible) return null;
 
@@ -1658,7 +1635,6 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const lastAngle = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
   const rotationRef = useRef<number>(0);
-  const animatedRotation = useRef(new Animated.Value(0)).current;
   const framePending = useRef<boolean>(false);
   const centerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const velocity = useRef<number>(0);
@@ -1666,7 +1642,6 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const decayAnimation = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoSwitchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppedByFriction = useRef<boolean>(false);
-  const snapAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const lastValueUpdate = useRef<number>(0);
   
   const HOUR_SENSITIVITY = 1.0;
@@ -1689,12 +1664,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         clearTimeout(autoSwitchTimeout.current);
         autoSwitchTimeout.current = null;
       }
-      if (snapAnimation.current) {
-        snapAnimation.current.stop();
-      }
-      animatedRotation.removeAllListeners();
     };
-  }, [animatedRotation]);
+  }, []);
   
   const measureCenter = () => {
     try {
@@ -1747,10 +1718,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         clearTimeout(autoSwitchTimeout.current);
         autoSwitchTimeout.current = null;
       }
-      if (snapAnimation.current) {
-        snapAnimation.current.stop();
-        snapAnimation.current = null;
-      }
+
       velocity.current = 0;
       stoppedByFriction.current = false;
       lastMoveTime.current = Date.now();
@@ -1810,42 +1778,21 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       
       // Snap to nearest value if velocity is very low (likely a finger slip)
       if (Math.abs(velocity.current) < SNAP_THRESHOLD) {
-        // Cancel any existing snap animation
-        if (snapAnimation.current) {
-          snapAnimation.current.stop();
-        }
-        
-        // Snap to nearest position with smooth animation
+        // Snap to nearest position
         const r = rotationRef.current % 360;
         if (activeSection === 'hour') {
           const hourStep = 360 / 12;
           const snappedRotation = Math.round(r / hourStep) * hourStep;
           
-          // Animate to snapped position
-          animatedRotation.setValue(r);
-          snapAnimation.current = Animated.timing(animatedRotation, {
-            toValue: snappedRotation,
-            duration: SNAP_DURATION,
-            useNativeDriver: false,
-            easing: Easing.out(Easing.cubic),
-          });
+          // Update rotation immediately
+          rotationRef.current = snappedRotation;
+          setRotation(snappedRotation);
+          const hourIndex = Math.round(snappedRotation / hourStep) % 12;
+          const newHour = hourIndex === 0 ? 12 : hourIndex;
+          setCurrentHour(newHour);
           
-          // Update rotation during animation
-          const listener = animatedRotation.addListener(({ value }) => {
-            setRotation(value);
-            rotationRef.current = value;
-          });
-          
-          snapAnimation.current.start(() => {
-            animatedRotation.removeListener(listener);
-            rotationRef.current = snappedRotation;
-            setRotation(snappedRotation);
-            const hourIndex = Math.round(snappedRotation / hourStep) % 12;
-            const newHour = hourIndex === 0 ? 12 : hourIndex;
-            setCurrentHour(newHour);
-            
-            // Auto-switch to minutes after a short delay
-            if (autoSwitchTimeout.current) {
+          // Auto-switch to minutes after a short delay
+          if (autoSwitchTimeout.current) {
               clearTimeout(autoSwitchTimeout.current);
             }
             autoSwitchTimeout.current = setTimeout(() => {
@@ -1853,33 +1800,15 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
               // Rotation will be handled by the activeSection effect
               autoSwitchTimeout.current = null;
             }, 300);
-          });
         } else {
           const minuteStep = 360 / 60;
           const snappedRotation = Math.round(r / minuteStep) * minuteStep;
           
-          // Animate to snapped position
-          animatedRotation.setValue(r);
-          snapAnimation.current = Animated.timing(animatedRotation, {
-            toValue: snappedRotation,
-            duration: SNAP_DURATION,
-            useNativeDriver: false,
-            easing: Easing.out(Easing.cubic),
-          });
-          
-          // Update rotation during animation
-          const listener = animatedRotation.addListener(({ value }) => {
-            setRotation(value);
-            rotationRef.current = value;
-          });
-          
-          snapAnimation.current.start(() => {
-            animatedRotation.removeListener(listener);
-            rotationRef.current = snappedRotation;
-            setRotation(snappedRotation);
-            const minuteIndex = Math.round(snappedRotation / minuteStep) % 60;
-            setCurrentMinute(minuteIndex);
-          });
+          // Update rotation immediately
+          rotationRef.current = snappedRotation;
+          setRotation(snappedRotation);
+          const minuteIndex = Math.round(snappedRotation / minuteStep) % 60;
+          setCurrentMinute(minuteIndex);
         }
         velocity.current = 0;
         return;
@@ -2755,175 +2684,7 @@ const timeSelectorStyles = StyleSheet.create({
   },
 });
 
-const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { children: React.ReactNode; onSwipeLeft?: () => void; onSwipeRight?: () => void; reminder: Reminder; }) => {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-  const scale = useRef(new Animated.Value(1)).current;
-  const containerHeight = useRef(new Animated.Value(0)).current;
-  const [dynamicMargin, setDynamicMargin] = useState<number>(7);
-  const containerMargin = useRef(new Animated.Value(7)).current;
-  const measuredHeightRef = useRef<number>(0);
-  const [measured, setMeasured] = useState<boolean>(false);
-  const [isRemoving, setIsRemoving] = useState<boolean>(false);
-  const [showActions, setShowActions] = useState<boolean>(true);
-  const threshold = 80;
-  const isAnimating = useRef<boolean>(false);
 
-  const reset = useCallback(() => {
-    Animated.timing(translateX, { 
-      toValue: 0, 
-      duration: 200, 
-      easing: Easing.out(Easing.ease), 
-      useNativeDriver: true 
-    }).start();
-  }, [translateX]);
-
-  const runRemoveSequence = useCallback((direction: 'left' | 'right') => {
-    if (isRemoving || isAnimating.current) return;
-    setIsRemoving(true);
-    isAnimating.current = true;
-    setShowActions(false);
-    
-    const screenW = Dimensions.get('window').width;
-    const offscreen = direction === 'left' ? -Math.max(160, screenW) : Math.max(160, screenW);
-
-    // Phase 1: Fade out and slide simultaneously (faster)
-    Animated.parallel([
-      Animated.timing(translateX, { 
-        toValue: offscreen, 
-        duration: 180, 
-        easing: Easing.in(Easing.cubic), 
-        useNativeDriver: true 
-      }),
-      Animated.timing(opacity, { 
-        toValue: 0, 
-        duration: 150, 
-        easing: Easing.in(Easing.ease), 
-        useNativeDriver: true 
-      })
-    ]).start(() => {
-      // Phase 2: Collapse height and margin after card is invisible (isolated)
-      Animated.parallel([
-        Animated.timing(containerHeight, { 
-          toValue: 0, 
-          duration: 160, 
-          easing: Easing.out(Easing.ease), 
-          useNativeDriver: false 
-        }),
-        Animated.timing(containerMargin, {
-          toValue: 0,
-          duration: 160,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: false,
-        }),
-      ]).start(() => {
-        if (direction === 'left') {
-          onSwipeLeft?.();
-        } else {
-          onSwipeRight?.();
-        }
-        isAnimating.current = false;
-      });
-    });
-  }, [containerHeight, isRemoving, onSwipeLeft, onSwipeRight, opacity, translateX]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !isRemoving && !isAnimating.current,
-      onMoveShouldSetPanResponder: (_, g) => !isRemoving && !isAnimating.current && Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderMove: (_, g) => {
-        if (isRemoving || isAnimating.current) return;
-        translateX.setValue(g.dx);
-      },
-      onPanResponderRelease: (_, g) => {
-        if (isRemoving || isAnimating.current) return;
-        if (g.dx <= -threshold && onSwipeLeft) {
-          runRemoveSequence('left');
-        } else if (g.dx >= threshold && onSwipeRight) {
-          runRemoveSequence('right');
-        } else {
-          reset();
-        }
-      },
-      onPanResponderTerminate: () => {
-        if (!isRemoving && !isAnimating.current) reset();
-      },
-    })
-  ).current;
-
-  const showLeftAction = !!onSwipeRight;
-  const showRightAction = !!onSwipeLeft;
-
-  return (
-    <View style={swipeStyles.wrapper}>
-      {showActions && (
-        <View style={swipeStyles.actions} pointerEvents="none">
-          {showLeftAction && (
-            <View style={swipeStyles.actionLeft}>
-              <View style={swipeStyles.actionPill}>
-                <CheckCircle size={16} color={Material3Colors.light.primary} />
-                <Text style={swipeStyles.actionText}>{reminder.repeatType === 'none' ? 'Done' : 'Complete'}</Text>
-              </View>
-            </View>
-          )}
-          {showRightAction && (
-            <View style={swipeStyles.actionRight}>
-              <View style={[swipeStyles.actionPill, { backgroundColor: Material3Colors.light.errorContainer }] }>
-                <Trash2 size={16} color={Material3Colors.light.error} />
-                <Text style={[swipeStyles.actionText, { color: Material3Colors.light.error }]}>Delete</Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
-      <Animated.View
-        style={{
-          height: isRemoving ? containerHeight : undefined,
-          marginBottom: containerMargin,
-          overflow: 'hidden',
-        }}
-        onLayout={(e) => {
-          const h = (e.nativeEvent as any).layout?.height ?? 0;
-          const numericH = typeof h === 'number' ? h : 0;
-          measuredHeightRef.current = numericH;
-          if (!isRemoving) {
-            containerHeight.setValue(numericH);
-            const baseMargin = 7;
-            const heightFactor = numericH > 0 ? Math.min(1, 80 / numericH) : 1;
-            const calculatedMargin = Math.max(4, Math.round(baseMargin + heightFactor * 2));
-            setDynamicMargin(calculatedMargin);
-            containerMargin.setValue(calculatedMargin);
-          }
-        }}
-        testID={`row-container-${reminder.id}`}
-      >
-        <Animated.View
-          style={{ transform: [{ translateX }, { scale }], opacity }}
-          {...panResponder.panHandlers}
-          renderToHardwareTextureAndroid={true}
-          pointerEvents={isRemoving ? 'none' : 'auto'}
-        >
-          {children}
-        </Animated.View>
-      </Animated.View>
-    </View>
-  );
-}, (prevProps, nextProps) => {
-  // Only re-render if the reminder data actually changed
-  return prevProps.reminder.id === nextProps.reminder.id &&
-         JSON.stringify(prevProps.reminder) === JSON.stringify(nextProps.reminder) &&
-         prevProps.onSwipeLeft === nextProps.onSwipeLeft &&
-         prevProps.onSwipeRight === nextProps.onSwipeRight;
-});
-
-const swipeStyles = StyleSheet.create({
-  wrapper: { position: 'relative' },
-  actions: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 },
-  actionLeft: { alignItems: 'flex-start' },
-  actionRight: { alignItems: 'flex-end' },
-  actionPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Material3Colors.light.primaryContainer, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  actionText: { fontSize: 12, color: '#065F46', fontWeight: '600' },
-});
 
 const styles = StyleSheet.create({
   container: {
@@ -3073,7 +2834,7 @@ const styles = StyleSheet.create({
   reminderCard: {
     backgroundColor: Material3Colors.light.surfaceContainerLow,
     borderRadius: 12,
-    marginBottom: 0,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     elevation: 0,

@@ -264,6 +264,20 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
   }
 }
 
+export async function cancelAllNotifications() {
+  try {
+    // Cancel all scheduled notifications
+    await notifee.cancelAllNotifications();
+    
+    // Cancel all displayed notifications
+    await notifee.cancelDisplayedNotifications();
+    
+    console.log('[NotificationService] Cancelled all notifications');
+  } catch (error) {
+    console.error('[NotificationService] Error cancelling all notifications:', error);
+  }
+}
+
 export async function cleanupOrphanedNotifications() {
   try {
     const displayed = await notifee.getDisplayedNotifications();
@@ -287,6 +301,7 @@ export async function initialize() {
 export const notificationService = {
   scheduleReminderByModel,
   cancelNotification,
+  cancelAllNotifications,
   cancelAllNotificationsForReminder,
   cleanupOrphanedNotifications,
   initialize,
