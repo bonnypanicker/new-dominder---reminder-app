@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Pressable, Alert, Modal, TextInput, PanResponder, Animated, Dimensions, Easing, InteractionManager, Keyboard as RNKeyboard, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -87,8 +87,6 @@ export default function HomeScreen() {
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
-  const contentScrollRef = useRef<ScrollView>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -233,7 +231,8 @@ export default function HomeScreen() {
     };
     
     if (fromSwipe) {
-      setTimeout(executeUpdate, 50);
+      // Execute immediately after row self-suppresses to avoid stale snapshot
+      executeUpdate();
     } else {
       executeUpdate();
     }
@@ -324,7 +323,8 @@ export default function HomeScreen() {
     }
     
     if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 50);
+      // Execute immediately after row self-suppresses to avoid stale snapshot
+      deleteReminder.mutate(reminder.id);
     } else {
       deleteReminder.mutate(reminder.id);
     }
@@ -903,25 +903,7 @@ export default function HomeScreen() {
       )}
 
       {/* Main Content */}
-      <Animated.ScrollView 
-        ref={contentScrollRef}
-        style={styles.content} 
-        showsVerticalScrollIndicator={false} 
-        keyboardShouldPersistTaps="handled"
-        pointerEvents={showCreatePopup ? 'none' : 'auto'}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-        bounces={true}
-        bouncesZoom={false}
-        alwaysBounceVertical={true}
-        overScrollMode="always"
-        contentContainerStyle={{
-          minHeight: '100%',
-          paddingBottom: 20
-        }}>
+      <View style={styles.content} pointerEvents={showCreatePopup ? 'none' : 'auto'}>
         {activeTab === 'active' && (
           activeReminders.length === 0 ? (
             <View style={styles.emptyState}>
@@ -932,14 +914,27 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
-              {activeReminders.map((reminder) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="active" />
-              ))}
-            </View>
+            <FlatList
+              data={activeReminders}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <ReminderCard reminder={item} listType="active" />
+              )}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              removeClippedSubviews={true}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={10}
+              updateCellsBatchingPeriod={50}
+              bounces={false}
+              alwaysBounceVertical={false}
+              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
           )
         )}
-        
+
         {activeTab === 'completed' && (
           completedReminders.length === 0 ? (
             <View style={styles.emptyState}>
@@ -950,14 +945,27 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
-              {completedReminders.map((reminder) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="completed" />
-              ))}
-            </View>
+            <FlatList
+              data={completedReminders}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <ReminderCard reminder={item} listType="completed" />
+              )}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              removeClippedSubviews={true}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={10}
+              updateCellsBatchingPeriod={50}
+              bounces={false}
+              alwaysBounceVertical={false}
+              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
           )
         )}
-        
+
         {activeTab === 'expired' && (
           expiredReminders.length === 0 ? (
             <View style={styles.emptyState}>
@@ -968,14 +976,27 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
-              {expiredReminders.map((reminder) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="expired" />
-              ))}
-            </View>
+            <FlatList
+              data={expiredReminders}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <ReminderCard reminder={item} listType="expired" />
+              )}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              removeClippedSubviews={true}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={10}
+              updateCellsBatchingPeriod={50}
+              bounces={false}
+              alwaysBounceVertical={false}
+              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
           )
         )}
-      </Animated.ScrollView>
+      </View>
       
       {!isSelectionMode && (
         <View style={styles.bottomContainer}>
@@ -1335,6 +1356,7 @@ function CreateReminderPopup({
       onRequestClose={onClose}
       presentationStyle="overFullScreen"
       statusBarTranslucent
+      hardwareAccelerated
     >
       <Pressable 
         style={createPopupStyles.overlay} 
@@ -2766,6 +2788,7 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
   const [measured, setMeasured] = useState<boolean>(false);
   const [isRemoving, setIsRemoving] = useState<boolean>(false);
   const [showActions, setShowActions] = useState<boolean>(true);
+  const [isRemoved, setIsRemoved] = useState<boolean>(false);
   const threshold = 80;
   const isAnimating = useRef<boolean>(false);
 
@@ -2817,6 +2840,8 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
           useNativeDriver: false,
         }),
       ]).start(() => {
+        // Suppress any further rendering of this row immediately
+        setIsRemoved(true);
         if (direction === 'left') {
           onSwipeLeft?.();
         } else {
@@ -2853,6 +2878,10 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
 
   const showLeftAction = !!onSwipeRight;
   const showRightAction = !!onSwipeLeft;
+
+  if (isRemoved) {
+    return null;
+  }
 
   return (
     <View style={swipeStyles.wrapper}>
@@ -2900,7 +2929,7 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
         <Animated.View
           style={{ transform: [{ translateX }, { scale }], opacity }}
           {...panResponder.panHandlers}
-          renderToHardwareTextureAndroid={true}
+          collapsable={false}
           pointerEvents={isRemoving ? 'none' : 'auto'}
         >
           {children}
