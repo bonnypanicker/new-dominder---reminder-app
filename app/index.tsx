@@ -1314,9 +1314,11 @@ function CreateReminderPopup({
         setTimeout(() => {
           setIsReady(true);
           if (mode === 'create') {
-            titleInputRef.current?.focus();
+            InteractionManager.runAfterInteractions(() => {
+              titleInputRef.current?.focus();
+            });
           }
-        }, Platform.OS === 'android' ? 50 : 100);
+        }, Platform.OS === 'android' ? 80 : 120);
       });
     } else {
       setIsReady(false);
@@ -1329,11 +1331,10 @@ function CreateReminderPopup({
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
       onRequestClose={onClose}
       presentationStyle="overFullScreen"
       statusBarTranslucent
-      onShow={() => setIsReady(true)}
     >
       <Pressable 
         style={createPopupStyles.overlay} 
@@ -1350,7 +1351,6 @@ function CreateReminderPopup({
               height: popupHeight,
               opacity: isReady ? 1 : 0,
               ...(Platform.OS === 'android' && {
-                elevation: isReady ? 8 : 0,
                 transform: [{ translateZ: 0 }]
               })
             }
@@ -2802,13 +2802,21 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
         useNativeDriver: true 
       })
     ]).start(() => {
-      // Phase 2: Collapse height after card is invisible (isolated)
-      Animated.timing(containerHeight, { 
-        toValue: 0, 
-        duration: 150, 
-        easing: Easing.out(Easing.ease), 
-        useNativeDriver: false 
-      }).start(() => {
+      // Phase 2: Collapse height and margin after card is invisible (isolated)
+      Animated.parallel([
+        Animated.timing(containerHeight, { 
+          toValue: 0, 
+          duration: 160, 
+          easing: Easing.out(Easing.ease), 
+          useNativeDriver: false 
+        }),
+        Animated.timing(containerMargin, {
+          toValue: 0,
+          duration: 160,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: false,
+        }),
+      ]).start(() => {
         if (direction === 'left') {
           onSwipeLeft?.();
         } else {
@@ -2873,7 +2881,6 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
           height: isRemoving ? containerHeight : undefined,
           marginBottom: containerMargin,
           overflow: 'hidden',
-          zIndex: isRemoving ? -1 : 0,
         }}
         onLayout={(e) => {
           const h = (e.nativeEvent as any).layout?.height ?? 0;
@@ -2890,7 +2897,12 @@ const SwipeableRow = memo(({ children, onSwipeLeft, onSwipeRight, reminder }: { 
         }}
         testID={`row-container-${reminder.id}`}
       >
-        <Animated.View style={{ transform: [{ translateX }, { scale }], opacity }} {...panResponder.panHandlers}>
+        <Animated.View
+          style={{ transform: [{ translateX }, { scale }], opacity }}
+          {...panResponder.panHandlers}
+          renderToHardwareTextureAndroid={true}
+          pointerEvents={isRemoving ? 'none' : 'auto'}
+        >
           {children}
         </Animated.View>
       </Animated.View>
