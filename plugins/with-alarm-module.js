@@ -384,7 +384,7 @@ class AlarmRingtoneService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Playing Alarm")
             .setContentText(title)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.small_icon_noti)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setSilent(true)
