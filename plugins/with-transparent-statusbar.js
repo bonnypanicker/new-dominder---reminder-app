@@ -53,22 +53,22 @@ module.exports = function withTransparentStatusBar(config) {
         console.log('✅ Removed statusBarContrastEnforced from main styles.xml for API compatibility.');
       }
 
-      // Create API 29+ specific styles directory and file
-      const valuesV29Dir = path.join(
+      // Create API 35+ specific styles directory and file for statusBarContrastEnforced
+      const valuesV35Dir = path.join(
         cfg.modRequest.projectRoot,
         'android',
         'app',
         'src',
         'main',
         'res',
-        'values-v29'
+        'values-v35'
       );
       
-      if (!fs.existsSync(valuesV29Dir)) {
-        fs.mkdirSync(valuesV29Dir, { recursive: true });
+      if (!fs.existsSync(valuesV35Dir)) {
+        fs.mkdirSync(valuesV35Dir, { recursive: true });
       }
       
-      const stylesV29Path = path.join(valuesV29Dir, 'styles.xml');
+      const stylesV35Path = path.join(valuesV35Dir, 'styles.xml');
       
       // Read the main styles.xml to extract the complete AppTheme and other styles
       const appThemeMatch = xml.match(/<style\s+name="AppTheme"[\s\S]*?<\/style>/);
@@ -76,7 +76,7 @@ module.exports = function withTransparentStatusBar(config) {
       
       let appThemeContent = '';
       if (appThemeMatch) {
-        // Add statusBarContrastEnforced to the AppTheme for API 29+
+        // Add statusBarContrastEnforced to the AppTheme for API 35+
         appThemeContent = appThemeMatch[0].replace(
           /(<\/style>)/,
           '    <item name="android:statusBarContrastEnforced">false</item>\n  $1'
@@ -85,15 +85,15 @@ module.exports = function withTransparentStatusBar(config) {
       
       let splashThemeContent = splashThemeMatch ? splashThemeMatch[0] : '';
       
-      // Create complete API 29+ specific styles with statusBarContrastEnforced
-      const stylesV29Content = `<?xml version="1.0" encoding="utf-8"?>
+      // Create complete API 35+ specific styles with statusBarContrastEnforced
+      const stylesV35Content = `<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
   ${appThemeContent}
   ${splashThemeContent}
 </resources>`;
       
-      fs.writeFileSync(stylesV29Path, stylesV29Content);
-      console.log('✅ Created values-v29/styles.xml for API 29+ status bar contrast enforcement.');
+      fs.writeFileSync(stylesV35Path, stylesV35Content);
+      console.log('✅ Created values-v35/styles.xml for API 35+ status bar contrast enforcement.');
 
       fs.writeFileSync(stylesPath, xml);
       console.log('✅ Patched styles.xml for transparent status bar (no contrast scrim).');
