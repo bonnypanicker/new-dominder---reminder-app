@@ -79,7 +79,7 @@ module.exports = function withTransparentStatusBar(config) {
         // Add statusBarContrastEnforced to the AppTheme for API 35+
         appThemeContent = appThemeMatch[0].replace(
           /(<\/style>)/,
-          '    <item name="android:statusBarContrastEnforced">false</item>\n  $1'
+          '    <item name="android:statusBarContrastEnforced" tools:targetApi="35">false</item>\n  $1'
         );
       }
       
