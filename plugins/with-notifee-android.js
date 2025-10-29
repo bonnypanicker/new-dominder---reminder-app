@@ -56,7 +56,7 @@ module.exports = function withNotifeeAndroid(config) {
     const notifeeProperties = {
       'android.enableJetifier': 'true',
       'android.enableR8.fullMode': 'false',
-      'android.enableDexingArtifactTransform.desugaring': 'false'
+      'android.useFullClasspathForDexingTransform': 'true'
     };
     
     Object.entries(notifeeProperties).forEach(([key, value]) => {
