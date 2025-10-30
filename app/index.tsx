@@ -1640,6 +1640,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const velocity = useRef<number>(0);
   const lastMoveTime = useRef<number>(0);
   const decayAnimation = useRef<ReturnType<typeof setInterval> | null>(null);
+  const snapAnimation = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSwitchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppedByFriction = useRef<boolean>(false);
   const lastValueUpdate = useRef<number>(0);
@@ -1659,6 +1660,10 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       if (decayAnimation.current) {
         clearInterval(decayAnimation.current);
         decayAnimation.current = null;
+      }
+      if (snapAnimation.current) {
+        clearTimeout(snapAnimation.current);
+        snapAnimation.current = null;
       }
       if (autoSwitchTimeout.current) {
         clearTimeout(autoSwitchTimeout.current);
