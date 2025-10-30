@@ -452,6 +452,31 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
+  const formatDuration = useCallback((lastTriggeredAt: string | null) => {
+    if (!lastTriggeredAt) return null;
+    
+    const now = new Date();
+    const lastTrigger = new Date(lastTriggeredAt);
+    const diffMs = now.getTime() - lastTrigger.getTime();
+    
+    if (diffMs < 0) return null; // Future date, shouldn't happen
+    
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMinutes < 1) return 'now';
+    if (diffMinutes < 60) return `${diffMinutes}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks}w`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    return `${diffMonths}mo`;
+  }, []);
+
   const ReminderCard = memo(({ reminder, listType }: { reminder: Reminder; listType: 'active' | 'completed' | 'expired' }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
@@ -500,10 +525,10 @@ export default function HomeScreen() {
               <View style={styles.reminderInfo}>
                 <Text style={styles.reminderTitle}>{reminder.title}</Text>
                 <View style={styles.reminderMeta}>
-                  {/* Only show clock icon and fixed time for Weekly and Custom */}
+                  {/* Only show repeating badge and fixed time for Weekly and Custom */}
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && (
                     <>
-                      <Clock size={14} color={Material3Colors.light.onSurfaceVariant} />
+                      <Text style={styles.repeatIcon}>🔁</Text>
                       <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
                       <Text style={styles.metaSeparator}>•</Text>
                     </>
@@ -545,7 +570,7 @@ export default function HomeScreen() {
                   {reminder.repeatType === 'daily' && (
                     <>
                       <View style={styles.dailyTimeContainer}>
-                        <Clock size={14} color={Material3Colors.light.onSurfaceVariant} />
+                        <Text style={styles.repeatIcon}>🔁</Text>
                         <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
                       </View>
                       <View style={styles.dailyDaysContainer}>
@@ -573,10 +598,10 @@ export default function HomeScreen() {
                       </View>
                     </>
                   )}
-                  {/* For Monthly, Yearly, and Every - show next occurrence with clock icon */}
+                  {/* For Monthly, Yearly, and Every - show next occurrence with repeating badge */}
                   {(reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every') && !reminder.isCompleted && (
                     <View style={styles.nextOccurrenceContainer}>
-                      <Clock size={14} color={Material3Colors.light.primary} />
+                      <Text style={styles.repeatIcon}>🔁</Text>
                       <Text style={styles.reminderNextOccurrenceLarge}>
                         {(() => {
                           const getNextDate = () => {
@@ -609,6 +634,14 @@ export default function HomeScreen() {
                           {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
                         </Text>
                       </View>
+                      {/* 1.5. Duration since last trigger */}
+                      {formatDuration(reminder.lastTriggeredAt) && (
+                        <View style={[styles.repeatBadge, styles.durationBadge]}>
+                          <Text style={styles.durationBadgeText}>
+                            {formatDuration(reminder.lastTriggeredAt)}
+                          </Text>
+                        </View>
+                      )}
                       {/* 2. Snoozed badge (for all types) */}
                       {reminder.snoozeUntil && isActive && !reminder.isCompleted && (
                         <View style={styles.snoozedBadgeInline}>
@@ -2937,6 +2970,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Material3Colors.light.outline,
   },
+  repeatIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
   repeatBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2949,6 +2986,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Material3Colors.light.primary,
     fontWeight: '600',
+  },
+  durationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Material3Colors.light.secondaryContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  durationBadgeText: {
+    fontSize: 12,
+    color: Material3Colors.light.secondary,
+    fontWeight: '500',
   },
   pausedBadge: {
     flexDirection: 'row',
