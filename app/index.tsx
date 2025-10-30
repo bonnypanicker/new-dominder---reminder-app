@@ -600,6 +600,18 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {/* Show explicit repeat frequency text for Every reminders */}
+                  {reminder.repeatType === 'every' && reminder.everyInterval && !reminder.isCompleted && (
+                    <Text style={styles.reminderNextOccurrence}>
+                      {(() => {
+                        const value = reminder.everyInterval?.value ?? 1;
+                        const unit = reminder.everyInterval?.unit ?? 'hours';
+                        const unitLabel = value === 1 ? unit.replace(/s$/, '') : unit;
+                        return `Repeats every ${value} ${unitLabel}`;
+                      })()}
+                    </Text>
+                  )}
                   
                   {/* Show repeat badge at bottom for Once, Monthly, Yearly, Every, Daily */}
                   {(reminder.repeatType === 'none' || reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every' || reminder.repeatType === 'daily') && (
