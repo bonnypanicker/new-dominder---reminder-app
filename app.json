@@ -47,6 +47,7 @@
       "./plugins/with-fullscreen-alarm",
       "./plugins/with-alarm-module.js",
       "./plugins/with-orientation.js",
+      "./plugins/with-transparent-statusbar.js",
       "./plugins/with-notifee-android.js",
       "./plugins/with-eas-notifee.js",
       [
