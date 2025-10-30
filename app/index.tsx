@@ -28,6 +28,7 @@ import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
+import { configureLayoutAnimation } from '@/utils/layout-animation';
 
 
 
