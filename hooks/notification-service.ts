@@ -198,7 +198,8 @@ export async function scheduleReminderByModel(reminder: Reminder) {
           id: 'default',
           launchActivity: 'default'
         },
-        showTimestamp: false, // Remove clock icon by disabling timestamp
+        timestamp: when,
+        showTimestamp: true, // Show relative duration next to app name (e.g., 5m)
         style: { 
           type: AndroidStyle.BIGTEXT, 
           text: body 
