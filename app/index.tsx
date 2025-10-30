@@ -528,7 +528,7 @@ export default function HomeScreen() {
                   {/* Only show repeating badge and fixed time for Weekly and Custom */}
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && (
                     <>
-                      <Text style={styles.repeatIcon}>🔁</Text>
+                      <Repeat size={14} color={Material3Colors.light.onSurfaceVariant} style={styles.repeatIcon} />
                       <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
                       <Text style={styles.metaSeparator}>•</Text>
                     </>
@@ -570,7 +570,7 @@ export default function HomeScreen() {
                   {reminder.repeatType === 'daily' && (
                     <>
                       <View style={styles.dailyTimeContainer}>
-                        <Text style={styles.repeatIcon}>🔁</Text>
+                        <Repeat size={14} color={Material3Colors.light.onSurfaceVariant} style={styles.repeatIcon} />
                         <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
                       </View>
                       <View style={styles.dailyDaysContainer}>
@@ -601,7 +601,7 @@ export default function HomeScreen() {
                   {/* For Monthly, Yearly, and Every - show next occurrence with repeating badge */}
                   {(reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every') && !reminder.isCompleted && (
                     <View style={styles.nextOccurrenceContainer}>
-                      <Text style={styles.repeatIcon}>🔁</Text>
+                      <Repeat size={14} color={Material3Colors.light.onSurfaceVariant} style={styles.repeatIcon} />
                       <Text style={styles.reminderNextOccurrenceLarge}>
                         {(() => {
                           const getNextDate = () => {
