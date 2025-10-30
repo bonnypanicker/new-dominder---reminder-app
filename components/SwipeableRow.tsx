@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: 12,
   },
   content: {
     backgroundColor: Material3Colors.light.surface,
@@ -174,21 +175,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    bottom: 0,
+    bottom: 12,
     right: 0,
     justifyContent: 'center',
     alignItems: 'flex-start',
     paddingLeft: 20,
+    borderRadius: 12,
   },
   leftAction: {
     position: 'absolute',
     left: 0,
     top: 0,
-    bottom: 0,
+    bottom: 12,
     right: 0,
     justifyContent: 'center',
     alignItems: 'flex-end',
     paddingRight: 20,
+    borderRadius: 12,
   },
   actionContent: {
     alignItems: 'center',
