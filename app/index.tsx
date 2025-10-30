@@ -1258,7 +1258,25 @@ function CreateReminderPopup({
   const { data: reminders } = useReminders();
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [isReady, setIsReady] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [shouldStartAtTop, setShouldStartAtTop] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
+
+  // Keyboard event listeners
+  useEffect(() => {
+    const keyboardDidShowListener = RNKeyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    
+    const keyboardDidHideListener = RNKeyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
 
 
@@ -1286,6 +1304,9 @@ function CreateReminderPopup({
   useEffect(() => {
     if (visible) {
       setIsReady(false);
+      // For create mode, start at top expecting keyboard to appear
+      setShouldStartAtTop(mode === 'create');
+      
       // Use a single requestAnimationFrame + setTimeout for reliable focus and opacity control
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -1299,8 +1320,17 @@ function CreateReminderPopup({
       });
     } else {
       setIsReady(false);
+      setShouldStartAtTop(false);
     }
   }, [visible, mode]);
+
+  // Determine overlay justification based on keyboard state and initial positioning
+  const getOverlayJustification = () => {
+    if (mode === 'create' && shouldStartAtTop && !keyboardVisible) {
+      return 'flex-start'; // Start at top for create mode
+    }
+    return 'center'; // Default center positioning
+  };
 
   if (!visible) return null;
 
@@ -1314,7 +1344,13 @@ function CreateReminderPopup({
       statusBarTranslucent
     >
       <Pressable 
-        style={createPopupStyles.overlay} 
+        style={[
+          createPopupStyles.overlay,
+          { 
+            justifyContent: getOverlayJustification(),
+            paddingTop: shouldStartAtTop && !keyboardVisible ? 60 : 16
+          }
+        ]} 
         onPress={() => {
           RNKeyboard.dismiss();
           onClose();
@@ -1422,7 +1458,6 @@ const createPopupStyles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
