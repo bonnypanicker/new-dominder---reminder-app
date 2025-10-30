@@ -35,12 +35,34 @@ module.exports = function withNotifeeAndroid(config) {
     
     // Add multidex dependency
     if (!buildGradle.includes('androidx.multidex:multidex')) {
-      const dependenciesRegex = /(dependencies\s*{[^}]*implementation\s+[^}]*)/;
-      if (dependenciesRegex.test(buildGradle)) {
-        config.modResults.contents = buildGradle.replace(
-          dependenciesRegex,
-          "$1\n    implementation 'androidx.multidex:multidex:2.0.1'"
-        );
+      // Find the dependencies block and add multidex at the end
+      const lines = buildGradle.split('\n');
+      let dependenciesStart = -1;
+      let dependenciesEnd = -1;
+      let braceCount = 0;
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('dependencies {')) {
+          dependenciesStart = i;
+          braceCount = 1;
+          continue;
+        }
+        
+        if (dependenciesStart !== -1) {
+          const openBraces = (lines[i].match(/\{/g) || []).length;
+          const closeBraces = (lines[i].match(/\}/g) || []).length;
+          braceCount += openBraces - closeBraces;
+          
+          if (braceCount === 0) {
+            dependenciesEnd = i;
+            break;
+          }
+        }
+      }
+      
+      if (dependenciesStart !== -1 && dependenciesEnd !== -1) {
+        lines.splice(dependenciesEnd, 0, "    implementation 'androidx.multidex:multidex:2.0.1'");
+        config.modResults.contents = lines.join('\n');
         console.log('✅ Added multidex dependency');
       }
     }
