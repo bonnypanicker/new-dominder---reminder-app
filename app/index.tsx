@@ -1366,7 +1366,12 @@ function CreateReminderPopup({
                   placeholderTextColor="#9CA3AF"
                   value={title}
                   onChangeText={onTitleChange}
-                  blurOnSubmit={false}
+                  onSubmitEditing={() => {
+                    RNKeyboard.dismiss();
+                    titleInputRef.current?.blur();
+                  }}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                   maxLength={100}
                   testID="title-input"
                 />
