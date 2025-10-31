@@ -755,6 +755,7 @@ export default function HomeScreen() {
            prev.isExpired === next.isExpired &&
            prev.repeatType === next.repeatType;
   });
+  
   ReminderCard.displayName = 'ReminderCard';
 
   useEffect(() => {
