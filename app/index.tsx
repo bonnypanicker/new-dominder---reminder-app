@@ -161,7 +161,6 @@ export default function HomeScreen() {
     ? undefined 
     : useAnimatedScrollHandler({
         onScroll: (event) => {
-          'worklet';
           scrollY.value = event.contentOffset.y;
           
           // Detect top boundary (with 50px threshold)
@@ -172,12 +171,11 @@ export default function HomeScreen() {
           isAtBottom.value = event.contentOffset.y > bottomThreshold;
         },
         onMomentumEnd: (event) => {
-          'worklet';
           // Reset bounce indicators when scroll stops
           isAtTop.value = false;
           isAtBottom.value = false;
         },
-      }, []);
+      });
 
 
 
@@ -348,25 +346,6 @@ export default function HomeScreen() {
     }
   }, [deleteReminder]);
 
-  // Fix for 'Object is not a function' error - extract complex inline functions
-  const handleSwipeRightComplete = useCallback((reminder: Reminder) => {
-    if (reminder.repeatType === 'none') {
-      completeReminder(reminder, true);
-    } else {
-      // For repeating reminders, swipe right completes entirely
-      setTimeout(() => {
-        updateReminder.mutate({
-          ...reminder,
-          isCompleted: true,
-        });
-      }, 50);
-    }
-  }, [completeReminder, updateReminder]);
-
-  const handleSwipeLeftDelete = useCallback((reminder: Reminder) => {
-    handleDelete(reminder, true);
-  }, [handleDelete]);
-
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
     if (!isSelectionMode) {
       setIsSelectionMode(true);
@@ -510,7 +489,6 @@ export default function HomeScreen() {
 
     // Bounce animation style
     const cardBounceStyle = useAnimatedStyle(() => {
-      'worklet';
       // Only apply bounce to first 3 cards at top or last 3 cards at bottom
       const shouldBounceTop = isAtTop.value && index < 3;
       const shouldBounceBottom = isAtBottom.value && index >= (activeReminders.length - 3);
@@ -529,18 +507,25 @@ export default function HomeScreen() {
               damping: 15,
               stiffness: 150,
               mass: 0.5,
-              reduceMotion: false,
             })
           }
         ]
       };
-    }, [index, activeReminders.length]);
+    });
     
     return (
       <SwipeableRow 
         reminder={reminder}
-        onSwipeRight={isActive && !isSelectionMode ? () => handleSwipeRightComplete(reminder) : undefined} 
-        onSwipeLeft={!isSelectionMode ? () => handleSwipeLeftDelete(reminder) : undefined}
+        onSwipeRight={isActive && !isSelectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
+          // For repeating reminders, swipe right completes entirely
+          setTimeout(() => {
+            updateReminder.mutate({
+              ...reminder,
+              isCompleted: true,
+            });
+          }, 50);
+        }) : undefined} 
+        onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
       >
         <Animated.View style={cardBounceStyle}>
           <TouchableOpacity
