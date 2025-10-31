@@ -40,7 +40,11 @@ export default function SwipeableRow({
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])  // Only activate after 10px horizontal movement
     .failOffsetY([-10, 10])     // Fail if vertical movement exceeds 10px
+    .maxPointers(1)             // Only allow single finger gestures
+    .minDistance(5)             // Minimum distance before gesture activates
+    .runOnJS(false)             // Run gesture updates on UI thread for better performance
     .onUpdate((event) => {
+      'worklet';
       // Only allow swipe if handlers are provided
       if (event.translationX > 0 && !onSwipeRight) return;
       if (event.translationX < 0 && !onSwipeLeft) return;
@@ -48,6 +52,7 @@ export default function SwipeableRow({
       translateX.value = event.translationX;
     })
     .onEnd((event) => {
+      'worklet';
       const shouldSwipeRight = event.translationX > SWIPE_THRESHOLD && onSwipeRight;
       const shouldSwipeLeft = event.translationX < -SWIPE_THRESHOLD && onSwipeLeft;
 
@@ -56,10 +61,12 @@ export default function SwipeableRow({
         translateX.value = withSpring(SCREEN_WIDTH, {
           damping: 20,
           stiffness: 300,
+          reduceMotion: false,
         });
         opacity.value = withSpring(0, {
           damping: 20,
           stiffness: 300,
+          reduceMotion: false,
         });
         runOnJS(onSwipeRight!)();
       } else if (shouldSwipeLeft) {
@@ -67,10 +74,12 @@ export default function SwipeableRow({
         translateX.value = withSpring(-SCREEN_WIDTH, {
           damping: 20,
           stiffness: 300,
+          reduceMotion: false,
         });
         opacity.value = withSpring(0, {
           damping: 20,
           stiffness: 300,
+          reduceMotion: false,
         });
         runOnJS(onSwipeLeft!)();
       } else {
@@ -78,18 +87,21 @@ export default function SwipeableRow({
         translateX.value = withSpring(0, {
           damping: 20,
           stiffness: 300,
+          reduceMotion: false,
         });
       }
     });
 
   const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
     return {
       transform: [{ translateX: translateX.value }],
       opacity: opacity.value,
     };
-  });
+  }, []);
 
   const rightActionStyle = useAnimatedStyle(() => {
+    'worklet';
     const scale = translateX.value > 0 ? 
       Math.min(1, Math.max(0.8, translateX.value / SWIPE_THRESHOLD)) : 0.8;
     
@@ -97,9 +109,10 @@ export default function SwipeableRow({
       transform: [{ scale }],
       opacity: translateX.value > 20 ? 1 : 0,
     };
-  });
+  }, []);
 
   const leftActionStyle = useAnimatedStyle(() => {
+    'worklet';
     const scale = translateX.value < 0 ? 
       Math.min(1, Math.max(0.8, Math.abs(translateX.value) / SWIPE_THRESHOLD)) : 0.8;
     
@@ -107,9 +120,10 @@ export default function SwipeableRow({
       transform: [{ scale }],
       opacity: translateX.value < -20 ? 1 : 0,
     };
-  });
+  }, []);
 
   const rightActionBackgroundStyle = useAnimatedStyle(() => {
+    'worklet';
     const backgroundColor = interpolateColor(
       translateX.value,
       [0, SWIPE_THRESHOLD],
@@ -119,9 +133,10 @@ export default function SwipeableRow({
     return {
       backgroundColor,
     };
-  });
+  }, []);
 
   const leftActionBackgroundStyle = useAnimatedStyle(() => {
+    'worklet';
     const backgroundColor = interpolateColor(
       translateX.value,
       [-SWIPE_THRESHOLD, 0],
@@ -131,7 +146,7 @@ export default function SwipeableRow({
     return {
       backgroundColor,
     };
-  });
+  }, []);
 
   return (
     <Animated.View 
