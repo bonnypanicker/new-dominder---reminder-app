@@ -5,12 +5,18 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
   runOnJS,
   interpolateColor,
+  Layout,
+  SlideOutUp,
+  SlideOutDown,
+  Easing,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder } from '@/types/reminder';
+import { createFillInAnimation, createCardRemovalAnimation } from '@/utils/card-animations';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
@@ -34,6 +40,8 @@ export default function SwipeableRow({
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
+  const scale = useSharedValue(1);
+  const height = useSharedValue(1);
 
   const panGesture = Gesture.Pan()
     .onUpdate((event) => {
@@ -48,30 +56,48 @@ export default function SwipeableRow({
       const shouldSwipeLeft = event.translationX < -SWIPE_THRESHOLD && onSwipeLeft;
 
       if (shouldSwipeRight) {
-        // Animate to complete swipe right
-        translateX.value = withSpring(SCREEN_WIDTH, {
-          damping: 20,
-          stiffness: 300,
+        // Enhanced fill-in animation for swipe right (complete)
+        scale.value = withTiming(0.95, { duration: 150, easing: Easing.out(Easing.quad) });
+        translateX.value = withTiming(SCREEN_WIDTH * 0.3, { 
+          duration: 200, 
+          easing: Easing.out(Easing.quad) 
         });
-        opacity.value = withSpring(0, {
-          damping: 20,
-          stiffness: 300,
-        });
-        runOnJS(onSwipeRight!)();
+        opacity.value = withTiming(0.8, { duration: 150 });
+        
+        // Then complete the animation
+        setTimeout(() => {
+          height.value = withTiming(0, { 
+            duration: 300, 
+            easing: Easing.inOut(Easing.quad) 
+          });
+          opacity.value = withTiming(0, { duration: 250 });
+          runOnJS(onSwipeRight!)();
+        }, 200);
       } else if (shouldSwipeLeft) {
-        // Animate to complete swipe left
-        translateX.value = withSpring(-SCREEN_WIDTH, {
-          damping: 20,
-          stiffness: 300,
+        // Enhanced fill-in animation for swipe left (delete)
+        scale.value = withTiming(0.95, { duration: 150, easing: Easing.out(Easing.quad) });
+        translateX.value = withTiming(-SCREEN_WIDTH * 0.3, { 
+          duration: 200, 
+          easing: Easing.out(Easing.quad) 
         });
-        opacity.value = withSpring(0, {
-          damping: 20,
-          stiffness: 300,
-        });
-        runOnJS(onSwipeLeft!)();
+        opacity.value = withTiming(0.8, { duration: 150 });
+        
+        // Then complete the animation
+        setTimeout(() => {
+          height.value = withTiming(0, { 
+            duration: 300, 
+            easing: Easing.inOut(Easing.quad) 
+          });
+          opacity.value = withTiming(0, { duration: 250 });
+          runOnJS(onSwipeLeft!)();
+        }, 200);
       } else {
-        // Spring back to center
+        // Spring back to center with enhanced feedback
         translateX.value = withSpring(0, {
+          damping: 25,
+          stiffness: 400,
+        });
+        scale.value = withSpring(1, {
           damping: 20,
           stiffness: 300,
         });
@@ -80,8 +106,12 @@ export default function SwipeableRow({
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: translateX.value }],
+      transform: [
+        { translateX: translateX.value },
+        { scale: scale.value }
+      ],
       opacity: opacity.value,
+      height: height.value === 1 ? undefined : height.value,
     };
   });
 
@@ -153,7 +183,11 @@ export default function SwipeableRow({
 
       {/* Main content */}
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.content, animatedStyle]}>
+        <Animated.View 
+          style={[styles.content, animatedStyle]}
+          layout={Layout.springify().damping(20).stiffness(300)}
+          exiting={SlideOutUp.duration(300)}
+        >
           {children}
         </Animated.View>
       </GestureDetector>

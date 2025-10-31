@@ -1,6 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  useAnimatedScrollHandler,
+  runOnJS,
+  interpolate,
+  Extrapolate
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
 const Clock = (props: any) => <Feather name="clock" {...props} />;
@@ -29,6 +37,7 @@ import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
 import { configureLayoutAnimation } from '@/utils/layout-animation';
+import { createBounceAnimation, detectScrollBoundary, throttle } from '@/utils/card-animations';
 
 
 
@@ -75,7 +84,7 @@ export default function HomeScreen() {
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
-  const contentScrollRef = useRef<ScrollView>(null);
+  const contentScrollRef = useRef<Animated.ScrollView>(null);
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -111,6 +120,13 @@ export default function HomeScreen() {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
+
+  // Bounce effect state
+  const scrollY = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
+  const layoutHeight = useSharedValue(0);
+  const bounceTranslateY = useSharedValue(0);
+  const lastBounceTime = useRef(0);
 
   const addReminder = useAddReminder();
 
@@ -337,11 +353,57 @@ export default function HomeScreen() {
       
       if (newSelected.size === 0) {
         setIsSelectionMode(false);
+        setSelectionTab(null);
       }
     } else {
       openEdit(reminder);
     }
   }, [isSelectionMode, selectedReminders, openEdit]);
+
+  // Bounce effect handlers
+  const handleBounce = useCallback((direction: 'top' | 'bottom') => {
+    const now = Date.now();
+    // Throttle bounce to prevent excessive animations
+    if (now - lastBounceTime.current < 500) return;
+    
+    lastBounceTime.current = now;
+    createBounceAnimation(
+      bounceTranslateY,
+      direction === 'top' ? 'up' : 'down'
+    );
+  }, [bounceTranslateY]);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+      
+      // Detect scroll boundaries and trigger bounce
+      const boundary = detectScrollBoundary(
+        event.contentOffset.y,
+        contentHeight.value,
+        layoutHeight.value
+      );
+      
+      if (boundary) {
+        runOnJS(handleBounce)(boundary);
+      }
+    },
+  });
+
+  const handleContentSizeChange = useCallback((width: number, height: number) => {
+    contentHeight.value = height;
+  }, [contentHeight]);
+
+  const handleLayoutChange = useCallback((event: any) => {
+    layoutHeight.value = event.nativeEvent.layout.height;
+  }, [layoutHeight]);
+
+  // Animated style for bounce effect
+  const bounceAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: bounceTranslateY.value }],
+    };
+  });
 
   const exitSelectionMode = useCallback(() => {
     setIsSelectionMode(false);
@@ -903,9 +965,9 @@ export default function HomeScreen() {
       )}
 
       {/* Main Content */}
-      <ScrollView 
+      <Animated.ScrollView 
         ref={contentScrollRef}
-        style={styles.content} 
+        style={[styles.content, bounceAnimatedStyle]} 
         showsVerticalScrollIndicator={false} 
         keyboardShouldPersistTaps="handled"
         pointerEvents={showCreatePopup ? 'none' : 'auto'}
@@ -913,6 +975,10 @@ export default function HomeScreen() {
         bouncesZoom={false}
         alwaysBounceVertical={true}
         overScrollMode="always"
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        onContentSizeChange={handleContentSizeChange}
+        onLayout={handleLayoutChange}
         contentContainerStyle={{
           minHeight: '100%',
           paddingBottom: 20
@@ -970,7 +1036,7 @@ export default function HomeScreen() {
             </View>
           )
         )}
-      </ScrollView>
+      </Animated.ScrollView>
       
       {!isSelectionMode && (
         <View style={styles.bottomContainer}>
