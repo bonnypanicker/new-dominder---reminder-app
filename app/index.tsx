@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -28,7 +36,7 @@ import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
-import { configureLayoutAnimation } from '@/utils/layout-animation';
+
 
 
 
@@ -110,6 +118,11 @@ export default function HomeScreen() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
+
+  // Scroll tracking state for bounce effect
+  const scrollY = useSharedValue(0);
+  const isAtTop = useSharedValue(false);
+  const isAtBottom = useSharedValue(false);
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
   const addReminder = useAddReminder();
@@ -142,6 +155,35 @@ export default function HomeScreen() {
     tabScrollX = Math.max(0, tabScrollX);
     tabScrollRef.current?.scrollTo({ x: tabScrollX, animated: true });
   }, []);
+
+  // Scroll handler for bounce effect (platform-specific)
+  const scrollHandler = Platform.OS === 'web' 
+    ? undefined 
+    : useAnimatedScrollHandler({
+        onScroll: (event) => {
+          scrollY.value = event.contentOffset.y;
+          
+          // Detect top boundary (with 50px threshold)
+          isAtTop.value = event.contentOffset.y < 50;
+          
+          // Detect bottom boundary (with 50px threshold)
+          const bottomThreshold = event.contentSize.height - event.layoutMeasurement.height - 50;
+          isAtBottom.value = event.contentOffset.y > bottomThreshold;
+        },
+        onMomentumEnd: (event) => {
+          // Reset bounce indicators when scroll stops
+          isAtTop.value = false;
+          isAtBottom.value = false;
+        },
+      });
+
+  // Web-compatible scroll handler
+  const webScrollHandler = Platform.OS === 'web' 
+    ? (event: any) => {
+        const scrollY = event.nativeEvent.contentOffset.y;
+        // Basic scroll tracking for web (without animations)
+      }
+    : undefined;
 
 
 
@@ -196,9 +238,6 @@ export default function HomeScreen() {
   }, [reminders]);
 
   const completeReminder = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    if (!fromSwipe) {
-      configureLayoutAnimation();
-    }
     
     const executeUpdate = () => {
       if (reminder.repeatType === 'none') {
@@ -220,14 +259,13 @@ export default function HomeScreen() {
     };
     
     if (fromSwipe) {
-      setTimeout(executeUpdate, 50);
+      setTimeout(executeUpdate, 300);
     } else {
       executeUpdate();
     }
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
-    configureLayoutAnimation();
     updateReminder.mutate({ ...reminder, isPaused: !reminder.isPaused });
   }, [updateReminder]);
 
@@ -306,12 +344,9 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    if (!fromSwipe) {
-      configureLayoutAnimation();
-    }
     
     if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 50);
+      setTimeout(() => deleteReminder.mutate(reminder.id), 300);
     } else {
       deleteReminder.mutate(reminder.id);
     }
@@ -453,10 +488,36 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
-  const ReminderCard = memo(({ reminder, listType }: { reminder: Reminder; listType: 'active' | 'completed' | 'expired' }) => {
+  const ReminderCard = memo(({ reminder, listType, index }: { reminder: Reminder; listType: 'active' | 'completed' | 'expired'; index: number }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
     const isSelected = selectedReminders.has(reminder.id);
+
+    // Bounce animation style
+    const cardBounceStyle = useAnimatedStyle(() => {
+      // Only apply bounce to first 3 cards at top or last 3 cards at bottom
+      const shouldBounceTop = isAtTop.value && index < 3;
+      const shouldBounceBottom = isAtBottom.value && index >= (activeReminders.length - 3);
+      
+      if (!shouldBounceTop && !shouldBounceBottom) {
+        return { transform: [{ translateY: 0 }] };
+      }
+      
+      // Stagger bounce effect based on index
+      const bounceOffset = shouldBounceTop ? -3 : 3;  // 3px bounce
+      
+      return {
+        transform: [
+          {
+            translateY: withSpring(shouldBounceTop || shouldBounceBottom ? bounceOffset : 0, {
+              damping: 15,
+              stiffness: 150,
+              mass: 0.5,
+            })
+          }
+        ]
+      };
+    });
     
     return (
       <SwipeableRow 
@@ -472,17 +533,18 @@ export default function HomeScreen() {
         }) : undefined} 
         onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
       >
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => handleCardPress(reminder)}
-          onLongPress={() => handleLongPress(reminder.id, listType)}
-          delayLongPress={200}
-          style={[
-            styles.reminderCard,
-            isSelected && styles.selectedCard
-          ]}
-          testID={`reminder-card-${reminder.id}`}
-        >
+        <Animated.View style={cardBounceStyle}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleCardPress(reminder)}
+            onLongPress={() => handleLongPress(reminder.id, listType)}
+            delayLongPress={200}
+            style={[
+              styles.reminderCard,
+              isSelected && styles.selectedCard
+            ]}
+            testID={`reminder-card-${reminder.id}`}
+          >
           <View style={styles.reminderContent}>
             <View style={styles.reminderLeft}>
               {isSelectionMode && (
@@ -733,7 +795,8 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
       </SwipeableRow>
     );
   }, (prevProps, nextProps) => {
@@ -913,6 +976,8 @@ export default function HomeScreen() {
         bouncesZoom={false}
         alwaysBounceVertical={true}
         overScrollMode="always"
+        onScroll={Platform.OS === 'web' ? webScrollHandler : scrollHandler}
+        scrollEventThrottle={16}
         contentContainerStyle={{
           minHeight: '100%',
           paddingBottom: 20
@@ -928,8 +993,8 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={styles.section}>
-              {activeReminders.map((reminder) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="active" />
+              {activeReminders.map((reminder, index) => (
+                <ReminderCard key={reminder.id} reminder={reminder} listType="active" index={index} />
               ))}
             </View>
           )
@@ -946,8 +1011,8 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={styles.section}>
-              {completedReminders.map((reminder) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="completed" />
+              {completedReminders.map((reminder, index) => (
+                <ReminderCard key={reminder.id} reminder={reminder} listType="completed" index={index} />
               ))}
             </View>
           )
@@ -964,8 +1029,8 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={styles.section}>
-              {expiredReminders.map((reminder) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="expired" />
+              {expiredReminders.map((reminder, index) => (
+                <ReminderCard key={reminder.id} reminder={reminder} listType="expired" index={index} />
               ))}
             </View>
           )

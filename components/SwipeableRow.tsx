@@ -7,6 +7,8 @@ import Animated, {
   withSpring,
   runOnJS,
   interpolateColor,
+  Layout,
+  FadeOut,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -36,6 +38,8 @@ export default function SwipeableRow({
   const opacity = useSharedValue(1);
 
   const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])  // Only activate after 10px horizontal movement
+    .failOffsetY([-10, 10])     // Fail if vertical movement exceeds 10px
     .onUpdate((event) => {
       // Only allow swipe if handlers are provided
       if (event.translationX > 0 && !onSwipeRight) return;
@@ -130,7 +134,11 @@ export default function SwipeableRow({
   });
 
   return (
-    <View style={styles.container}>
+    <Animated.View 
+      style={styles.container}
+      layout={Layout.springify().damping(20).stiffness(300)}
+      exiting={FadeOut.duration(250)}
+    >
       {/* Right action (complete) */}
       {onSwipeRight && (
         <Animated.View style={[styles.rightAction, rightActionBackgroundStyle]}>
@@ -157,7 +165,7 @@ export default function SwipeableRow({
           {children}
         </Animated.View>
       </GestureDetector>
-    </View>
+    </Animated.View>
   );
 }
 
