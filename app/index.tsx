@@ -1649,6 +1649,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const lastAngle = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
   const rotationRef = useRef<number>(0);
+  const isFirstMove = useRef<boolean>(false);
   const framePending = useRef<boolean>(false);
   const centerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const velocity = useRef<number>(0);
@@ -1721,12 +1722,14 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: (evt, gestureState) => {
       isDragging.current = true;
+      isFirstMove.current = true; // ADD: Mark first move
       rotationRef.current = rotation;
       measureCenter();
 
-      // Initialize lastAngle based on absolute touch position
-      const startDeg = getAngleFromEvent(evt);
-      lastAngle.current = startDeg;
+      // Initialize lastAngle to current rotation, not touch position
+      // This prevents jump on first move
+      const currentDeg = rotationRef.current;
+      lastAngle.current = currentDeg; // CHANGE: Use current rotation instead of touch position
       
       // Stop any ongoing animations
       if (decayAnimation.current) {
@@ -1748,6 +1751,15 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       
       // Use absolute finger position to compute angle
       const degrees = getAngleFromEvent(evt);
+      
+      // SKIP first move to establish proper baseline
+      if (isFirstMove.current) {
+        isFirstMove.current = false;
+        lastAngle.current = degrees; // Set baseline to actual touch position
+        lastMoveTime.current = currentTime;
+        return; // Skip this move, no rotation applied
+      }
+      
       let delta = angleDelta(lastAngle.current, degrees);
       if (Math.abs(delta) < DEADBAND_DEG) return;
       
