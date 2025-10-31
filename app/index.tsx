@@ -177,13 +177,7 @@ export default function HomeScreen() {
         },
       });
 
-  // Web-compatible scroll handler
-  const webScrollHandler = Platform.OS === 'web' 
-    ? (event: any) => {
-        const scrollY = event.nativeEvent.contentOffset.y;
-        // Basic scroll tracking for web (without animations)
-      }
-    : undefined;
+
 
 
 
@@ -976,8 +970,10 @@ export default function HomeScreen() {
         bouncesZoom={false}
         alwaysBounceVertical={true}
         overScrollMode="always"
-        onScroll={Platform.OS === 'web' ? webScrollHandler : scrollHandler}
-        scrollEventThrottle={16}
+        {...(Platform.OS !== 'web' && {
+          onScroll: scrollHandler,
+          scrollEventThrottle: 16
+        })}
         contentContainerStyle={{
           minHeight: '100%',
           paddingBottom: 20
