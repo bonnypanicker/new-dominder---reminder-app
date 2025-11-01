@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, BackHandler, NativeModules } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, Pressable, BackHandler, NativeModules, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import notifee from '@notifee/react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { getAlarmLaunchOrigin, clearAlarmLaunchOrigin } from '../services/alarm-context';
+import { Bell, Clock, Check, Moon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as reminderScheduler from '../services/reminder-scheduler';
 
 const { AlarmModule } = NativeModules;
 
@@ -11,6 +14,7 @@ export default function AlarmScreen() {
   useKeepAwake();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('Reminder');
 
@@ -83,8 +87,7 @@ export default function AlarmScreen() {
     console.log('[AlarmScreen] Done pressed for reminder:', reminderId);
     try {
       if (reminderId) {
-        const svc = require('../services/reminder-scheduler');
-        await svc.markReminderDone(reminderId);
+        await reminderScheduler.markReminderDone(reminderId);
       }
     } catch (e) { 
       console.error('[AlarmScreen] Done error:', e); 
@@ -96,8 +99,7 @@ export default function AlarmScreen() {
     console.log('[AlarmScreen] Snooze pressed for', m, 'minutes, reminder:', reminderId);
     try {
       if (reminderId) {
-        const svc = require('../services/reminder-scheduler');
-        await svc.rescheduleReminderById(reminderId, m);
+        await reminderScheduler.rescheduleReminderById(reminderId, m);
       }
     } catch (e) { 
       console.error('[AlarmScreen] Snooze error:', e); 
@@ -115,6 +117,8 @@ export default function AlarmScreen() {
   };
 
   const [currentTime, setCurrentTime] = useState(getCurrentTime());
+  const pulseAnim = useMemo(() => new Animated.Value(1), []);
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -123,102 +127,220 @@ export default function AlarmScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [fadeAnim, pulseAnim]);
+
   return (
-    <View style={{ 
+    <Animated.View style={{ 
       flex: 1, 
-      backgroundColor: '#1C1B1F',
-      paddingHorizontal: 24,
-      paddingTop: 48,
-      paddingBottom: 32
+      backgroundColor: '#0B0E14',
+      opacity: fadeAnim
     }}>
-      {/* Header */}
-      <View style={{ alignItems: 'center', marginBottom: 16 }}>
-        <Text style={{ 
-          color: '#D0BCFF', 
-          fontSize: 14, 
-          fontWeight: '500',
-          letterSpacing: 0.5,
-          textTransform: 'uppercase'
-        }}>Reminder</Text>
-      </View>
+      {/* Background gradient effect */}
+      <View style={{
+        position: 'absolute',
+        top: -100,
+        left: -100,
+        right: -100,
+        height: 400,
+        backgroundColor: '#6750A4',
+        opacity: 0.12,
+        borderRadius: 400,
+      }} />
+      <View style={{
+        position: 'absolute',
+        bottom: -150,
+        left: -50,
+        right: -50,
+        height: 300,
+        backgroundColor: '#D0BCFF',
+        opacity: 0.08,
+        borderRadius: 300,
+      }} />
 
-      {/* Reminder Title */}
-      <View style={{ alignItems: 'center', marginBottom: 48 }}>
-        <Text style={{ 
-          color: '#E6E1E5', 
-          fontSize: 28, 
-          fontWeight: '400',
-          textAlign: 'center',
-          lineHeight: 36
-        }}>{title}</Text>
-      </View>
-
-      {/* Center Time Display */}
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 48 }}>
-        <Text style={{ 
-          color: '#D0BCFF', 
-          fontSize: 72, 
-          fontWeight: '300',
-          letterSpacing: -2
-        }}>{currentTime}</Text>
-      </View>
-
-      {/* Snooze Buttons */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ 
-          color: '#CAC4D0', 
-          fontSize: 12, 
-          fontWeight: '500',
-          textAlign: 'center',
-          marginBottom: 16,
-          letterSpacing: 0.5
-        }}>SNOOZE FOR</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
-          {[5, 10, 15, 30].map(m => (
-            <Pressable 
-              key={m} 
-              onPress={snooze(m)}
-              style={({ pressed }) => ({
-                paddingVertical: 12,
-                paddingHorizontal: 20,
-                borderRadius: 20,
-                backgroundColor: pressed ? '#3E3742' : '#2B2930',
-                borderWidth: 1,
-                borderColor: '#49454F',
-                minWidth: 70,
-                alignItems: 'center'
-              })}>
-              <Text style={{ 
-                color: '#D0BCFF', 
-                fontSize: 14,
-                fontWeight: '500'
-              }}>{m}m</Text>
-            </Pressable>
-          ))}
+      <View style={{ 
+        flex: 1,
+        paddingHorizontal: 24,
+        paddingTop: Math.max(60, insets.top + 20),
+        paddingBottom: Math.max(40, insets.bottom + 20)
+      }}>
+        {/* Header with icon */}
+        <View style={{ alignItems: 'center', marginBottom: 32 }}>
+          <Animated.View style={{ 
+            transform: [{ scale: pulseAnim }],
+            backgroundColor: '#2B2930',
+            borderRadius: 32,
+            padding: 20,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#49454F'
+          }}>
+            <Bell size={40} color="#D0BCFF" strokeWidth={1.5} />
+          </Animated.View>
+          <Text style={{ 
+            color: '#CAC4D0', 
+            fontSize: 13, 
+            fontWeight: '500',
+            letterSpacing: 1.2,
+            textTransform: 'uppercase'
+          }}>Reminder</Text>
         </View>
-      </View>
 
-      {/* Done Button */}
-      <Pressable 
-        onPress={done} 
-        style={({ pressed }) => ({
-          paddingVertical: 20,
-          borderRadius: 28,
-          backgroundColor: pressed ? '#7F56D9' : '#6750A4',
-          elevation: 3,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.3,
-          shadowRadius: 4
-        })}>
-        <Text style={{ 
-          color: '#FFFFFF', 
-          fontSize: 16, 
-          fontWeight: '600', 
-          textAlign: 'center',
-          letterSpacing: 0.5
-        }}>Done</Text>
-      </Pressable>
-    </View>
+        {/* Reminder Title */}
+        <View style={{ 
+          alignItems: 'center', 
+          marginBottom: 48,
+          paddingHorizontal: 16
+        }}>
+          <Text style={{ 
+            color: '#E6E1E5', 
+            fontSize: 26, 
+            fontWeight: '400',
+            textAlign: 'center',
+            lineHeight: 34,
+            letterSpacing: 0.3
+          }}>{title}</Text>
+        </View>
+
+        {/* Center Time Display with decorative elements */}
+        <View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          marginBottom: 56
+        }}>
+          <View style={{
+            backgroundColor: '#1D1B20',
+            borderRadius: 24,
+            paddingVertical: 32,
+            paddingHorizontal: 48,
+            borderWidth: 1,
+            borderColor: '#36343B',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 8,
+            elevation: 6
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Clock size={20} color="#938F99" strokeWidth={2} style={{ marginRight: 8 }} />
+              <Text style={{ 
+                color: '#938F99', 
+                fontSize: 12, 
+                fontWeight: '500',
+                letterSpacing: 0.8,
+                textTransform: 'uppercase'
+              }}>Current Time</Text>
+            </View>
+            <Text style={{ 
+              color: '#D0BCFF', 
+              fontSize: 56, 
+              fontWeight: '300',
+              letterSpacing: -1,
+              textAlign: 'center'
+            }}>{currentTime}</Text>
+          </View>
+        </View>
+
+        {/* Snooze Buttons */}
+        <View style={{ marginBottom: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            <Moon size={16} color="#938F99" strokeWidth={2} style={{ marginRight: 8 }} />
+            <Text style={{ 
+              color: '#938F99', 
+              fontSize: 12, 
+              fontWeight: '500',
+              letterSpacing: 0.8,
+              textTransform: 'uppercase'
+            }}>Snooze For</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
+            {[5, 10, 15, 30].map(m => (
+              <Pressable 
+                key={m} 
+                onPress={snooze(m)}
+                style={({ pressed }) => ({
+                  paddingVertical: 16,
+                  paddingHorizontal: 22,
+                  borderRadius: 24,
+                  backgroundColor: pressed ? '#36343B' : '#2B2930',
+                  borderWidth: 1.5,
+                  borderColor: pressed ? '#6750A4' : '#49454F',
+                  minWidth: 75,
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: pressed ? 0.3 : 0.2,
+                  shadowRadius: 4,
+                  elevation: pressed ? 4 : 2,
+                  transform: [{ scale: pressed ? 0.96 : 1 }]
+                })}>
+                <Text style={{ 
+                  color: '#D0BCFF', 
+                  fontSize: 15,
+                  fontWeight: '600',
+                  letterSpacing: 0.3
+                }}>{m}</Text>
+                <Text style={{ 
+                  color: '#938F99', 
+                  fontSize: 11,
+                  fontWeight: '500',
+                  marginTop: 2
+                }}>min</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Done Button */}
+        <Pressable 
+          onPress={done} 
+          style={({ pressed }) => ({
+            paddingVertical: 22,
+            borderRadius: 32,
+            backgroundColor: pressed ? '#7F5DC0' : '#6750A4',
+            elevation: 6,
+            shadowColor: '#6750A4',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            borderWidth: 1,
+            borderColor: pressed ? '#9378D9' : 'transparent',
+            transform: [{ scale: pressed ? 0.98 : 1 }]
+          })}>
+          <Check size={22} color="#FFFFFF" strokeWidth={2.5} />
+          <Text style={{ 
+            color: '#FFFFFF', 
+            fontSize: 17, 
+            fontWeight: '600', 
+            letterSpacing: 0.6
+          }}>Mark as Done</Text>
+        </Pressable>
+      </View>
+    </Animated.View>
   );
 }
