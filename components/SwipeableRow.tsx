@@ -39,14 +39,15 @@ export default function SwipeableRow({
   const hasCompleted = useRef(false);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
+    // Restrict to horizontal gestures and let small vertical moves fail quickly
+    .activeOffsetX([-30, 30])
+    .failOffsetY([-8, 8])
     .onUpdate((event) => {
       // Prevent interaction if already animating or completed
       if (isAnimating.current || hasCompleted.current) return;
       
-      // Only process horizontal swipes if horizontal movement is significantly greater than vertical
-      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 2;
+      // Only process horizontal swipes if horizontal movement clearly dominates vertical
+      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 2.5;
       
       if (isHorizontal) {
         translateX.value = event.translationX;
