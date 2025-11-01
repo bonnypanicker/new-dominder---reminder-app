@@ -55,8 +55,7 @@ module.exports = function withNotifeeAndroid(config) {
     // Add Android build optimizations for EAS
     const notifeeProperties = {
       'android.enableJetifier': 'true',
-      'android.enableR8.fullMode': 'false',
-      'android.enableDexingArtifactTransform.desugaring': 'false'
+      'android.enableR8.fullMode': 'false'
     };
     
     Object.entries(notifeeProperties).forEach(([key, value]) => {

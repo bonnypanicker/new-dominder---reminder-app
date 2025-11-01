@@ -101,7 +101,8 @@ ndkVersion rootProject.ext.ndkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
-    }
+    
+        multiDexEnabled true}
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -182,5 +183,4 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-    implementation 'androidx.multidex:multidex:2.0.1'
 }
