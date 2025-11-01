@@ -8,7 +8,6 @@ import Animated, {
   withTiming,
   runOnJS,
   interpolateColor,
-  FadeOut,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -40,13 +39,14 @@ export default function SwipeableRow({
   const hasCompleted = useRef(false);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-20, 20])
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
     .onUpdate((event) => {
       // Prevent interaction if already animating or completed
       if (isAnimating.current || hasCompleted.current) return;
       
-      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 1.5;
+      // Only process horizontal swipes if horizontal movement is significantly greater than vertical
+      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 2;
       
       if (isHorizontal) {
         translateX.value = event.translationX;
