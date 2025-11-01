@@ -36,7 +36,7 @@ export default function SwipeableRow({
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
   const height = useSharedValue(-1); // -1 means auto-height initially
-  const marginBottom = useSharedValue(12);
+  const marginBottom = useSharedValue(6);
   const isAnimating = useRef(false);
   const hasCompleted = useRef(false);
   
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    bottom: 12,
+    bottom: 6,
     right: 0,
     justifyContent: 'center',
     alignItems: 'flex-start',
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    bottom: 12,
+    bottom: 6,
     right: 0,
     justifyContent: 'center',
     alignItems: 'flex-end',

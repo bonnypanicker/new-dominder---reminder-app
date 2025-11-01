@@ -1230,7 +1230,7 @@ export default function HomeScreen() {
                   updated.delete(newReminder.id);
                   return updated;
                 });
-              }, 600); // Slide-in duration + buffer
+              }, 200); // Very fast slide-in duration + buffer
               
               // Close popup immediately
               setShowCreatePopup(false);

@@ -13,9 +13,9 @@ export const GESTURE_CONFIG = {
     horizontalDominanceRatio: 1.5,
     minimumHorizontalMovement: 10,
     swipeThreshold: 80,
-    animationDuration: 200, // Increased for smoother slide-out + shrink
-    slideInDuration: 300,   // Duration for slide-in animations
-    slideUpDuration: 150,   // Duration for slide-up animations
+    animationDuration: 100, // Very fast slide-out + shrink
+    slideInDuration: 120,   // Very fast slide-in animations
+    slideUpDuration: 80,    // Very fast slide-up animations
   },
   // iOS/Web optimized thresholds
   default: {
@@ -24,9 +24,9 @@ export const GESTURE_CONFIG = {
     horizontalDominanceRatio: 2.5,
     minimumHorizontalMovement: 5,
     swipeThreshold: 80,
-    animationDuration: 250, // Increased for smoother slide-out + shrink
-    slideInDuration: 400,   // Duration for slide-in animations
-    slideUpDuration: 200,   // Duration for slide-up animations
+    animationDuration: 120, // Very fast slide-out + shrink
+    slideInDuration: 150,   // Very fast slide-in animations
+    slideUpDuration: 100,   // Very fast slide-up animations
   }
 };
 
