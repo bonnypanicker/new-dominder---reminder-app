@@ -30,8 +30,18 @@ import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
 
+// Debounce helper to batch rapid updates and prevent flickering
+let updateTimeoutId: NodeJS.Timeout | null = null;
 
-
+const debouncedUpdate = (callback: () => void, delay: number = 50) => {
+  if (updateTimeoutId) {
+    clearTimeout(updateTimeoutId);
+  }
+  updateTimeoutId = setTimeout(() => {
+    callback();
+    updateTimeoutId = null;
+  }, delay);
+};
 
 const calculateDefaultTime = () => {
   const now = new Date();
@@ -111,7 +121,7 @@ export default function HomeScreen() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
-  const [deletingCardIds, setDeletingCardIds] = useState<Set<string>>(new Set());
+
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
@@ -174,7 +184,7 @@ export default function HomeScreen() {
       const dateB = getNextDate(b);
       return dateA.getTime() - dateB.getTime();
     });
-  }, [reminders, settings]);
+  }, [reminders, settings?.sortMode]);
   const completedReminders = React.useMemo(() => {
     const completed = reminders.filter(r => r.isCompleted);
     // Sort by when they were completed (using lastTriggeredAt or createdAt as fallback)
@@ -309,30 +319,11 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    // Mark card as deleting for animation
-    setDeletingCardIds(prev => new Set(prev).add(reminder.id));
     
     if (fromSwipe) {
-      setTimeout(() => {
-        deleteReminder.mutate(reminder.id);
-        // Clean up after mutation completes
-        setTimeout(() => {
-          setDeletingCardIds(prev => {
-            const next = new Set(prev);
-            next.delete(reminder.id);
-            return next;
-          });
-        }, 300);
-      }, 350);
+      setTimeout(() => deleteReminder.mutate(reminder.id), 300);
     } else {
       deleteReminder.mutate(reminder.id);
-      setTimeout(() => {
-        setDeletingCardIds(prev => {
-          const next = new Set(prev);
-          next.delete(reminder.id);
-          return next;
-        });
-      }, 300);
     }
   }, [deleteReminder]);
 
@@ -492,7 +483,6 @@ export default function HomeScreen() {
           }, 300);
         }) : undefined} 
         onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
-        isDeleting={deletingCardIds.has(reminder.id)}
       >
         <TouchableOpacity
             activeOpacity={0.85}
@@ -759,14 +749,14 @@ export default function HomeScreen() {
       </SwipeableRow>
     );
   }, (prevProps, nextProps) => {
-    // More strict equality check
+    // ID change always means different card
     if (prevProps.reminder.id !== nextProps.reminder.id) return false;
     if (prevProps.listType !== nextProps.listType) return false;
     
-    // Check only relevant fields that affect rendering
     const prev = prevProps.reminder;
     const next = nextProps.reminder;
     
+    // Check ALL fields that affect visual rendering to prevent flickering
     return prev.title === next.title &&
            prev.time === next.time &&
            prev.date === next.date &&
@@ -775,7 +765,16 @@ export default function HomeScreen() {
            prev.isPaused === next.isPaused &&
            prev.isCompleted === next.isCompleted &&
            prev.isExpired === next.isExpired &&
-           prev.repeatType === next.repeatType;
+           prev.repeatType === next.repeatType &&
+           prev.nextReminderDate === next.nextReminderDate &&
+           prev.snoozeUntil === next.snoozeUntil &&
+           prev.lastTriggeredAt === next.lastTriggeredAt &&
+           // Array comparison for repeatDays
+           (prev.repeatDays?.length === next.repeatDays?.length && 
+            prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i])) &&
+           // Object comparison for everyInterval
+           (prev.everyInterval?.value === next.everyInterval?.value &&
+            prev.everyInterval?.unit === next.everyInterval?.unit);
   });
   
   ReminderCard.displayName = 'ReminderCard';

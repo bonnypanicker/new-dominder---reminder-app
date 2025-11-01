@@ -9,8 +9,6 @@ import Animated, {
   interpolateColor,
   Layout,
   FadeOut,
-  SharedTransition,
-  withTiming,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -19,23 +17,11 @@ import { Reminder } from '@/types/reminder';
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
 
-// Custom shared transition configuration
-const customTransition = SharedTransition.custom((values) => {
-  'worklet';
-  return {
-    height: withTiming(values.targetHeight, { duration: 300 }),
-    width: withTiming(values.targetWidth, { duration: 300 }),
-    originX: withTiming(values.targetOriginX, { duration: 300 }),
-    originY: withTiming(values.targetOriginY, { duration: 300 }),
-  };
-});
-
 interface SwipeableRowProps {
   children: React.ReactNode;
   reminder: Reminder;
   onSwipeRight?: () => void;
   onSwipeLeft?: () => void;
-  isDeleting?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -46,53 +32,63 @@ export default function SwipeableRow({
   children, 
   reminder, 
   onSwipeRight, 
-  onSwipeLeft,
-  isDeleting = false
+  onSwipeLeft 
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10])  // Only activate after 10px horizontal movement
-    .failOffsetY([-10, 10])     // Fail if vertical movement exceeds 10px
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-15, 15])
     .onUpdate((event) => {
-      // Only allow swipe if handlers are provided
-      if (event.translationX > 0 && !onSwipeRight) return;
-      if (event.translationX < 0 && !onSwipeLeft) return;
+      // Smooth translation with reduced sensitivity to prevent jitter
+      translateX.value = event.translationX * 0.9;
       
-      translateX.value = event.translationX;
+      // Smoother opacity transition to prevent flickering
+      const progress = Math.abs(event.translationX) / SWIPE_THRESHOLD;
+      opacity.value = Math.max(0.4, 1 - progress * 0.6);
     })
     .onEnd((event) => {
       const shouldSwipeRight = event.translationX > SWIPE_THRESHOLD && onSwipeRight;
       const shouldSwipeLeft = event.translationX < -SWIPE_THRESHOLD && onSwipeLeft;
 
       if (shouldSwipeRight) {
-        // Animate to complete swipe right
+        // Smoother animation with better damping to prevent layout conflicts
         translateX.value = withSpring(SCREEN_WIDTH, {
-          damping: 20,
-          stiffness: 300,
+          damping: 25,
+          stiffness: 250,
+          mass: 0.8,
         });
         opacity.value = withSpring(0, {
-          damping: 20,
-          stiffness: 300,
+          damping: 25,
+          stiffness: 250,
+          mass: 0.8,
         });
         runOnJS(onSwipeRight!)();
       } else if (shouldSwipeLeft) {
-        // Animate to complete swipe left
+        // Smoother animation with better damping to prevent layout conflicts
         translateX.value = withSpring(-SCREEN_WIDTH, {
-          damping: 20,
-          stiffness: 300,
+          damping: 25,
+          stiffness: 250,
+          mass: 0.8,
         });
         opacity.value = withSpring(0, {
-          damping: 20,
-          stiffness: 300,
+          damping: 25,
+          stiffness: 250,
+          mass: 0.8,
         });
         runOnJS(onSwipeLeft!)();
       } else {
-        // Spring back to center
+        // Faster spring back to center with better damping
         translateX.value = withSpring(0, {
-          damping: 20,
-          stiffness: 300,
+          damping: 30,
+          stiffness: 400,
+          mass: 0.6,
+        });
+        opacity.value = withSpring(1, {
+          damping: 30,
+          stiffness: 400,
+          mass: 0.6,
         });
       }
     });
@@ -151,9 +147,8 @@ export default function SwipeableRow({
   return (
     <Animated.View 
       style={styles.container}
-      sharedTransitionTag={isDeleting ? undefined : `reminder-${reminder.id}`}
-      sharedTransitionStyle={isDeleting ? undefined : customTransition}
-      exiting={isDeleting ? FadeOut.duration(250) : undefined}
+      layout={Layout.springify().damping(20).stiffness(300)}
+      exiting={FadeOut.duration(250)}
     >
       {/* Right action (complete) */}
       {onSwipeRight && (
