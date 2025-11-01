@@ -166,7 +166,8 @@ dependencies {
 
     if (isGifEnabled) {
         // For animated gif support
-        implementation("com.facebook.fresco:animated-gif:${expoLibs.versions.fresco.get()}")
+        implementation("com.facebook.fresco:animated-gif:${expoLibs.versions.fresco.get()
+    implementation 'androidx.multidex:multidex:2.0.1'}")
     }
 
     if (isWebpEnabled) {
