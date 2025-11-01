@@ -38,15 +38,20 @@ export default function SwipeableRow({
   const opacity = useSharedValue(1);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-15, 15])
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-50, 50])  // Allow more vertical movement before failing
     .onUpdate((event) => {
-      // Smooth translation with reduced sensitivity to prevent jitter
-      translateX.value = event.translationX * 0.9;
+      // Only allow horizontal swipe if the gesture is primarily horizontal
+      const isHorizontalGesture = Math.abs(event.translationX) > Math.abs(event.translationY);
       
-      // Smoother opacity transition to prevent flickering
-      const progress = Math.abs(event.translationX) / SWIPE_THRESHOLD;
-      opacity.value = Math.max(0.4, 1 - progress * 0.6);
+      if (isHorizontalGesture) {
+        // Smooth translation with reduced sensitivity to prevent jitter
+        translateX.value = event.translationX * 0.9;
+        
+        // Smoother opacity transition to prevent flickering
+        const progress = Math.abs(event.translationX) / SWIPE_THRESHOLD;
+        opacity.value = Math.max(0.4, 1 - progress * 0.6);
+      }
     })
     .onEnd((event) => {
       const shouldSwipeRight = event.translationX > SWIPE_THRESHOLD && onSwipeRight;
