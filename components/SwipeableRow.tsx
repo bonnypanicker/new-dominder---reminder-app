@@ -35,6 +35,8 @@ export default function SwipeableRow({
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
+  const height = useSharedValue(-1); // -1 means auto-height initially
+  const marginBottom = useSharedValue(12);
   const isAnimating = useRef(false);
   const hasCompleted = useRef(false);
   
@@ -71,30 +73,51 @@ export default function SwipeableRow({
         isAnimating.current = true;
         hasCompleted.current = true;
         
-        // Use withTiming for more predictable animation
+        // First phase: slide out horizontally
         translateX.value = withTiming(SCREEN_WIDTH, {
-          duration: gestureConfig.animationDuration,
+          duration: gestureConfig.animationDuration * 0.6, // 60% of total duration
         });
         opacity.value = withTiming(0, {
-          duration: gestureConfig.animationDuration,
-        }, () => {
-          // Trigger the callback after animation completes
-          runOnJS(onSwipeRight!)();
+          duration: gestureConfig.animationDuration * 0.6,
         });
+        
+        // Second phase: shrink vertically after horizontal slide
+        setTimeout(() => {
+          height.value = withTiming(0, {
+            duration: gestureConfig.animationDuration * 0.4, // 40% of total duration
+          });
+          marginBottom.value = withTiming(0, {
+            duration: gestureConfig.animationDuration * 0.4,
+          }, () => {
+            // Trigger the callback after all animations complete
+            runOnJS(onSwipeRight!)();
+          });
+        }, gestureConfig.animationDuration * 0.6);
+        
       } else if (shouldSwipeLeft) {
         isAnimating.current = true;
         hasCompleted.current = true;
         
-        // Use withTiming for more predictable animation
+        // First phase: slide out horizontally
         translateX.value = withTiming(-SCREEN_WIDTH, {
-          duration: gestureConfig.animationDuration,
+          duration: gestureConfig.animationDuration * 0.6, // 60% of total duration
         });
         opacity.value = withTiming(0, {
-          duration: gestureConfig.animationDuration,
-        }, () => {
-          // Trigger the callback after animation completes
-          runOnJS(onSwipeLeft!)();
+          duration: gestureConfig.animationDuration * 0.6,
         });
+        
+        // Second phase: shrink vertically after horizontal slide
+        setTimeout(() => {
+          height.value = withTiming(0, {
+            duration: gestureConfig.animationDuration * 0.4, // 40% of total duration
+          });
+          marginBottom.value = withTiming(0, {
+            duration: gestureConfig.animationDuration * 0.4,
+          }, () => {
+            // Trigger the callback after all animations complete
+            runOnJS(onSwipeLeft!)();
+          });
+        }, gestureConfig.animationDuration * 0.6);
       } else {
         // Reset animation with spring for natural feel
         translateX.value = withSpring(0, {
@@ -114,6 +137,14 @@ export default function SwipeableRow({
     return {
       transform: [{ translateX: translateX.value }],
       opacity: opacity.value,
+    };
+  });
+
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: height.value === -1 ? undefined : height.value,
+      marginBottom: marginBottom.value,
+      overflow: 'hidden',
     };
   });
 
@@ -163,7 +194,7 @@ export default function SwipeableRow({
 
   return (
     <Animated.View 
-      style={[styles.container, { zIndex: 1 }]}
+      style={[styles.container, containerAnimatedStyle, { zIndex: 1 }]}
     >
       {/* Right action (complete) */}
       {onSwipeRight && (

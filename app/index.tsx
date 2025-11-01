@@ -29,6 +29,7 @@ import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
+import AnimatedCard from '@/components/AnimatedCard';
 import { getScrollViewProps, getLayoutAnimationDuration } from '@/utils/gesture-coordination';
 
 // Debounce helper to batch rapid updates and prevent flickering
@@ -122,7 +123,7 @@ export default function HomeScreen() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
-
+  const [newlyAddedReminders, setNewlyAddedReminders] = useState<Set<string>>(new Set());
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
@@ -956,13 +957,18 @@ export default function HomeScreen() {
           ) : (
             <Animated.View style={styles.section} layout={Layout.duration(getLayoutAnimationDuration())}>
               {activeReminders.map((reminder, index) => (
-                <ReminderCard 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  listType="active"
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
+                <AnimatedCard 
+                  key={reminder.id}
+                  isNew={newlyAddedReminders.has(reminder.id)}
+                  index={index}
+                >
+                  <ReminderCard 
+                    reminder={reminder} 
+                    listType="active"
+                    isSelected={selectedReminders.has(reminder.id)}
+                    isSelectionMode={isSelectionMode}
+                  />
+                </AnimatedCard>
               ))}
             </Animated.View>
           )
@@ -980,13 +986,18 @@ export default function HomeScreen() {
           ) : (
             <Animated.View style={styles.section} layout={Layout.duration(getLayoutAnimationDuration())}>
               {completedReminders.map((reminder, index) => (
-                <ReminderCard 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  listType="completed"
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
+                <AnimatedCard 
+                  key={reminder.id}
+                  isNew={false} // Completed reminders are never new
+                  index={index}
+                >
+                  <ReminderCard 
+                    reminder={reminder} 
+                    listType="completed"
+                    isSelected={selectedReminders.has(reminder.id)}
+                    isSelectionMode={isSelectionMode}
+                  />
+                </AnimatedCard>
               ))}
             </Animated.View>
           )
@@ -1004,13 +1015,18 @@ export default function HomeScreen() {
           ) : (
             <Animated.View style={styles.section} layout={Layout.duration(getLayoutAnimationDuration())}>
               {expiredReminders.map((reminder, index) => (
-                <ReminderCard 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  listType="expired"
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
+                <AnimatedCard 
+                  key={reminder.id}
+                  isNew={false} // Expired reminders are never new
+                  index={index}
+                >
+                  <ReminderCard 
+                    reminder={reminder} 
+                    listType="expired"
+                    isSelected={selectedReminders.has(reminder.id)}
+                    isSelectionMode={isSelectionMode}
+                  />
+                </AnimatedCard>
               ))}
             </Animated.View>
           )
@@ -1204,6 +1220,18 @@ export default function HomeScreen() {
 
           addReminder.mutate(newReminder, {
             onSuccess: () => {
+              // Track newly added reminder for slide-in animation
+              setNewlyAddedReminders(prev => new Set([...prev, newReminder.id]));
+              
+              // Remove from newly added set after animation completes
+              setTimeout(() => {
+                setNewlyAddedReminders(prev => {
+                  const updated = new Set(prev);
+                  updated.delete(newReminder.id);
+                  return updated;
+                });
+              }, 600); // Slide-in duration + buffer
+              
               // Close popup immediately
               setShowCreatePopup(false);
               
