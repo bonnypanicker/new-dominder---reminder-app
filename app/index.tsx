@@ -941,10 +941,9 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         bounces={true}
         alwaysBounceVertical={true}
-        scrollEnabled={!showCreatePopup}
-        contentContainerStyle={{
-          paddingBottom: 100
-        }}>
+        scrollEnabled={true}
+        nestedScrollEnabled={true}
+        contentContainerStyle={styles.scrollContent}>
         {activeTab === 'active' && (
           activeReminders.length === 0 ? (
             <View style={styles.emptyState}>
@@ -955,7 +954,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
+            <View style={styles.section}>
               {activeReminders.map((reminder, index) => (
                 <ReminderCard 
                   key={reminder.id} 
@@ -965,7 +964,7 @@ export default function HomeScreen() {
                   isSelectionMode={isSelectionMode}
                 />
               ))}
-            </Animated.View>
+            </View>
           )
         )}
         
@@ -979,7 +978,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
+            <View style={styles.section}>
               {completedReminders.map((reminder, index) => (
                 <ReminderCard 
                   key={reminder.id} 
@@ -989,7 +988,7 @@ export default function HomeScreen() {
                   isSelectionMode={isSelectionMode}
                 />
               ))}
-            </Animated.View>
+            </View>
           )
         )}
         
@@ -1003,7 +1002,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
+            <View style={styles.section}>
               {expiredReminders.map((reminder, index) => (
                 <ReminderCard 
                   key={reminder.id} 
@@ -1013,7 +1012,7 @@ export default function HomeScreen() {
                   isSelectionMode={isSelectionMode}
                 />
               ))}
-            </Animated.View>
+            </View>
           )
         )}
       </ScrollView>
@@ -2878,6 +2877,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
