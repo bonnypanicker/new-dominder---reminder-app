@@ -12,6 +12,7 @@ import Animated, {
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder } from '@/types/reminder';
+import { getGestureConfig, isHorizontalGesture } from '@/utils/gesture-coordination';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
@@ -24,7 +25,6 @@ interface SwipeableRowProps {
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = 80;
 const ACTION_WIDTH = 80;
 
 export default function SwipeableRow({ 
@@ -37,19 +37,23 @@ export default function SwipeableRow({
   const opacity = useSharedValue(1);
   const isAnimating = useRef(false);
   const hasCompleted = useRef(false);
+  
+  // Get platform-specific configuration
+  const gestureConfig = getGestureConfig();
+  const SWIPE_THRESHOLD = gestureConfig.swipeThreshold;
 
   const panGesture = Gesture.Pan()
-    // Restrict to horizontal gestures and let small vertical moves fail quickly
-    .activeOffsetX([-30, 30])
-    .failOffsetY([-8, 8])
+    // Platform-optimized thresholds
+    .activeOffsetX(gestureConfig.activeOffsetX)
+    .failOffsetY(gestureConfig.failOffsetY)
+    // Enable simultaneous recognition with ScrollView
+    .simultaneousWithExternalGesture()
     .onUpdate((event) => {
       // Prevent interaction if already animating or completed
       if (isAnimating.current || hasCompleted.current) return;
       
-      // Only process horizontal swipes if horizontal movement clearly dominates vertical
-      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 2.5;
-      
-      if (isHorizontal) {
+      // Use platform-optimized horizontal gesture detection
+      if (isHorizontalGesture(event.translationX, event.translationY)) {
         translateX.value = event.translationX;
         
         const progress = Math.abs(event.translationX) / SWIPE_THRESHOLD;
@@ -69,10 +73,10 @@ export default function SwipeableRow({
         
         // Use withTiming for more predictable animation
         translateX.value = withTiming(SCREEN_WIDTH, {
-          duration: 150,
+          duration: gestureConfig.animationDuration,
         });
         opacity.value = withTiming(0, {
-          duration: 150,
+          duration: gestureConfig.animationDuration,
         }, () => {
           // Trigger the callback after animation completes
           runOnJS(onSwipeRight!)();
@@ -83,10 +87,10 @@ export default function SwipeableRow({
         
         // Use withTiming for more predictable animation
         translateX.value = withTiming(-SCREEN_WIDTH, {
-          duration: 150,
+          duration: gestureConfig.animationDuration,
         });
         opacity.value = withTiming(0, {
-          duration: 150,
+          duration: gestureConfig.animationDuration,
         }, () => {
           // Trigger the callback after animation completes
           runOnJS(onSwipeLeft!)();

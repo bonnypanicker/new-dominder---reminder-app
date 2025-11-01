@@ -29,6 +29,7 @@ import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
+import { getScrollViewProps, getLayoutAnimationDuration } from '@/utils/gesture-coordination';
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -938,10 +939,8 @@ export default function HomeScreen() {
         ref={contentScrollRef}
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
-        keyboardShouldPersistTaps="handled"
-        bounces={true}
-        alwaysBounceVertical={true}
         scrollEnabled={!showCreatePopup}
+        {...getScrollViewProps()}
         contentContainerStyle={{
           paddingBottom: 100
         }}>
@@ -955,7 +954,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
+            <Animated.View style={styles.section} layout={Layout.duration(getLayoutAnimationDuration())}>
               {activeReminders.map((reminder, index) => (
                 <ReminderCard 
                   key={reminder.id} 
@@ -979,7 +978,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
+            <Animated.View style={styles.section} layout={Layout.duration(getLayoutAnimationDuration())}>
               {completedReminders.map((reminder, index) => (
                 <ReminderCard 
                   key={reminder.id} 
@@ -1003,7 +1002,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
+            <Animated.View style={styles.section} layout={Layout.duration(getLayoutAnimationDuration())}>
               {expiredReminders.map((reminder, index) => (
                 <ReminderCard 
                   key={reminder.id} 
