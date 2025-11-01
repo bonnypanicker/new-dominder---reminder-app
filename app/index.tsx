@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { Layout, FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -80,6 +80,13 @@ export default function HomeScreen() {
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
+  
+  // Debounced state updates helper
+  const debouncedStateUpdate = useCallback((fn: () => void, delay: number = 100) => {
+    const timeoutId = setTimeout(fn, delay);
+    return () => clearTimeout(timeoutId);
+  }, []);
+  
   const showToast = useCallback((message: string, type: 'info' | 'error' | 'success' = 'error') => {
     setToastMessage(message);
     setToastType(type);
@@ -224,15 +231,17 @@ export default function HomeScreen() {
     };
     
     if (fromSwipe) {
-      setTimeout(executeUpdate, 300);
+      setTimeout(executeUpdate, 350);
     } else {
       executeUpdate();
     }
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
-    updateReminder.mutate({ ...reminder, isPaused: !reminder.isPaused });
-  }, [updateReminder]);
+    debouncedStateUpdate(() => {
+      updateReminder.mutate({ ...reminder, isPaused: !reminder.isPaused });
+    }, 50);
+  }, [updateReminder, debouncedStateUpdate]);
 
   const reassignReminder = useCallback((reminder: Reminder) => {
     // Check if the reminder time has passed
@@ -311,7 +320,7 @@ export default function HomeScreen() {
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
     
     if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 300);
+      setTimeout(() => deleteReminder.mutate(reminder.id), 350);
     } else {
       deleteReminder.mutate(reminder.id);
     }
@@ -739,23 +748,32 @@ export default function HomeScreen() {
       </SwipeableRow>
     );
   }, (prevProps, nextProps) => {
-    // More strict equality check
-    if (prevProps.reminder.id !== nextProps.reminder.id) return false;
-    if (prevProps.listType !== nextProps.listType) return false;
-    
-    // Check only relevant fields that affect rendering
-    const prev = prevProps.reminder;
-    const next = nextProps.reminder;
-    
-    return prev.title === next.title &&
-           prev.time === next.time &&
-           prev.date === next.date &&
-           prev.priority === next.priority &&
-           prev.isActive === next.isActive &&
-           prev.isPaused === next.isPaused &&
-           prev.isCompleted === next.isCompleted &&
-           prev.isExpired === next.isExpired &&
-           prev.repeatType === next.repeatType;
+  // ID change always means different card
+  if (prevProps.reminder.id !== nextProps.reminder.id) return false;
+  if (prevProps.listType !== nextProps.listType) return false;
+  
+  const prev = prevProps.reminder;
+  const next = nextProps.reminder;
+  
+  // Check ALL fields that affect visual rendering
+  return prev.title === next.title &&
+         prev.time === next.time &&
+         prev.date === next.date &&
+         prev.priority === next.priority &&
+         prev.isActive === next.isActive &&
+         prev.isPaused === next.isPaused &&
+         prev.isCompleted === next.isCompleted &&
+         prev.isExpired === next.isExpired &&
+         prev.repeatType === next.repeatType &&
+         prev.nextReminderDate === next.nextReminderDate &&  // ✅ ADDED
+         prev.snoozeUntil === next.snoozeUntil &&            // ✅ ADDED
+         prev.lastTriggeredAt === next.lastTriggeredAt &&    // ✅ ADDED
+         // Array comparison for repeatDays
+         (prev.repeatDays?.length === next.repeatDays?.length && 
+          prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i])) &&  // ✅ ADDED
+         // Object comparison for everyInterval
+         (prev.everyInterval?.value === next.everyInterval?.value &&
+          prev.everyInterval?.unit === next.everyInterval?.unit);  // ✅ ADDED
   });
   
   ReminderCard.displayName = 'ReminderCard';
@@ -930,11 +948,14 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <Animated.View 
+              style={styles.section}
+              layout={Layout.springify().damping(20).stiffness(300)}
+            >
               {activeReminders.map((reminder, index) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="active" />
               ))}
-            </View>
+            </Animated.View>
           )
         )}
         
@@ -948,11 +969,14 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <Animated.View 
+              style={styles.section}
+              layout={Layout.springify().damping(20).stiffness(300)}
+            >
               {completedReminders.map((reminder, index) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="completed" />
               ))}
-            </View>
+            </Animated.View>
           )
         )}
         
@@ -966,11 +990,14 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <Animated.View 
+              style={styles.section}
+              layout={Layout.springify().damping(20).stiffness(300)}
+            >
               {expiredReminders.map((reminder, index) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="expired" />
               ))}
-            </View>
+            </Animated.View>
           )
         )}
       </ScrollView>
@@ -1165,8 +1192,8 @@ export default function HomeScreen() {
               // Close popup immediately
               setShowCreatePopup(false);
               
-              // Reset form after animation completes using InteractionManager
-              InteractionManager.runAfterInteractions(() => {
+              // Small delay to let entrance animation start before form reset
+              setTimeout(() => {
                 setEditingReminder(null);
                 setTitle('');
                 // Map settings priority to reminder priority
@@ -1186,7 +1213,7 @@ export default function HomeScreen() {
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
                 setSelectedDate(`${yyyy}-${mm}-${dd}`);
-              });
+              }, 100);  // Small delay for entrance animation
             },
             onError: (error) => {
               Alert.alert('Error', 'Failed to create reminder');

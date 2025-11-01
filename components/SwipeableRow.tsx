@@ -9,6 +9,8 @@ import Animated, {
   interpolateColor,
   Layout,
   FadeOut,
+  FadeIn,
+  SlideInDown,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -136,7 +138,7 @@ export default function SwipeableRow({
   return (
     <Animated.View 
       style={styles.container}
-      layout={Layout.springify().damping(20).stiffness(300)}
+      entering={FadeIn.duration(300).delay(100)}
       exiting={FadeOut.duration(250)}
     >
       {/* Right action (complete) */}
