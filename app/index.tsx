@@ -111,7 +111,7 @@ export default function HomeScreen() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
-
+  const [deletingCardIds, setDeletingCardIds] = useState<Set<string>>(new Set());
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
@@ -309,11 +309,30 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
+    // Mark card as deleting for animation
+    setDeletingCardIds(prev => new Set(prev).add(reminder.id));
     
     if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 300);
+      setTimeout(() => {
+        deleteReminder.mutate(reminder.id);
+        // Clean up after mutation completes
+        setTimeout(() => {
+          setDeletingCardIds(prev => {
+            const next = new Set(prev);
+            next.delete(reminder.id);
+            return next;
+          });
+        }, 300);
+      }, 350);
     } else {
       deleteReminder.mutate(reminder.id);
+      setTimeout(() => {
+        setDeletingCardIds(prev => {
+          const next = new Set(prev);
+          next.delete(reminder.id);
+          return next;
+        });
+      }, 300);
     }
   }, [deleteReminder]);
 
@@ -473,6 +492,7 @@ export default function HomeScreen() {
           }, 300);
         }) : undefined} 
         onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
+        isDeleting={deletingCardIds.has(reminder.id)}
       >
         <TouchableOpacity
             activeOpacity={0.85}

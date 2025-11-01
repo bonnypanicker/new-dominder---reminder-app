@@ -9,6 +9,8 @@ import Animated, {
   interpolateColor,
   Layout,
   FadeOut,
+  SharedTransition,
+  withTiming,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -17,11 +19,23 @@ import { Reminder } from '@/types/reminder';
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
 
+// Custom shared transition configuration
+const customTransition = SharedTransition.custom((values) => {
+  'worklet';
+  return {
+    height: withTiming(values.targetHeight, { duration: 300 }),
+    width: withTiming(values.targetWidth, { duration: 300 }),
+    originX: withTiming(values.targetOriginX, { duration: 300 }),
+    originY: withTiming(values.targetOriginY, { duration: 300 }),
+  };
+});
+
 interface SwipeableRowProps {
   children: React.ReactNode;
   reminder: Reminder;
   onSwipeRight?: () => void;
   onSwipeLeft?: () => void;
+  isDeleting?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -32,7 +46,8 @@ export default function SwipeableRow({
   children, 
   reminder, 
   onSwipeRight, 
-  onSwipeLeft 
+  onSwipeLeft,
+  isDeleting = false
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
@@ -136,8 +151,9 @@ export default function SwipeableRow({
   return (
     <Animated.View 
       style={styles.container}
-      layout={Layout.springify().damping(20).stiffness(300)}
-      exiting={FadeOut.duration(250)}
+      sharedTransitionTag={isDeleting ? undefined : `reminder-${reminder.id}`}
+      sharedTransitionStyle={isDeleting ? undefined : customTransition}
+      exiting={isDeleting ? FadeOut.duration(250) : undefined}
     >
       {/* Right action (complete) */}
       {onSwipeRight && (
