@@ -213,7 +213,6 @@ export default function HomeScreen() {
   }, [reminders]);
 
   const completeReminder = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    
     const executeUpdate = () => {
       if (reminder.repeatType === 'none') {
         // For non-repeating reminders, mark as completed
@@ -233,11 +232,8 @@ export default function HomeScreen() {
       }
     };
     
-    if (fromSwipe) {
-      setTimeout(executeUpdate, 400);
-    } else {
-      executeUpdate();
-    }
+    // Execute immediately - animation timing is now handled in SwipeableRow
+    executeUpdate();
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
@@ -463,17 +459,26 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
-  const ReminderCard = memo(({ reminder, listType }: { reminder: Reminder; listType: 'active' | 'completed' | 'expired' }) => {
+  const ReminderCard = memo(({ 
+    reminder, 
+    listType, 
+    isSelected, 
+    isSelectionMode: selectionMode 
+  }: { 
+    reminder: Reminder; 
+    listType: 'active' | 'completed' | 'expired';
+    isSelected: boolean;
+    isSelectionMode: boolean;
+  }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
-    const isSelected = selectedReminders.has(reminder.id);
 
 
     
     return (
       <SwipeableRow 
         reminder={reminder}
-        onSwipeRight={isActive && !isSelectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
+        onSwipeRight={isActive && !selectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
           // For repeating reminders, swipe right completes entirely
           setTimeout(() => {
             updateReminder.mutate({
@@ -482,7 +487,7 @@ export default function HomeScreen() {
             });
           }, 400);
         }) : undefined} 
-        onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
+        onSwipeLeft={!selectionMode ? () => handleDelete(reminder, true) : undefined}
       >
         <TouchableOpacity
             activeOpacity={0.85}
@@ -497,7 +502,7 @@ export default function HomeScreen() {
           >
           <View style={styles.reminderContent}>
             <View style={styles.reminderLeft}>
-              {isSelectionMode && (
+              {selectionMode && (
                 <TouchableOpacity
                   style={styles.selectionCheckbox}
                   onPress={() => handleCardPress(reminder)}
@@ -753,6 +758,10 @@ export default function HomeScreen() {
     if (prevProps.reminder.id !== nextProps.reminder.id) return false;
     if (prevProps.listType !== nextProps.listType) return false;
     
+    // Check external state dependencies
+    if (prevProps.isSelected !== nextProps.isSelected) return false;
+    if (prevProps.isSelectionMode !== nextProps.isSelectionMode) return false;
+    
     const prev = prevProps.reminder;
     const next = nextProps.reminder;
     
@@ -946,9 +955,15 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(200)}>
+            <Animated.View style={styles.section} layout={Layout.duration(180)}>
               {activeReminders.map((reminder, index) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="active" />
+                <ReminderCard 
+                  key={reminder.id} 
+                  reminder={reminder} 
+                  listType="active"
+                  isSelected={selectedReminders.has(reminder.id)}
+                  isSelectionMode={isSelectionMode}
+                />
               ))}
             </Animated.View>
           )
@@ -964,9 +979,15 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(200)}>
+            <Animated.View style={styles.section} layout={Layout.duration(180)}>
               {completedReminders.map((reminder, index) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="completed" />
+                <ReminderCard 
+                  key={reminder.id} 
+                  reminder={reminder} 
+                  listType="completed"
+                  isSelected={selectedReminders.has(reminder.id)}
+                  isSelectionMode={isSelectionMode}
+                />
               ))}
             </Animated.View>
           )
@@ -982,9 +1003,15 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(200)}>
+            <Animated.View style={styles.section} layout={Layout.duration(180)}>
               {expiredReminders.map((reminder, index) => (
-                <ReminderCard key={reminder.id} reminder={reminder} listType="expired" />
+                <ReminderCard 
+                  key={reminder.id} 
+                  reminder={reminder} 
+                  listType="expired"
+                  isSelected={selectedReminders.has(reminder.id)}
+                  isSelectionMode={isSelectionMode}
+                />
               ))}
             </Animated.View>
           )

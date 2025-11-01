@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Text, StyleSheet, Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
   runOnJS,
   interpolateColor,
   FadeOut,
@@ -35,11 +36,16 @@ export default function SwipeableRow({
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
+  const isAnimating = useRef(false);
+  const hasCompleted = useRef(false);
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-15, 15])
     .failOffsetY([-20, 20])
     .onUpdate((event) => {
+      // Prevent interaction if already animating or completed
+      if (isAnimating.current || hasCompleted.current) return;
+      
       const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 1.5;
       
       if (isHorizontal) {
@@ -50,34 +56,42 @@ export default function SwipeableRow({
       }
     })
     .onEnd((event) => {
+      // Prevent multiple triggers
+      if (isAnimating.current || hasCompleted.current) return;
+      
       const shouldSwipeRight = event.translationX > SWIPE_THRESHOLD && onSwipeRight;
       const shouldSwipeLeft = event.translationX < -SWIPE_THRESHOLD && onSwipeLeft;
 
       if (shouldSwipeRight) {
-        translateX.value = withSpring(SCREEN_WIDTH, {
-          damping: 20,
-          stiffness: 200,
-          mass: 0.5,
+        isAnimating.current = true;
+        hasCompleted.current = true;
+        
+        // Use withTiming for more predictable animation
+        translateX.value = withTiming(SCREEN_WIDTH, {
+          duration: 150,
         });
-        opacity.value = withSpring(0, {
-          damping: 20,
-          stiffness: 200,
-          mass: 0.5,
+        opacity.value = withTiming(0, {
+          duration: 150,
+        }, () => {
+          // Trigger the callback after animation completes
+          runOnJS(onSwipeRight!)();
         });
-        runOnJS(onSwipeRight!)();
       } else if (shouldSwipeLeft) {
-        translateX.value = withSpring(-SCREEN_WIDTH, {
-          damping: 20,
-          stiffness: 200,
-          mass: 0.5,
+        isAnimating.current = true;
+        hasCompleted.current = true;
+        
+        // Use withTiming for more predictable animation
+        translateX.value = withTiming(-SCREEN_WIDTH, {
+          duration: 150,
         });
-        opacity.value = withSpring(0, {
-          damping: 20,
-          stiffness: 200,
-          mass: 0.5,
+        opacity.value = withTiming(0, {
+          duration: 150,
+        }, () => {
+          // Trigger the callback after animation completes
+          runOnJS(onSwipeLeft!)();
         });
-        runOnJS(onSwipeLeft!)();
       } else {
+        // Reset animation with spring for natural feel
         translateX.value = withSpring(0, {
           damping: 25,
           stiffness: 350,
@@ -144,8 +158,7 @@ export default function SwipeableRow({
 
   return (
     <Animated.View 
-      style={styles.container}
-      exiting={FadeOut.duration(300)}
+      style={[styles.container, { zIndex: 1 }]}
     >
       {/* Right action (complete) */}
       {onSwipeRight && (
@@ -182,10 +195,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 12,
+    backgroundColor: 'transparent',
+    isolation: 'isolate', // Prevent ghosting on web
   },
   content: {
     backgroundColor: Material3Colors.light.surface,
-    zIndex: 1,
+    zIndex: 2,
+    position: 'relative',
   },
   rightAction: {
     position: 'absolute',
@@ -197,6 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingLeft: 20,
     borderRadius: 12,
+    zIndex: 0,
   },
   leftAction: {
     position: 'absolute',
@@ -208,6 +225,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingRight: 20,
     borderRadius: 12,
+    zIndex: 0,
   },
   actionContent: {
     alignItems: 'center',
