@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { Layout } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -31,7 +31,7 @@ import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
 
 // Debounce helper to batch rapid updates and prevent flickering
-let updateTimeoutId: NodeJS.Timeout | null = null;
+let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 const debouncedUpdate = (callback: () => void, delay: number = 50) => {
   if (updateTimeoutId) {
@@ -234,7 +234,7 @@ export default function HomeScreen() {
     };
     
     if (fromSwipe) {
-      setTimeout(executeUpdate, 300);
+      setTimeout(executeUpdate, 400);
     } else {
       executeUpdate();
     }
@@ -321,7 +321,7 @@ export default function HomeScreen() {
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
     
     if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 300);
+      setTimeout(() => deleteReminder.mutate(reminder.id), 400);
     } else {
       deleteReminder.mutate(reminder.id);
     }
@@ -480,7 +480,7 @@ export default function HomeScreen() {
               ...reminder,
               isCompleted: true,
             });
-          }, 300);
+          }, 400);
         }) : undefined} 
         onSwipeLeft={!isSelectionMode ? () => handleDelete(reminder, true) : undefined}
       >
@@ -757,6 +757,11 @@ export default function HomeScreen() {
     const next = nextProps.reminder;
     
     // Check ALL fields that affect visual rendering to prevent flickering
+    const areDaysEqual = prev.repeatDays?.length === next.repeatDays?.length && 
+                         (prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i]) ?? true);
+    const isEveryIntervalEqual = prev.everyInterval?.value === next.everyInterval?.value &&
+                                  prev.everyInterval?.unit === next.everyInterval?.unit;
+    
     return prev.title === next.title &&
            prev.time === next.time &&
            prev.date === next.date &&
@@ -769,12 +774,8 @@ export default function HomeScreen() {
            prev.nextReminderDate === next.nextReminderDate &&
            prev.snoozeUntil === next.snoozeUntil &&
            prev.lastTriggeredAt === next.lastTriggeredAt &&
-           // Array comparison for repeatDays
-           (prev.repeatDays?.length === next.repeatDays?.length && 
-            prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i])) &&
-           // Object comparison for everyInterval
-           (prev.everyInterval?.value === next.everyInterval?.value &&
-            prev.everyInterval?.unit === next.everyInterval?.unit);
+           areDaysEqual &&
+           isEveryIntervalEqual;
   });
   
   ReminderCard.displayName = 'ReminderCard';
@@ -929,15 +930,11 @@ export default function HomeScreen() {
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
         keyboardShouldPersistTaps="handled"
-        pointerEvents={showCreatePopup ? 'none' : 'auto'}
         bounces={true}
-        bouncesZoom={false}
         alwaysBounceVertical={true}
-        overScrollMode="always"
-
+        scrollEnabled={!showCreatePopup}
         contentContainerStyle={{
-          minHeight: '100%',
-          paddingBottom: 20
+          paddingBottom: 100
         }}>
         {activeTab === 'active' && (
           activeReminders.length === 0 ? (
@@ -949,11 +946,11 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <Animated.View style={styles.section} layout={Layout.duration(200)}>
               {activeReminders.map((reminder, index) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="active" />
               ))}
-            </View>
+            </Animated.View>
           )
         )}
         
@@ -967,11 +964,11 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <Animated.View style={styles.section} layout={Layout.duration(200)}>
               {completedReminders.map((reminder, index) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="completed" />
               ))}
-            </View>
+            </Animated.View>
           )
         )}
         
@@ -985,11 +982,11 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.section}>
+            <Animated.View style={styles.section} layout={Layout.duration(200)}>
               {expiredReminders.map((reminder, index) => (
                 <ReminderCard key={reminder.id} reminder={reminder} listType="expired" />
               ))}
-            </View>
+            </Animated.View>
           )
         )}
       </ScrollView>
@@ -1184,11 +1181,10 @@ export default function HomeScreen() {
               // Close popup immediately
               setShowCreatePopup(false);
               
-              // Reset form after animation completes using InteractionManager
-              InteractionManager.runAfterInteractions(() => {
+              // Reset form after animation starts
+              setTimeout(() => {
                 setEditingReminder(null);
                 setTitle('');
-                // Map settings priority to reminder priority
                 const defaultPriority = settings?.defaultPriority ?? 'standard';
                 const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : 
                                                 defaultPriority === 'silent' ? 'low' : 'high';
@@ -1205,7 +1201,7 @@ export default function HomeScreen() {
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
                 setSelectedDate(`${yyyy}-${mm}-${dd}`);
-              });
+              }, 150);
             },
             onError: (error) => {
               Alert.alert('Error', 'Failed to create reminder');
@@ -1968,7 +1964,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     
     // Cancel any ongoing animations
     if (snapAnimation.current) {
-      snapAnimation.current.stop();
+      clearTimeout(snapAnimation.current);
       snapAnimation.current = null;
     }
     if (decayAnimation.current) {
@@ -2855,7 +2851,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,

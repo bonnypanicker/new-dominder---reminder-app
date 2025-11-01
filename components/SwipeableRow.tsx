@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { Text, StyleSheet, Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -7,7 +7,6 @@ import Animated, {
   withSpring,
   runOnJS,
   interpolateColor,
-  Layout,
   FadeOut,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
@@ -38,19 +37,16 @@ export default function SwipeableRow({
   const opacity = useSharedValue(1);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-50, 50])  // Allow more vertical movement before failing
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-20, 20])
     .onUpdate((event) => {
-      // Only allow horizontal swipe if the gesture is primarily horizontal
-      const isHorizontalGesture = Math.abs(event.translationX) > Math.abs(event.translationY);
+      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 1.5;
       
-      if (isHorizontalGesture) {
-        // Smooth translation with reduced sensitivity to prevent jitter
-        translateX.value = event.translationX * 0.9;
+      if (isHorizontal) {
+        translateX.value = event.translationX;
         
-        // Smoother opacity transition to prevent flickering
         const progress = Math.abs(event.translationX) / SWIPE_THRESHOLD;
-        opacity.value = Math.max(0.4, 1 - progress * 0.6);
+        opacity.value = Math.max(0.5, 1 - progress * 0.5);
       }
     })
     .onEnd((event) => {
@@ -58,42 +54,39 @@ export default function SwipeableRow({
       const shouldSwipeLeft = event.translationX < -SWIPE_THRESHOLD && onSwipeLeft;
 
       if (shouldSwipeRight) {
-        // Smoother animation with better damping to prevent layout conflicts
         translateX.value = withSpring(SCREEN_WIDTH, {
-          damping: 25,
-          stiffness: 250,
-          mass: 0.8,
+          damping: 20,
+          stiffness: 200,
+          mass: 0.5,
         });
         opacity.value = withSpring(0, {
-          damping: 25,
-          stiffness: 250,
-          mass: 0.8,
+          damping: 20,
+          stiffness: 200,
+          mass: 0.5,
         });
         runOnJS(onSwipeRight!)();
       } else if (shouldSwipeLeft) {
-        // Smoother animation with better damping to prevent layout conflicts
         translateX.value = withSpring(-SCREEN_WIDTH, {
-          damping: 25,
-          stiffness: 250,
-          mass: 0.8,
+          damping: 20,
+          stiffness: 200,
+          mass: 0.5,
         });
         opacity.value = withSpring(0, {
-          damping: 25,
-          stiffness: 250,
-          mass: 0.8,
+          damping: 20,
+          stiffness: 200,
+          mass: 0.5,
         });
         runOnJS(onSwipeLeft!)();
       } else {
-        // Faster spring back to center with better damping
         translateX.value = withSpring(0, {
-          damping: 30,
-          stiffness: 400,
-          mass: 0.6,
+          damping: 25,
+          stiffness: 350,
+          mass: 0.5,
         });
         opacity.value = withSpring(1, {
-          damping: 30,
-          stiffness: 400,
-          mass: 0.6,
+          damping: 25,
+          stiffness: 350,
+          mass: 0.5,
         });
       }
     });
@@ -152,8 +145,7 @@ export default function SwipeableRow({
   return (
     <Animated.View 
       style={styles.container}
-      layout={Layout.springify().damping(20).stiffness(300)}
-      exiting={FadeOut.duration(250)}
+      exiting={FadeOut.duration(300)}
     >
       {/* Right action (complete) */}
       {onSwipeRight && (
