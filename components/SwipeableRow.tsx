@@ -42,9 +42,9 @@ export default function SwipeableRow({
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const height = useSharedValue(1);
   const scale = useSharedValue(1);
   const actionInnerScaleY = useSharedValue(1);
+  const actionsOpacity = useSharedValue(1);
   
   // Track gesture state more reliably
   const gestureActive = useSharedValue(false);
@@ -104,6 +104,11 @@ export default function SwipeableRow({
         );
       }
     })
+    .onStart(() => {
+      'worklet';
+      // ensure actions are visible while swiping
+      actionsOpacity.value = 1;
+    })
     .onEnd((event) => {
       'worklet';
       
@@ -132,27 +137,27 @@ export default function SwipeableRow({
           easing: Easing.out(Easing.cubic),
         });
         
-        scale.value = withTiming(0.8, {
+        scale.value = withTiming(0.92, {
           duration: 200,
           easing: Easing.out(Easing.cubic),
         }, () => {
-          // Height collapse animation after slide completes
+          // Gracefully shrink the inner action and fade backgrounds
           actionInnerScaleY.value = withTiming(0, {
-            duration: 150,
+            duration: 220,
+            easing: Easing.inOut(Easing.cubic),
+          });
+
+          actionsOpacity.value = withTiming(0, {
+            duration: 220,
             easing: Easing.out(Easing.cubic),
           });
 
-          height.value = withTiming(0, {
-            duration: 150,
-            easing: Easing.out(Easing.cubic),
-          }, () => {
-            // Trigger callback after all animations complete
-            if (shouldSwipeRight && onSwipeRight) {
-              runOnJS(onSwipeRight)();
-            } else if (shouldSwipeLeft && onSwipeLeft) {
-              runOnJS(onSwipeLeft)();
-            }
-          });
+          // Trigger callback after animations; list removal will drive Layout transition
+          if (shouldSwipeRight && onSwipeRight) {
+            runOnJS(onSwipeRight)();
+          } else if (shouldSwipeLeft && onSwipeLeft) {
+            runOnJS(onSwipeLeft)();
+          }
         });
       } else {
         // Spring back animation with improved feel
@@ -173,6 +178,10 @@ export default function SwipeableRow({
           stiffness: 300,
           mass: 0.8,
         });
+
+        // Reset visuals
+        actionInnerScaleY.value = 1;
+        actionsOpacity.value = 1;
       }
     });
 
@@ -187,16 +196,12 @@ export default function SwipeableRow({
     };
   });
 
-  const containerAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      height: height.value === 1 ? undefined : height.value,
-      overflow: 'hidden',
-    };
-  });
+  // Container uses Layout spring for smooth reflow; avoid manual height collapse
 
   const actionInnerAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scaleY: actionInnerScaleY.value }],
+      opacity: actionsOpacity.value,
     };
   });
 
@@ -258,7 +263,7 @@ export default function SwipeableRow({
     
     return {
       backgroundColor,
-      opacity: backgroundOpacity,
+      opacity: backgroundOpacity * actionsOpacity.value,
     };
   });
 
@@ -278,12 +283,12 @@ export default function SwipeableRow({
     
     return {
       backgroundColor,
-      opacity: backgroundOpacity,
+      opacity: backgroundOpacity * actionsOpacity.value,
     };
   });
 
   return (
-    <Animated.View style={[styles.container, containerAnimatedStyle]} layout={Layout.duration(180)}>
+    <Animated.View style={styles.container} layout={Layout.springify().stiffness(160).damping(20)}>
       <GestureDetector gesture={panGesture}>
         <Animated.View style={styles.cardWrapper}>
           {/* Right action (complete) */}
