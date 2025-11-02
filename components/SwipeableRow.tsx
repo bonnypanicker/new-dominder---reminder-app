@@ -43,12 +43,14 @@ export default function SwipeableRow({
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
-  const actionInnerScaleY = useSharedValue(1);
+  const containerHeight = useSharedValue(-1); // -1 means auto height
+  const actionInnerHeight = useSharedValue(-1); // -1 means auto height
   const actionsOpacity = useSharedValue(1);
   
   // Track gesture state more reliably
   const gestureActive = useSharedValue(false);
   const hasTriggeredAction = useSharedValue(false);
+  const isRemoving = useSharedValue(false);
   
   const panGesture = Gesture.Pan()
     // Improved gesture recognition for better direction detection
@@ -63,8 +65,8 @@ export default function SwipeableRow({
     .onUpdate((event) => {
       'worklet';
       
-      // Prevent interaction if action already triggered
-      if (hasTriggeredAction.value) return;
+      // Prevent interaction if action already triggered or removing
+      if (hasTriggeredAction.value || isRemoving.value) return;
       
       // Enhanced direction detection
       const absX = Math.abs(event.translationX);
@@ -113,7 +115,7 @@ export default function SwipeableRow({
       'worklet';
       
       // Prevent multiple triggers
-      if (hasTriggeredAction.value) return;
+      if (hasTriggeredAction.value || isRemoving.value) return;
       
       gestureActive.value = false;
       
@@ -123,41 +125,49 @@ export default function SwipeableRow({
 
       if (shouldSwipeRight || shouldSwipeLeft) {
         hasTriggeredAction.value = true;
+        isRemoving.value = true;
         
-        // Smooth off-screen animation with proper timing
+        // Step 1: Slide card off-screen
         const targetX = shouldSwipeRight ? SCREEN_WIDTH : -SCREEN_WIDTH;
         
         translateX.value = withTiming(targetX, {
-          duration: 200,
+          duration: 250,
           easing: Easing.out(Easing.cubic),
         });
         
         opacity.value = withTiming(0, {
-          duration: 200,
+          duration: 250,
           easing: Easing.out(Easing.cubic),
         });
         
-        scale.value = withTiming(0.92, {
-          duration: 200,
+        scale.value = withTiming(0.9, {
+          duration: 250,
           easing: Easing.out(Easing.cubic),
         }, () => {
-          // Gracefully shrink the inner action and fade backgrounds
-          actionInnerScaleY.value = withTiming(0, {
-            duration: 220,
+          // Step 2: Collapse the action inner height smoothly
+          actionInnerHeight.value = withTiming(0, {
+            duration: 200,
             easing: Easing.inOut(Easing.cubic),
           });
 
+          // Step 3: Fade out action backgrounds
           actionsOpacity.value = withTiming(0, {
-            duration: 220,
+            duration: 200,
             easing: Easing.out(Easing.cubic),
+          }, () => {
+            // Step 4: Collapse container height
+            containerHeight.value = withTiming(0, {
+              duration: 150,
+              easing: Easing.out(Easing.cubic),
+            }, () => {
+              // Step 5: Trigger callback after all animations complete
+              if (shouldSwipeRight && onSwipeRight) {
+                runOnJS(onSwipeRight)();
+              } else if (shouldSwipeLeft && onSwipeLeft) {
+                runOnJS(onSwipeLeft)();
+              }
+            });
           });
-
-          // Trigger callback after animations; list removal will drive Layout transition
-          if (shouldSwipeRight && onSwipeRight) {
-            runOnJS(onSwipeRight)();
-          } else if (shouldSwipeLeft && onSwipeLeft) {
-            runOnJS(onSwipeLeft)();
-          }
         });
       } else {
         // Spring back animation with improved feel
@@ -180,7 +190,6 @@ export default function SwipeableRow({
         });
 
         // Reset visuals
-        actionInnerScaleY.value = 1;
         actionsOpacity.value = 1;
       }
     });
@@ -196,12 +205,19 @@ export default function SwipeableRow({
     };
   });
 
-  // Container uses Layout spring for smooth reflow; avoid manual height collapse
+  // Container animation with proper height collapse
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: containerHeight.value === -1 ? undefined : containerHeight.value,
+      overflow: 'hidden',
+    };
+  });
 
   const actionInnerAnimatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scaleY: actionInnerScaleY.value }],
+      height: actionInnerHeight.value === -1 ? undefined : actionInnerHeight.value,
       opacity: actionsOpacity.value,
+      overflow: 'hidden',
     };
   });
 
@@ -288,7 +304,7 @@ export default function SwipeableRow({
   });
 
   return (
-    <Animated.View style={styles.container} layout={Layout.springify().stiffness(160).damping(20)}>
+    <Animated.View style={[styles.container, containerAnimatedStyle]} layout={Layout.springify().stiffness(160).damping(20)}>
       <GestureDetector gesture={panGesture}>
         <Animated.View style={styles.cardWrapper}>
           {/* Right action (complete) */}

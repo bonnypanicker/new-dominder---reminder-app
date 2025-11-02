@@ -315,12 +315,8 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    
-    if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 400);
-    } else {
-      deleteReminder.mutate(reminder.id);
-    }
+    // Remove the setTimeout delay - SwipeableRow now handles timing internally
+    deleteReminder.mutate(reminder.id);
   }, [deleteReminder]);
 
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
