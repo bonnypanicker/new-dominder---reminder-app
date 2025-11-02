@@ -1759,13 +1759,13 @@ const withResourceFiles = (config) => {
         if (!fs.existsSync(drawableDir)) {
           fs.mkdirSync(drawableDir, { recursive: true });
         }
-        const sourceIcon = path.join(projectRoot, 'smaill_icon_nw.png');
+        const sourceIcon = path.join(projectRoot, 'smalo_coon.png');
         const targetIcon = path.join(drawableDir, 'small_icon_noti.png');
         if (fs.existsSync(sourceIcon)) {
           fs.copyFileSync(sourceIcon, targetIcon);
-          console.log('✅ Copied smaill_icon_nw.png to res/drawable as small_icon_noti.png');
+          console.log('✅ Copied smalo_coon.png to res/drawable as small_icon_noti.png');
         } else {
-          console.warn('⚠️ smaill_icon_nw.png not found at project root; skipping copy.');
+          console.warn('⚠️ smalo_coon.png not found at project root; skipping copy.');
         }
       } catch (e) {
         console.warn('⚠️ Could not copy smaill_icon_nw.png:', e);
