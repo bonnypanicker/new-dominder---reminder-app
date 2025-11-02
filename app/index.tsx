@@ -478,6 +478,7 @@ export default function HomeScreen() {
     return (
       <SwipeableRow 
         reminder={reminder}
+        simultaneousHandlers={contentScrollRef}
         onSwipeRight={isActive && !selectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
           // For repeating reminders, swipe right completes entirely
           setTimeout(() => {
@@ -2914,7 +2915,6 @@ const styles = StyleSheet.create({
   reminderCard: {
     backgroundColor: Material3Colors.light.surfaceContainerLow,
     borderRadius: 12,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     elevation: 0,

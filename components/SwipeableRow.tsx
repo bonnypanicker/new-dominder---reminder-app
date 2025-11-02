@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Text, StyleSheet, Dimensions } from 'react-native';
+import { Text, StyleSheet, Dimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -8,7 +8,8 @@ import Animated, {
   withTiming,
   runOnJS,
   interpolateColor,
-  FadeOut,
+  interpolate,
+  Easing,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -22,113 +23,209 @@ interface SwipeableRowProps {
   reminder: Reminder;
   onSwipeRight?: () => void;
   onSwipeLeft?: () => void;
+  simultaneousHandlers?: React.RefObject<any>;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25; // 25% of screen width
+const DELETE_THRESHOLD = SCREEN_WIDTH * 0.4; // 40% of screen width for deletion
 const ACTION_WIDTH = 80;
+const DIRECTION_THRESHOLD = 1.2; // Horizontal movement must be 1.2x vertical movement
 
 export default function SwipeableRow({ 
   children, 
   reminder, 
   onSwipeRight, 
-  onSwipeLeft 
+  onSwipeLeft,
+  simultaneousHandlers
 }: SwipeableRowProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const isAnimating = useRef(false);
-  const hasCompleted = useRef(false);
-
+  const height = useSharedValue(1);
+  const scale = useSharedValue(1);
+  
+  // Track gesture state more reliably
+  const gestureActive = useSharedValue(false);
+  const hasTriggeredAction = useSharedValue(false);
+  
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-20, 20])
+    // Improved gesture recognition for better direction detection
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-15, 15])
+    .simultaneousWithExternalGesture(simultaneousHandlers)
+    .onBegin(() => {
+      'worklet';
+      gestureActive.value = true;
+      hasTriggeredAction.value = false;
+    })
     .onUpdate((event) => {
-      // Prevent interaction if already animating or completed
-      if (isAnimating.current || hasCompleted.current) return;
+      'worklet';
       
-      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 1.5;
+      // Prevent interaction if action already triggered
+      if (hasTriggeredAction.value) return;
       
-      if (isHorizontal) {
-        translateX.value = event.translationX;
+      // Enhanced direction detection
+      const absX = Math.abs(event.translationX);
+      const absY = Math.abs(event.translationY);
+      const isHorizontalGesture = absX > absY * DIRECTION_THRESHOLD && absX > 10;
+      
+      if (isHorizontalGesture) {
+        // Clamp translation with friction for better feel
+        const maxTranslation = SCREEN_WIDTH * 0.6;
+        let clampedX = event.translationX;
         
-        const progress = Math.abs(event.translationX) / SWIPE_THRESHOLD;
-        opacity.value = Math.max(0.5, 1 - progress * 0.5);
+        if (Math.abs(clampedX) > maxTranslation) {
+          const excess = Math.abs(clampedX) - maxTranslation;
+          const friction = Math.max(0.1, 1 - excess / (SCREEN_WIDTH * 0.2));
+          clampedX = Math.sign(clampedX) * (maxTranslation + excess * friction);
+        }
+        
+        translateX.value = clampedX;
+        
+        // Enhanced visual feedback based on thresholds
+        const progress = Math.abs(clampedX) / DELETE_THRESHOLD;
+        
+        // Opacity feedback
+        opacity.value = interpolate(
+          Math.abs(clampedX),
+          [0, DELETE_THRESHOLD],
+          [1, 0.7],
+          'clamp'
+        );
+        
+        // Scale feedback for deletion threshold
+        scale.value = interpolate(
+          Math.abs(clampedX),
+          [0, DELETE_THRESHOLD * 0.8, DELETE_THRESHOLD],
+          [1, 0.98, 0.95],
+          'clamp'
+        );
       }
     })
     .onEnd((event) => {
-      // Prevent multiple triggers
-      if (isAnimating.current || hasCompleted.current) return;
+      'worklet';
       
-      const shouldSwipeRight = event.translationX > SWIPE_THRESHOLD && onSwipeRight;
-      const shouldSwipeLeft = event.translationX < -SWIPE_THRESHOLD && onSwipeLeft;
+      // Prevent multiple triggers
+      if (hasTriggeredAction.value) return;
+      
+      gestureActive.value = false;
+      
+      // Enhanced threshold detection
+      const shouldSwipeRight = event.translationX > DELETE_THRESHOLD && onSwipeRight;
+      const shouldSwipeLeft = event.translationX < -DELETE_THRESHOLD && onSwipeLeft;
 
-      if (shouldSwipeRight) {
-        isAnimating.current = true;
-        hasCompleted.current = true;
+      if (shouldSwipeRight || shouldSwipeLeft) {
+        hasTriggeredAction.value = true;
         
-        // Use withTiming for more predictable animation
-        translateX.value = withTiming(SCREEN_WIDTH, {
-          duration: 150,
-        });
-        opacity.value = withTiming(0, {
-          duration: 150,
-        }, () => {
-          // Trigger the callback after animation completes
-          runOnJS(onSwipeRight!)();
-        });
-      } else if (shouldSwipeLeft) {
-        isAnimating.current = true;
-        hasCompleted.current = true;
+        // Smooth off-screen animation with proper timing
+        const targetX = shouldSwipeRight ? SCREEN_WIDTH : -SCREEN_WIDTH;
         
-        // Use withTiming for more predictable animation
-        translateX.value = withTiming(-SCREEN_WIDTH, {
-          duration: 150,
+        translateX.value = withTiming(targetX, {
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
         });
+        
         opacity.value = withTiming(0, {
-          duration: 150,
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+        });
+        
+        scale.value = withTiming(0.8, {
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
         }, () => {
-          // Trigger the callback after animation completes
-          runOnJS(onSwipeLeft!)();
+          // Height collapse animation after slide completes
+          height.value = withTiming(0, {
+            duration: 150,
+            easing: Easing.out(Easing.cubic),
+          }, () => {
+            // Trigger callback after all animations complete
+            if (shouldSwipeRight && onSwipeRight) {
+              runOnJS(onSwipeRight)();
+            } else if (shouldSwipeLeft && onSwipeLeft) {
+              runOnJS(onSwipeLeft)();
+            }
+          });
         });
       } else {
-        // Reset animation with spring for natural feel
+        // Spring back animation with improved feel
         translateX.value = withSpring(0, {
-          damping: 25,
-          stiffness: 350,
-          mass: 0.5,
+          damping: 20,
+          stiffness: 300,
+          mass: 0.8,
         });
+        
         opacity.value = withSpring(1, {
-          damping: 25,
-          stiffness: 350,
-          mass: 0.5,
+          damping: 20,
+          stiffness: 300,
+          mass: 0.8,
+        });
+        
+        scale.value = withSpring(1, {
+          damping: 20,
+          stiffness: 300,
+          mass: 0.8,
         });
       }
     });
 
-  const animatedStyle = useAnimatedStyle(() => {
+  // Enhanced animated styles with better interpolation
+  const animatedCardStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: translateX.value }],
+      transform: [
+        { translateX: translateX.value },
+        { scale: scale.value }
+      ],
       opacity: opacity.value,
     };
   });
 
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: height.value === 1 ? undefined : height.value,
+      overflow: 'hidden',
+    };
+  });
+
   const rightActionStyle = useAnimatedStyle(() => {
-    const scale = translateX.value > 0 ? 
-      Math.min(1, Math.max(0.8, translateX.value / SWIPE_THRESHOLD)) : 0.8;
+    const iconScale = interpolate(
+      translateX.value,
+      [0, SWIPE_THRESHOLD * 0.5, SWIPE_THRESHOLD],
+      [0.8, 1, 1.2],
+      'clamp'
+    );
+    
+    const iconOpacity = interpolate(
+      translateX.value,
+      [0, 20, SWIPE_THRESHOLD],
+      [0, 0.8, 1],
+      'clamp'
+    );
     
     return {
-      transform: [{ scale }],
-      opacity: translateX.value > 20 ? 1 : 0,
+      transform: [{ scale: iconScale }],
+      opacity: iconOpacity,
     };
   });
 
   const leftActionStyle = useAnimatedStyle(() => {
-    const scale = translateX.value < 0 ? 
-      Math.min(1, Math.max(0.8, Math.abs(translateX.value) / SWIPE_THRESHOLD)) : 0.8;
+    const iconScale = interpolate(
+      translateX.value,
+      [-SWIPE_THRESHOLD, -SWIPE_THRESHOLD * 0.5, 0],
+      [1.2, 1, 0.8],
+      'clamp'
+    );
+    
+    const iconOpacity = interpolate(
+      translateX.value,
+      [-SWIPE_THRESHOLD, -20, 0],
+      [1, 0.8, 0],
+      'clamp'
+    );
     
     return {
-      transform: [{ scale }],
-      opacity: translateX.value < -20 ? 1 : 0,
+      transform: [{ scale: iconScale }],
+      opacity: iconOpacity,
     };
   });
 
@@ -136,11 +233,19 @@ export default function SwipeableRow({
     const backgroundColor = interpolateColor(
       translateX.value,
       [0, SWIPE_THRESHOLD],
-      ['rgba(76, 175, 80, 0.1)', 'rgba(76, 175, 80, 0.8)']
+      ['rgba(76, 175, 80, 0.1)', 'rgba(76, 175, 80, 0.9)']
+    );
+    
+    const backgroundOpacity = interpolate(
+      translateX.value,
+      [0, SWIPE_THRESHOLD * 0.3, SWIPE_THRESHOLD],
+      [0, 0.7, 1],
+      'clamp'
     );
     
     return {
       backgroundColor,
+      opacity: backgroundOpacity,
     };
   });
 
@@ -148,42 +253,54 @@ export default function SwipeableRow({
     const backgroundColor = interpolateColor(
       translateX.value,
       [-SWIPE_THRESHOLD, 0],
-      ['rgba(244, 67, 54, 0.8)', 'rgba(244, 67, 54, 0.1)']
+      ['rgba(244, 67, 54, 0.9)', 'rgba(244, 67, 54, 0.1)']
+    );
+    
+    const backgroundOpacity = interpolate(
+      translateX.value,
+      [-SWIPE_THRESHOLD, -SWIPE_THRESHOLD * 0.3, 0],
+      [1, 0.7, 0],
+      'clamp'
     );
     
     return {
       backgroundColor,
+      opacity: backgroundOpacity,
     };
   });
 
   return (
-    <Animated.View 
-      style={[styles.container, { zIndex: 1 }]}
-    >
-      {/* Right action (complete) */}
-      {onSwipeRight && (
-        <Animated.View style={[styles.rightAction, rightActionBackgroundStyle]}>
-          <Animated.View style={[styles.actionContent, rightActionStyle]}>
-            <CheckCircle size={24} color="white" />
-            <Text style={styles.actionText}>Complete</Text>
-          </Animated.View>
-        </Animated.View>
-      )}
-
-      {/* Left action (delete) */}
-      {onSwipeLeft && (
-        <Animated.View style={[styles.leftAction, leftActionBackgroundStyle]}>
-          <Animated.View style={[styles.actionContent, leftActionStyle]}>
-            <Trash2 size={24} color="white" />
-            <Text style={styles.actionText}>Delete</Text>
-          </Animated.View>
-        </Animated.View>
-      )}
-
-      {/* Main content */}
+    <Animated.View style={[styles.container, containerAnimatedStyle]}>
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.content, animatedStyle]}>
-          {children}
+        <Animated.View style={styles.cardWrapper}>
+          {/* Right action (complete) */}
+          {onSwipeRight && (
+            <Animated.View style={[styles.rightAction, rightActionBackgroundStyle]}>
+              <View style={styles.actionInner}>
+                <Animated.View style={[styles.actionContent, rightActionStyle]}>
+                  <CheckCircle size={24} color="white" />
+                  <Text style={styles.actionText}>Complete</Text>
+                </Animated.View>
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Left action (delete) */}
+          {onSwipeLeft && (
+            <Animated.View style={[styles.leftAction, leftActionBackgroundStyle]}>
+              <View style={styles.actionInner}>
+                <Animated.View style={[styles.actionContent, leftActionStyle]}>
+                  <Trash2 size={24} color="white" />
+                  <Text style={styles.actionText}>Delete</Text>
+                </Animated.View>
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Main content */}
+          <Animated.View style={[styles.card, animatedCardStyle]}>
+            {children}
+          </Animated.View>
         </Animated.View>
       </GestureDetector>
     </Animated.View>
@@ -193,39 +310,59 @@ export default function SwipeableRow({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    overflow: 'hidden',
+    marginBottom: 12, // Match the reminderCard's marginBottom
     borderRadius: 12,
     backgroundColor: 'transparent',
-    isolation: 'isolate', // Prevent ghosting on web
+    overflow: 'hidden', // Essential for clipping content within border radius
   },
-  content: {
-    backgroundColor: Material3Colors.light.surface,
+  cardWrapper: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden', // This will clip all content including actions
+    backgroundColor: 'transparent',
+  },
+  card: {
+    // Remove redundant styling - let the app's reminderCard style handle appearance
+    // backgroundColor: Material3Colors.light.surface,
+    // borderRadius: 12,
     zIndex: 2,
     position: 'relative',
+    overflow: 'hidden', // Ensure card content is clipped
   },
   rightAction: {
     position: 'absolute',
     left: 0,
-    top: 0,
-    bottom: 12,
+    top: 0, // Align with container borders
+    bottom: 0, // Align with container borders
     right: 0,
     justifyContent: 'center',
     alignItems: 'flex-start',
     paddingLeft: 20,
-    borderRadius: 12,
     zIndex: 0,
+    // Remove borderRadius to match container's clipping
   },
   leftAction: {
     position: 'absolute',
     left: 0,
-    top: 0,
-    bottom: 12,
+    top: 0, // Align with container borders
+    bottom: 0, // Align with container borders
     right: 0,
     justifyContent: 'center',
     alignItems: 'flex-end',
     paddingRight: 20,
-    borderRadius: 12,
     zIndex: 0,
+    // Remove borderRadius to match container's clipping
+  },
+  actionInner: {
+    position: 'absolute',
+    left: 0, // Align with TouchableOpacity border
+    right: 0, // Align with TouchableOpacity border
+    top: 12, // Match card's paddingVertical for better alignment
+    bottom: 12, // Match card's paddingVertical for better alignment
+    borderRadius: 8, // Smaller radius for the inner strip
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionContent: {
     alignItems: 'center',
@@ -237,5 +374,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
+    textAlign: 'center',
   },
 });
