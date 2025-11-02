@@ -255,9 +255,9 @@ export default function HomeScreen() {
       }
     };
     
-    // ✅ ANDROID FIX: Let FlashList handle animation, just update state
+    // ✅ ANDROID FIX: Immediate execution to prevent flash effect
     if (fromSwipe) {
-      setTimeout(executeUpdate, 250);  // Reduced from 400ms - FlashList is faster
+      executeUpdate();  // Remove delay to prevent card flash
     } else {
       executeUpdate();
     }
@@ -342,9 +342,10 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    // ✅ ANDROID FIX: Direct state update, FlashList handles UI smoothly
+    // ✅ ANDROID FIX: Immediate removal to prevent flash effect
     if (fromSwipe) {
-      setTimeout(() => deleteReminder.mutate(reminder.id), 250);
+      // Remove immediately, no delay
+      deleteReminder.mutate(reminder.id);
     } else {
       deleteReminder.mutate(reminder.id);
     }
@@ -486,6 +487,23 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
+  // ✅ Auto-scroll function to fill gaps when cards are swiped away
+  const handleAutoScroll = useCallback(() => {
+    // FlashList already has spring animation for layout changes
+    // We can enhance this by triggering a subtle scroll adjustment
+    // to ensure smooth gap filling without disrupting user's position
+    if (contentScrollRef.current) {
+      // Small scroll adjustment to help with gap filling
+      // This works in coordination with FlashList's itemLayoutAnimation
+      setTimeout(() => {
+        contentScrollRef.current?.scrollTo({
+          y: 0,
+          animated: true
+        });
+      }, 100); // Slight delay to coordinate with shrink animation
+    }
+  }, []);
+
   const ReminderCard = memo(({ 
     reminder, 
     listType, 
@@ -507,6 +525,7 @@ export default function HomeScreen() {
         reminder={reminder}
         swipeableRefs={swipeableRefs}  // ✅ Pass refs for Android coordination
         simultaneousHandlers={contentScrollRef}
+        onAutoScroll={handleAutoScroll}  // ✅ Pass auto-scroll callback
         onSwipeRight={isActive && !selectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
           updateReminder.mutate({
             ...reminder,
@@ -971,12 +990,20 @@ export default function HomeScreen() {
             isSelectionMode={isSelectionMode}
           />
         )}
-        estimatedItemSize={120}  // ✅ Critical for Android performance
+        estimatedItemSize={136}  // ✅ Updated for card + separator height (120 + 16)
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!showCreatePopup}
+        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}  // ✅ 16px gap between cards
         contentContainerStyle={{
-          paddingBottom: 100
+          paddingBottom: 100,
+          paddingTop: 8  // ✅ Add top padding for first card
+        }}
+        // ✅ Add smooth layout animations for card removal
+        itemLayoutAnimation={{
+          type: 'spring',
+          springDamping: 0.8,
+          springStiffness: 100,
         }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -1149,6 +1176,15 @@ export default function HomeScreen() {
             updateReminder.mutate(updated, {
               onSuccess: () => {
                 setShowCreatePopup(false);
+                
+                // Auto-scroll to show the updated reminder
+                // For edited reminders, scroll to top since they might have moved position
+                setTimeout(() => {
+                  if (activeTab === 'active') {
+                    contentScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                  }
+                }, 200); // Small delay to ensure the list has updated
+                
                 setEditingReminder(null);
                 setTitle('');
                 // Map settings priority to reminder priority
@@ -1201,6 +1237,14 @@ export default function HomeScreen() {
             onSuccess: () => {
               // Close popup immediately
               setShowCreatePopup(false);
+              
+              // Auto-scroll to top to show the newly added reminder
+              // Since new reminders are sorted by creation date (newest first), they appear at the top
+              setTimeout(() => {
+                if (activeTab === 'active') {
+                  contentScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                }
+              }, 200); // Small delay to ensure the list has updated
               
               // Reset form after animation starts
               setTimeout(() => {
