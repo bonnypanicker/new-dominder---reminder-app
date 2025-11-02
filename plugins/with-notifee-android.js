@@ -21,29 +21,8 @@ module.exports = function withNotifeeAndroid(config) {
   config = withAppBuildGradle(config, (config) => {
     const buildGradle = config.modResults.contents;
     
-    // Add multiDexEnabled to defaultConfig
-    if (!buildGradle.includes('multiDexEnabled true')) {
-      const defaultConfigRegex = /(defaultConfig\s*{[^}]*)/;
-      if (defaultConfigRegex.test(buildGradle)) {
-        config.modResults.contents = buildGradle.replace(
-          defaultConfigRegex,
-          '$1\n        multiDexEnabled true'
-        );
-        console.log('✅ Added multiDexEnabled to defaultConfig');
-      }
-    }
-    
-    // Add multidex dependency
-    if (!buildGradle.includes('androidx.multidex:multidex')) {
-      const dependenciesRegex = /(dependencies\s*{[^}]*implementation\s+[^}]*)/;
-      if (dependenciesRegex.test(buildGradle)) {
-        config.modResults.contents = buildGradle.replace(
-          dependenciesRegex,
-          "$1\n    implementation 'androidx.multidex:multidex:2.0.1'"
-        );
-        console.log('✅ Added multidex dependency');
-      }
-    }
+    // Multidex disabled for build compatibility
+    // Removed multiDexEnabled and multidex dependency to prevent build issues
     
     return config;
   });
@@ -55,8 +34,7 @@ module.exports = function withNotifeeAndroid(config) {
     // Add Android build optimizations for EAS
     const notifeeProperties = {
       'android.enableJetifier': 'true',
-      'android.enableR8.fullMode': 'false',
-      'android.enableDexingArtifactTransform.desugaring': 'false'
+      'android.enableR8.fullMode': 'false'
     };
     
     Object.entries(notifeeProperties).forEach(([key, value]) => {
