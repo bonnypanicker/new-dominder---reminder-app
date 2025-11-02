@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
 import Animated, { Layout, useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -88,6 +89,9 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<ScrollView>(null);
+  
+  // Track open swipeables (Android best practice: only one open at a time)
+  const swipeableRefs = useRef<Map<string, any>>(new Map());
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -213,6 +217,24 @@ export default function HomeScreen() {
     });
   }, [reminders]);
 
+  // Current list for FlashList (Android optimization)
+  const [currentList, setCurrentList] = useState<Reminder[]>(activeReminders);
+
+  // Update when tab changes
+  useEffect(() => {
+    switch (activeTab) {
+      case 'active':
+        setCurrentList(activeReminders);
+        break;
+      case 'completed':
+        setCurrentList(completedReminders);
+        break;
+      case 'expired':
+        setCurrentList(expiredReminders);
+        break;
+    }
+  }, [activeTab, activeReminders, completedReminders, expiredReminders]);
+
   const completeReminder = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
     const executeUpdate = () => {
       if (reminder.repeatType === 'none') {
@@ -233,8 +255,12 @@ export default function HomeScreen() {
       }
     };
     
-    // Execute immediately - animation timing is now handled in SwipeableRow
-    executeUpdate();
+    // ✅ ANDROID FIX: Let FlashList handle animation, just update state
+    if (fromSwipe) {
+      setTimeout(executeUpdate, 250);  // Reduced from 400ms - FlashList is faster
+    } else {
+      executeUpdate();
+    }
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
@@ -316,8 +342,12 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    // Remove the setTimeout delay - SwipeableRow now handles timing internally
-    deleteReminder.mutate(reminder.id);
+    // ✅ ANDROID FIX: Direct state update, FlashList handles UI smoothly
+    if (fromSwipe) {
+      setTimeout(() => deleteReminder.mutate(reminder.id), 250);
+    } else {
+      deleteReminder.mutate(reminder.id);
+    }
   }, [deleteReminder]);
 
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
@@ -475,15 +505,13 @@ export default function HomeScreen() {
     return (
       <SwipeableRow 
         reminder={reminder}
+        swipeableRefs={swipeableRefs}  // ✅ Pass refs for Android coordination
         simultaneousHandlers={contentScrollRef}
         onSwipeRight={isActive && !selectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
-          // For repeating reminders, swipe right completes entirely
-          setTimeout(() => {
-            updateReminder.mutate({
-              ...reminder,
-              isCompleted: true,
-            });
-          }, 400);
+          updateReminder.mutate({
+            ...reminder,
+            isCompleted: true,
+          });
         }) : undefined} 
         onSwipeLeft={!selectionMode ? () => handleDelete(reminder, true) : undefined}
       >
@@ -932,93 +960,57 @@ export default function HomeScreen() {
       )}
 
       {/* Main Content */}
-      <Animated.ScrollView 
+      <FlashList
         ref={contentScrollRef}
-        style={styles.content} 
-        showsVerticalScrollIndicator={false} 
-        keyboardShouldPersistTaps="handled"
-        bounces={true}
-        alwaysBounceVertical={true}
+        data={currentList}
+        renderItem={({ item }) => (
+          <ReminderCard 
+            reminder={item} 
+            listType={activeTab}
+            isSelected={selectedReminders.has(item.id)}
+            isSelectionMode={isSelectionMode}
+          />
+        )}
+        estimatedItemSize={120}  // ✅ Critical for Android performance
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         scrollEnabled={!showCreatePopup}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
         contentContainerStyle={{
           paddingBottom: 100
-        }}>
-        <Animated.View style={contentBounceStyle}>
-        {activeTab === 'active' && (
-          activeReminders.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Clock size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Active Reminders</Text>
-              <Text style={styles.emptyDescription}>
-                Tap the Create Alarm button to create your first reminder
-              </Text>
-            </View>
-          ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
-              {activeReminders.map((reminder, index) => (
-                <ReminderCard 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  listType="active"
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
-              ))}
-            </Animated.View>
-          )
-        )}
-        
-        {activeTab === 'completed' && (
-          completedReminders.length === 0 ? (
-            <View style={styles.emptyState}>
-              <CheckCircle size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Completed Reminders</Text>
-              <Text style={styles.emptyDescription}>
-                Completed reminders will appear here
-              </Text>
-            </View>
-          ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
-              {completedReminders.map((reminder, index) => (
-                <ReminderCard 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  listType="completed"
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
-              ))}
-            </Animated.View>
-          )
-        )}
-        
-        {activeTab === 'expired' && (
-          expiredReminders.length === 0 ? (
-            <View style={styles.emptyState}>
-              <AlertCircle size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Expired Reminders</Text>
-              <Text style={styles.emptyDescription}>
-                Expired reminders will appear here
-              </Text>
-            </View>
-          ) : (
-            <Animated.View style={styles.section} layout={Layout.duration(180)}>
-              {expiredReminders.map((reminder, index) => (
-                <ReminderCard 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  listType="expired"
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
-              ))}
-            </Animated.View>
-          )
-        )}
-        </Animated.View>
-      </Animated.ScrollView>
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            {activeTab === 'active' ? (
+              <>
+                <Clock size={64} color={Material3Colors.light.outline} />
+                <Text style={styles.emptyTitle}>No Active Reminders</Text>
+                <Text style={styles.emptyDescription}>
+                  Tap the Create Alarm button to create your first reminder
+                </Text>
+              </>
+            ) : activeTab === 'completed' ? (
+              <>
+                <CheckCircle size={64} color={Material3Colors.light.outline} />
+                <Text style={styles.emptyTitle}>No Completed Reminders</Text>
+                <Text style={styles.emptyDescription}>
+                  Completed reminders will appear here
+                </Text>
+              </>
+            ) : (
+              <>
+                <AlertCircle size={64} color={Material3Colors.light.outline} />
+                <Text style={styles.emptyTitle}>No Expired Reminders</Text>
+                <Text style={styles.emptyDescription}>
+                  Expired reminders will appear here
+                </Text>
+              </>
+            )}
+          </View>
+        }
+        // ✅ Android-specific optimizations
+        drawDistance={250}  // Render items within 250dp
+        removeClippedSubviews={true}  // Android optimization
+      />
       
       {!isSelectionMode && (
         <View style={styles.bottomContainer}>
@@ -2918,11 +2910,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
-    elevation: 0,
+    // ✅ Android GPU optimizations
+    elevation: 2,  // Use elevation instead of shadow for Android
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
     shadowRadius: 2,
+    // ✅ Force hardware acceleration on Android
+    transform: [{ translateZ: 0 }],
     overflow: 'hidden',
   },
   selectedCard: {

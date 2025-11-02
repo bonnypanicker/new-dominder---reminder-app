@@ -35,6 +35,3 @@ export function fillTo(shared: SharedValue<number>, to = 1, duration = 280) {
   shared.value = withTiming(to, { duration, easing: Easing.out(Easing.cubic) });
 }
 
-// Layout animation preset for seamless item removal/collapse
-export const removalLayout = Layout.springify().damping(20).stiffness(160).duration(200);
-

@@ -12,7 +12,13 @@ module.exports = function(api) {
           },
         },
       ],
-      'react-native-reanimated/plugin',
+      [
+        'react-native-reanimated/plugin',
+        {
+          // ✅ Enable Android fast path
+          processNestedWorklets: true,
+        }
+      ],
     ],
   };
 };
