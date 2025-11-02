@@ -10,6 +10,7 @@ import Animated, {
   interpolateColor,
   interpolate,
   Easing,
+  Layout,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
@@ -43,6 +44,7 @@ export default function SwipeableRow({
   const opacity = useSharedValue(1);
   const height = useSharedValue(1);
   const scale = useSharedValue(1);
+  const actionInnerScaleY = useSharedValue(1);
   
   // Track gesture state more reliably
   const gestureActive = useSharedValue(false);
@@ -135,6 +137,11 @@ export default function SwipeableRow({
           easing: Easing.out(Easing.cubic),
         }, () => {
           // Height collapse animation after slide completes
+          actionInnerScaleY.value = withTiming(0, {
+            duration: 150,
+            easing: Easing.out(Easing.cubic),
+          });
+
           height.value = withTiming(0, {
             duration: 150,
             easing: Easing.out(Easing.cubic),
@@ -184,6 +191,12 @@ export default function SwipeableRow({
     return {
       height: height.value === 1 ? undefined : height.value,
       overflow: 'hidden',
+    };
+  });
+
+  const actionInnerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scaleY: actionInnerScaleY.value }],
     };
   });
 
@@ -270,30 +283,30 @@ export default function SwipeableRow({
   });
 
   return (
-    <Animated.View style={[styles.container, containerAnimatedStyle]}>
+    <Animated.View style={[styles.container, containerAnimatedStyle]} layout={Layout.duration(180)}>
       <GestureDetector gesture={panGesture}>
         <Animated.View style={styles.cardWrapper}>
           {/* Right action (complete) */}
           {onSwipeRight && (
             <Animated.View style={[styles.rightAction, rightActionBackgroundStyle]}>
-              <View style={styles.actionInner}>
+              <Animated.View style={[styles.actionInner, actionInnerAnimatedStyle]}>
                 <Animated.View style={[styles.actionContent, rightActionStyle]}>
                   <CheckCircle size={24} color="white" />
                   <Text style={styles.actionText}>Complete</Text>
                 </Animated.View>
-              </View>
+              </Animated.View>
             </Animated.View>
           )}
 
           {/* Left action (delete) */}
           {onSwipeLeft && (
             <Animated.View style={[styles.leftAction, leftActionBackgroundStyle]}>
-              <View style={styles.actionInner}>
+              <Animated.View style={[styles.actionInner, actionInnerAnimatedStyle]}>
                 <Animated.View style={[styles.actionContent, leftActionStyle]}>
                   <Trash2 size={24} color="white" />
                   <Text style={styles.actionText}>Delete</Text>
                 </Animated.View>
-              </View>
+              </Animated.View>
             </Animated.View>
           )}
 
