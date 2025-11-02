@@ -12,6 +12,7 @@ import Animated, {
   Easing,
   Layout,
 } from 'react-native-reanimated';
+import { fillTo, removalLayout } from '@/utils/card-animations';
 import { Feather } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder } from '@/types/reminder';
@@ -46,6 +47,9 @@ export default function SwipeableRow({
   const containerHeight = useSharedValue(-1); // -1 means auto height
   const actionInnerHeight = useSharedValue(-1); // -1 means auto height
   const actionsOpacity = useSharedValue(1);
+  const fillProgress = useSharedValue(0);
+  const removalDirection = useSharedValue(0); // 1 = right (complete), -1 = left (delete)
+  const cardWidth = useSharedValue(0);
   
   // Track gesture state more reliably
   const gestureActive = useSharedValue(false);
@@ -126,6 +130,10 @@ export default function SwipeableRow({
       if (shouldSwipeRight || shouldSwipeLeft) {
         hasTriggeredAction.value = true;
         isRemoving.value = true;
+        removalDirection.value = shouldSwipeRight ? 1 : -1;
+        fillProgress.value = 0;
+        // Start fill overlay
+        fillTo(fillProgress, 1, 240);
         
         // Step 1: Slide card off-screen
         const targetX = shouldSwipeRight ? SCREEN_WIDTH : -SCREEN_WIDTH;
@@ -303,8 +311,30 @@ export default function SwipeableRow({
     };
   });
 
+  const fillOverlayRightStyle = useAnimatedStyle(() => {
+    const width = (cardWidth.value > 0 ? cardWidth.value : 1) * fillProgress.value;
+    const opacityV = removalDirection.value === 1 ? interpolate(fillProgress.value, [0, 1], [0, 1], 'clamp') : 0;
+    return {
+      width,
+      opacity: opacityV,
+      backgroundColor: 'rgba(76, 175, 80, 0.25)',
+      left: 0,
+    };
+  });
+
+  const fillOverlayLeftStyle = useAnimatedStyle(() => {
+    const width = (cardWidth.value > 0 ? cardWidth.value : 1) * fillProgress.value;
+    const opacityV = removalDirection.value === -1 ? interpolate(fillProgress.value, [0, 1], [0, 1], 'clamp') : 0;
+    return {
+      width,
+      opacity: opacityV,
+      backgroundColor: 'rgba(244, 67, 54, 0.25)',
+      right: 0,
+    };
+  });
+
   return (
-    <Animated.View style={[styles.container, containerAnimatedStyle]} layout={Layout.springify().stiffness(160).damping(20)}>
+    <Animated.View style={[styles.container, containerAnimatedStyle]} layout={removalLayout}>
       <GestureDetector gesture={panGesture}>
         <Animated.View style={styles.cardWrapper}>
           {/* Right action (complete) */}
@@ -332,8 +362,19 @@ export default function SwipeableRow({
           )}
 
           {/* Main content */}
-          <Animated.View style={[styles.card, animatedCardStyle]}>
-            {children}
+          <Animated.View 
+            style={[styles.card, animatedCardStyle]}
+            onLayout={(e) => {
+              const { width } = e.nativeEvent.layout;
+              cardWidth.value = width;
+            }}
+          >
+            {/* Fill overlays (animated) */}
+            <Animated.View style={[styles.fillOverlay, fillOverlayRightStyle]} />
+            <Animated.View style={[styles.fillOverlay, fillOverlayLeftStyle]} />
+            <View style={styles.cardContent}>
+              {children}
+            </View>
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -362,6 +403,17 @@ const styles = StyleSheet.create({
     zIndex: 2,
     position: 'relative',
     overflow: 'hidden', // Ensure card content is clipped
+  },
+  fillOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  cardContent: {
+    position: 'relative',
+    zIndex: 2,
   },
   rightAction: {
     position: 'absolute',
