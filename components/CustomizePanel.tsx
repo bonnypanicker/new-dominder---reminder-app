@@ -481,6 +481,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     }
   }, [visible]);
 
+  // Early return after all hooks have been called
   if (!visible) return null;
 
   return (
@@ -698,6 +699,12 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   const dropdownWidth = 140;
   const itemHeight = 44;
   const dropdownHeight = units.length * itemHeight + 16;
+  
+  // Additional null check before accessing anchor properties
+  if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
+      typeof anchor.width !== 'number' || typeof anchor.height !== 'number') {
+    return null;
+  }
   
   // Position calculation
   // Place dropdown below button with 8px gap
@@ -1780,8 +1787,6 @@ interface InlineDropdownProps {
 }
 
 function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false, containerRef, anchorRef }: InlineDropdownProps) {
-  if (!visible || (!anchorRef && !anchor)) return null;
-  
   // Calculate dropdown dimensions
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
@@ -1817,7 +1822,8 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
-      if (!anchor) return;
+      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
+          typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
       const preferredTop = (anchor.y - containerY) + anchor.height + 8;
       // Align dropdown's right edge with anchor's right edge
       const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
@@ -1866,9 +1872,12 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     return () => { cancelled = true; };
   }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor, hideTomorrow]);
 
-  const top = computedPos?.top ?? (anchor ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
+  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
   // Force align near right border of the container (easy way)
   const left = Math.max(8, containerW - dropdownWidth - (Platform.OS === 'android' ? 24 : 8));
+
+  // Early return after all hooks have been called
+  if (!visible || (!anchorRef && !anchor)) return null;
 
   return (
     <>
@@ -1959,8 +1968,6 @@ interface InlineUnitDropdownProps {
 }
 
 function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef, anchorRef }: InlineUnitDropdownProps) {
-  if (!visible || !anchor) return null;
-  
   // Calculate dropdown dimensions
   const dropdownWidth = 140;
   const itemHeight = 44;
@@ -1993,6 +2000,8 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
+      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
+          typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
       const preferredTop = (anchor.y - containerY) + anchor.height + 8;
       const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
       const top = Math.max(8, preferredTop);
@@ -2045,8 +2054,11 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
     return () => { cancelled = true; };
   }, [visible, anchorRef, containerRef, anchor, containerOffset]);
 
-  const top = computedPos?.top ?? Math.max(8, (anchor.y - containerY) + anchor.height + 8);
-  const left = computedPos?.left ?? Math.max(8, Math.min((anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2), containerW - dropdownWidth - 8));
+  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
+  const left = computedPos?.left ?? (anchor && typeof anchor.x === 'number' && typeof anchor.width === 'number' ? Math.max(8, Math.min((anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2), containerW - dropdownWidth - 8)) : 8);
+
+  // Early return after all hooks have been called
+  if (!visible || !anchor) return null;
 
   return (
     <>
@@ -2117,7 +2129,14 @@ interface DropdownModalProps {
 function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
   const [layout, setLayout] = React.useState<{ width: number; height: number } | null>(null);
   
+  // Early return after all hooks have been called
   if (!visible || !anchor) return null;
+  
+  // Additional null check before accessing anchor properties
+  if (typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
+      typeof anchor.width !== 'number' || typeof anchor.height !== 'number') {
+    return null;
+  }
   
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
   

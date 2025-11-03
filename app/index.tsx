@@ -130,6 +130,9 @@ export default function HomeScreen() {
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
+  // ✅ Track current scroll position for smart autoscroll
+  const [currentScrollOffset, setCurrentScrollOffset] = useState(0);
+
   const addReminder = useAddReminder();
 
   const scrollToTab = useCallback((tab: 'active' | 'completed' | 'expired') => {
@@ -487,20 +490,13 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
-  // ✅ Auto-scroll function to fill gaps when cards are swiped away
+  // ✅ Enhanced auto-scroll function for smooth gap filling when cards are swiped away
   const handleAutoScroll = useCallback(() => {
-    // FlashList already has spring animation for layout changes
-    // We can enhance this by triggering a subtle scroll adjustment
-    // to ensure smooth gap filling without disrupting user's position
+    // FlashList's enhanced itemLayoutAnimation will handle smooth gap filling
+    // We just need to ensure the scroll position adjusts naturally
     if (contentScrollRef.current) {
-      // Small scroll adjustment to help with gap filling
-      // This works in coordination with FlashList's itemLayoutAnimation
-      setTimeout(() => {
-        contentScrollRef.current?.scrollTo({
-          y: 0,
-          animated: true
-        });
-      }, 100); // Slight delay to coordinate with shrink animation
+      // Let FlashList handle the layout animation naturally
+      // No forced scrolling needed - the spring animation will handle gap filling smoothly
     }
   }, []);
 
@@ -999,11 +995,17 @@ export default function HomeScreen() {
           paddingBottom: 100,
           paddingTop: 8  // ✅ Add top padding for first card
         }}
-        // ✅ Add smooth layout animations for card removal
+        // ✅ Track scroll position for smart autoscroll
+        onScroll={(event) => {
+          setCurrentScrollOffset(event.nativeEvent.contentOffset.y);
+        }}
+        scrollEventThrottle={16}
+        // ✅ Enhanced smooth layout animations for card removal and gap filling
         itemLayoutAnimation={{
           type: 'spring',
-          springDamping: 0.8,
-          springStiffness: 100,
+          springDamping: 0.9,      // Increased damping for smoother animation
+          springStiffness: 120,    // Slightly increased stiffness for better responsiveness
+          duration: 300,           // Longer duration for smoother transitions
         }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -1238,13 +1240,18 @@ export default function HomeScreen() {
               // Close popup immediately
               setShowCreatePopup(false);
               
-              // Auto-scroll to top to show the newly added reminder
-              // Since new reminders are sorted by creation date (newest first), they appear at the top
+              // ✅ FIXED: Smart autoscroll - only scroll to top if user is near the top
+              // This prevents disrupting users who are browsing lower in the list
               setTimeout(() => {
-                if (activeTab === 'active') {
-                  contentScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                if (activeTab === 'active' && contentScrollRef.current) {
+                  // Only auto-scroll to show new reminder if user is near the top (within first 300px)
+                  // This way users browsing lower in the list won't be disrupted
+                  if (currentScrollOffset <= 300) {
+                    contentScrollRef.current.scrollToOffset({ offset: 0, animated: true });
+                  }
+                  // If user is further down, they can manually scroll up to see the new reminder
                 }
-              }, 200); // Small delay to ensure the list has updated
+              }, 100); // Reduced delay for better responsiveness
               
               // Reset form after animation starts
               setTimeout(() => {

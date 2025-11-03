@@ -37,26 +37,31 @@ export default function SwipeableRow({
 }: SwipeableRowProps) {
   const SCREEN_WIDTH = Dimensions.get('window').width;
   
-  // ✅ Reanimated 3 shared values for smooth animations
+  // ✅ Reanimated 3 shared values for smooth vertical animations
   const opacity = useSharedValue(1);
-  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);  // Changed from translateX to translateY for vertical animation
+  const scale = useSharedValue(1);       // Added scale for enhanced fade effect
   
   // ✅ State to track if card is being removed
   const [isRemoving, setIsRemoving] = useState(false);
 
-  // ✅ Animated style for smooth fade-out and slide
+  // ✅ Animated style for smooth vertical fade-out and slide-up
   const animatedStyle = useAnimatedStyle(() => {
     return {
       opacity: opacity.value,
-      transform: [{ translateX: translateX.value }],
+      transform: [
+        { translateY: translateY.value },  // Vertical slide instead of horizontal
+        { scale: scale.value }             // Scale effect for better visual feedback
+      ],
     };
   });
 
-  // ✅ Function to execute delete with proper sequencing
+  // ✅ Function to execute delete with vertical slide-up animation
   const executeDelete = (direction: 'left' | 'right') => {
-    // 1. Start fade-out and slide animation
-    opacity.value = withTiming(0, { duration: 150 });
-    translateX.value = withTiming(direction === 'right' ? 100 : -100, { duration: 150 });
+    // 1. Start vertical fade-out and slide-up animation
+    opacity.value = withTiming(0, { duration: 200 });
+    translateY.value = withTiming(-50, { duration: 200 });  // Slide up instead of sideways
+    scale.value = withTiming(0.95, { duration: 200 });      // Slight scale down for better effect
     
     // 2. After fade-out completes, trigger data removal
     setTimeout(() => {
@@ -65,7 +70,12 @@ export default function SwipeableRow({
       } else if (direction === 'left' && onSwipeLeft) {
         onSwipeLeft();
       }
-    }, 200); // 150ms animation + 50ms buffer
+      
+      // 3. Trigger auto-scroll to help with smooth gap filling
+      if (onAutoScroll) {
+        onAutoScroll();
+      }
+    }, 250); // 200ms animation + 50ms buffer
   };
 
   // ✅ Right swipe action (Complete) - Native Android component
@@ -110,7 +120,12 @@ export default function SwipeableRow({
     <Animated.View 
       style={[animatedStyle]}
       layout={Layout.springify().damping(15).stiffness(300)}
-      exiting={FadeOut.duration(150)}
+      exiting={FadeOut.duration(200).withCallback(() => {
+        // Ensure cleanup after animation completes
+        if (onAutoScroll) {
+          onAutoScroll();
+        }
+      })}
     >
       <Swipeable
         friction={1}
