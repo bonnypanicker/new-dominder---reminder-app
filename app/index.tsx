@@ -492,13 +492,34 @@ export default function HomeScreen() {
 
   // ✅ Enhanced auto-scroll function for smooth gap filling when cards are swiped away
   const handleAutoScroll = useCallback(() => {
-    // FlashList's enhanced itemLayoutAnimation will handle smooth gap filling
-    // We just need to ensure the scroll position adjusts naturally
     if (contentScrollRef.current) {
-      // Let FlashList handle the layout animation naturally
-      // No forced scrolling needed - the spring animation will handle gap filling smoothly
+      // Get current scroll position
+      const currentOffset = currentScrollOffset;
+      
+      // If user is near the top (within first 200px), maintain position
+      if (currentOffset <= 200) {
+        // Let FlashList's itemLayoutAnimation handle the smooth transition
+        // No additional scrolling needed - spring animation will fill gaps naturally
+        return;
+      }
+      
+      // For users scrolled down, we need to adjust scroll position to prevent jumping
+      // Calculate estimated item height (assuming average of 80px per item)
+      const estimatedItemHeight = 80;
+      
+      // Adjust scroll position to account for removed item
+      // This prevents the jarring jump effect when items are removed
+      setTimeout(() => {
+        if (contentScrollRef.current) {
+          const newOffset = Math.max(0, currentOffset - estimatedItemHeight);
+          contentScrollRef.current.scrollToOffset({ 
+            offset: newOffset, 
+            animated: true 
+          });
+        }
+      }, 50); // Small delay to let the item removal complete
     }
-  }, []);
+  }, [currentScrollOffset]);
 
   const ReminderCard = memo(({ 
     reminder, 

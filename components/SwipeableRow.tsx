@@ -63,19 +63,16 @@ export default function SwipeableRow({
     translateY.value = withTiming(-50, { duration: 200 });  // Slide up instead of sideways
     scale.value = withTiming(0.95, { duration: 200 });      // Slight scale down for better effect
     
-    // 2. After fade-out completes, trigger data removal
-    setTimeout(() => {
-      if (direction === 'right' && onSwipeRight) {
-        onSwipeRight();
-      } else if (direction === 'left' && onSwipeLeft) {
-        onSwipeLeft();
-      }
-      
-      // 3. Trigger auto-scroll to help with smooth gap filling
-      if (onAutoScroll) {
-        onAutoScroll();
-      }
-    }, 250); // 200ms animation + 50ms buffer
+    // 2. Trigger data removal immediately (no setTimeout)
+    // The onAutoScroll will be handled by the exiting animation callback
+    if (direction === 'right' && onSwipeRight) {
+      onSwipeRight();
+    } else if (direction === 'left' && onSwipeLeft) {
+      onSwipeLeft();
+    }
+    
+    // Note: onAutoScroll is now only called in the exiting animation callback
+    // This ensures it happens after the item is fully removed and animated out
   };
 
   // ✅ Right swipe action (Complete) - Native Android component
@@ -190,3 +187,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
