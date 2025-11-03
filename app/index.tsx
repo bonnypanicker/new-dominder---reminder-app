@@ -2943,7 +2943,8 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 28,  // ✅ Increased horizontal padding to reduce card width
+    paddingVertical: 16,
   },
   loadingContainer: {
     flex: 1,
