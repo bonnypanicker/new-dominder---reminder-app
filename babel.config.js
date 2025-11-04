@@ -3,6 +3,8 @@ module.exports = function(api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
+      // Expo Router plugin should come before Reanimated and remain above it
+      'expo-router/babel',
       [
         'module-resolver',
         {

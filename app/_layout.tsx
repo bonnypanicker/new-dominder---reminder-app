@@ -4,7 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, DeviceEventEmitter, Platform, View } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/hooks/theme-provider";
@@ -55,8 +55,9 @@ const useAlarmListeners = () => {
 
 
 function RootLayoutNav() {
+  const isIOS = Platform.OS === 'ios';
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack screenOptions={{ ...(isIOS ? { headerBackTitle: "Back" } : {}) }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen
@@ -254,7 +255,7 @@ function AppContent() {
   }, [isLoading]);
 
   if (isLoading) {
-    return null;
+    return <View style={{ flex: 1 }} />;
   }
 
   return (
