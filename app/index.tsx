@@ -4,6 +4,20 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert,
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
+import { useSettings } from '@/hooks/settings-store';
+import { calculateNextReminderDate } from '@/services/reminder-utils';
+import { CHANNEL_IDS } from '@/services/channels';
+import { PRIORITY_COLORS } from '@/constants/reminders';
+import { Material3Colors } from '@/constants/colors';
+import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
+import PrioritySelector from '@/components/PrioritySelector';
+import CustomizePanel from '@/components/CustomizePanel';
+import Toast from '@/components/Toast';
+import SwipeableRow from '@/components/SwipeableRow';
+
+// Icon components (declared after all imports to satisfy import/first)
 const Plus = (props: any) => <Feather name="plus" {...props} />;
 const Clock = (props: any) => <Feather name="clock" {...props} />;
 const Settings = (props: any) => <Feather name="settings" {...props} />;
@@ -18,18 +32,6 @@ const Square = (props: any) => <Feather name="square" {...props} />;
 const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
 const Keyboard = (props: any) => <Feather name="keyboard" {...props} />;
-import { router } from 'expo-router';
-import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
-import { useSettings } from '@/hooks/settings-store';
-import { calculateNextReminderDate } from '@/services/reminder-utils';
-import { CHANNEL_IDS } from '@/services/channels';
-import { PRIORITY_COLORS } from '@/constants/reminders';
-import { Material3Colors } from '@/constants/colors';
-import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
-import PrioritySelector from '@/components/PrioritySelector';
-import CustomizePanel from '@/components/CustomizePanel';
-import Toast from '@/components/Toast';
-import SwipeableRow from '@/components/SwipeableRow';
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
