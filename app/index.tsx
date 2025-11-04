@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
-import Animated, { Layout, useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+// Removed reanimated imports not used in this file
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -30,7 +30,6 @@ import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
 import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
-import { computeBounce, springFast } from '@/utils/card-animations';
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -3305,30 +3304,3 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 });
-  // Scroll boundary bounce shared values and handler
-  const scrollBounce = useSharedValue(0);
-
-  const contentBounceStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: scrollBounce.value }],
-    };
-  });
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      const y = e.contentOffset?.y ?? 0;
-      const contentH = e.contentSize?.height ?? 0;
-      const viewH = e.layoutMeasurement?.height ?? 0;
-      const maxScroll = Math.max(0, contentH - viewH);
-      const overscrollTop = Math.min(0, y);
-      const overscrollBottom = Math.max(0, y - maxScroll);
-      const overscroll = overscrollTop < 0 ? overscrollTop : overscrollBottom;
-      scrollBounce.value = overscroll !== 0 ? computeBounce(overscroll, 26) : 0;
-    },
-    onEndDrag: () => {
-      scrollBounce.value = withSpring(0, springFast);
-    },
-    onMomentumEnd: () => {
-      scrollBounce.value = withSpring(0, springFast);
-    },
-  });
