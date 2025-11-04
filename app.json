@@ -70,7 +70,7 @@
             "kotlinVersion": "2.0.21",
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
-            "minSdkVersion": 21,
+            "minSdkVersion": 24,
             "usesCleartextTraffic": false,
             "extraProguardRules": "-keep class com.swmansion.reanimated.** { *; }\n-keep class com.shopify.reactnative.flash_list.** { *; }"
           }
