@@ -147,9 +147,6 @@ export default function CustomizePanel({
       minutes: 'Minutes',
       hours: 'Hours',
       days: 'Days',
-      weeks: 'Weeks',
-      months: 'Months',
-      years: 'Years',
     };
     return labels[unit];
   };
@@ -503,7 +500,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
               ...Platform.select({
                 android: {
                   elevation: 24,
-                  transform: [{ translateZ: 0 }],
+                  transform: [{ translateX: 0 }],
                 },
               }),
             }
@@ -748,7 +745,7 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
               opacity: isPositioned ? 1 : 0,
               ...(Platform.OS === 'android' && {
                 elevation: 24,
-                transform: [{ translateZ: 0 }],
+                transform: [{ translateX: 0 }],
               }),
             },
           ]}
@@ -1219,7 +1216,7 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: Mont
                 ...Platform.select({
                   android: {
                     elevation: 24,
-                    transform: [{ translateZ: 0 }],
+                    transform: [{ translateX: 0 }],
                   },
                 }),
               }
@@ -1327,7 +1324,7 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
               ...Platform.select({
                 android: {
                   elevation: 24,
-                  transform: [{ translateZ: 0 }],
+                  transform: [{ translateX: 0 }],
                 },
               }),
             }
@@ -1782,8 +1779,8 @@ interface InlineDropdownProps {
   onTomorrow: () => void;
   onCustom: () => void;
   hideTomorrow?: boolean;
-  containerRef?: React.RefObject<View>;
-  anchorRef?: React.RefObject<View>;
+  containerRef?: React.RefObject<View | null>;
+  anchorRef?: React.RefObject<View | null>;
 }
 
 function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false, containerRef, anchorRef }: InlineDropdownProps) {
@@ -1905,7 +1902,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
               android: {
                 elevation: 24,
                 // Force GPU rendering for smoother animations
-                transform: [{ translateZ: 0 }],
+                transform: [{ translateX: 0 }],
               },
             }),
           },
@@ -1963,8 +1960,8 @@ interface InlineUnitDropdownProps {
   getUnitLabel: (u: EveryUnit) => string;
   onChange: (unit: EveryUnit) => void;
   onClose: () => void;
-  containerRef?: React.RefObject<View>;
-  anchorRef?: React.RefObject<View>;
+  containerRef?: React.RefObject<View | null>;
+  anchorRef?: React.RefObject<View | null>;
 }
 
 function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef, anchorRef }: InlineUnitDropdownProps) {
@@ -2086,7 +2083,7 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
           // Android-specific styling for smoother animations
           Platform.OS === 'android' && {
             elevation: 24,
-            transform: [{ translateZ: 0 }],
+            transform: [{ translateX: 0 }],
           },
         ]}
       >
