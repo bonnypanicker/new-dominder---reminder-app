@@ -8,7 +8,8 @@ import Animated, {
   useAnimatedStyle, 
   withTiming, 
   Layout,
-  FadeOut
+  FadeOut,
+  runOnJS
 } from 'react-native-reanimated';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder } from '@/types/reminder';
@@ -120,7 +121,7 @@ export default function SwipeableRow({
       exiting={FadeOut.duration(200).withCallback(() => {
         // Ensure cleanup after animation completes
         if (onAutoScroll) {
-          onAutoScroll();
+          runOnJS(onAutoScroll)();
         }
       })}
     >
@@ -187,4 +188,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
+

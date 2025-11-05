@@ -9,6 +9,7 @@ import notifee, {
 } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
 import { NativeModules, Platform } from 'react-native';
+import type { Priority, RepeatType, EveryUnit } from '@/types/reminder';
 
 const AlarmModule: {
   scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => void;
@@ -289,14 +290,98 @@ export async function cleanupOrphanedNotifications() {
   }
 }
 
-export async function initialize() {
+export async function initialize(): Promise<boolean> {
   try {
     const { ensureBaseChannels } = require('@/services/channels');
     await ensureBaseChannels();
     console.log('[NotificationService] Initialized');
+    return true;
   } catch (error) {
     console.error('[NotificationService] Initialization error:', error);
+    return false;
   }
+}
+
+export async function checkPermissions(): Promise<boolean> {
+  try {
+    const settings = await notifee.getNotificationSettings();
+    return settings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
+  } catch (error) {
+    console.error('[NotificationService] checkPermissions error:', error);
+    return false;
+  }
+}
+
+export async function requestPermissions(): Promise<boolean> {
+  try {
+    await notifee.requestPermission();
+    const settings = await notifee.getNotificationSettings();
+    return settings.authorizationStatus === AuthorizationStatus.AUTHORIZED;
+  } catch (error) {
+    console.error('[NotificationService] requestPermissions error:', error);
+    return false;
+  }
+}
+
+export async function getAllScheduledNotifications() {
+  try {
+    const triggers = await notifee.getTriggerNotifications();
+    return triggers;
+  } catch (error) {
+    console.error('[NotificationService] getAllScheduledNotifications error:', error);
+    return [];
+  }
+}
+
+export async function displayInfoNotification(title: string, body: string) {
+  try {
+    await notifee.displayNotification({
+      id: `info-${Date.now()}`,
+      title,
+      body,
+      android: {
+        channelId: 'standard-v2',
+        smallIcon: 'small_icon_noti',
+        importance: AndroidImportance.DEFAULT,
+      },
+    });
+  } catch (error) {
+    console.error('[NotificationService] displayInfoNotification error:', error);
+  }
+}
+
+// Convenience adapter used by debug screen to schedule a simple reminder-like notification
+export async function scheduleNotification(input: {
+  id: string;
+  title: string;
+  description?: string;
+  date: string;
+  time: string;
+  priority: Priority;
+  repeatType: RepeatType;
+  isActive: boolean;
+  isCompleted: boolean;
+  isExpired?: boolean;
+  isPaused?: boolean;
+  everyInterval?: { value: number; unit: EveryUnit };
+}) {
+  const reminder: Reminder = {
+    id: input.id,
+    title: input.title,
+    description: input.description ?? '',
+    date: input.date,
+    time: input.time,
+    priority: input.priority,
+    isActive: input.isActive,
+    isPaused: input.isPaused ?? false,
+    repeatType: input.repeatType,
+    everyInterval: input.everyInterval,
+    isCompleted: input.isCompleted,
+    isExpired: input.isExpired ?? false,
+    createdAt: new Date().toISOString(),
+  };
+  await scheduleReminderByModel(reminder);
+  return `rem-${reminder.id}`;
 }
 
 export const notificationService = {
@@ -306,4 +391,9 @@ export const notificationService = {
   cancelAllNotificationsForReminder,
   cleanupOrphanedNotifications,
   initialize,
+  checkPermissions,
+  requestPermissions,
+  getAllScheduledNotifications,
+  displayInfoNotification,
+  scheduleNotification,
 };

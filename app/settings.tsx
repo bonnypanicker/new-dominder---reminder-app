@@ -154,7 +154,7 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ vibrationEnabled: !settings.vibrationEnabled })}
                 testID="toggle-vibration"
               >
-                <Feather name="vibrate" size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="smartphone" size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Vibration</Text>
                 <Switch
                   value={settings.vibrationEnabled}
@@ -373,7 +373,7 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
     { value: 'every', label: 'Every' },
   ];
 
-  const priorities: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: string }[] = [
+  const priorities: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' }[] = [
     { value: 'standard', label: 'Standard', icon: 'bell' },
     { value: 'silent', label: 'Silent', icon: 'volume-2' },
     { value: 'ringer', label: 'High Priority', icon: 'alert-circle' },

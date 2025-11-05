@@ -89,7 +89,7 @@ export default function HomeScreen() {
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
-  const contentScrollRef = useRef<ScrollView>(null);
+  const contentScrollRef = useRef<FlashList<any>>(null);
   
   // Track open swipeables (Android best practice: only one open at a time)
   const swipeableRefs = useRef<Map<string, any>>(new Map());
@@ -1022,13 +1022,7 @@ export default function HomeScreen() {
           setCurrentScrollOffset(event.nativeEvent.contentOffset.y);
         }}
         scrollEventThrottle={16}
-        // ✅ Enhanced smooth layout animations for card removal and gap filling
-        itemLayoutAnimation={{
-          type: 'spring',
-          springDamping: 0.9,      // Increased damping for smoother animation
-          springStiffness: 120,    // Slightly increased stiffness for better responsiveness
-          duration: 300,           // Longer duration for smoother transitions
-        }}
+        // Layout animations handled within ReminderCard; FlashList prop removed
         ListEmptyComponent={
           <View style={styles.emptyState}>
             {activeTab === 'active' ? (
@@ -1453,9 +1447,7 @@ function CreateReminderPopup({
             { 
               height: popupHeight,
               opacity: isReady ? 1 : 0,
-              ...(Platform.OS === 'android' && {
-                transform: [{ translateZ: 0 }]
-              })
+              ...(Platform.OS === 'android' && {})
             }
           ]}
         >
@@ -2243,8 +2235,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
             {
               opacity: isReady ? 1 : 0,
               ...(Platform.OS === 'android' && {
-                elevation: isReady ? 10 : 0,
-                transform: [{ translateZ: 0 }]
+                elevation: isReady ? 10 : 0
               })
             }
           ]} 
@@ -2990,8 +2981,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    // ✅ Force hardware acceleration on Android
-    transform: [{ translateZ: 0 }],
+    // Android: rely on elevation for hardware acceleration
     overflow: 'hidden',
   },
   selectedCard: {
