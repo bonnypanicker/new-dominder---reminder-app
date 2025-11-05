@@ -59,6 +59,13 @@
   "overrides": {
     "react-native-worklets": "~0.6.0"
   },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-reanimated"
+      ]
+    }
+  },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/ngrok": "^4.1.0",

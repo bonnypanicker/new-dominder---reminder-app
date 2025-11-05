@@ -38,3 +38,7 @@ coverage/
 tmp/
 temp/
 /android/.gradle
+
+# Ignore native projects to enable CNG/Prebuild syncing in EAS Build
+/android
+/ios
