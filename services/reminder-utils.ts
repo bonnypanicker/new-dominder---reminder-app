@@ -208,11 +208,19 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
     }
   }
 
-  // Date-based end: stop if candidate is after the end-of-day of untilDate
+  // Date-based end: stop if candidate is after the end boundary of untilDate
+  // For 'every' reminders with minutes/hours, honor the specific untilTime; otherwise use end-of-day
   if (reminder.untilType === 'endsAt' && reminder.untilDate) {
     try {
       const [uy, um, ud] = reminder.untilDate.split('-').map((v) => parseInt(v || '0', 10));
-      const endBoundary = new Date(uy, (um || 1) - 1, ud || 1, 23, 59, 59, 999);
+      const endBoundary = new Date(uy, (um || 1) - 1, ud || 1);
+      const isTimeBound = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
+      if (isTimeBound && reminder.untilTime) {
+        const [eh, em] = reminder.untilTime.split(':').map((v) => parseInt(v || '0', 10));
+        endBoundary.setHours(eh, em, 0, 0);
+      } else {
+        endBoundary.setHours(23, 59, 59, 999);
+      }
       if (candidate > endBoundary) {
         console.log(`[calculateNextReminderDate] Candidate ${candidate.toISOString()} is after end boundary ${endBoundary.toISOString()}, stopping.`);
         return null;

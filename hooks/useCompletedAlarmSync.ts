@@ -40,8 +40,8 @@ export function useCompletedAlarmSync() {
         console.log('[AlarmSync] Processing completed alarm:', reminderId, 'at', timestamp);
         
         try {
-          // Mark as complete in the store
-          await markReminderDone(reminderId);
+          // Native alarm completion -> increment occurrence and schedule next
+          await markReminderDone(reminderId, true);
           
           // Clear from SharedPreferences
           await AlarmModule.clearCompletedAlarm(reminderId);

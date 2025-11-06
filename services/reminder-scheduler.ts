@@ -41,7 +41,7 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   DeviceEventEmitter.emit('remindersChanged');
 }
 
-export async function markReminderDone(reminderId: string) {
+export async function markReminderDone(reminderId: string, shouldIncrementOccurrence: boolean = true) {
   console.log(`[Scheduler] Marking reminder ${reminderId} as done`);
   
   const reminder = await getReminder(reminderId);
@@ -51,7 +51,12 @@ export async function markReminderDone(reminderId: string) {
     return;
   }
   
-  await notificationService.cancelAllNotificationsForReminder(reminderId);
+  // Only cancel notifications for one-time reminders; for repeating reminders
+  // the current notification is cancelled by the action handler/native UI,
+  // and we should not cancel the next scheduled occurrence.
+  if (reminder.repeatType === 'none') {
+    await notificationService.cancelAllNotificationsForReminder(reminderId);
+  }
 
   if (reminder.snoozeUntil && reminder.repeatType === 'none') {
     console.log(`[Scheduler] Snoozed 'once' reminder ${reminderId} marked as done - completing it`);
@@ -62,33 +67,58 @@ export async function markReminderDone(reminderId: string) {
     await updateReminder(reminder);
   } else if (reminder.repeatType && reminder.repeatType !== 'none') {
     console.log(`[Scheduler] Processing 'Done' for repeating reminder ${reminderId}`);
-    // Increment occurrence count BEFORE calculating next date so count-based 'Until' caps are respected
+    // For repeating reminders, we have two caller contexts:
+    // - Native alarm "Done" (shouldIncrementOccurrence=true): increment occurrence
+    //   and calculate/schedule the next occurrence.
+    // - Notifee action "Done" (shouldIncrementOccurrence=false): delivery handler
+    //   already rescheduled; just clear snooze state and keep active.
     const occurred = reminder.occurrenceCount ?? 0;
-    reminder.occurrenceCount = occurred + 1;
+    const calcContext = shouldIncrementOccurrence
+      ? { ...reminder, occurrenceCount: occurred + 1 }
+      : reminder;
 
-    const nextDate = calculateNextReminderDate(reminder, new Date());
-
-    if (nextDate) {
-      console.log(`[Scheduler] Next occurrence for ${reminderId} is ${nextDate.toISOString()}`);
-      reminder.nextReminderDate = nextDate.toISOString();
-      reminder.lastTriggeredAt = new Date().toISOString();
-      reminder.snoozeUntil = undefined;
-      reminder.wasSnoozed = undefined;
-      // Explicitly preserve active state for repeating reminders
-      reminder.isActive = true;
-      reminder.isCompleted = false;
-      reminder.isPaused = false;
-      reminder.isExpired = false;
-      
-      await updateReminder(reminder);
-      await notificationService.scheduleReminderByModel(reminder);
+    if (!shouldIncrementOccurrence) {
+      // Do not reschedule here; avoid double scheduling. Just clear snooze state
+      // and ensure the reminder remains active.
+      const updated = {
+        ...calcContext,
+        snoozeUntil: undefined,
+        wasSnoozed: undefined,
+        isActive: true,
+        isCompleted: false,
+        isPaused: false,
+      };
+      await updateReminder(updated as any);
     } else {
-      console.log(`[Scheduler] No next occurrence found for ${reminderId}, marking as complete.`);
-      reminder.isCompleted = true;
-      reminder.isActive = false;
-      reminder.snoozeUntil = undefined;
-      reminder.wasSnoozed = undefined;
-      await updateReminder(reminder);
+      const nextDate = calculateNextReminderDate(calcContext as any, new Date());
+
+      if (nextDate) {
+        console.log(`[Scheduler] Next occurrence for ${reminderId} is ${nextDate.toISOString()}`);
+        const updated = {
+          ...calcContext,
+          nextReminderDate: nextDate.toISOString(),
+          lastTriggeredAt: new Date().toISOString(),
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          isActive: true,
+          isCompleted: false,
+          isPaused: false,
+          isExpired: false,
+        };
+        await updateReminder(updated as any);
+        await notificationService.scheduleReminderByModel(updated as any);
+      } else {
+        console.log(`[Scheduler] No next occurrence found for ${reminderId}, marking as complete.`);
+        const completed = {
+          ...calcContext,
+          isCompleted: true,
+          isActive: false,
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          lastTriggeredAt: new Date().toISOString(),
+        };
+        await updateReminder(completed as any);
+      }
     }
   } else {
     console.log(`[Scheduler] Marking one-time reminder ${reminderId} as complete.`);

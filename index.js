@@ -88,7 +88,8 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
     if (pressAction.id === 'done') {
       const svc = require('./services/reminder-scheduler');
-      await svc.markReminderDone(reminderId);
+      // For notifee action, do not increment occurrence here (already done on delivery)
+      await svc.markReminderDone(reminderId, false);
       return;
     }
 

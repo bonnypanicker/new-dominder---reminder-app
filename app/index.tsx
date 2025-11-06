@@ -109,7 +109,18 @@ export default function HomeScreen() {
     const defaultTime = calculateDefaultTime();
     return defaultTime.isAM;
   });
+  // Separate state for "Ends" time selection
+  const [untilTime, setUntilTime] = useState<string>(() => {
+    const defaultTime = calculateDefaultTime();
+    return defaultTime.time;
+  });
+  const [untilIsAM, setUntilIsAM] = useState<boolean>(() => {
+    const defaultTime = calculateDefaultTime();
+    return defaultTime.isAM;
+  });
   const [showTimeSelector, setShowTimeSelector] = useState<boolean>(false);
+  // Track which time we are editing in the shared TimeSelector
+  const [timeSelectorContext, setTimeSelectorContext] = useState<'start' | 'until'>('start');
   const [title, setTitle] = useState<string>('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [repeatType, setRepeatType] = useState<RepeatType>('none');
@@ -352,6 +363,17 @@ export default function HomeScreen() {
     const { hh, mm, isAM } = to12h(reminder.time);
     setSelectedTime(`${hh}:${mm}`);
     setIsAM(isAM);
+
+    // Prefill Until time if present
+    if (reminder.untilTime) {
+      const u = to12h(reminder.untilTime);
+      setUntilTime(`${u.hh}:${u.mm}`);
+      setUntilIsAM(u.isAM);
+    } else {
+      const def = calculateDefaultTime();
+      setUntilTime(def.time);
+      setUntilIsAM(def.isAM);
+    }
     setShowCreatePopup(true);
   }, [to12h]);
 
@@ -555,21 +577,21 @@ export default function HomeScreen() {
         const unit = count === 1 ? 'occurrence' : 'occurrences';
         return `Ends after ${count} ${unit}`;
       }
-      if (type === 'endsAt' && reminder.untilDate) {
-        try {
-          const [y, m, d] = reminder.untilDate.split('-').map(Number);
-          const dt = new Date(y, (m || 1) - 1, d || 1);
-          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          const showTime = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
-          if (showTime) {
-            const timeStr = formatTime(reminder.time);
-            return `Ends on ${dateStr} at ${timeStr}`;
+          if (type === 'endsAt' && reminder.untilDate) {
+            try {
+              const [y, m, d] = reminder.untilDate.split('-').map(Number);
+              const dt = new Date(y, (m || 1) - 1, d || 1);
+              const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              const showTime = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
+              if (showTime) {
+                const timeStr = formatTime(reminder.untilTime ?? reminder.time);
+                return `Ends on ${dateStr} at ${timeStr}`;
+              }
+              return `Ends on ${dateStr}`;
+            } catch {
+              return null;
+            }
           }
-          return `Ends on ${dateStr}`;
-        } catch {
-          return null;
-        }
-      }
       return null;
     })();
 
@@ -1147,6 +1169,8 @@ export default function HomeScreen() {
         onTitleChange={setTitle}
         selectedTime={selectedTime}
         isAM={isAM}
+        untilTime={untilTime}
+        untilIsAM={untilIsAM}
         priority={priority}
         onPriorityChange={setPriority}
         showCustomize={false}
@@ -1161,14 +1185,19 @@ export default function HomeScreen() {
           setEveryValue(value);
           setEveryUnit(unit);
         }}
-        onTimeSelect={() => setShowTimeSelector(true)}
+        onTimeSelect={() => { setTimeSelectorContext('start'); setShowTimeSelector(true); }}
         onTimeChange={(time, ampm) => {
           setSelectedTime(time);
           setIsAM(ampm);
         }}
+        onUntilTimeChange={(time, ampm) => {
+          setUntilTime(time);
+          setUntilIsAM(ampm);
+        }}
         showTimeSelector={showTimeSelector}
         onCloseTimeSelector={() => setShowTimeSelector(false)}
         onShowToast={showToast}
+        timeSelectorContext={timeSelectorContext}
         // Until props
         untilType={untilType}
         untilDate={untilDate}
@@ -1187,7 +1216,7 @@ export default function HomeScreen() {
         }}
         onUntilDateChange={setUntilDate}
         onUntilCountChange={(count) => setUntilCount(Math.min(999, Math.max(1, count)))}
-        onOpenUntilTime={() => { setShowTimeSelector(true); }}
+        onOpenUntilTime={() => { setTimeSelectorContext('until'); setShowTimeSelector(true); }}
         onConfirm={() => {
           if (!title.trim()) {
             showToast('Please enter your reminder', 'error');
@@ -1218,6 +1247,26 @@ export default function HomeScreen() {
             finalHours = 0;
           }
           const finalTime = `${finalHours.toString().padStart(2, '0')}:${timeMinutes.toString().padStart(2, '0')}`;
+
+          // If endsAt with minutes/hours, validate end time after start time
+          if (repeatType !== 'none' && untilType === 'endsAt' && untilDate) {
+            const [uHours, uMinutes] = (untilTime || `${timeHours}:${timeMinutes}`).split(':').map(Number);
+            let finalUHours = uHours;
+            if (!untilIsAM && uHours !== 12) {
+              finalUHours = uHours + 12;
+            } else if (untilIsAM && uHours === 12) {
+              finalUHours = 0;
+            }
+            const startDateTimeFull = new Date(selectedDate);
+            const endDateTimeFull = new Date(untilDate);
+            startDateTimeFull.setHours(finalHours, timeMinutes, 0, 0);
+            endDateTimeFull.setHours(finalUHours, uMinutes, 0, 0);
+            const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
+            if (withTime && endDateTimeFull <= startDateTimeFull) {
+              showToast('End time must be after start time', 'error');
+              return;
+            }
+          }
 
           // Check for past time validation for 'once' reminders (both new and editing)
           if (repeatType === 'none') {
@@ -1273,6 +1322,16 @@ export default function HomeScreen() {
               untilType: repeatType === 'none' ? undefined : untilType,
               untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
               untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
+              untilTime: (repeatType !== 'none' && untilType === 'endsAt' && untilDate)
+                ? (() => {
+                    const [uHours, uMinutes] = untilTime.split(':').map(Number);
+                    let finalUHours = uHours;
+                    if (!untilIsAM && uHours !== 12) finalUHours = uHours + 12;
+                    else if (untilIsAM && uHours === 12) finalUHours = 0;
+                    return `${finalUHours.toString().padStart(2, '0')}:${uMinutes.toString().padStart(2, '0')}`;
+                  })()
+                : undefined,
+              untilIsAM: (repeatType !== 'none' && untilType === 'endsAt' && untilDate) ? untilIsAM : undefined,
               // Preserve occurrence count when editing
               occurrenceCount: repeatType === 'none' ? undefined : (editingReminder.occurrenceCount ?? 0),
               ringerSound: undefined,
@@ -1343,6 +1402,16 @@ export default function HomeScreen() {
             untilType: repeatType === 'none' ? undefined : untilType,
             untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
             untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
+            untilTime: (repeatType !== 'none' && untilType === 'endsAt' && untilDate)
+              ? (() => {
+                  const [uHours, uMinutes] = untilTime.split(':').map(Number);
+                  let finalUHours = uHours;
+                  if (!untilIsAM && uHours !== 12) finalUHours = uHours + 12;
+                  else if (untilIsAM && uHours === 12) finalUHours = 0;
+                  return `${finalUHours.toString().padStart(2, '0')}:${uMinutes.toString().padStart(2, '0')}`;
+                })()
+              : undefined,
+            untilIsAM: (repeatType !== 'none' && untilType === 'endsAt' && untilDate) ? untilIsAM : undefined,
             occurrenceCount: 0,
             ringerSound: undefined,
             isCompleted: false,
@@ -1425,6 +1494,8 @@ interface CreateReminderPopupProps {
   onTitleChange: (title: string) => void;
   selectedTime: string;
   isAM: boolean;
+  untilTime: string;
+  untilIsAM: boolean;
   priority: Priority;
   onPriorityChange: (priority: Priority) => void;
   showCustomize: boolean;
@@ -1435,6 +1506,7 @@ interface CreateReminderPopupProps {
   onRepeatDaysChange: (days: number[]) => void;
   onTimeSelect: () => void;
   onTimeChange: (time: string, isAM: boolean) => void;
+  onUntilTimeChange: (time: string, isAM: boolean) => void;
   showTimeSelector: boolean;
   onCloseTimeSelector: () => void;
   onConfirm: () => void;
@@ -1446,6 +1518,7 @@ interface CreateReminderPopupProps {
   everyUnit: EveryUnit;
   onEveryChange: (value: number, unit: EveryUnit) => void;
   onShowToast: (message: string, type?: 'info' | 'error' | 'success') => void;
+  timeSelectorContext: 'start' | 'until';
   // Until props
   untilType: 'none' | 'endsAt' | 'count';
   untilDate: string;
@@ -1463,6 +1536,8 @@ function CreateReminderPopup({
   onTitleChange,
   selectedTime,
   isAM,
+  untilTime,
+  untilIsAM,
   priority,
   onPriorityChange,
   showCustomize,
@@ -1473,6 +1548,7 @@ function CreateReminderPopup({
   onRepeatDaysChange,
   onTimeSelect,
   onTimeChange,
+  onUntilTimeChange,
   showTimeSelector,
   onCloseTimeSelector,
   onConfirm,
@@ -1484,6 +1560,7 @@ function CreateReminderPopup({
   everyUnit,
   onEveryChange,
   onShowToast,
+  timeSelectorContext,
   // Until props
   untilType,
   untilDate,
@@ -1613,6 +1690,8 @@ function CreateReminderPopup({
                   everyUnit={everyUnit}
                   onEveryChange={onEveryChange}
                   // Until props
+                  untilTime={untilTime}
+                  untilIsAM={untilIsAM}
                   untilType={untilType}
                   untilDate={untilDate}
                   untilCount={untilCount}
@@ -1653,11 +1732,14 @@ function CreateReminderPopup({
       
       <TimeSelector
         visible={showTimeSelector}
-        selectedTime={selectedTime}
-        isAM={isAM}
-        onTimeChange={onTimeChange}
+        selectedTime={timeSelectorContext === 'until' ? untilTime : selectedTime}
+        isAM={timeSelectorContext === 'until' ? untilIsAM : isAM}
+        onTimeChange={(t, am) => {
+          if (timeSelectorContext === 'until') onUntilTimeChange(t, am);
+          else onTimeChange(t, am);
+        }}
         onClose={onCloseTimeSelector}
-        selectedDate={selectedDate}
+        selectedDate={timeSelectorContext === 'until' ? (untilDate || selectedDate) : selectedDate}
         repeatType={repeatType}
         onPastTimeError={(msg) => onShowToast(msg ?? 'Please select a future time', 'error')}
       />

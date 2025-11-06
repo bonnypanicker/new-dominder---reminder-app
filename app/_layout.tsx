@@ -30,7 +30,8 @@ const useAlarmListeners = () => {
       (event: { reminderId: string }) => {
         console.log('Native alarm DONE event received for:', event.reminderId);
         if (event.reminderId) {
-          markReminderDone(event.reminderId);
+          // Native alarm DONE -> increment occurrence and schedule next
+          markReminderDone(event.reminderId, true);
         }
       }
     );
@@ -109,7 +110,8 @@ function AppContent() {
         await rescheduleReminderById(reminderId, snoozeMinutes || 10);
       } else if (action === 'done' && reminderId) {
         const { markReminderDone } = require('@/services/reminder-scheduler');
-        await markReminderDone(reminderId);
+        // Legacy native alarm DONE -> increment occurrence and schedule next
+        await markReminderDone(reminderId, true);
       }
     });
 
@@ -230,7 +232,8 @@ function AppContent() {
 
           if (pressAction.id === 'done') {
             const { markReminderDone } = require('@/services/reminder-scheduler');
-            await markReminderDone(reminderId);
+            // Foreground notifee action DONE -> do not increment (already counted on delivery)
+            await markReminderDone(reminderId, false);
             return;
           }
 

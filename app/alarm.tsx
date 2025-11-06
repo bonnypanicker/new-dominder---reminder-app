@@ -84,7 +84,8 @@ export default function AlarmScreen() {
     try {
       if (reminderId) {
         const svc = require('../services/reminder-scheduler');
-        await svc.markReminderDone(reminderId);
+        // Native alarm UI -> increment occurrence and schedule next
+        await svc.markReminderDone(reminderId, true);
       }
     } catch (e) { 
       console.error('[AlarmScreen] Done error:', e); 
