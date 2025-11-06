@@ -14,28 +14,23 @@ interface PrioritySelectorProps {
 }
 
 export default function PrioritySelector({ priority, onPriorityChange }: PrioritySelectorProps) {
-  const priorities: { value: Priority; label: string; IconComponent: any; description: string }[] = [
+  const priorities: { value: Priority; label: string; IconComponent: any }[] = [
     {
       value: 'medium',
       label: 'Standard',
       IconComponent: Bell,
-      description: 'Sound & Vibrate'
     },
     {
       value: 'low',
       label: 'Silent',
       IconComponent: Info,
-      description: 'Quiet'
     },
     {
       value: 'high',
       label: 'Ringer',
       IconComponent: AlertTriangle,
-      description: 'Rings Alarm'
     },
   ];
-
-
 
   return (
     <View style={styles.container}>
@@ -46,41 +41,41 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
             key={item.value}
             style={[
               styles.option,
-              priority === item.value ? [
-                styles.selectedOption,
-                { borderColor: PRIORITY_COLORS[item.value] }
-              ] : [
-                styles.unselectedOption,
-                { borderColor: Material3Colors.light.outlineVariant }
-              ]
+              priority === item.value
+                ? [styles.selectedOption, { borderColor: PRIORITY_COLORS[item.value] }]
+                : [
+                    styles.unselectedOption,
+                    { borderColor: Material3Colors.light.outlineVariant },
+                  ],
             ]}
             onPress={() => onPriorityChange(item.value)}
           >
-            <View style={[
-              styles.iconContainer, 
-              { 
-                backgroundColor: PRIORITY_COLORS[item.value],
-                opacity: priority === item.value ? 1 : 0.7,
-                transform: priority === item.value ? [{ scale: 1.15 }] : [{ scale: 1 }]
-              }
-            ]}>
+            <View
+              style={[
+                styles.iconContainer,
+                {
+                  backgroundColor: PRIORITY_COLORS[item.value],
+                  opacity: priority === item.value ? 1 : 0.7,
+                  transform: priority === item.value ? [{ scale: 1.15 }] : [{ scale: 1 }],
+                },
+              ]}
+            >
               <item.IconComponent size={14} color="white" />
             </View>
-            <Text style={[styles.optionLabel, priority === item.value ? styles.selectedLabel : styles.unselectedLabel]}>
+            <Text
+              style={[
+                styles.optionLabel,
+                priority === item.value ? styles.selectedLabel : styles.unselectedLabel,
+              ]}
+            >
               {item.label}
-            </Text>
-            <Text style={[styles.optionDescription, priority === item.value ? styles.selectedDescription : styles.unselectedDescription]}>
-              {item.description}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
-
     </View>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -103,6 +98,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   selectedOption: {
     backgroundColor: Material3Colors.light.primaryContainer,
@@ -120,9 +117,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   iconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -140,21 +137,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 11,
   },
-  optionDescription: {
-    fontSize: 9,
-    textAlign: 'center',
-    lineHeight: 12,
-  },
-  selectedDescription: {
-    color: Material3Colors.light.onPrimaryContainer,
-    opacity: 0.9,
-    fontWeight: '600',
-    fontSize: 10,
-  },
-  unselectedDescription: {
-    color: Material3Colors.light.onSurfaceVariant,
-    opacity: 0.8,
-    fontWeight: '400',
-  },
-
 });

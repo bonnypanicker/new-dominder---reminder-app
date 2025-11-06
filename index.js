@@ -30,27 +30,47 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       // Auto-reschedule all repeating reminder types (not just 'every')
       if (reminder.repeatType !== 'none') {
         console.log(`[onBackgroundEvent] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId}`);
-        
+
+        // Increment occurrence count on delivery so count-based 'Until' caps are respected
+        const occurred = reminder.occurrenceCount ?? 0;
+        const forCalc = { ...reminder, occurrenceCount: occurred + 1 };
+
         const reminderUtils = require('./services/reminder-utils');
-        const nextDate = reminderUtils.calculateNextReminderDate(reminder, new Date());
-        
+        const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
+
         if (nextDate) {
-          // Update the reminder with the next occurrence
+          // Update the reminder with the next occurrence and keep it active
           const updatedReminder = {
-            ...reminder,
+            ...forCalc,
             nextReminderDate: nextDate.toISOString(),
             lastTriggeredAt: new Date().toISOString(),
+            snoozeUntil: undefined,
+            wasSnoozed: undefined,
+            isActive: true,
+            isCompleted: false,
+            isPaused: false,
+            isExpired: false,
           };
-          
+
           await reminderService.updateReminder(updatedReminder);
-          
+
           // Schedule the next notification
           const notificationService = require('./hooks/notification-service');
           await notificationService.scheduleReminderByModel(updatedReminder);
-          
+
           console.log(`[onBackgroundEvent] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()}`);
         } else {
-          console.log(`[onBackgroundEvent] No next occurrence found for ${reminderId}`);
+          // No next occurrence (likely due to Until constraints) — mark as completed
+          const completedReminder = {
+            ...forCalc,
+            isCompleted: true,
+            isActive: false,
+            snoozeUntil: undefined,
+            wasSnoozed: undefined,
+            lastTriggeredAt: new Date().toISOString(),
+          };
+          await reminderService.updateReminder(completedReminder);
+          console.log(`[onBackgroundEvent] No next occurrence found for ${reminderId}; marked as completed`);
         }
       }
       return;

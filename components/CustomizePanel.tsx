@@ -9,6 +9,8 @@ import { Material3Colors } from '@/constants/colors';
 const CalendarIcon = (props: any) => <Feather name="calendar" {...props} />;
 const ChevronRight = (props: any) => <Feather name="chevron-right" {...props} />;
 
+type UntilType = 'none' | 'endsAt' | 'count';
+
 interface CustomizePanelProps {
   repeatType: RepeatType;
   repeatDays: number[];
@@ -21,6 +23,15 @@ interface CustomizePanelProps {
   everyValue?: number;
   everyUnit?: EveryUnit;
   onEveryChange?: (value: number, unit: EveryUnit) => void;
+  // Until props
+  untilType?: UntilType;
+  untilDate?: string;
+  untilCount?: number;
+  onUntilTypeChange?: (type: UntilType) => void;
+  onUntilDateChange?: (date: string) => void;
+  onUntilCountChange?: (count: number) => void;
+  // Open time picker specifically for "Ends" flow
+  onOpenUntilTime?: () => void;
 }
 
 export default function CustomizePanel({
@@ -35,10 +46,18 @@ export default function CustomizePanel({
   everyValue,
   everyUnit,
   onEveryChange,
+  untilType,
+  untilDate,
+  untilCount,
+  onUntilTypeChange,
+  onUntilDateChange,
+  onUntilCountChange,
+  onOpenUntilTime,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const dateAnchorRef = useRef<View>(null);
   const unitAnchorRef = useRef<View>(null);
+  const untilAnchorRef = useRef<View>(null);
   
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -78,6 +97,8 @@ export default function CustomizePanel({
     return now.getDate();
   });
   const [yearlyCalendarOpen, setYearlyCalendarOpen] = useState<boolean>(false);
+  const [untilCalendarOpen, setUntilCalendarOpen] = useState<boolean>(false);
+  const [untilCountModalOpen, setUntilCountModalOpen] = useState<boolean>(false);
 
   const formattedSelectedDate = useMemo(() => {
     try {
@@ -101,6 +122,27 @@ export default function CustomizePanel({
     }
   }, [selectedDate]);
 
+  const formattedUntilDate = useMemo(() => {
+    try {
+      if (!untilDate) return 'Pick date';
+      const [y, m, d] = untilDate.split('-').map(Number);
+      const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${monthNames[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+    } catch {
+      return untilDate ?? 'Pick date';
+    }
+  }, [untilDate]);
+
+  const untilValueLabel = useMemo(() => {
+    if (untilType === 'endsAt') {
+      const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
+      return withTime ? `${formattedUntilDate} • ${displayTime}` : formattedUntilDate;
+    }
+    if (untilType === 'count') return `${untilCount ?? 1} occurrences`;
+    return undefined;
+  }, [untilType, formattedUntilDate, untilCount, repeatType, everyUnit, displayTime]);
+
   const toggleDay = (day: number) => {
     if (repeatDays.includes(day)) {
       onRepeatDaysChange(repeatDays.filter(d => d !== day));
@@ -115,7 +157,11 @@ export default function CustomizePanel({
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     onDateChange(`${yyyy}-${mm}-${dd}`);
-    onOpenTime?.();
+    const unit = everyUnit ?? 'hours';
+    const shouldOpenTime = repeatType === 'none' || (repeatType === 'every' && (unit === 'minutes' || unit === 'hours'));
+    if (shouldOpenTime) {
+      onOpenTime?.();
+    }
   };
 
   const setTomorrow = () => {
@@ -125,7 +171,11 @@ export default function CustomizePanel({
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     onDateChange(`${yyyy}-${mm}-${dd}`);
-    onOpenTime?.();
+    const unit = everyUnit ?? 'hours';
+    const shouldOpenTime = repeatType === 'none' || (repeatType === 'every' && (unit === 'minutes' || unit === 'hours'));
+    if (shouldOpenTime) {
+      onOpenTime?.();
+    }
   };
 
   const handleDropdownOpen = (coords: AnchorRect) => {
@@ -136,6 +186,13 @@ export default function CustomizePanel({
   const handleUnitDropdownOpen = (coords: AnchorRect) => {
     setUnitDropdownAnchor(coords);
     setUnitDropdownOpen(true);
+  };
+
+  const [untilDropdownOpen, setUntilDropdownOpen] = useState(false);
+  const [untilDropdownAnchor, setUntilDropdownAnchor] = useState<AnchorRect | null>(null);
+  const handleUntilDropdownOpen = (coords: AnchorRect) => {
+    setUntilDropdownAnchor(coords);
+    setUntilDropdownOpen(true);
   };
 
 
@@ -149,6 +206,15 @@ export default function CustomizePanel({
       days: 'Days',
     };
     return labels[unit];
+  };
+
+  const getUntilLabel = (u: UntilType): string => {
+    const labels: Record<UntilType, string> = {
+      none: 'Forever',
+      endsAt: 'On date',
+      count: 'After count',
+    };
+    return labels[u];
   };
 
   return (
@@ -240,6 +306,18 @@ export default function CustomizePanel({
               </TouchableOpacity>
             </View>
           </View>
+          <View style={[styles.dailySection, styles.dailyTimeRow]}>
+            <Text style={styles.dailySectionLabel}>Ends</Text>
+            <View style={styles.menuWrapper}>
+              <UntilTypeButton
+                ref={untilAnchorRef}
+                untilType={(untilType ?? 'none') as UntilType}
+                getLabel={getUntilLabel}
+                valueLabel={untilValueLabel}
+                onOpenDropdown={handleUntilDropdownOpen}
+              />
+            </View>
+          </View>
           <View style={styles.dailySection}>
             <Text style={styles.dailySectionLabel}>Days</Text>
             <View style={styles.daysRow}>
@@ -306,6 +384,23 @@ export default function CustomizePanel({
         </View>
       )}
 
+      {repeatType !== 'none' && repeatType !== 'daily' && (
+        <View style={[styles.dateSelectionContainer, { marginTop: 8 }]}>
+          <View style={styles.topRow}>
+            <Text style={styles.topRowLabel}>Ends</Text>
+            <View style={styles.menuWrapper}>
+              <UntilTypeButton
+                ref={untilAnchorRef}
+                untilType={(untilType ?? 'none') as UntilType}
+                getLabel={getUntilLabel}
+                valueLabel={untilValueLabel}
+                onOpenDropdown={handleUntilDropdownOpen}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
       <CalendarModal
         visible={calendarOpen}
         onClose={() => setCalendarOpen(false)}
@@ -314,7 +409,9 @@ export default function CustomizePanel({
           onDateChange(date);
           setCalendarOpen(false);
           // Keep keyboard as-is on date selection; opening time will handle focus
-          if (repeatType === 'every' || repeatType === 'none') {
+          const unit = everyUnit ?? 'hours';
+          const shouldOpenTime = repeatType === 'none' || (repeatType === 'every' && (unit === 'minutes' || unit === 'hours'));
+          if (shouldOpenTime) {
             try {
               onOpenTime?.();
             } catch (e) {
@@ -358,6 +455,26 @@ export default function CustomizePanel({
           }
         }}
       />
+      <CalendarModal
+        visible={untilCalendarOpen}
+        onClose={() => setUntilCalendarOpen(false)}
+        selectedDate={untilDate ?? selectedDate}
+        onSelectDate={(date) => {
+          onUntilDateChange?.(date);
+          setUntilCalendarOpen(false);
+          // Open time selector only for Every minutes/hours as per behavior
+          const unit = everyUnit ?? 'hours';
+          const shouldOpenTime = repeatType === 'every' && (unit === 'minutes' || unit === 'hours');
+          if (shouldOpenTime) {
+            try {
+              onOpenUntilTime?.();
+            } catch (e) {
+              console.log('open time after until date error', e);
+            }
+          }
+        }}
+        disablePast={false}
+      />
       </ScrollView>
 
       <InlineDropdown
@@ -384,6 +501,44 @@ export default function CustomizePanel({
         anchorRef={unitAnchorRef}
       />
 
+      {/** Until type dropdown modal */}
+      <UntilDropdownModal
+        visible={untilDropdownOpen}
+        anchor={untilDropdownAnchor}
+        untilType={(untilType ?? 'none') as UntilType}
+        options={["none", "endsAt", "count"] as UntilType[]}
+        getLabel={getUntilLabel}
+        onChange={(type) => {
+          try {
+            onUntilTypeChange?.(type);
+            if (type === 'endsAt') {
+              setUntilCalendarOpen(true);
+            } else if (type === 'count') {
+              setUntilCountModalOpen(true);
+            }
+          } finally {
+            setUntilDropdownOpen(false);
+          }
+        }}
+        onClose={() => setUntilDropdownOpen(false)}
+        containerRef={containerRef}
+        anchorRef={untilAnchorRef}
+      />
+
+      {/** Until count editing modal */}
+      <UntilCountModal
+        visible={untilCountModalOpen}
+        onClose={() => setUntilCountModalOpen(false)}
+        countValue={untilCount ?? 1}
+        onSubmit={(newCount) => {
+          try {
+            onUntilCountChange?.(newCount);
+          } finally {
+            setUntilCountModalOpen(false);
+          }
+        }}
+      />
+
 
     </View>
   );
@@ -395,22 +550,27 @@ interface CalendarModalProps {
   selectedDate: string;
   onSelectDate: (date: string) => void;
   hideYear?: boolean;
+  disablePast?: boolean;
 }
 
-function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear = false }: CalendarModalProps) {
+function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear = false, disablePast = true }: CalendarModalProps) {
   const [isReady, setIsReady] = useState(false);
-  const [y, m, d] = selectedDate.split('-').map(Number);
-  const [month, setMonth] = useState<number>(() => {
-    const now = new Date();
-    return (m ?? now.getMonth() + 1) - 1;
-  });
-  const [year, setYear] = useState<number>(() => {
-    const now = new Date();
-    return y ?? now.getFullYear();
-  });
+  // Safely parse expected YYYY-MM-DD; fallback to today if malformed
+  const now = new Date();
+  const parts = (selectedDate || '').split('-');
+  const py = parts.length > 0 ? parseInt(parts[0], 10) : NaN;
+  const pm = parts.length > 1 ? parseInt(parts[1], 10) : NaN;
+  const pd = parts.length > 2 ? parseInt(parts[2], 10) : NaN;
+
+  const initialYear = Number.isFinite(py) && py >= 1000 ? py : now.getFullYear();
+  const initialMonthZero = Number.isFinite(pm) && pm >= 1 && pm <= 12 ? pm - 1 : now.getMonth();
+  const initialDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : now.getDate();
+
+  const [month, setMonth] = useState<number>(initialMonthZero);
+  const [year, setYear] = useState<number>(initialYear);
   const [selectedDay, setSelectedDay] = useState<{ year: number; month: number; day: number } | null>(() => {
-    if (y && m && d) {
-      return { year: y, month: (m ?? 1) - 1, day: d };
+    if (Number.isFinite(py) && py >= 1000 && Number.isFinite(pm) && pm >= 1 && pm <= 12 && Number.isFinite(pd) && pd >= 1 && pd <= 31) {
+      return { year: py, month: pm - 1, day: pd };
     }
     return null;
   });
@@ -449,6 +609,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   // Check if a date is in the past
   const isDateDisabled = (dayVal: number | null): boolean => {
     if (dayVal === null) return true;
+    if (!disablePast) return false;
     const checkDate = new Date(year, month, dayVal);
     checkDate.setHours(0, 0, 0, 0);
     return checkDate < today;
@@ -456,6 +617,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   
   // Prevent navigating to past months
   const canGoPrevMonth = (): boolean => {
+    if (!disablePast) return true;
     if (year > currentYear) return true;
     if (year === currentYear && month > currentMonth) return true;
     return false;
@@ -463,6 +625,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   
   // Prevent navigating to past years
   const canGoPrevYear = (): boolean => {
+    if (!disablePast) return true;
     return year > currentYear;
   };
 
@@ -660,6 +823,41 @@ const UnitDropdownButton = React.forwardRef<View, { unit: EveryUnit; onChange: (
   }
 );
 UnitDropdownButton.displayName = 'UnitDropdownButton';
+
+const UntilTypeButton = React.forwardRef<View, { untilType: UntilType; getLabel: (u: UntilType) => string; valueLabel?: string; onOpenDropdown: (coords: AnchorRect) => void }>(
+  ({ untilType, getLabel, valueLabel, onOpenDropdown }, ref) => {
+    const measureButton = () => {
+      try {
+        (ref as any)?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
+          onOpenDropdown({ x, y, width, height });
+        });
+      } catch (e) {
+        console.log('measure error', e);
+      }
+    };
+
+    const label = getLabel(untilType);
+    const displayText = valueLabel && untilType !== 'none' ? `${label} • ${valueLabel}` : label;
+
+    const handlePress = () => {
+      // Always open the dropdown on tap
+      measureButton();
+    };
+
+    return (
+      <TouchableOpacity
+        ref={ref as any}
+        style={styles.unitButton}
+        onPress={handlePress}
+        testID="until-type-button"
+      >
+        <Text style={styles.unitButtonText}>{displayText}</Text>
+        <Feather name="chevron-down" size={14} color="#111827" />
+      </TouchableOpacity>
+    );
+  }
+);
+UntilTypeButton.displayName = 'UntilTypeButton';
 
 interface UnitDropdownModalProps {
   visible: boolean;
@@ -2110,6 +2308,200 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
         ))}
       </View>
     </>
+  );
+}
+
+interface UntilDropdownModalProps {
+  visible: boolean;
+  anchor: AnchorRect | null;
+  untilType: UntilType;
+  options: UntilType[];
+  getLabel: (u: UntilType) => string;
+  onChange: (type: UntilType) => void;
+  onClose: () => void;
+  containerRef?: React.RefObject<View | null>;
+  anchorRef?: React.RefObject<View | null>;
+}
+
+function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onChange, onClose, containerRef, anchorRef }: UntilDropdownModalProps) {
+  const dropdownWidth = 180;
+  const itemHeight = 44;
+  const dropdownHeight = options.length * itemHeight + 12;
+
+  const [isPositioned, setIsPositioned] = React.useState(false);
+  const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  React.useEffect(() => {
+    try {
+      containerRef?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
+        setContainerOffset({ x, y, width, height });
+      });
+    } catch {}
+  }, [visible]);
+  const containerX = containerOffset?.x ?? 0;
+  const containerY = containerOffset?.y ?? 0;
+  const containerW = containerOffset?.width ?? 300;
+
+  const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
+  React.useEffect(() => {
+    if (!visible) {
+      setIsPositioned(false);
+      return;
+    }
+    let cancelled = false;
+
+    const fallbackFromAnchorRect = () => {
+      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
+          typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
+      const preferredTop = (anchor.y - containerY) + anchor.height + 8;
+      const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
+      const top = Math.max(8, preferredTop);
+      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      if (!cancelled) {
+        setComputedPos({ top, left });
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (!cancelled) setIsPositioned(true);
+          }, Platform.OS === 'android' ? 50 : 0);
+        });
+      }
+    };
+
+    if (anchorRef?.current && containerRef?.current && (anchorRef.current as any).measureLayout) {
+      try {
+        (anchorRef.current as any).measureLayout(
+          containerRef.current,
+          (left: number, top: number, width: number, height: number) => {
+            const preferredTop = top + height + 8;
+            const preferredLeft = left + (width / 2) - (dropdownWidth / 2);
+            const topBounded = Math.max(8, preferredTop);
+            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            if (!cancelled) {
+              setComputedPos({ top: topBounded, left: leftBounded });
+              requestAnimationFrame(() => {
+                setTimeout(() => {
+                  if (!cancelled) setIsPositioned(true);
+                }, Platform.OS === 'android' ? 50 : 0);
+              });
+            }
+          },
+          () => fallbackFromAnchorRect()
+        );
+      } catch {
+        fallbackFromAnchorRect();
+      }
+    } else {
+      fallbackFromAnchorRect();
+    }
+
+    return () => { cancelled = true; };
+  }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor]);
+
+  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
+  const left = Math.max(8, containerW - dropdownWidth - (Platform.OS === 'android' ? 24 : 8));
+
+  if (!visible || (!anchorRef && !anchor)) return null;
+
+  return (
+    <>
+      <TouchableOpacity 
+        style={[styles.inlineDropdownOverlay, { zIndex: 999998 }]}
+        activeOpacity={1} 
+        onPress={onClose}
+      />
+      <View
+        style={[
+          styles.inlineUnitDropdownContent,
+          {
+            top,
+            left,
+            width: dropdownWidth,
+            zIndex: 999999,
+            opacity: isPositioned ? 1 : 0,
+            ...Platform.select({
+              android: { elevation: 24, transform: [{ translateX: 0 }] },
+            }),
+          },
+        ]}
+      >
+        {options.map((opt) => {
+          const selected = opt === untilType;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[styles.inlineUnitDropdownItem, selected && styles.inlineUnitDropdownItemSelected]}
+              onPress={() => onChange(opt)}
+            >
+              <Text style={[styles.inlineUnitDropdownItemText, selected && styles.inlineUnitDropdownItemTextSelected]}>
+                {getLabel(opt)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
+interface UntilCountModalProps {
+  visible: boolean;
+  onClose: () => void;
+  countValue: number;
+  onSubmit: (count: number) => void;
+}
+
+function UntilCountModal({ visible, onClose, countValue, onSubmit }: UntilCountModalProps) {
+  const [temp, setTemp] = useState<string>(String(countValue));
+
+  useEffect(() => {
+    if (visible) setTemp(String(countValue));
+  }, [visible, countValue]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[dropdownModalStyles.overlayAbsolute, { justifyContent: 'center', alignItems: 'center' }]}> 
+        <TouchableOpacity activeOpacity={1} style={{
+            width: 260,
+            backgroundColor: Material3Colors.light.surfaceContainerLow,
+            borderRadius: 16,
+            padding: 12,
+            shadowColor: Material3Colors.light.shadow,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.24,
+            shadowRadius: 20,
+            elevation: 24,
+          }}
+          onPress={() => { /* keep modal open */ }}>
+          <Text style={[styles.everyText, { marginBottom: 8 }]}>Occurrences</Text>
+          <TextInput
+            style={[styles.everyInput, { textAlign: 'center' }]}
+            keyboardType="number-pad"
+            maxLength={3}
+            value={temp}
+            onChangeText={(txt) => {
+              // Allow clearing while editing; clamp only on submit
+              const sanitized = txt.replace(/\D/g, '');
+              setTemp(sanitized);
+            }}
+            testID="until-count-modal-input"
+          />
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+            <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="until-count-cancel">
+              <Text style={calendarStyles.footerBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[calendarStyles.footerBtn, { marginLeft: 8 }]}
+              onPress={() => {
+                const val = parseInt(temp || '0', 10);
+                onSubmit(Math.min(999, Math.max(1, val)));
+              }}
+              testID="until-count-done"
+            >
+              <Text style={calendarStyles.footerBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
 }
 

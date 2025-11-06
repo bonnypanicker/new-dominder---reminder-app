@@ -26,6 +26,12 @@ export interface Reminder {
   nextReminderDate?: string;
   notificationId?: string;
   ringerSound?: string;
+  
+  // Until feature fields
+  untilType?: 'none' | 'endsAt' | 'count';
+  untilDate?: string;
+  untilCount?: number;
+  occurrenceCount?: number;
   // Internal flags to prevent infinite loops
   snoozeClearing?: boolean;
   notificationUpdating?: boolean;

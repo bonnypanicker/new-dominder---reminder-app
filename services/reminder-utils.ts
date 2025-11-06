@@ -42,6 +42,8 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
     return d;
   };
 
+  let candidate: Date | null = null;
+
   switch (reminder.repeatType) {
     case 'none': {
       // For one-time reminders, return the scheduled date/time if it's in the future
@@ -51,7 +53,8 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       const day = parseInt(dateParts[2] || '1', 10);
       const scheduledTime = new Date(year, month - 1, day, hh, mm, 0, 0);
       console.log(`[calculateNextReminderDate] One-time reminder scheduled for: ${scheduledTime.toISOString()}, isInFuture: ${scheduledTime > fromDate}`);
-      return scheduledTime > fromDate ? scheduledTime : null;
+      candidate = scheduledTime > fromDate ? scheduledTime : null;
+      break;
     }
     case 'daily': {
       const selected = (reminder.repeatDays && reminder.repeatDays.length > 0)
@@ -71,11 +74,14 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         console.log(`[calculateNextReminderDate] Checking day ${add}: ${check.toISOString()}, dayOfWeek: ${check.getDay()}, isSelected: ${selected.includes(check.getDay())}, isAfterNow: ${check > referenceDate}`);
         if (selected.includes(check.getDay()) && check > referenceDate) {
           console.log(`[calculateNextReminderDate] Found next daily occurrence: ${check.toISOString()}`);
-          return check;
+          candidate = check;
+          break;
         }
       }
-      console.log(`[calculateNextReminderDate] No valid daily occurrence found`);
-      return null;
+      if (!candidate) {
+        console.log(`[calculateNextReminderDate] No valid daily occurrence found`);
+      }
+      break;
     }
     case 'monthly': {
       const dateParts = reminder.date.split('-');
@@ -91,7 +97,8 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       
       const result = nextMonthlyOccurrenceFrom(referenceDate, desiredDay, hh, mm);
       console.log(`[calculateNextReminderDate] Monthly desired=${desiredDay}, from=${referenceDate.toISOString()}, result=${result.toISOString()}`);
-      return result;
+      candidate = result;
+      break;
     }
     case 'yearly': {
       const dateParts = reminder.date.split('-');
@@ -112,13 +119,15 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         target = setTime(new Date(referenceDate.getFullYear() + 1, month - 1, day));
       }
       console.log(`[calculateNextReminderDate] Yearly from=${referenceDate.toISOString()}, result: ${target.toISOString()}`);
-      return target;
+      candidate = target;
+      break;
     }
     case 'every': {
       const interval = reminder.everyInterval;
       if (!interval || !interval.value || interval.value <= 0) {
         console.log(`[calculateNextReminderDate] Invalid interval for 'every' reminder`);
-        return null;
+        candidate = null;
+        break;
       }
       
       // Calculate the interval in milliseconds
@@ -156,28 +165,62 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       }
       
       console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, next occurrence: ${result.toISOString()}`);
-      return result;
+      candidate = result;
+      break;
     }
     case 'weekly':
     case 'custom': {
       const selected = reminder.repeatDays ?? [];
       if (selected.length === 0) {
         console.log(`[calculateNextReminderDate] No repeat days selected for weekly/custom reminder`);
-        return null;
+        candidate = null;
+        break;
       }
       console.log(`[calculateNextReminderDate] Weekly/custom reminder, selected days: ${JSON.stringify(selected)}`);
       for (let add = 0; add < 370; add++) {
         const check = setTime(new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + add));
         if (selected.includes(check.getDay()) && check > fromDate) {
           console.log(`[calculateNextReminderDate] Found next weekly/custom occurrence: ${check.toISOString()}`);
-          return check;
+          candidate = check;
+          break;
         }
       }
-      console.log(`[calculateNextReminderDate] No valid weekly/custom occurrence found`);
-      return null;
+      if (!candidate) {
+        console.log(`[calculateNextReminderDate] No valid weekly/custom occurrence found`);
+      }
+      break;
     }
     default:
       console.log(`Unknown repeat type in calculateNextReminderDate: ${reminder.repeatType}`);
-      return null;
+      candidate = null;
+      break;
   }
+
+  // Apply Until constraints
+  if (!candidate) return null;
+
+  // Count-based end: stop if occurrenceCount has reached untilCount
+  if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
+    const occurred = reminder.occurrenceCount ?? 0;
+    if (occurred >= reminder.untilCount) {
+      console.log(`[calculateNextReminderDate] Count cap reached (${occurred}/${reminder.untilCount}), no next occurrence`);
+      return null;
+    }
+  }
+
+  // Date-based end: stop if candidate is after the end-of-day of untilDate
+  if (reminder.untilType === 'endsAt' && reminder.untilDate) {
+    try {
+      const [uy, um, ud] = reminder.untilDate.split('-').map((v) => parseInt(v || '0', 10));
+      const endBoundary = new Date(uy, (um || 1) - 1, ud || 1, 23, 59, 59, 999);
+      if (candidate > endBoundary) {
+        console.log(`[calculateNextReminderDate] Candidate ${candidate.toISOString()} is after end boundary ${endBoundary.toISOString()}, stopping.`);
+        return null;
+      }
+    } catch (e) {
+      console.log(`[calculateNextReminderDate] Failed to parse untilDate: ${reminder.untilDate}`, e);
+    }
+  }
+
+  return candidate;
 }

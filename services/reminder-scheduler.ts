@@ -62,6 +62,10 @@ export async function markReminderDone(reminderId: string) {
     await updateReminder(reminder);
   } else if (reminder.repeatType && reminder.repeatType !== 'none') {
     console.log(`[Scheduler] Processing 'Done' for repeating reminder ${reminderId}`);
+    // Increment occurrence count BEFORE calculating next date so count-based 'Until' caps are respected
+    const occurred = reminder.occurrenceCount ?? 0;
+    reminder.occurrenceCount = occurred + 1;
+
     const nextDate = calculateNextReminderDate(reminder, new Date());
 
     if (nextDate) {
