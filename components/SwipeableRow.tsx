@@ -171,14 +171,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'flex-end',    // ✅ Changed from 'flex-start' to 'flex-end' to position icon on right
-    paddingRight: 20,          // ✅ Changed from 'paddingLeft' to 'paddingRight'
+    paddingRight: 16,          // ✅ Align with card content padding
     width: 120,
   },
   leftAction: {
     backgroundColor: '#F44336',
     justifyContent: 'center',
     alignItems: 'flex-start',  // ✅ Changed from 'flex-end' to 'flex-start' to position icon on left
-    paddingLeft: 20,           // ✅ Changed from 'paddingRight' to 'paddingLeft'
+    paddingLeft: 16,           // ✅ Align with card content padding
     width: 120,
   },
   actionContent: {

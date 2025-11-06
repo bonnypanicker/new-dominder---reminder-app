@@ -1087,7 +1087,8 @@ export default function HomeScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 16 }} />}  // ✅ 16px gap between cards
         contentContainerStyle={{
           paddingBottom: 100,
-          paddingTop: 8  // ✅ Add top padding for first card
+          paddingTop: 8,  // ✅ Add top padding for first card
+          paddingHorizontal: 48 // ✅ Make cards a bit more wider
         }}
         // ✅ Track scroll position for smart autoscroll
         onScroll={(event) => {
@@ -3146,7 +3147,7 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 72,  // ✅ Further increase to reduce card width without affecting spacing
+    paddingHorizontal: 48,  // ✅ Make cards a bit more wider
     paddingVertical: 16,
   },
   loadingContainer: {
@@ -3204,8 +3205,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   reminderLeft: {
     flex: 1,
