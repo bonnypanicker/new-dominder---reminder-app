@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, StyleSheet, View, Dimensions } from 'react-native';
+import { Text, StyleSheet, View, Dimensions, Platform } from 'react-native';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -9,6 +9,7 @@ import Animated, {
   withTiming, 
   Layout,
   FadeOut,
+  FadeIn,
   runOnJS
 } from 'react-native-reanimated';
 import { Material3Colors } from '@/constants/colors';
@@ -24,7 +25,7 @@ interface SwipeableRowProps {
   onSwipeLeft?: () => void;
   swipeableRefs?: React.MutableRefObject<Map<string, Swipeable>>;
   simultaneousHandlers?: React.RefObject<any>;
-  onAutoScroll?: () => void; // ✅ Callback to trigger auto-scroll after swipe
+  onAutoScroll?: (deletedId?: string) => void; // ✅ Trigger auto-scroll after swipe with deleted id
 }
 
 export default function SwipeableRow({ 
@@ -36,7 +37,7 @@ export default function SwipeableRow({
   simultaneousHandlers,
   onAutoScroll
 }: SwipeableRowProps) {
-  const SCREEN_WIDTH = Dimensions.get('window').width;
+  const SCREEN_WIDTH = Dimensions.get('window').width; // retained, but actions will use container width
   
   // ✅ Reanimated 3 shared values for smooth vertical animations
   const opacity = useSharedValue(1);
@@ -82,7 +83,7 @@ export default function SwipeableRow({
 
     return (
       <RectButton
-        style={[styles.rightAction, { width: SCREEN_WIDTH }]}
+        style={[styles.rightAction, { width: '100%' }]}
         onPress={() => {
           // ✅ Visual feedback only - action triggered by swipe completion
         }}
@@ -101,7 +102,7 @@ export default function SwipeableRow({
 
     return (
       <RectButton
-        style={[styles.leftAction, { width: SCREEN_WIDTH }]}
+        style={[styles.leftAction, { width: '100%' }]}
         onPress={() => {
           // ✅ Visual feedback only - action triggered by swipe completion
         }}
@@ -117,13 +118,16 @@ export default function SwipeableRow({
   return (
     <Animated.View 
       style={[animatedStyle]}
-      layout={Layout.springify().damping(15).stiffness(300)}
-      exiting={FadeOut.duration(200).withCallback(() => {
-        // Ensure cleanup after animation completes
-        if (onAutoScroll) {
-          runOnJS(onAutoScroll)();
-        }
-      })}
+      layout={Platform.OS === 'android' ? Layout.springify().damping(15).stiffness(300) : undefined}
+      entering={Platform.OS === 'android' ? FadeIn.duration(200) : undefined}
+      exiting={Platform.OS === 'android' 
+        ? FadeOut.duration(200).withCallback(() => {
+            // Ensure cleanup after animation completes (Android only)
+            if (onAutoScroll) {
+              runOnJS(onAutoScroll)(reminder.id);
+            }
+          })
+        : undefined}
     >
       <Swipeable
         friction={1}

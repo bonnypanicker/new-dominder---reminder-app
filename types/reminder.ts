@@ -30,6 +30,8 @@ export interface Reminder {
   // Until feature fields
   untilType?: 'none' | 'endsAt' | 'count';
   untilDate?: string;
+  untilTime?: string;
+  untilIsAM?: boolean;
   untilCount?: number;
   occurrenceCount?: number;
   // Internal flags to prevent infinite loops

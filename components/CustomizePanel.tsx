@@ -27,6 +27,8 @@ interface CustomizePanelProps {
   untilType?: UntilType;
   untilDate?: string;
   untilCount?: number;
+  untilTime?: string;
+  untilIsAM?: boolean;
   onUntilTypeChange?: (type: UntilType) => void;
   onUntilDateChange?: (date: string) => void;
   onUntilCountChange?: (count: number) => void;
@@ -49,6 +51,8 @@ export default function CustomizePanel({
   untilType,
   untilDate,
   untilCount,
+  untilTime,
+  untilIsAM,
   onUntilTypeChange,
   onUntilDateChange,
   onUntilCountChange,
@@ -134,14 +138,23 @@ export default function CustomizePanel({
     }
   }, [untilDate]);
 
+  const formattedUntilTime = useMemo(() => {
+    if (!untilTime || typeof untilIsAM === 'undefined') return '';
+    const [hoursStr, minutesStr] = untilTime.split(':');
+    const hours = Number(hoursStr);
+    const minutes = Number(minutesStr);
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${untilIsAM ? 'AM' : 'PM'}`;
+  }, [untilTime, untilIsAM]);
+
   const untilValueLabel = useMemo(() => {
     if (untilType === 'endsAt') {
       const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
-      return withTime ? `${formattedUntilDate} • ${displayTime}` : formattedUntilDate;
+      return withTime ? `${formattedUntilDate} • ${formattedUntilTime}` : formattedUntilDate;
     }
     if (untilType === 'count') return `${untilCount ?? 1} occurrences`;
     return undefined;
-  }, [untilType, formattedUntilDate, untilCount, repeatType, everyUnit, displayTime]);
+  }, [untilType, formattedUntilDate, untilCount, repeatType, everyUnit, formattedUntilTime]);
 
   const toggleDay = (day: number) => {
     if (repeatDays.includes(day)) {

@@ -523,35 +523,27 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
+  // Track measured heights of cards for precise autoscroll adjustments
+  const itemHeightsRef = React.useRef<Map<string, number>>(new Map());
+
   // ✅ Enhanced auto-scroll function for smooth gap filling when cards are swiped away
-  const handleAutoScroll = useCallback(() => {
-    if (contentScrollRef.current) {
-      // Get current scroll position
-      const currentOffset = currentScrollOffset;
-      
-      // If user is near the top (within first 200px), maintain position
-      if (currentOffset <= 200) {
-        // Let FlashList's itemLayoutAnimation handle the smooth transition
-        // No additional scrolling needed - spring animation will fill gaps naturally
-        return;
-      }
-      
-      // For users scrolled down, we need to adjust scroll position to prevent jumping
-      // Calculate estimated item height (assuming average of 80px per item)
-      const estimatedItemHeight = 80;
-      
-      // Adjust scroll position to account for removed item
-      // This prevents the jarring jump effect when items are removed
-      setTimeout(() => {
-        if (contentScrollRef.current) {
-          const newOffset = Math.max(0, currentOffset - estimatedItemHeight);
-          contentScrollRef.current.scrollToOffset({ 
-            offset: newOffset, 
-            animated: true 
-          });
-        }
-      }, 50); // Small delay to let the item removal complete
-    }
+  const handleAutoScroll = useCallback((deletedId?: string) => {
+    // Apply precise auto-scroll adjustments on Android only
+    if (Platform.OS !== 'android') return;
+    if (!contentScrollRef.current) return;
+    const currentOffset = currentScrollOffset;
+    
+    // If near the top, rely on layout animation without adjusting offset
+    if (currentOffset <= 200) return;
+
+    // Use measured height when available, include separator height (16)
+    const measuredHeight = deletedId ? itemHeightsRef.current.get(deletedId) ?? 0 : 0;
+    const separatorHeight = 16;
+    const fallbackEstimated = 136; // matches estimatedItemSize
+    const adjustBy = (measuredHeight > 0 ? measuredHeight + separatorHeight : fallbackEstimated);
+
+    const newOffset = Math.max(0, currentOffset - adjustBy);
+    contentScrollRef.current.scrollToOffset({ offset: newOffset, animated: true });
   }, [currentScrollOffset]);
 
   const ReminderCard = memo(({ 
@@ -621,6 +613,12 @@ export default function HomeScreen() {
               isSelected && styles.selectedCard
             ]}
             testID={`reminder-card-${reminder.id}`}
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h && h > 0) {
+                itemHeightsRef.current.set(reminder.id, h);
+              }
+            }}
           >
           <View style={styles.reminderContent}>
             <View style={styles.reminderLeft}>
@@ -1096,7 +1094,12 @@ export default function HomeScreen() {
           setCurrentScrollOffset(event.nativeEvent.contentOffset.y);
         }}
         scrollEventThrottle={16}
-        // Layout animations handled within ReminderCard; FlashList prop removed
+        // ✅ Smooth layout animation for insertions/removals/reorders (Android only)
+        itemLayoutAnimation={Platform.OS === 'android' ? {
+          type: 'spring',
+          springDamping: 0.85,
+          springStiffness: 180,
+        } : undefined}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             {activeTab === 'active' ? (
@@ -1128,7 +1131,7 @@ export default function HomeScreen() {
         }
         // ✅ Android-specific optimizations
         drawDistance={250}  // Render items within 250dp
-        removeClippedSubviews={true}  // Android optimization
+        removeClippedSubviews={Platform.OS === 'android'}  // Android optimization
       />
       
       {!isSelectionMode && (
@@ -3143,7 +3146,7 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 28,  // ✅ Increased horizontal padding to reduce card width
+    paddingHorizontal: 72,  // ✅ Further increase to reduce card width without affecting spacing
     paddingVertical: 16,
   },
   loadingContainer: {
