@@ -473,7 +473,7 @@ export default function CustomizePanel({
             }
           }
         }}
-        disablePast={false}
+        disablePast={true}
       />
       </ScrollView>
 

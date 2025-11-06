@@ -545,6 +545,33 @@ export default function HomeScreen() {
   }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
+    // Build formatted "Ends" label (Until)
+    const endsLabel: string | null = (() => {
+      if (!reminder.repeatType || reminder.repeatType === 'none') return null;
+      const type = reminder.untilType ?? 'none';
+      if (type === 'none') return null;
+      if (type === 'count') {
+        const count = reminder.untilCount ?? 0;
+        const unit = count === 1 ? 'occurrence' : 'occurrences';
+        return `Ends after ${count} ${unit}`;
+      }
+      if (type === 'endsAt' && reminder.untilDate) {
+        try {
+          const [y, m, d] = reminder.untilDate.split('-').map(Number);
+          const dt = new Date(y, (m || 1) - 1, d || 1);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const showTime = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
+          if (showTime) {
+            const timeStr = formatTime(reminder.time);
+            return `Ends on ${dateStr} at ${timeStr}`;
+          }
+          return `Ends on ${dateStr}`;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    })();
 
 
     
@@ -633,6 +660,9 @@ export default function HomeScreen() {
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && reminder.repeatDays && reminder.repeatDays.length > 0 && (
                     <Text style={styles.reminderDays}>{formatDays(reminder.repeatDays)}</Text>
                   )}
+                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && endsLabel && (
+                    <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                  )}
                   {reminder.repeatType === 'daily' && (
                     <>
                       <View style={styles.dailyTimeContainer}>
@@ -662,6 +692,9 @@ export default function HomeScreen() {
                           );
                         })}
                       </View>
+                      {endsLabel && (
+                        <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                      )}
                     </>
                   )}
                   {/* For Monthly, Yearly, and Every - show next occurrence with clock icon */}
@@ -690,6 +723,9 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   )}
+                  {(reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly') && endsLabel && (
+                    <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                  )}
 
                   {/* Show explicit repeat frequency text for Every reminders */}
                   {reminder.repeatType === 'every' && reminder.everyInterval && !reminder.isCompleted && (
@@ -701,6 +737,9 @@ export default function HomeScreen() {
                         return `Repeats every ${value} ${unitLabel}`;
                       })()}
                     </Text>
+                  )}
+                  {reminder.repeatType === 'every' && endsLabel && !reminder.isCompleted && (
+                    <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
                   )}
                   
                   {/* Show repeat badge at bottom for Once, Monthly, Yearly, Every, Daily */}
@@ -856,6 +895,9 @@ export default function HomeScreen() {
            prev.nextReminderDate === next.nextReminderDate &&
            prev.snoozeUntil === next.snoozeUntil &&
            prev.lastTriggeredAt === next.lastTriggeredAt &&
+           prev.untilType === next.untilType &&
+           prev.untilDate === next.untilDate &&
+           prev.untilCount === next.untilCount &&
            areDaysEqual &&
            isEveryIntervalEqual;
   });
@@ -1136,6 +1178,7 @@ export default function HomeScreen() {
           // Set a default until date when switching to endsAt without one
           if (type === 'endsAt' && !untilDate) {
             const d = new Date();
+            d.setMonth(d.getMonth() + 1);
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
@@ -1149,6 +1192,22 @@ export default function HomeScreen() {
           if (!title.trim()) {
             showToast('Please enter your reminder', 'error');
             return;
+          }
+
+          // Validate until date constraints
+          if (repeatType !== 'none' && untilType === 'endsAt' && untilDate) {
+            try {
+              const startDateTime = new Date(selectedDate);
+              startDateTime.setHours(0, 0, 0, 0);
+              const endDateTime = new Date(untilDate);
+              endDateTime.setHours(0, 0, 0, 0);
+              if (endDateTime < startDateTime) {
+                showToast('End date cannot be before start date', 'error');
+                return;
+              }
+            } catch (_) {
+              // If parsing fails, let existing flows handle errors
+            }
           }
 
           const [timeHours, timeMinutes] = selectedTime.split(':').map(Number);
@@ -1214,6 +1273,8 @@ export default function HomeScreen() {
               untilType: repeatType === 'none' ? undefined : untilType,
               untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
               untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
+              // Preserve occurrence count when editing
+              occurrenceCount: repeatType === 'none' ? undefined : (editingReminder.occurrenceCount ?? 0),
               ringerSound: undefined,
               isCompleted: false,
               isActive: true,
