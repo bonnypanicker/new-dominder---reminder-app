@@ -1088,7 +1088,7 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: 100,
           paddingTop: 8,  // ✅ Add top padding for first card
-          paddingHorizontal: 48 // ✅ Make cards a bit more wider
+          paddingHorizontal: 46 // ✅ Adjust list side padding
         }}
         // ✅ Track scroll position for smart autoscroll
         onScroll={(event) => {
@@ -3171,7 +3171,7 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 48,  // ✅ Make cards a bit more wider
+    paddingHorizontal: 46,  // ✅ Keep containers consistent with list padding
     paddingVertical: 16,
   },
   loadingContainer: {

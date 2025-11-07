@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Text, StyleSheet, View, Dimensions, Platform } from 'react-native';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
@@ -39,13 +39,16 @@ export default function SwipeableRow({
 }: SwipeableRowProps) {
   const SCREEN_WIDTH = Dimensions.get('window').width; // retained, but actions will use container width
   
-  // ✅ Reanimated 3 shared values for smooth vertical animations
+  // ✅ Reanimated 3 shared values (kept, but no manual removal slide)
   const opacity = useSharedValue(1);
-  const translateY = useSharedValue(0);  // Changed from translateX to translateY for vertical animation
-  const scale = useSharedValue(1);       // Added scale for enhanced fade effect
-  
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+
   // ✅ State to track if card is being removed
   const [isRemoving, setIsRemoving] = useState(false);
+
+  // ✅ Keep a ref to the Swipeable so we can close it before removing
+  const swipeRef = useRef<Swipeable | null>(null);
 
   // ✅ Animated style for smooth vertical fade-out and slide-up
   const animatedStyle = useAnimatedStyle(() => {
@@ -58,23 +61,14 @@ export default function SwipeableRow({
     };
   });
 
-  // ✅ Function to execute delete with vertical slide-up animation
+  // ✅ Execute data removal only (let exiting animation handle visuals)
   const executeDelete = (direction: 'left' | 'right') => {
-    // 1. Start vertical fade-out and slide-up animation
-    opacity.value = withTiming(0, { duration: 200 });
-    translateY.value = withTiming(-50, { duration: 200 });  // Slide up instead of sideways
-    scale.value = withTiming(0.95, { duration: 200 });      // Slight scale down for better effect
-    
-    // 2. Trigger data removal immediately (no setTimeout)
-    // The onAutoScroll will be handled by the exiting animation callback
+    // Trigger data removal; row will unmount and use exiting FadeOut
     if (direction === 'right' && onSwipeRight) {
       onSwipeRight();
     } else if (direction === 'left' && onSwipeLeft) {
       onSwipeLeft();
     }
-    
-    // Note: onAutoScroll is now only called in the exiting animation callback
-    // This ensures it happens after the item is fully removed and animated out
   };
 
   // ✅ Right swipe action (Complete) - Native Android component
@@ -118,7 +112,8 @@ export default function SwipeableRow({
   return (
     <Animated.View 
       style={[animatedStyle]}
-      layout={Platform.OS === 'android' ? Layout.springify().damping(15).stiffness(300) : undefined}
+      // Drop row-level layout animation to avoid conflicts with FlashList
+      // layout={Platform.OS === 'android' ? Layout.springify().damping(15).stiffness(300) : undefined}
       entering={Platform.OS === 'android' ? FadeIn.duration(200) : undefined}
       exiting={Platform.OS === 'android' 
         ? FadeOut.duration(200).withCallback(() => {
@@ -130,6 +125,7 @@ export default function SwipeableRow({
         : undefined}
     >
       <Swipeable
+        ref={swipeRef}
         friction={1}
         leftThreshold={40}
         rightThreshold={40}
@@ -150,8 +146,10 @@ export default function SwipeableRow({
            // ✅ Haptic feedback when delete threshold is crossed
            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
            
-           // ✅ Execute fade-out sequence
-           executeDelete(direction);
+           // ✅ Close the swipe first to avoid horizontal offset during removal
+           swipeRef.current?.close();
+           // Schedule data removal on the next frame for smoother coordination
+           requestAnimationFrame(() => executeDelete(direction));
          }}
       >
         <View style={styles.cardContainer}>
@@ -192,4 +190,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
+
+
+
