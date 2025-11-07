@@ -31,9 +31,13 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (reminder.repeatType !== 'none') {
         console.log(`[onBackgroundEvent] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId}`);
 
-        // Increment occurrence count on delivery so count-based 'Until' caps are respected
+        // Increment occurrence count on delivery (but do not exceed untilCount)
         const occurred = reminder.occurrenceCount ?? 0;
-        const forCalc = { ...reminder, occurrenceCount: occurred + 1 };
+        const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
+        const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount)
+          ? occurred
+          : occurred + 1;
+        const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
 
         const reminderUtils = require('./services/reminder-utils');
         const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
@@ -60,17 +64,21 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
           console.log(`[onBackgroundEvent] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()}`);
         } else {
-          // No next occurrence (likely due to Until constraints) — mark as completed
-          const completedReminder = {
+          // No next occurrence (likely due to Until constraints).
+          // Do NOT mark completed yet to avoid cancelling the just-delivered notification.
+          // Persist occurrenceCount and lastTriggeredAt; leave notification visible for user action.
+          const finalOccurrenceState = {
             ...forCalc,
-            isCompleted: true,
-            isActive: false,
+            nextReminderDate: undefined,
+            lastTriggeredAt: new Date().toISOString(),
             snoozeUntil: undefined,
             wasSnoozed: undefined,
-            lastTriggeredAt: new Date().toISOString(),
+            isActive: true,
+            isCompleted: false,
+            isPaused: false,
           };
-          await reminderService.updateReminder(completedReminder);
-          console.log(`[onBackgroundEvent] No next occurrence found for ${reminderId}; marked as completed`);
+          await reminderService.updateReminder(finalOccurrenceState);
+          console.log(`[onBackgroundEvent] Final occurrence reached for ${reminderId}; left notification visible (no further scheduling)`);
         }
       }
       return;
