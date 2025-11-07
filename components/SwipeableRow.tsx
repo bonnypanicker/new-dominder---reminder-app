@@ -100,9 +100,9 @@ export default function SwipeableRow({
 
   return (
     <Animated.View 
-      layout={layoutTransition}
-      entering={enterAnimation}
-      exiting={isRemoving ? exitAnimation : undefined}
+      layout={Platform.OS !== 'web' ? layoutTransition : undefined}
+      entering={Platform.OS !== 'web' ? enterAnimation : undefined}
+      exiting={Platform.OS !== 'web' && isRemoving ? exitAnimation : undefined}
     >
       <Swipeable
         ref={swipeRef}
