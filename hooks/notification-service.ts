@@ -126,8 +126,34 @@ export async function scheduleReminderByModel(reminder: Reminder) {
         when = newWhen.getTime();
         console.log(`[NotificationService] Rescheduled to: ${new Date(when).toISOString()}`);
       } else {
-        console.log(`[NotificationService] Failed to recalculate reminder time, skipping`);
-        return;
+        // Graceful fallback: if we are within the configured endsAt window, deliver immediately
+        // This avoids missing the final occurrence due to millisecond drift
+        const withinEndsWindow = ((): boolean => {
+          try {
+            if (reminder.untilType !== 'endsAt' || !reminder.untilDate) return false;
+            const [uy, um, ud] = reminder.untilDate.split('-').map((v) => parseInt(v || '0', 10));
+            const endBoundary = new Date(uy, (um || 1) - 1, ud || 1);
+            const isTimeBound = reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours';
+            if (isTimeBound && reminder.untilTime) {
+              const [eh, em] = reminder.untilTime.split(':').map((v) => parseInt(v || '0', 10));
+              endBoundary.setHours(eh, em, 0, 0);
+            } else {
+              endBoundary.setHours(23, 59, 59, 999);
+            }
+            return now <= endBoundary.getTime();
+          } catch (_) {
+            return false;
+          }
+        })();
+
+        if (withinEndsWindow) {
+          const graceMs = 1500; // small delay to ensure future timestamp
+          when = now + graceMs;
+          console.log(`[NotificationService] Within endsAt window; delivering immediately with grace ${graceMs}ms at ${new Date(when).toISOString()}`);
+        } else {
+          console.log(`[NotificationService] Failed to recalculate reminder time and outside endsAt window, skipping`);
+          return;
+        }
       }
     } else {
       console.log(`[NotificationService] Non-repeating reminder in past, skipping`);
