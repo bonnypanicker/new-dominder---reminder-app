@@ -1088,7 +1088,7 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: 100,
           paddingTop: 8,  // ✅ Add top padding for first card
-          paddingHorizontal: 46 // ✅ Adjust list side padding
+          paddingHorizontal: 36 // ✅ Widen cards a bit more
         }}
         // ✅ Track scroll position for smart autoscroll
         onScroll={(event) => {
@@ -3171,7 +3171,7 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 46,  // ✅ Keep containers consistent with list padding
+    paddingHorizontal: 36,  // ✅ Keep containers consistent with list padding
     paddingVertical: 16,
   },
   loadingContainer: {
@@ -3217,8 +3217,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    // Android: rely on elevation for hardware acceleration
-    overflow: 'hidden',
+    // Allow swipeable content to draw beyond card bounds
+    overflow: 'visible',
   },
   selectedCard: {
     backgroundColor: Material3Colors.light.surfaceContainer,

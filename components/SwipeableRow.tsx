@@ -77,7 +77,7 @@ export default function SwipeableRow({
 
     return (
       <RectButton
-        style={[styles.rightAction, { width: '100%' }]}
+        style={styles.rightAction}
         onPress={() => {
           // ✅ Visual feedback only - action triggered by swipe completion
         }}
@@ -96,7 +96,7 @@ export default function SwipeableRow({
 
     return (
       <RectButton
-        style={[styles.leftAction, { width: '100%' }]}
+        style={styles.leftAction}
         onPress={() => {
           // ✅ Visual feedback only - action triggered by swipe completion
         }}
@@ -164,20 +164,21 @@ const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: Material3Colors.light.surface,
     borderRadius: 8,
+    overflow: 'visible',
   },
   rightAction: {
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'flex-end',    // ✅ Changed from 'flex-start' to 'flex-end' to position icon on right
     paddingRight: 16,          // ✅ Align with card content padding
-    width: 120,
+    flex: 1,                   // ✅ Fill full row width behind the card
   },
   leftAction: {
     backgroundColor: '#F44336',
     justifyContent: 'center',
     alignItems: 'flex-start',  // ✅ Changed from 'flex-end' to 'flex-start' to position icon on left
     paddingLeft: 16,           // ✅ Align with card content padding
-    width: 120,
+    flex: 1,                   // ✅ Fill full row width behind the card
   },
   actionContent: {
     alignItems: 'center',
