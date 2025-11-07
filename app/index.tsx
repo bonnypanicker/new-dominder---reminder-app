@@ -1270,6 +1270,30 @@ export default function HomeScreen() {
               showToast('End time must be after start time', 'error');
               return;
             }
+
+            // Additional validation: ensure the end window is at least one full interval
+            if (repeatType === 'every' && untilType === 'endsAt') {
+              if (everyUnit === 'minutes' || everyUnit === 'hours') {
+                const intervalMs = everyUnit === 'minutes'
+                  ? everyValue * 60 * 1000
+                  : everyValue * 60 * 60 * 1000;
+                const diffMs = endDateTimeFull.getTime() - startDateTimeFull.getTime();
+                if (diffMs < intervalMs) {
+                  showToast(`End date/time must be at least ${everyValue} ${everyUnit} after start for 'Every' repeats`, 'error');
+                  return;
+                }
+              } else if (everyUnit === 'days') {
+                const startDay = new Date(selectedDate);
+                const endDay = new Date(untilDate);
+                startDay.setHours(0, 0, 0, 0);
+                endDay.setHours(0, 0, 0, 0);
+                const diffDays = Math.floor((endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000));
+                if (diffDays < everyValue) {
+                  showToast(`End date must be at least ${everyValue} day(s) after start for 'Every' repeats`, 'error');
+                  return;
+                }
+              }
+            }
           }
 
           // Check for past time validation for 'once' reminders (both new and editing)

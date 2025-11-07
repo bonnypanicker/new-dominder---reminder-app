@@ -129,41 +129,55 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         candidate = null;
         break;
       }
-      
+
       // Calculate the interval in milliseconds
-      const addMs = interval.unit === 'minutes' 
-        ? interval.value * 60 * 1000 
-        : interval.unit === 'hours' 
-        ? interval.value * 60 * 60 * 1000 
+      const addMs = interval.unit === 'minutes'
+        ? interval.value * 60 * 1000
+        : interval.unit === 'hours'
+        ? interval.value * 60 * 60 * 1000
         : interval.value * 24 * 60 * 60 * 1000;
-      
-      // Determine the reference point for calculating the next occurrence
-      let referenceTime: Date;
-      
-      if (reminder.nextReminderDate) {
-        // If there's a nextReminderDate, use it as the reference (this is the last scheduled time)
-        referenceTime = new Date(reminder.nextReminderDate);
-        console.log(`[calculateNextReminderDate] Using nextReminderDate as reference: ${referenceTime.toISOString()}`);
-      } else if (reminder.lastTriggeredAt) {
-        // If the reminder has triggered before, use that as reference
-        referenceTime = new Date(reminder.lastTriggeredAt);
-        console.log(`[calculateNextReminderDate] Using lastTriggeredAt as reference: ${referenceTime.toISOString()}`);
+
+      // Establish the start boundary from the reminder's date/time
+      const startBoundary = new Date(reminder.date);
+      startBoundary.setHours(hh, mm, 0, 0);
+
+      // Determine whether we've already had at least one occurrence
+      const hasRecurringHistory = Boolean(reminder.nextReminderDate || reminder.lastTriggeredAt);
+
+      // Baseline for subsequent occurrences (after the first trigger)
+      const baseline = reminder.nextReminderDate
+        ? new Date(reminder.nextReminderDate)
+        : reminder.lastTriggeredAt
+        ? new Date(reminder.lastTriggeredAt)
+        : startBoundary;
+
+      let result: Date;
+
+      if (!hasRecurringHistory) {
+        // First-time scheduling for 'every': include the exact start time
+        if (fromDate <= startBoundary) {
+          result = startBoundary;
+          console.log(`[calculateNextReminderDate] First occurrence at start boundary: ${result.toISOString()}`);
+        } else {
+          // Find the smallest occurrence >= fromDate aligned to the interval from startBoundary
+          const diff = fromDate.getTime() - startBoundary.getTime();
+          const steps = Math.ceil(diff / addMs);
+          result = new Date(startBoundary.getTime() + steps * addMs);
+          console.log(`[calculateNextReminderDate] First occurrence aligned after now: ${result.toISOString()} (steps=${steps})`);
+        }
       } else {
-        // First time scheduling, use the original date
-        referenceTime = new Date(reminder.date);
-        referenceTime.setHours(hh, mm, 0, 0);
-        console.log(`[calculateNextReminderDate] Using original date as reference: ${referenceTime.toISOString()}`);
+        // Subsequent occurrences: advance from the last scheduled/triggered time
+        result = new Date(baseline.getTime() + addMs);
+        if (result <= fromDate) {
+          const diff = fromDate.getTime() - baseline.getTime();
+          const steps = Math.ceil(diff / addMs);
+          result = new Date(baseline.getTime() + steps * addMs);
+          console.log(`[calculateNextReminderDate] Advanced occurrence aligned after now: ${result.toISOString()} (steps=${steps})`);
+        } else {
+          console.log(`[calculateNextReminderDate] Next occurrence after baseline: ${result.toISOString()}`);
+        }
       }
-      
-      // Always ensure the result is in the future relative to fromDate
-      let result = new Date(referenceTime.getTime() + addMs);
-      
-      // If the calculated result is still in the past, keep adding intervals until we get a future time
-      while (result <= fromDate) {
-        result = new Date(result.getTime() + addMs);
-        console.log(`[calculateNextReminderDate] Result was in past, advancing to: ${result.toISOString()}`);
-      }
-      
+
       console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, next occurrence: ${result.toISOString()}`);
       candidate = result;
       break;
