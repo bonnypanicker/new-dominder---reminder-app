@@ -4,13 +4,11 @@ import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  Layout,
-  FadeOut,
-  FadeIn,
-  runOnJS
+  LinearTransition,
+  SlideOutLeft,
+  SlideOutRight,
+  FadeInDown,
+  Easing
 } from 'react-native-reanimated';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder } from '@/types/reminder';
@@ -25,7 +23,6 @@ interface SwipeableRowProps {
   onSwipeLeft?: () => void;
   swipeableRefs?: React.MutableRefObject<Map<string, Swipeable>>;
   simultaneousHandlers?: React.RefObject<any>;
-  onAutoScroll?: (deletedId?: string) => void; // ✅ Trigger auto-scroll after swipe with deleted id
 }
 
 export default function SwipeableRow({ 
@@ -34,36 +31,15 @@ export default function SwipeableRow({
   onSwipeRight, 
   onSwipeLeft,
   swipeableRefs,
-  simultaneousHandlers,
-  onAutoScroll
+  simultaneousHandlers
 }: SwipeableRowProps) {
-  const SCREEN_WIDTH = Dimensions.get('window').width; // retained, but actions will use container width
-  
-  // ✅ Reanimated 3 shared values (kept, but no manual removal slide)
-  const opacity = useSharedValue(1);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-
-  // ✅ State to track if card is being removed
+  // Track which direction the card is being removed
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
-
-  // ✅ Keep a ref to the Swipeable so we can close it before removing
   const swipeRef = useRef<Swipeable | null>(null);
 
-  // ✅ Animated style for smooth vertical fade-out and slide-up
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-      transform: [
-        { translateY: translateY.value },  // Vertical slide instead of horizontal
-        { scale: scale.value }             // Scale effect for better visual feedback
-      ],
-    };
-  });
-
-  // ✅ Execute data removal only (let exiting animation handle visuals)
+  // Execute data removal
   const executeDelete = (direction: 'left' | 'right') => {
-    // Trigger data removal; row will unmount and use exiting FadeOut
     if (direction === 'right' && onSwipeRight) {
       onSwipeRight();
     } else if (direction === 'left' && onSwipeLeft) {
@@ -109,20 +85,24 @@ export default function SwipeableRow({
     );
   };
 
+  // Optimized layout transition for smooth repositioning of other cards
+  const layoutTransition = LinearTransition
+    .duration(300)
+    .easing(Easing.bezier(0.25, 0.1, 0.25, 1));
+
+  // Directional exit animation based on swipe direction
+  const exitAnimation = swipeDirection === 'left' 
+    ? SlideOutLeft.duration(200).easing(Easing.bezier(0.4, 0, 0.2, 1))
+    : SlideOutRight.duration(200).easing(Easing.bezier(0.4, 0, 0.2, 1));
+
+  // Smooth entering animation for new cards
+  const enterAnimation = FadeInDown.duration(250).easing(Easing.bezier(0.25, 0.1, 0.25, 1));
+
   return (
     <Animated.View 
-      style={[animatedStyle]}
-      // Drop row-level layout animation to avoid conflicts with FlashList
-      // layout={Platform.OS === 'android' ? Layout.springify().damping(15).stiffness(300) : undefined}
-      entering={Platform.OS === 'android' ? FadeIn.duration(200) : undefined}
-      exiting={Platform.OS === 'android' 
-        ? FadeOut.duration(200).withCallback(() => {
-            // Ensure cleanup after animation completes (Android only)
-            if (onAutoScroll) {
-              runOnJS(onAutoScroll)(reminder.id);
-            }
-          })
-        : undefined}
+      layout={layoutTransition}
+      entering={enterAnimation}
+      exiting={isRemoving ? exitAnimation : undefined}
     >
       <Swipeable
         ref={swipeRef}
@@ -139,17 +119,20 @@ export default function SwipeableRow({
           // This would need to be handled at the parent component level
         }}
         onSwipeableOpen={(direction) => {
-           // ✅ Prevent multiple triggers
            if (isRemoving) return;
+           
+           // Set direction for exit animation
+           setSwipeDirection(direction);
            setIsRemoving(true);
            
-           // ✅ Haptic feedback when delete threshold is crossed
+           // Haptic feedback
            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
            
-           // ✅ Close the swipe first to avoid horizontal offset during removal
+           // Close swipe and trigger removal
            swipeRef.current?.close();
-           // Schedule data removal on the next frame for smoother coordination
-           requestAnimationFrame(() => executeDelete(direction));
+           
+           // Execute deletion immediately - animation will handle visuals
+           executeDelete(direction);
          }}
       >
         <View style={styles.cardContainer}>

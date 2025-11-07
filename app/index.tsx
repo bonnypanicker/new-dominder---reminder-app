@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
-// Removed reanimated imports not used in this file
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -147,9 +146,6 @@ export default function HomeScreen() {
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
-  // ✅ Track current scroll position for smart autoscroll
-  const [currentScrollOffset, setCurrentScrollOffset] = useState(0);
-
   const addReminder = useAddReminder();
 
   const scrollToTab = useCallback((tab: 'active' | 'completed' | 'expired') => {
@@ -237,21 +233,17 @@ export default function HomeScreen() {
     });
   }, [reminders]);
 
-  // Current list for FlashList (Android optimization)
-  const [currentList, setCurrentList] = useState<Reminder[]>(activeReminders);
-
-  // Update when tab changes
-  useEffect(() => {
+  // Use useMemo to derive current list without causing re-renders
+  const currentList = React.useMemo(() => {
     switch (activeTab) {
       case 'active':
-        setCurrentList(activeReminders);
-        break;
+        return activeReminders;
       case 'completed':
-        setCurrentList(completedReminders);
-        break;
+        return completedReminders;
       case 'expired':
-        setCurrentList(expiredReminders);
-        break;
+        return expiredReminders;
+      default:
+        return activeReminders;
     }
   }, [activeTab, activeReminders, completedReminders, expiredReminders]);
 
@@ -523,28 +515,6 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
-  // Track measured heights of cards for precise autoscroll adjustments
-  const itemHeightsRef = React.useRef<Map<string, number>>(new Map());
-
-  // ✅ Enhanced auto-scroll function for smooth gap filling when cards are swiped away
-  const handleAutoScroll = useCallback((deletedId?: string) => {
-    // Apply precise auto-scroll adjustments on Android only
-    if (Platform.OS !== 'android') return;
-    if (!contentScrollRef.current) return;
-    const currentOffset = currentScrollOffset;
-    
-    // If near the top, rely on layout animation without adjusting offset
-    if (currentOffset <= 200) return;
-
-    // Use measured height when available, include separator height (16)
-    const measuredHeight = deletedId ? itemHeightsRef.current.get(deletedId) ?? 0 : 0;
-    const separatorHeight = 16;
-    const fallbackEstimated = 136; // matches estimatedItemSize
-    const adjustBy = (measuredHeight > 0 ? measuredHeight + separatorHeight : fallbackEstimated);
-
-    const newOffset = Math.max(0, currentOffset - adjustBy);
-    contentScrollRef.current.scrollToOffset({ offset: newOffset, animated: true });
-  }, [currentScrollOffset]);
 
   const ReminderCard = memo(({ 
     reminder, 
@@ -592,9 +562,8 @@ export default function HomeScreen() {
     return (
       <SwipeableRow 
         reminder={reminder}
-        swipeableRefs={swipeableRefs}  // ✅ Pass refs for Android coordination
+        swipeableRefs={swipeableRefs}
         simultaneousHandlers={contentScrollRef}
-        onAutoScroll={handleAutoScroll}  // ✅ Pass auto-scroll callback
         onSwipeRight={isActive && !selectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
           updateReminder.mutate({
             ...reminder,
@@ -613,12 +582,6 @@ export default function HomeScreen() {
               isSelected && styles.selectedCard
             ]}
             testID={`reminder-card-${reminder.id}`}
-            onLayout={(e) => {
-              const h = e.nativeEvent.layout.height;
-              if (h && h > 0) {
-                itemHeightsRef.current.set(reminder.id, h);
-              }
-            }}
           >
           <View style={styles.reminderContent}>
             <View style={styles.reminderLeft}>
@@ -689,6 +652,9 @@ export default function HomeScreen() {
                         <Clock size={14} color={Material3Colors.light.onSurfaceVariant} />
                         <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
                       </View>
+                      {endsLabel && (
+                        <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                      )}
                       <View style={styles.dailyDaysContainer}>
                         {[0, 1, 2, 3, 4, 5, 6].map((day) => {
                           const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -712,9 +678,6 @@ export default function HomeScreen() {
                           );
                         })}
                       </View>
-                      {endsLabel && (
-                        <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
-                      )}
                     </>
                   )}
                   {/* For Monthly, Yearly, and Every - show next occurrence with clock icon */}
@@ -747,19 +710,17 @@ export default function HomeScreen() {
                     <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
                   )}
 
-                  {/* Show explicit repeat frequency text for Every reminders */}
-                  {reminder.repeatType === 'every' && reminder.everyInterval && !reminder.isCompleted && (
+                  {/* Show explicit repeat frequency text and Ends in one line for Every reminders */}
+                  {reminder.repeatType === 'every' && !reminder.isCompleted && (
                     <Text style={styles.reminderNextOccurrence}>
                       {(() => {
                         const value = reminder.everyInterval?.value ?? 1;
                         const unit = reminder.everyInterval?.unit ?? 'hours';
                         const unitLabel = value === 1 ? unit.replace(/s$/, '') : unit;
-                        return `Repeats every ${value} ${unitLabel}`;
+                        const repeatText = `Repeats every ${value} ${unitLabel}`;
+                        return endsLabel ? `${repeatText} • ${endsLabel}` : repeatText;
                       })()}
                     </Text>
-                  )}
-                  {reminder.repeatType === 'every' && endsLabel && !reminder.isCompleted && (
-                    <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
                   )}
                   
                   {/* Show repeat badge at bottom for Once, Monthly, Yearly, Every, Daily */}
@@ -1080,60 +1041,48 @@ export default function HomeScreen() {
             isSelectionMode={isSelectionMode}
           />
         )}
-        estimatedItemSize={136}  // ✅ Updated for card + separator height (120 + 16)
+        estimatedItemSize={136}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!showCreatePopup}
-        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}  // ✅ 16px gap between cards
+        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
         contentContainerStyle={{
           paddingBottom: 100,
-          paddingTop: 8,  // ✅ Add top padding for first card
-          paddingHorizontal: 36 // ✅ Widen cards a bit more
+          paddingTop: 8,
+          paddingHorizontal: 16
         }}
-        // ✅ Track scroll position for smart autoscroll
-        onScroll={(event) => {
-          setCurrentScrollOffset(event.nativeEvent.contentOffset.y);
-        }}
-        scrollEventThrottle={16}
-        // ✅ Smooth layout animation for insertions/removals/reorders (Android only)
-        itemLayoutAnimation={Platform.OS === 'android' ? {
-          type: 'spring',
-          springDamping: 0.85,
-          springStiffness: 180,
-        } : undefined}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            {activeTab === 'active' ? (
-              <>
-                <Clock size={64} color={Material3Colors.light.outline} />
-                <Text style={styles.emptyTitle}>No Active Reminders</Text>
-                <Text style={styles.emptyDescription}>
-                  Tap the Create Alarm button to create your first reminder
-                </Text>
-              </>
-            ) : activeTab === 'completed' ? (
-              <>
-                <CheckCircle size={64} color={Material3Colors.light.outline} />
-                <Text style={styles.emptyTitle}>No Completed Reminders</Text>
-                <Text style={styles.emptyDescription}>
-                  Completed reminders will appear here
-                </Text>
-              </>
-            ) : (
-              <>
-                <AlertCircle size={64} color={Material3Colors.light.outline} />
-                <Text style={styles.emptyTitle}>No Expired Reminders</Text>
-                <Text style={styles.emptyDescription}>
-                  Expired reminders will appear here
-                </Text>
-              </>
-            )}
-          </View>
-        }
-        // ✅ Android-specific optimizations
-        drawDistance={250}  // Render items within 250dp
-        removeClippedSubviews={Platform.OS === 'android'}  // Android optimization
-      />
+        <View style={styles.emptyState}>
+          {activeTab === 'active' ? (
+            <>
+              <Clock size={64} color={Material3Colors.light.outline} />
+              <Text style={styles.emptyTitle}>No Active Reminders</Text>
+              <Text style={styles.emptyDescription}>
+                Tap the Create Alarm button to create your first reminder
+              </Text>
+            </>
+          ) : activeTab === 'completed' ? (
+            <>
+              <CheckCircle size={64} color={Material3Colors.light.outline} />
+              <Text style={styles.emptyTitle}>No Completed Reminders</Text>
+              <Text style={styles.emptyDescription}>
+                Completed reminders will appear here
+              </Text>
+            </>
+          ) : (
+            <>
+              <AlertCircle size={64} color={Material3Colors.light.outline} />
+              <Text style={styles.emptyTitle}>No Expired Reminders</Text>
+              <Text style={styles.emptyDescription}>
+                Expired reminders will appear here
+              </Text>
+            </>
+          )}
+        </View>
+      }
+      drawDistance={250}
+      removeClippedSubviews={false}
+    />
       
       {!isSelectionMode && (
         <View style={styles.bottomContainer}>
@@ -1451,18 +1400,12 @@ export default function HomeScreen() {
               // Close popup immediately
               setShowCreatePopup(false);
               
-              // ✅ FIXED: Smart autoscroll - only scroll to top if user is near the top
-              // This prevents disrupting users who are browsing lower in the list
+              // Scroll to top to show newly added reminder
               setTimeout(() => {
                 if (activeTab === 'active' && contentScrollRef.current) {
-                  // Only auto-scroll to show new reminder if user is near the top (within first 300px)
-                  // This way users browsing lower in the list won't be disrupted
-                  if (currentScrollOffset <= 300) {
-                    contentScrollRef.current.scrollToOffset({ offset: 0, animated: true });
-                  }
-                  // If user is further down, they can manually scroll up to see the new reminder
+                  contentScrollRef.current.scrollToOffset({ offset: 0, animated: true });
                 }
-              }, 100); // Reduced delay for better responsiveness
+              }, 100);
               
               // Reset form after animation starts
               setTimeout(() => {
@@ -3310,9 +3253,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   reminderNextOccurrence: {
-    fontSize: 13,
-    color: Material3Colors.light.onSurfaceVariant,
-    fontWeight: '500',
+    fontSize: 12,
+    color: Material3Colors.light.primary,
+    fontWeight: '600',
     marginTop: 2,
   },
   nextReminderText: {
@@ -3520,7 +3463,7 @@ const styles = StyleSheet.create({
   repeatBadgeContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
+    gap: 4,
     marginTop: 4,
     flexWrap: 'nowrap',
   },

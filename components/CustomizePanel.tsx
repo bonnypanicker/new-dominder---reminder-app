@@ -398,7 +398,7 @@ export default function CustomizePanel({
       )}
 
       {repeatType !== 'none' && repeatType !== 'daily' && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 8 }]}>
+        <View style={[styles.dateSelectionContainer, { marginTop: 4 }]}>
           <View style={styles.topRow}>
             <Text style={styles.topRowLabel}>Ends</Text>
             <View style={styles.menuWrapper}>
@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
   },
   daysContainer: {
     marginTop: 8,
-    gap: 16,
+    gap: 8,
   },
   dailySection: {
     gap: 8,
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
+    marginTop: 2,
     zIndex: 100,
     position: 'relative',
   },
@@ -1207,10 +1207,10 @@ const styles = StyleSheet.create({
   },
   unitDropdownModalAbsolute: {
     position: 'absolute',
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: '#E5E7EB',
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   unitDropdownItemSelected: {
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: '#FFFFFF',
   },
   unitDropdownItemText: {
     fontSize: 14,
@@ -1236,7 +1236,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   unitDropdownItemTextSelected: {
-    color: Material3Colors.light.primary,
+    color: '#111827',
     fontWeight: '600',
   },
   dayButtonCompact: {
@@ -1323,10 +1323,10 @@ const styles = StyleSheet.create({
   },
   inlineUnitDropdownContent: {
     position: 'absolute',
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Material3Colors.light.primary,
+    borderColor: '#E5E7EB',
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -1343,7 +1343,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   inlineUnitDropdownItemSelected: {
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: '#FFFFFF',
   },
   inlineUnitDropdownItemText: {
     fontSize: 14,
@@ -1351,7 +1351,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   inlineUnitDropdownItemTextSelected: {
-    color: Material3Colors.light.primary,
+    color: '#111827',
     fontWeight: '600',
   },
 });
@@ -2648,7 +2648,7 @@ const dropdownModalStyles = StyleSheet.create({
   },
   dropdownAbsolute: {
     position: 'absolute',
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 8,
@@ -2658,7 +2658,7 @@ const dropdownModalStyles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 24,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: '#E5E7EB',
     zIndex: 999999,
     // Ensure dropdown is never clipped
     overflow: 'visible',
