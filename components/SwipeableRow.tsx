@@ -181,23 +181,26 @@ export default function SwipeableRow({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: Material3Colors.light.surface,
-    borderRadius: 8,
+    // No backgroundColor, borderRadius, or visual styling here
+    // This is just a transparent container that allows the Swipeable gesture
+    // All visual styling (shadows, borders, etc) should be on the child card
     overflow: 'visible',
   },
   rightAction: {
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
-    alignItems: 'flex-end',    // ✅ Changed from 'flex-start' to 'flex-end' to position icon on right
-    paddingRight: 16,          // ✅ Align with card content padding
-    flex: 1,                   // ✅ Fill full row width behind the card
+    alignItems: 'flex-end',
+    paddingRight: 16,
+    flex: 1,
+    borderRadius: 12,          // Match card's borderRadius for smooth appearance
   },
   leftAction: {
     backgroundColor: '#F44336',
     justifyContent: 'center',
-    alignItems: 'flex-start',  // ✅ Changed from 'flex-end' to 'flex-start' to position icon on left
-    paddingLeft: 16,           // ✅ Align with card content padding
-    flex: 1,                   // ✅ Fill full row width behind the card
+    alignItems: 'flex-start',
+    paddingLeft: 16,
+    flex: 1,
+    borderRadius: 12,          // Match card's borderRadius for smooth appearance
   },
   actionContent: {
     alignItems: 'center',
