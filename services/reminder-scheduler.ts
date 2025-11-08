@@ -78,17 +78,33 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       : reminder;
 
     if (!shouldIncrementOccurrence) {
-      // Do not reschedule here; avoid double scheduling. Just clear snooze state
-      // and ensure the reminder remains active.
-      const updated = {
-        ...calcContext,
-        snoozeUntil: undefined,
-        wasSnoozed: undefined,
-        isActive: true,
-        isCompleted: false,
-        isPaused: false,
-      };
-      await updateReminder(updated as any);
+      // Foreground Notifee action "Done": delivery handler already scheduled next occurrence
+      // when applicable. Determine if this was the final occurrence; if so, mark completed.
+      const maybeNext = calculateNextReminderDate(calcContext as any, new Date());
+
+      if (!maybeNext) {
+        // Final occurrence reached (due to Until constraints). Mark as completed now.
+        const completed = {
+          ...calcContext,
+          isCompleted: true,
+          isActive: false,
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          lastTriggeredAt: new Date().toISOString(),
+        };
+        await updateReminder(completed as any);
+      } else {
+        // Not final: just clear snooze state and keep active. Do not reschedule here.
+        const updated = {
+          ...calcContext,
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          isActive: true,
+          isCompleted: false,
+          isPaused: false,
+        };
+        await updateReminder(updated as any);
+      }
     } else {
       const nextDate = calculateNextReminderDate(calcContext as any, new Date());
 
