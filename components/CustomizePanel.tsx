@@ -261,7 +261,7 @@ export default function CustomizePanel({
       </View>
 
       {(repeatType === 'none' || repeatType === 'every') && (
-        <View style={styles.dateSelectionContainer}>
+        <View style={[styles.dateSelectionContainer, repeatType === 'every' && { marginBottom: 8 }]}>
           <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 8 }]}>
             <Text style={styles.topRowLabel}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
             <View style={styles.menuWrapper}
@@ -398,7 +398,7 @@ export default function CustomizePanel({
       )}
 
       {repeatType !== 'none' && repeatType !== 'daily' && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 4 }]}>
+        <View style={[styles.dateSelectionContainer, { marginTop: 0 }]}>
           <View style={styles.topRow}>
             <Text style={styles.topRowLabel}>Ends</Text>
             <View style={styles.menuWrapper}>
