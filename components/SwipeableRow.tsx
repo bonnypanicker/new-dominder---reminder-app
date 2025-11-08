@@ -43,14 +43,20 @@ export default function SwipeableRow({
   const swipeRef = useRef<Swipeable | null>(null);
   const removalTimeoutRef = useRef<number | null>(null);
 
-  // Cleanup timeout on unmount
+  // Register/unregister this swipeable in the refs map
   useEffect(() => {
+    if (swipeableRefs && swipeRef.current) {
+      swipeableRefs.current.set(reminder.id, swipeRef.current);
+    }
     return () => {
+      if (swipeableRefs) {
+        swipeableRefs.current.delete(reminder.id);
+      }
       if (removalTimeoutRef.current) {
         clearTimeout(removalTimeoutRef.current);
       }
     };
-  }, []);
+  }, [reminder.id, swipeableRefs]);
 
   // Execute data removal with proper timing
   const executeDelete = (direction: 'left' | 'right') => {
@@ -129,8 +135,14 @@ export default function SwipeableRow({
         overshootLeft={false}
         overshootRight={false}
         onSwipeableWillOpen={(direction) => {
-          // Note: Without refs, we can't close other swipeables automatically
-          // This would need to be handled at the parent component level
+          // Close all other open swipeables to ensure only one is open at a time
+          if (swipeableRefs) {
+            swipeableRefs.current.forEach((ref, id) => {
+              if (id !== reminder.id) {
+                ref?.close();
+              }
+            });
+          }
         }}
         onSwipeableOpen={(direction) => {
            if (isRemoving) return;
