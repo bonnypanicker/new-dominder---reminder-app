@@ -248,30 +248,22 @@ export default function HomeScreen() {
   }, [activeTab, activeReminders, completedReminders, expiredReminders]);
 
   const completeReminder = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    const executeUpdate = () => {
-      if (reminder.repeatType === 'none') {
-        // For non-repeating reminders, mark as completed
-        updateReminder.mutate({
-          ...reminder,
-          isCompleted: true,
-        });
-      } else {
-        // For repeating reminders, calculate next reminder date and keep active
-        const nextDate = calculateNextReminderDate(reminder);
-        updateReminder.mutate({
-          ...reminder,
-          nextReminderDate: nextDate?.toISOString(),
-          lastTriggeredAt: new Date().toISOString(),
-          snoozeUntil: undefined, // Clear any snooze
-        });
-      }
-    };
-    
-    // ✅ ANDROID FIX: Immediate execution to prevent flash effect
-    if (fromSwipe) {
-      executeUpdate();  // Remove delay to prevent card flash
+    // Note: When called from swipe, SwipeableRow handles animation timing
+    if (reminder.repeatType === 'none') {
+      // For non-repeating reminders, mark as completed
+      updateReminder.mutate({
+        ...reminder,
+        isCompleted: true,
+      });
     } else {
-      executeUpdate();
+      // For repeating reminders, calculate next reminder date and keep active
+      const nextDate = calculateNextReminderDate(reminder);
+      updateReminder.mutate({
+        ...reminder,
+        nextReminderDate: nextDate?.toISOString(),
+        lastTriggeredAt: new Date().toISOString(),
+        snoozeUntil: undefined, // Clear any snooze
+      });
     }
   }, [updateReminder]);
 
@@ -370,13 +362,8 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    // ✅ ANDROID FIX: Immediate removal to prevent flash effect
-    if (fromSwipe) {
-      // Remove immediately, no delay
-      deleteReminder.mutate(reminder.id);
-    } else {
-      deleteReminder.mutate(reminder.id);
-    }
+    // Note: When called from swipe, SwipeableRow handles animation timing
+    deleteReminder.mutate(reminder.id);
   }, [deleteReminder]);
 
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {

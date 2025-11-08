@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Text, StyleSheet, View, Dimensions, Platform } from 'react-native';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
@@ -15,6 +15,10 @@ import { Reminder } from '@/types/reminder';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
+
+// Animation timing constants
+const EXIT_ANIMATION_DURATION = 200; // Must match exit animation duration
+const LAYOUT_ANIMATION_DURATION = 300; // Must match layout transition duration
 
 interface SwipeableRowProps {
   children: React.ReactNode;
@@ -37,8 +41,18 @@ export default function SwipeableRow({
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const swipeRef = useRef<Swipeable | null>(null);
+  const removalTimeoutRef = useRef<number | null>(null);
 
-  // Execute data removal
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (removalTimeoutRef.current) {
+        clearTimeout(removalTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Execute data removal with proper timing
   const executeDelete = (direction: 'left' | 'right') => {
     if (direction === 'right' && onSwipeRight) {
       onSwipeRight();
@@ -128,11 +142,21 @@ export default function SwipeableRow({
            // Haptic feedback
            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
            
-           // Close swipe and trigger removal
+           // Close the swipeable immediately
            swipeRef.current?.close();
            
-           // Execute deletion immediately - animation will handle visuals
-           executeDelete(direction);
+           // Platform-specific timing:
+           // - Web: No exit animation, execute immediately
+           // - Native: Wait for exit animation to complete before removing data
+           if (Platform.OS === 'web') {
+             // Web doesn't use exit animations, remove immediately
+             executeDelete(direction);
+           } else {
+             // Native: Delay data removal until after exit animation completes
+             removalTimeoutRef.current = setTimeout(() => {
+               executeDelete(direction);
+             }, EXIT_ANIMATION_DURATION);
+           }
          }}
       >
         <View style={styles.cardContainer}>
