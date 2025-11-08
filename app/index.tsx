@@ -1068,6 +1068,10 @@ export default function HomeScreen() {
       }
       drawDistance={250}
       removeClippedSubviews={false}
+      bounces={true}
+      bouncesZoom={false}
+      alwaysBounceVertical={true}
+      overScrollMode="always"
     />
       
       {!isSelectionMode && (
