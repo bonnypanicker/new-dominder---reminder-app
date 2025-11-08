@@ -89,8 +89,6 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<FlashList<any>>(null);
-  
-  // Track open swipeables (Android best practice: only one open at a time)
   const swipeableRefs = useRef<Map<string, any>>(new Map());
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -247,8 +245,7 @@ export default function HomeScreen() {
     }
   }, [activeTab, activeReminders, completedReminders, expiredReminders]);
 
-  const completeReminder = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    // Note: When called from swipe, SwipeableRow handles animation timing
+  const completeReminder = useCallback((reminder: Reminder) => {
     if (reminder.repeatType === 'none') {
       // For non-repeating reminders, mark as completed
       updateReminder.mutate({
@@ -265,6 +262,15 @@ export default function HomeScreen() {
         snoozeUntil: undefined, // Clear any snooze
       });
     }
+  }, [updateReminder]);
+
+  // Complete all occurrences (used for swipe action)
+  const completeAllOccurrences = useCallback((reminder: Reminder) => {
+    // Mark as completed regardless of repeat type
+    updateReminder.mutate({
+      ...reminder,
+      isCompleted: true,
+    });
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
@@ -361,8 +367,7 @@ export default function HomeScreen() {
     setShowCreatePopup(true);
   }, [to12h]);
 
-  const handleDelete = useCallback((reminder: Reminder, fromSwipe: boolean = false) => {
-    // Note: When called from swipe, SwipeableRow handles animation timing
+  const handleDelete = useCallback((reminder: Reminder) => {
     deleteReminder.mutate(reminder.id);
   }, [deleteReminder]);
 
@@ -551,13 +556,8 @@ export default function HomeScreen() {
         reminder={reminder}
         swipeableRefs={swipeableRefs}
         simultaneousHandlers={contentScrollRef}
-        onSwipeRight={isActive && !selectionMode ? (reminder.repeatType === 'none' ? () => completeReminder(reminder, true) : () => {
-          updateReminder.mutate({
-            ...reminder,
-            isCompleted: true,
-          });
-        }) : undefined} 
-        onSwipeLeft={!selectionMode ? () => handleDelete(reminder, true) : undefined}
+        onSwipeRight={!selectionMode ? () => handleDelete(reminder) : undefined}
+        onSwipeLeft={isActive && !selectionMode ? () => completeAllOccurrences(reminder) : undefined}
       >
         <TouchableOpacity
             activeOpacity={0.85}
@@ -1028,15 +1028,14 @@ export default function HomeScreen() {
             isSelectionMode={isSelectionMode}
           />
         )}
-        estimatedItemSize={136}
-        keyExtractor={(item) => item.id}
+        estimatedItemSize={120}
+        keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!showCreatePopup}
-        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+        ItemSeparatorComponent={() => null}
         contentContainerStyle={{
           paddingBottom: 100,
           paddingTop: 8,
-          paddingHorizontal: 16
         }}
         ListEmptyComponent={
         <View style={styles.emptyState}>

@@ -1,175 +1,201 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Text, StyleSheet, View, Dimensions, Platform } from 'react-native';
-import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import React, { useRef, useCallback, useState } from 'react';
+import { StyleSheet, View, Text, Animated, Dimensions } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { 
-  LinearTransition,
-  SlideOutLeft,
-  SlideOutRight,
-  FadeInDown,
-  Easing
-} from 'react-native-reanimated';
-import { Material3Colors } from '@/constants/colors';
 import { Reminder } from '@/types/reminder';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
-
-// Animation timing constants
-const EXIT_ANIMATION_DURATION = 200; // Must match exit animation duration
-const LAYOUT_ANIMATION_DURATION = 300; // Must match layout transition duration
 
 interface SwipeableRowProps {
   children: React.ReactNode;
   reminder: Reminder;
   onSwipeRight?: () => void;
   onSwipeLeft?: () => void;
-  swipeableRefs?: React.MutableRefObject<Map<string, Swipeable>>;
+  swipeableRefs?: React.MutableRefObject<Map<string, any>>;
   simultaneousHandlers?: React.RefObject<any>;
 }
 
 export default function SwipeableRow({ 
-  children, 
-  reminder, 
-  onSwipeRight, 
+  children,
+  reminder,
+  onSwipeRight,
   onSwipeLeft,
-  swipeableRefs,
-  simultaneousHandlers
+  swipeableRefs
 }: SwipeableRowProps) {
-  // Track which direction the card is being removed
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const swipeableRef = useRef<Swipeable>(null);
   const [isRemoving, setIsRemoving] = useState(false);
-  const swipeRef = useRef<Swipeable | null>(null);
-  const removalTimeoutRef = useRef<number | null>(null);
+  const [cardHeight, setCardHeight] = useState(120);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const heightAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Register/unregister this swipeable in the refs map
-  useEffect(() => {
-    if (swipeableRefs && swipeRef.current) {
-      swipeableRefs.current.set(reminder.id, swipeRef.current);
+  // Register this swipeable
+  const setRef = useCallback((ref: Swipeable | null) => {
+    swipeableRef.current = ref;
+    if (ref && swipeableRefs) {
+      swipeableRefs.current.set(reminder.id, ref);
     }
-    return () => {
-      if (swipeableRefs) {
-        swipeableRefs.current.delete(reminder.id);
-      }
-      if (removalTimeoutRef.current) {
-        clearTimeout(removalTimeoutRef.current);
-      }
-    };
   }, [reminder.id, swipeableRefs]);
 
-  // Execute data removal with proper timing
-  const executeDelete = (direction: 'left' | 'right') => {
-    if (direction === 'right' && onSwipeRight) {
-      onSwipeRight();
-    } else if (direction === 'left' && onSwipeLeft) {
-      onSwipeLeft();
-    }
-  };
-
-  // ✅ Right swipe action (Complete) - Native Android component
-  const renderRightActions = () => {
+  // Right swipe action - Delete (red)
+  const renderRightActions = useCallback((progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
     if (!onSwipeRight) return null;
 
-    return (
-      <RectButton
-        style={styles.rightAction}
-        onPress={() => {
-          // ✅ Visual feedback only - action triggered by swipe completion
-        }}
-      >
-        <View style={styles.actionContent}>
-          <CheckCircle size={24} color="white" />
-          <Text style={styles.actionText}>Complete</Text>
-        </View>
-      </RectButton>
-    );
-  };
+    const translateX = dragX.interpolate({
+      inputRange: [0, 80],
+      outputRange: [0, 0],
+      extrapolate: 'clamp',
+    });
 
-  // ✅ Left swipe action (Delete) - Native Android component
-  const renderLeftActions = () => {
+    const scale = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.7, 1],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 1],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Animated.View style={[styles.rightAction, { transform: [{ translateX }, { scale }], opacity }]}>
+        <Trash2 size={24} color="white" />
+        <Text style={styles.actionText}>Delete</Text>
+      </Animated.View>
+    );
+  }, [onSwipeRight]);
+
+  // Left swipe action - Complete (green)
+  const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
     if (!onSwipeLeft) return null;
 
+    const translateX = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 0],
+      extrapolate: 'clamp',
+    });
+
+    const scale = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.7, 1],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 1],
+      extrapolate: 'clamp',
+    });
+
     return (
-      <RectButton
-        style={styles.leftAction}
-        onPress={() => {
-          // ✅ Visual feedback only - action triggered by swipe completion
-        }}
-      >
-        <View style={styles.actionContent}>
-          <Trash2 size={24} color="white" />
-          <Text style={styles.actionText}>Delete</Text>
-        </View>
-      </RectButton>
+      <Animated.View style={[styles.leftAction, { transform: [{ translateX }, { scale }], opacity }]}>
+        <CheckCircle size={24} color="white" />
+        <Text style={styles.actionText}>Complete</Text>
+      </Animated.View>
     );
-  };
+  }, [onSwipeLeft]);
 
-  // Optimized layout transition for smooth repositioning of other cards
-  const layoutTransition = LinearTransition
-    .duration(300)
-    .easing(Easing.bezier(0.25, 0.1, 0.25, 1));
+  // Close other swipeables when this one opens
+  const handleSwipeableWillOpen = useCallback((direction: 'left' | 'right') => {
+    if (swipeableRefs) {
+      swipeableRefs.current.forEach((ref, id) => {
+        if (id !== reminder.id) {
+          ref?.close();
+        }
+      });
+    }
+  }, [reminder.id, swipeableRefs]);
 
-  // Directional exit animation based on swipe direction
-  const exitAnimation = swipeDirection === 'left' 
-    ? SlideOutLeft.duration(200).easing(Easing.bezier(0.4, 0, 0.2, 1))
-    : SlideOutRight.duration(200).easing(Easing.bezier(0.4, 0, 0.2, 1));
-
-  // Smooth entering animation for new cards
-  const enterAnimation = FadeInDown.duration(250).easing(Easing.bezier(0.25, 0.1, 0.25, 1));
+  // Execute full swipe-away animation
+  const handleSwipeableOpen = useCallback((direction: 'left' | 'right') => {
+    if (isRemoving) return;
+    
+    setIsRemoving(true);
+    
+    // Haptic feedback for action confirmation
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    const screenWidth = Dimensions.get('window').width;
+    const targetX = direction === 'right' ? screenWidth : -screenWidth;
+    
+    // Animate card sliding off screen with action fade-out
+    Animated.parallel([
+      // Slide card off screen
+      Animated.timing(slideAnim, {
+        toValue: targetX,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      // Fade out the card
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      // Scale down slightly for depth effect
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      // Collapse height for smooth card repositioning
+      Animated.timing(heightAnim, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      // Execute the action after animation completes
+      if (direction === 'right' && onSwipeRight) {
+        onSwipeRight();
+      } else if (direction === 'left' && onSwipeLeft) {
+        onSwipeLeft();
+      }
+    });
+  }, [isRemoving, slideAnim, fadeAnim, scaleAnim, heightAnim, onSwipeRight, onSwipeLeft]);
 
   return (
     <Animated.View 
-      layout={Platform.OS !== 'web' ? layoutTransition : undefined}
-      entering={Platform.OS !== 'web' ? enterAnimation : undefined}
-      exiting={Platform.OS !== 'web' && isRemoving ? exitAnimation : undefined}
+      style={{
+        transform: [{ translateX: slideAnim }, { scaleY: scaleAnim }],
+        opacity: fadeAnim,
+        paddingHorizontal: 16,
+        ...(isRemoving && {
+          height: heightAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, cardHeight],
+          }),
+          overflow: 'hidden',
+        }),
+        marginBottom: isRemoving ? heightAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 8],
+        }) : 8,
+      }}
+      onLayout={(e) => {
+        const { height } = e.nativeEvent.layout;
+        if (height > 0 && !isRemoving) {
+          setCardHeight(height);
+        }
+      }}
     >
       <Swipeable
-        ref={swipeRef}
-        friction={1}
-        leftThreshold={40}
-        rightThreshold={40}
-        renderRightActions={onSwipeRight ? renderRightActions : undefined}
-        renderLeftActions={onSwipeLeft ? renderLeftActions : undefined}
-        simultaneousHandlers={simultaneousHandlers}
+        ref={setRef}
+        friction={2}
+        leftThreshold={80}
+        rightThreshold={80}
         overshootLeft={false}
         overshootRight={false}
-        onSwipeableWillOpen={(direction) => {
-          // Close all other open swipeables to ensure only one is open at a time
-          if (swipeableRefs) {
-            swipeableRefs.current.forEach((ref, id) => {
-              if (id !== reminder.id) {
-                ref?.close();
-              }
-            });
-          }
-        }}
-        onSwipeableOpen={(direction) => {
-           if (isRemoving) return;
-           
-           // Set direction for exit animation
-           setSwipeDirection(direction);
-           setIsRemoving(true);
-           
-           // Haptic feedback
-           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-           
-           // Close the swipeable immediately
-           swipeRef.current?.close();
-           
-           // Platform-specific timing:
-           // - Web: No exit animation, execute immediately
-           // - Native: Wait for exit animation to complete before removing data
-           if (Platform.OS === 'web') {
-             // Web doesn't use exit animations, remove immediately
-             executeDelete(direction);
-           } else {
-             // Native: Delay data removal until after exit animation completes
-             removalTimeoutRef.current = setTimeout(() => {
-               executeDelete(direction);
-             }, EXIT_ANIMATION_DURATION);
-           }
-         }}
+        renderRightActions={onSwipeRight ? renderRightActions : undefined}
+        renderLeftActions={onSwipeLeft ? renderLeftActions : undefined}
+        onSwipeableWillOpen={handleSwipeableWillOpen}
+        onSwipeableOpen={handleSwipeableOpen}
+        enabled={!isRemoving}
       >
         <View style={styles.cardContainer}>
           {children}
@@ -181,38 +207,28 @@ export default function SwipeableRow({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    // No backgroundColor, borderRadius, or visual styling here
-    // This is just a transparent container that allows the Swipeable gesture
-    // All visual styling (shadows, borders, etc) should be on the child card
-    overflow: 'visible',
+    backgroundColor: 'transparent',
   },
   rightAction: {
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingRight: 16,
-    flex: 1,
-    borderRadius: 12,          // Match card's borderRadius for smooth appearance
-  },
-  leftAction: {
     backgroundColor: '#F44336',
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingLeft: 16,
-    flex: 1,
-    borderRadius: 12,          // Match card's borderRadius for smooth appearance
-  },
-  actionContent: {
     alignItems: 'center',
+    width: 80,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  leftAction: {
+    backgroundColor: '#4CAF50',
     justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 12,
+    marginRight: 8,
   },
   actionText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     marginTop: 4,
   },
 });
-
-
-
