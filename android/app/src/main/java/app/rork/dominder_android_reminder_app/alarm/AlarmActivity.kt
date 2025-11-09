@@ -36,6 +36,16 @@ class AlarmActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
 
+        // --- Set status bar color to match dark background ---
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = android.graphics.Color.parseColor("#1A1A1A")
+            
+            // Make status bar icons light colored for dark background
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                window.decorView.systemUiVisibility = 0 // Clear light status bar flag for dark theme
+            }
+        }
+
         // --- Wake Lock and Screen On Logic (preserved) ---
         acquireWakeLock()
         setShowWhenLockedAndTurnScreenOn()

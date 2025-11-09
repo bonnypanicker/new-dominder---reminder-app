@@ -36,22 +36,23 @@ class RingtonePickerActivity : AppCompatActivity() {
             setPadding(0, 0, 0, 0)
         }
 
-        // Header
+        // Header - Modern design
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(16, 40, 16, 16)
-            setBackgroundColor(0xFFFFFFFF.toInt())
-            elevation = 4f
+            setPadding(24, 48, 20, 20)
+            setBackgroundColor(0xFFFAFAFA.toInt())
+            elevation = 2f
         }
 
         val titleText = TextView(this).apply {
             text = "Select Alarm Sound"
-            textSize = 20f
+            textSize = 22f
             setTextColor(0xFF1C1B1F.toInt())
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -59,10 +60,12 @@ class RingtonePickerActivity : AppCompatActivity() {
             )
         }
 
-        val cancelButton = Button(this).apply {
+        val cancelButton = com.google.android.material.button.MaterialButton(this).apply {
             text = "Cancel"
+            textSize = 14f
             setTextColor(0xFF6750A4.toInt())
-            setBackgroundColor(0x00000000)
+            backgroundTintList = null
+            cornerRadius = 50
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -117,19 +120,21 @@ class RingtonePickerActivity : AppCompatActivity() {
             customSongName = getFileName(customSongUri!!)
         }
 
-        // Add "Browse Files" button before the list
-        val browseButton = Button(this).apply {
+        // Add "Browse Files" button before the list (pill-shaped)
+        val browseButton = com.google.android.material.button.MaterialButton(this).apply {
             text = "📁 Browse Custom Songs"
-            textSize = 16f
+            textSize = 15f
             setTextColor(0xFFFFFFFF.toInt())
-            setBackgroundColor(0xFF6750A4.toInt())
+            cornerRadius = 100 // Full pill shape
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(48, 24, 48, 24)
+                setMargins(40, 20, 40, 20)
+                height = 140 // 56dp equivalent
             }
-            setPadding(32, 32, 32, 32)
+            setBackgroundColor(0xFF6750A4.toInt())
+            elevation = 2f
             setOnClickListener {
                 stopCurrentRingtone()
                 openFilePicker()
@@ -137,16 +142,31 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
         mainLayout.addView(browseButton)
         
-        // Show custom song if one is selected
+        // Show custom song if one is selected - Modern pill design
         if (customSongUri != null && customSongName != null) {
+            // Container with padding
+            val customSongContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                setPadding(40, 0, 40, 20)
+            }
+
             val customSongView = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                setPadding(48, 24, 48, 24)
+                setPadding(32, 28, 32, 28)
                 setBackgroundColor(0xFFE8DEF8.toInt()) // Light primary container
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFFE8DEF8.toInt())
+                    cornerRadius = 50f
+                }
+                elevation = 2f
                 
                 setOnClickListener {
                     stopCurrentRingtone()
@@ -174,7 +194,8 @@ class RingtonePickerActivity : AppCompatActivity() {
                 text = "🎵 ${customSongName}"
                 textSize = 16f
                 setTextColor(0xFF1C1B1F.toInt())
-                setPadding(32, 0, 0, 0)
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                setPadding(24, 0, 0, 0)
                 layoutParams = LinearLayout.LayoutParams(
                     0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -184,7 +205,8 @@ class RingtonePickerActivity : AppCompatActivity() {
 
             customSongView.addView(radioButton)
             customSongView.addView(textView)
-            mainLayout.addView(customSongView)
+            customSongContainer.addView(customSongView)
+            mainLayout.addView(customSongContainer)
         }
 
         // Create adapter
@@ -251,27 +273,31 @@ class RingtonePickerActivity : AppCompatActivity() {
 
         mainLayout.addView(listView)
 
-        // Footer with OK button
+        // Footer with OK button (pill-shaped)
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(16, 16, 16, 16)
-            setBackgroundColor(0xFFFFFFFF.toInt())
-            elevation = 4f
+            setPadding(24, 20, 24, 24)
+            setBackgroundColor(0xFFFAFAFA.toInt())
+            elevation = 8f
         }
 
-        val okButton = Button(this).apply {
-            text = "OK"
+        val okButton = com.google.android.material.button.MaterialButton(this).apply {
+            text = "Confirm Selection"
+            textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
-            setBackgroundColor(0xFF6750A4.toInt())
+            cornerRadius = 100 // Full pill shape
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(32, 24, 32, 24)
+            ).apply {
+                height = 140 // 56dp equivalent
+            }
+            setBackgroundColor(0xFF6750A4.toInt())
+            elevation = 2f
             setOnClickListener {
                 stopCurrentRingtone()
                 val result = Intent().apply {
