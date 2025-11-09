@@ -1,5 +1,5 @@
-import React, { useRef, useCallback, useState } from 'react';
-import { StyleSheet, View, Text, Animated, Dimensions } from 'react-native';
+import React, { useRef, useCallback, useState, memo } from 'react';
+import { StyleSheet, View, Text, Animated, Dimensions, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -17,7 +17,7 @@ interface SwipeableRowProps {
   simultaneousHandlers?: React.RefObject<any>;
 }
 
-export default function SwipeableRow({ 
+const SwipeableRow = memo(function SwipeableRow({ 
   children,
   reminder,
   onSwipeRight,
@@ -31,6 +31,7 @@ export default function SwipeableRow({
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const heightAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const hasLayoutMeasured = useRef(false);
 
   // Register this swipeable
   const setRef = useCallback((ref: Swipeable | null) => {
@@ -115,40 +116,53 @@ export default function SwipeableRow({
   const handleSwipeableOpen = useCallback((direction: 'left' | 'right') => {
     if (isRemoving) return;
     
-    setIsRemoving(true);
-    
     // Haptic feedback for action confirmation
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     const screenWidth = Dimensions.get('window').width;
     const targetX = direction === 'right' ? screenWidth : -screenWidth;
     
+    // Platform-specific animation timing
+    const slideDuration = Platform.OS === 'android' ? 300 : 350;
+    const heightDuration = Platform.OS === 'android' ? 250 : 350;
+    const heightDelay = Platform.OS === 'android' ? 50 : 0;
+    
+    // Set removing state after a brief delay on Android to prevent flash
+    if (Platform.OS === 'android') {
+      setTimeout(() => setIsRemoving(true), 16);
+    } else {
+      setIsRemoving(true);
+    }
+    
     // Animate card sliding off screen with action fade-out
     Animated.parallel([
       // Slide card off screen
       Animated.timing(slideAnim, {
         toValue: targetX,
-        duration: 350,
+        duration: slideDuration,
         useNativeDriver: true,
       }),
       // Fade out the card
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 350,
+        duration: slideDuration,
         useNativeDriver: true,
       }),
       // Scale down slightly for depth effect
       Animated.timing(scaleAnim, {
         toValue: 0.95,
-        duration: 350,
+        duration: slideDuration,
         useNativeDriver: true,
       }),
-      // Collapse height for smooth card repositioning
-      Animated.timing(heightAnim, {
-        toValue: 0,
-        duration: 350,
-        useNativeDriver: false,
-      }),
+      // Collapse height with delay for smooth card repositioning
+      Animated.sequence([
+        Animated.delay(heightDelay),
+        Animated.timing(heightAnim, {
+          toValue: 0,
+          duration: heightDuration,
+          useNativeDriver: false,
+        }),
+      ]),
     ]).start(() => {
       // Execute the action after animation completes
       if (direction === 'right' && onSwipeRight) {
@@ -179,8 +193,9 @@ export default function SwipeableRow({
       }}
       onLayout={(e) => {
         const { height } = e.nativeEvent.layout;
-        if (height > 0 && !isRemoving) {
+        if (height > 0 && !isRemoving && !hasLayoutMeasured.current) {
           setCardHeight(height);
+          hasLayoutMeasured.current = true;
         }
       }}
     >
@@ -203,7 +218,18 @@ export default function SwipeableRow({
       </Swipeable>
     </Animated.View>
   );
-}
+}, (prevProps, nextProps) => {
+  // Optimize re-renders - only update if reminder changes
+  return (
+    prevProps.reminder.id === nextProps.reminder.id &&
+    prevProps.reminder.isCompleted === nextProps.reminder.isCompleted &&
+    prevProps.reminder.title === nextProps.reminder.title &&
+    prevProps.onSwipeRight === nextProps.onSwipeRight &&
+    prevProps.onSwipeLeft === nextProps.onSwipeLeft
+  );
+});
+
+export default SwipeableRow;
 
 const styles = StyleSheet.create({
   cardContainer: {

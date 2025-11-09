@@ -1037,6 +1037,13 @@ export default function HomeScreen() {
           paddingBottom: 100,
           paddingTop: 8,
         }}
+        drawDistance={Platform.OS === 'android' ? 500 : 250}
+        removeClippedSubviews={Platform.OS === 'android' ? true : false}
+        overrideItemLayout={(layout, item) => {
+          if (Platform.OS === 'android') {
+            layout.size = layout.size || 120;
+          }
+        }}
         ListEmptyComponent={
         <View style={styles.emptyState}>
           {activeTab === 'active' ? (
@@ -1066,8 +1073,6 @@ export default function HomeScreen() {
           )}
         </View>
       }
-      drawDistance={250}
-      removeClippedSubviews={false}
       bounces={true}
       bouncesZoom={false}
       alwaysBounceVertical={true}
