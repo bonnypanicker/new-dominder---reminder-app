@@ -194,9 +194,8 @@ export default function SettingsScreen() {
                   <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
                 </View>
                 <View style={styles.ringtoneContent}>
-                  <Text style={styles.ringtoneTitle}>Alarm Ringtone</Text>
+                  <Text style={styles.ringtoneTitle}>Ringer Mode Tone</Text>
                   <Text style={styles.ringtoneValue}>{currentRingtone}</Text>
-                  <Text style={styles.ringtoneHint}>Only for High Priority alarms</Text>
                 </View>
                 <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
               </TouchableOpacity>

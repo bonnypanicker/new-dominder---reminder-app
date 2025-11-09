@@ -426,7 +426,7 @@ class AlarmRingtoneService : Service() {
         DebugLogger.log("AlarmRingtoneService: Starting foreground service")
         
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Playing Alarm")
+            .setContentTitle("Reminder")
             .setContentText(title)
             .setSmallIcon(R.drawable.small_icon_noti)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -1007,7 +1007,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
 
         val titleText = TextView(this).apply {
-            text = "Select Alarm Sound"
+            text = "Select Ringer Tone"
             textSize = 22f
             setTextColor(0xFF1C1B1F.toInt())
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
