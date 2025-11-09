@@ -11,36 +11,38 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
+    android:background="#FFFBFE"
     android:orientation="vertical"
-    android:paddingStart="24dp"
-    android:paddingEnd="24dp"
-    android:paddingTop="48dp"
-    android:paddingBottom="32dp">
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="56dp"
+    android:paddingBottom="40dp">
 
     <!-- Header -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="REMINDER"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="14sp"
+        android:textColor="#49454F"
+        android:textSize="12sp"
         android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.05"
+        android:letterSpacing="0.1"
         android:gravity="center"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="12dp" />
 
     <!-- Reminder Title -->
     <TextView
         android:id="@+id/alarm_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="?attr/colorOnSurface"
-        android:textSize="28sp"
+        android:textColor="#1C1B1F"
+        android:textSize="32sp"
         android:fontFamily="sans-serif"
         android:gravity="center"
-        android:lineSpacingMultiplier="1.3"
-        android:layout_marginBottom="48dp"
+        android:lineSpacingMultiplier="1.2"
+        android:layout_marginBottom="56dp"
+        android:maxLines="3"
+        android:ellipsize="end"
         tools:text="Reminder Title" />
 
     <!-- Center Time Display -->
@@ -49,16 +51,16 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="center"
-        android:layout_marginBottom="48dp">
+        android:layout_marginBottom="56dp">
 
         <TextView
             android:id="@+id/current_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="72sp"
-            android:fontFamily="sans-serif-light"
-            android:letterSpacing="-0.02"
+            android:textColor="#6750A4"
+            android:textSize="80sp"
+            android:fontFamily="sans-serif-thin"
+            android:letterSpacing="-0.01"
             tools:text="12:34 PM" />
     </LinearLayout>
 
@@ -67,97 +69,101 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="SNOOZE FOR"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="12sp"
+        android:textColor="#49454F"
+        android:textSize="11sp"
         android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.05"
+        android:letterSpacing="0.1"
         android:gravity="center"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="20dp" />
 
-    <!-- Snooze Buttons -->
+    <!-- Snooze Buttons (Pill-shaped) -->
     <LinearLayout
         android:id="@+id/snooze_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginBottom="24dp">
+        android:layout_marginBottom="32dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_5m"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_weight="1"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="#6750A4"
             android:text="5m"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:fontFamily="sans-serif-medium"
-            android:paddingVertical="12dp"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="8dp"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorPrimary" />
+            app:strokeWidth="1.5dp"
+            app:strokeColor="#6750A4"
+            app:cornerRadius="28dp"
+            app:rippleColor="#E8DEF8" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_10m"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_weight="1"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="#6750A4"
             android:text="10m"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:fontFamily="sans-serif-medium"
-            android:paddingVertical="12dp"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="8dp"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorPrimary" />
+            app:strokeWidth="1.5dp"
+            app:strokeColor="#6750A4"
+            app:cornerRadius="28dp"
+            app:rippleColor="#E8DEF8" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_15m"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_weight="1"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="#6750A4"
             android:text="15m"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:fontFamily="sans-serif-medium"
-            android:paddingVertical="12dp"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="8dp"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorPrimary" />
+            app:strokeWidth="1.5dp"
+            app:strokeColor="#6750A4"
+            app:cornerRadius="28dp"
+            app:rippleColor="#E8DEF8" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/snooze_30m"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_weight="1"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="#6750A4"
             android:text="30m"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:fontFamily="sans-serif-medium"
-            android:paddingVertical="12dp"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorPrimary" />
+            app:strokeWidth="1.5dp"
+            app:strokeColor="#6750A4"
+            app:cornerRadius="28dp"
+            app:rippleColor="#E8DEF8" />
     </LinearLayout>
 
-    <!-- Done Button -->
+    <!-- Done Button (Pill-shaped) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/done_button"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="?attr/colorOnPrimary"
+        android:layout_height="64dp"
+        android:textColor="#FFFFFF"
         android:text="Done"
-        android:textSize="16sp"
+        android:textSize="17sp"
         android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.05"
-        android:paddingVertical="20dp"
+        android:letterSpacing="0.02"
         style="@style/Widget.Material3.Button"
-        app:cornerRadius="8dp"
-        app:rippleColor="?attr/colorPrimaryContainer"
-        app:backgroundTint="?attr/colorPrimary" />
+        app:cornerRadius="32dp"
+        app:rippleColor="#FFFFFF"
+        app:backgroundTint="#6750A4"
+        android:elevation="2dp" />
 
 </LinearLayout>`;
 
@@ -940,22 +946,23 @@ class RingtonePickerActivity : AppCompatActivity() {
             setPadding(0, 0, 0, 0)
         }
 
-        // Header
+        // Header - Modern design
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(16, 40, 16, 16)
-            setBackgroundColor(0xFFFFFFFF.toInt())
-            elevation = 4f
+            setPadding(24, 48, 20, 20)
+            setBackgroundColor(0xFFFAFAFA.toInt())
+            elevation = 2f
         }
 
         val titleText = TextView(this).apply {
             text = "Select Alarm Sound"
-            textSize = 20f
+            textSize = 22f
             setTextColor(0xFF1C1B1F.toInt())
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -963,10 +970,12 @@ class RingtonePickerActivity : AppCompatActivity() {
             )
         }
 
-        val cancelButton = Button(this).apply {
+        val cancelButton = com.google.android.material.button.MaterialButton(this).apply {
             text = "Cancel"
+            textSize = 14f
             setTextColor(0xFF6750A4.toInt())
-            setBackgroundColor(0x00000000)
+            backgroundTintList = null
+            cornerRadius = 50
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -1021,19 +1030,21 @@ class RingtonePickerActivity : AppCompatActivity() {
             customSongName = getFileName(customSongUri!!)
         }
 
-        // Add "Browse Files" button before the list
-        val browseButton = Button(this).apply {
+        // Add "Browse Files" button before the list (pill-shaped)
+        val browseButton = com.google.android.material.button.MaterialButton(this).apply {
             text = "📁 Browse Custom Songs"
-            textSize = 16f
+            textSize = 15f
             setTextColor(0xFFFFFFFF.toInt())
-            setBackgroundColor(0xFF6750A4.toInt())
+            cornerRadius = 100 // Full pill shape
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(48, 24, 48, 24)
+                setMargins(40, 20, 40, 20)
+                height = 140 // 56dp equivalent
             }
-            setPadding(32, 32, 32, 32)
+            setBackgroundColor(0xFF6750A4.toInt())
+            elevation = 2f
             setOnClickListener {
                 stopCurrentRingtone()
                 openFilePicker()
@@ -1041,16 +1052,31 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
         mainLayout.addView(browseButton)
         
-        // Show custom song if one is selected
+        // Show custom song if one is selected - Modern pill design
         if (customSongUri != null && customSongName != null) {
+            // Container with padding
+            val customSongContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                setPadding(40, 0, 40, 20)
+            }
+
             val customSongView = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                setPadding(48, 24, 48, 24)
+                setPadding(32, 28, 32, 28)
                 setBackgroundColor(0xFFE8DEF8.toInt()) // Light primary container
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFFE8DEF8.toInt())
+                    cornerRadius = 50f
+                }
+                elevation = 2f
                 
                 setOnClickListener {
                     stopCurrentRingtone()
@@ -1078,7 +1104,8 @@ class RingtonePickerActivity : AppCompatActivity() {
                 text = "🎵 \${customSongName}"
                 textSize = 16f
                 setTextColor(0xFF1C1B1F.toInt())
-                setPadding(32, 0, 0, 0)
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                setPadding(24, 0, 0, 0)
                 layoutParams = LinearLayout.LayoutParams(
                     0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1088,7 +1115,8 @@ class RingtonePickerActivity : AppCompatActivity() {
 
             customSongView.addView(radioButton)
             customSongView.addView(textView)
-            mainLayout.addView(customSongView)
+            customSongContainer.addView(customSongView)
+            mainLayout.addView(customSongContainer)
         }
 
         // Create adapter
@@ -1155,27 +1183,31 @@ class RingtonePickerActivity : AppCompatActivity() {
 
         mainLayout.addView(listView)
 
-        // Footer with OK button
+        // Footer with OK button (pill-shaped)
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(16, 16, 16, 16)
-            setBackgroundColor(0xFFFFFFFF.toInt())
-            elevation = 4f
+            setPadding(24, 20, 24, 24)
+            setBackgroundColor(0xFFFAFAFA.toInt())
+            elevation = 8f
         }
 
-        val okButton = Button(this).apply {
-            text = "OK"
+        val okButton = com.google.android.material.button.MaterialButton(this).apply {
+            text = "Confirm Selection"
+            textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
-            setBackgroundColor(0xFF6750A4.toInt())
+            cornerRadius = 100 // Full pill shape
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(32, 24, 32, 24)
+            ).apply {
+                height = 140 // 56dp equivalent
+            }
+            setBackgroundColor(0xFF6750A4.toInt())
+            elevation = 2f
             setOnClickListener {
                 stopCurrentRingtone()
                 val result = Intent().apply {
