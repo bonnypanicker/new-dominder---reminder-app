@@ -110,7 +110,7 @@ class AlarmRingtoneService : Service() {
         DebugLogger.log("AlarmRingtoneService: Starting foreground service")
         
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Playing Alarm")
+            .setContentTitle("Reminder")
             .setContentText(title)
             .setSmallIcon(R.drawable.small_icon_noti)
             .setPriority(NotificationCompat.PRIORITY_LOW)

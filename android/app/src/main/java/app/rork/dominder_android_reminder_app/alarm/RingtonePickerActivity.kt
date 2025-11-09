@@ -6,6 +6,7 @@ import android.content.Intent
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.View
@@ -24,6 +25,16 @@ class RingtonePickerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Set status bar color to match page background
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = 0xFFFEF7FF.toInt()
+            
+            // Make status bar icons dark colored for light background
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            }
+        }
         
         // Create layout programmatically to match app theme
         val mainLayout = LinearLayout(this).apply {
@@ -49,7 +60,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
 
         val titleText = TextView(this).apply {
-            text = "Select Alarm Sound"
+            text = "Select Ringer Tone"
             textSize = 22f
             setTextColor(0xFF1C1B1F.toInt())
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
@@ -63,8 +74,8 @@ class RingtonePickerActivity : AppCompatActivity() {
         val cancelButton = com.google.android.material.button.MaterialButton(this).apply {
             text = "Cancel"
             textSize = 14f
-            setTextColor(0xFF6750A4.toInt())
-            backgroundTintList = null
+            setTextColor(0xFFFFFFFF.toInt())
+            setBackgroundColor(0xFF6750A4.toInt())
             cornerRadius = 50
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
