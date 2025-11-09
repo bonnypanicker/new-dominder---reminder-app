@@ -102,6 +102,18 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
   // Round to nearest second to group reminders
   const baseSecond = Math.floor(baseTimestamp / 1000) * 1000;
   
+  // First, remove any existing entries for this reminder ID from all timestamps
+  // This prevents stale entries when rescheduling repeating reminders
+  for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
+    const index = ids.indexOf(reminderId);
+    if (index !== -1) {
+      ids.splice(index, 1);
+      if (ids.length === 0) {
+        scheduledTimestamps.delete(timestamp);
+      }
+    }
+  }
+  
   // Clean up old entries (older than 5 minutes)
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
   for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
@@ -115,13 +127,7 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
   let delayCount = 0;
   
   while (scheduledTimestamps.has(candidateTimestamp)) {
-    const existingIds = scheduledTimestamps.get(candidateTimestamp);
-    if (existingIds && existingIds.includes(reminderId)) {
-      // This reminder is already scheduled for this slot, use it
-      console.log(`[NotificationService] Reminder ${reminderId} already scheduled at ${new Date(candidateTimestamp).toISOString()}`);
-      return candidateTimestamp;
-    }
-    // Slot taken, try next second
+    // Slot taken by another reminder, try next second
     candidateTimestamp += 1000;
     delayCount++;
     
@@ -160,6 +166,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   }
 
   console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
+  
+  // For repeating reminders, cancel any existing alarm/notification first to ensure clean rescheduling
+  if (reminder.repeatType !== 'none' && reminder.lastTriggeredAt) {
+    console.log(`[NotificationService] Canceling existing alarm before rescheduling repeating reminder ${reminder.id}`);
+    await cancelAllNotificationsForReminder(reminder.id);
+  }
   
   let when = reminderToTimestamp(reminder);
   const now = Date.now();
