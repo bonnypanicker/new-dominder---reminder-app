@@ -49,6 +49,7 @@
       "./plugins/with-fullscreen-alarm",
       "./plugins/with-alarm-module.js",
       "./plugins/with-orientation.js",
+      "./plugins/with-soft-input-mode.js",
       "./plugins/with-notifee-android.js",
       "./plugins/with-eas-notifee.js",
       [

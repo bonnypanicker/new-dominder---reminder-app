@@ -224,7 +224,6 @@ const SwipeableRow = memo(function SwipeableRow({
         style={{
           transform: [{ translateX: slideAnim }, { scaleY: scaleAnim }],
           opacity: fadeAnim,
-          paddingHorizontal: 16,
         }}
       >
         <Swipeable
@@ -270,7 +269,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     borderRadius: 12,
-    marginLeft: 8,
+    marginLeft: 24,
+    marginRight: 16,
   },
   leftAction: {
     backgroundColor: '#4CAF50',
@@ -278,7 +278,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     borderRadius: 12,
-    marginRight: 8,
+    marginRight: 24,
+    marginLeft: 16,
   },
   actionText: {
     color: 'white',

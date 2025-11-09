@@ -1614,7 +1614,7 @@ function CreateReminderPopup({
         >
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 4 }}
+            contentContainerStyle={{ paddingBottom: 100 }}
             style={{ maxHeight: '100%' }}
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="always"
@@ -1727,7 +1727,7 @@ const createPopupStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    paddingBottom: 16,
+    paddingBottom: 80,
     width: '100%',
     maxWidth: 480,
     maxHeight: '90%',
@@ -1790,11 +1790,18 @@ const createPopupStyles = StyleSheet.create({
     borderRadius: 16,
   },
   buttonContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
     zIndex: 5,
   },
 
@@ -3149,14 +3156,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
+    marginHorizontal: 16,
     // ✅ Android GPU optimizations
     elevation: 2,  // Use elevation instead of shadow for Android
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    // Allow swipeable content to draw beyond card bounds
-    overflow: 'visible',
   },
   selectedCard: {
     backgroundColor: Material3Colors.light.surfaceContainer,

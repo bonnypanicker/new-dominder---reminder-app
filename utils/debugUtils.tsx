@@ -370,7 +370,8 @@ export function withRenderTracking<P extends object>(
   return (props: P) => {
     const name = componentName || Component.displayName || Component.name || 'Unknown';
     useRenderTracking(name, props);
-    return <Component {...props} />;
+    // Use createElement instead of JSX to avoid parser issues in some bundler contexts
+    return React.createElement(Component as any, props as any);
   };
 }
 
