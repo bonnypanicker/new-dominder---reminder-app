@@ -111,7 +111,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           // For recurring reminders, we need to advance to the next occurrence automatically
           // This ensures that "every X minutes" reminders continue to fire even if user doesn't interact
           
-          let nextDate = calculateNextReminderDate(reminder, now);
+          // Increment occurrence count when auto-advancing past occurrences
+          // This ensures count-based "ends after X occurrences" works correctly
+          const occurred = reminder.occurrenceCount ?? 0;
+          const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
+          const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount as number)
+            ? occurred
+            : occurred + 1;
+          const reminderForCalc = { ...reminder, occurrenceCount: nextOccurCount };
+          
+          let nextDate = calculateNextReminderDate(reminderForCalc, now);
           
           // For 'every' type reminders, if the calculated next date is still in the past,
           // we need to keep advancing until we get a future date
@@ -135,7 +144,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           
           if (nextDate && nextDate > now) {
             const updated = {
-              ...reminder,
+              ...reminderForCalc,
               nextReminderDate: nextDate.toISOString(),
               lastTriggeredAt: new Date().toISOString(),
               snoozeUntil: undefined,
