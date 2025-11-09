@@ -140,6 +140,8 @@ export default function HomeScreen() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
+  // Prevent the immediate onPress firing right after onLongPress
+  const suppressNextPressRef = React.useRef<boolean>(false);
 
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
@@ -372,6 +374,8 @@ export default function HomeScreen() {
   }, [deleteReminder]);
 
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
+    // Suppress the subsequent onPress triggered after a long press
+    suppressNextPressRef.current = true;
     if (!isSelectionMode) {
       setIsSelectionMode(true);
       setSelectionTab(tab);
@@ -380,6 +384,11 @@ export default function HomeScreen() {
   }, [isSelectionMode]);
 
   const handleCardPress = useCallback((reminder: Reminder) => {
+    // Ignore the press that follows a long-press
+    if (suppressNextPressRef.current) {
+      suppressNextPressRef.current = false;
+      return;
+    }
     if (isSelectionMode) {
       const newSelected = new Set(selectedReminders);
       if (newSelected.has(reminder.id)) {
@@ -388,7 +397,6 @@ export default function HomeScreen() {
         newSelected.add(reminder.id);
       }
       setSelectedReminders(newSelected);
-      
       if (newSelected.size === 0) {
         setIsSelectionMode(false);
       }
