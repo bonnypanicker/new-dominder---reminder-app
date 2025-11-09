@@ -79,6 +79,9 @@ function bodyWithTime(desc: string | undefined, when: number) {
   return [desc?.trim(), formatted].filter(Boolean).join('\n');
 }
 
+// Track scheduled timestamps to prevent collisions and add sequential delays
+const scheduledTimestamps = new Map<number, string[]>(); // timestamp -> array of reminder IDs
+
 function reminderToTimestamp(reminder: Reminder): number {
   if (reminder.snoozeUntil) {
     return new Date(reminder.snoozeUntil).getTime();
@@ -92,6 +95,54 @@ function reminderToTimestamp(reminder: Reminder): number {
   const [hours, minutes] = reminder.time.split(':').map(Number);
   const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
   return date.getTime();
+}
+
+// Apply sequential delay if multiple reminders are scheduled at the same time
+function applySequentialDelay(baseTimestamp: number, reminderId: string): number {
+  // Round to nearest second to group reminders
+  const baseSecond = Math.floor(baseTimestamp / 1000) * 1000;
+  
+  // Clean up old entries (older than 5 minutes)
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+  for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
+    if (timestamp < fiveMinutesAgo) {
+      scheduledTimestamps.delete(timestamp);
+    }
+  }
+  
+  // Find available slot starting from base timestamp
+  let candidateTimestamp = baseSecond;
+  let delayCount = 0;
+  
+  while (scheduledTimestamps.has(candidateTimestamp)) {
+    const existingIds = scheduledTimestamps.get(candidateTimestamp);
+    if (existingIds && existingIds.includes(reminderId)) {
+      // This reminder is already scheduled for this slot, use it
+      console.log(`[NotificationService] Reminder ${reminderId} already scheduled at ${new Date(candidateTimestamp).toISOString()}`);
+      return candidateTimestamp;
+    }
+    // Slot taken, try next second
+    candidateTimestamp += 1000;
+    delayCount++;
+    
+    // Limit to 60 seconds of delay
+    if (delayCount >= 60) {
+      console.warn(`[NotificationService] Max delay reached for ${reminderId}, using ${delayCount}s delay`);
+      break;
+    }
+  }
+  
+  // Register this timestamp
+  if (!scheduledTimestamps.has(candidateTimestamp)) {
+    scheduledTimestamps.set(candidateTimestamp, []);
+  }
+  scheduledTimestamps.get(candidateTimestamp)!.push(reminderId);
+  
+  if (delayCount > 0) {
+    console.log(`[NotificationService] Applied ${delayCount}s sequential delay to ${reminderId} (${new Date(baseSecond).toISOString()} -> ${new Date(candidateTimestamp).toISOString()})`);
+  }
+  
+  return candidateTimestamp;
 }
 
 export async function scheduleReminderByModel(reminder: Reminder) {
@@ -160,6 +211,9 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       return;
     }
   }
+  
+  // Apply sequential delay to prevent multiple reminders from firing simultaneously
+  when = applySequentialDelay(when, reminder.id);
   
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
@@ -286,6 +340,18 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
       }
     }
+    
+    // Clean up from scheduledTimestamps map
+    for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
+      const index = ids.indexOf(reminderId);
+      if (index !== -1) {
+        ids.splice(index, 1);
+        if (ids.length === 0) {
+          scheduledTimestamps.delete(timestamp);
+        }
+      }
+    }
+    
     console.log(`[NotificationService] Cancelled all notifications (scheduled + displayed) for reminder ${reminderId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
@@ -299,6 +365,9 @@ export async function cancelAllNotifications() {
     
     // Cancel all displayed notifications
     await notifee.cancelDisplayedNotifications();
+    
+    // Clear the scheduledTimestamps map
+    scheduledTimestamps.clear();
     
     console.log('[NotificationService] Cancelled all notifications');
   } catch (error) {
