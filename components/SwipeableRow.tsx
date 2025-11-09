@@ -16,6 +16,7 @@ interface SwipeableRowProps {
   onSwipeLeft?: () => void;
   swipeableRefs?: React.MutableRefObject<Map<string, any>>;
   simultaneousHandlers?: React.RefObject<any>;
+  isSelectionMode?: boolean;
 }
 
 const SwipeableRow = memo(function SwipeableRow({ 
@@ -23,7 +24,8 @@ const SwipeableRow = memo(function SwipeableRow({
   reminder,
   onSwipeRight,
   onSwipeLeft,
-  swipeableRefs
+  swipeableRefs,
+  isSelectionMode = false
 }: SwipeableRowProps) {
   // Debug: Track renders
   useRenderTracking('SwipeableRow', { reminderId: reminder.id });
@@ -237,7 +239,7 @@ const SwipeableRow = memo(function SwipeableRow({
         renderLeftActions={onSwipeLeft ? renderLeftActions : undefined}
         onSwipeableWillOpen={handleSwipeableWillOpen}
         onSwipeableOpen={handleSwipeableOpen}
-        enabled={!isRemoving}
+        enabled={!isRemoving && !isSelectionMode}
       >
           <View style={styles.cardContainer}>
             {children}
@@ -253,7 +255,8 @@ const SwipeableRow = memo(function SwipeableRow({
     prevProps.reminder.isCompleted === nextProps.reminder.isCompleted &&
     prevProps.reminder.title === nextProps.reminder.title &&
     prevProps.onSwipeRight === nextProps.onSwipeRight &&
-    prevProps.onSwipeLeft === nextProps.onSwipeLeft
+    prevProps.onSwipeLeft === nextProps.onSwipeLeft &&
+    prevProps.isSelectionMode === nextProps.isSelectionMode
   );
 });
 

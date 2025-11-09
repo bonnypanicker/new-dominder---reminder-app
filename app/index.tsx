@@ -558,6 +558,7 @@ export default function HomeScreen() {
         simultaneousHandlers={contentScrollRef}
         onSwipeRight={!selectionMode ? () => handleDelete(reminder) : undefined}
         onSwipeLeft={isActive && !selectionMode ? () => completeAllOccurrences(reminder) : undefined}
+        isSelectionMode={selectionMode}
       >
         <TouchableOpacity
             activeOpacity={0.85}
