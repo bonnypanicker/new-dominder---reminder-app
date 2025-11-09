@@ -145,6 +145,11 @@ export default function HomeScreen() {
   // Prevent the immediate onPress firing right after onLongPress
   const suppressNextPressRef = React.useRef<boolean>(false);
 
+  // Sync ref with state for reliability
+  React.useEffect(() => {
+    isSelectionModeRef.current = isSelectionMode;
+    console.log('[Selection] Mode changed:', isSelectionMode, 'Selected count:', selectedReminders.size);
+  }, [isSelectionMode, selectedReminders]);
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
