@@ -167,12 +167,6 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
   console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
   
-  // For repeating reminders, cancel any existing alarm/notification first to ensure clean rescheduling
-  if (reminder.repeatType !== 'none' && reminder.lastTriggeredAt) {
-    console.log(`[NotificationService] Canceling existing alarm before rescheduling repeating reminder ${reminder.id}`);
-    await cancelAllNotificationsForReminder(reminder.id);
-  }
-  
   let when = reminderToTimestamp(reminder);
   const now = Date.now();
   
