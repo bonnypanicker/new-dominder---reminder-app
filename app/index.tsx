@@ -140,6 +140,8 @@ export default function HomeScreen() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
+  // Use ref to always access latest selection mode state
+  const isSelectionModeRef = React.useRef<boolean>(false);
   // Prevent the immediate onPress firing right after onLongPress
   const suppressNextPressRef = React.useRef<boolean>(false);
 
@@ -376,12 +378,13 @@ export default function HomeScreen() {
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
     // Suppress the subsequent onPress triggered after a long press
     suppressNextPressRef.current = true;
-    if (!isSelectionMode) {
+    if (!isSelectionModeRef.current) {
+      isSelectionModeRef.current = true;
       setIsSelectionMode(true);
       setSelectionTab(tab);
       setSelectedReminders(new Set([reminderId]));
     }
-  }, [isSelectionMode]);
+  }, []);
 
   const handleCardPress = useCallback((reminder: Reminder) => {
     // Ignore the press that follows a long-press
@@ -389,23 +392,28 @@ export default function HomeScreen() {
       suppressNextPressRef.current = false;
       return;
     }
-    if (isSelectionMode) {
-      const newSelected = new Set(selectedReminders);
-      if (newSelected.has(reminder.id)) {
-        newSelected.delete(reminder.id);
-      } else {
-        newSelected.add(reminder.id);
-      }
-      setSelectedReminders(newSelected);
-      if (newSelected.size === 0) {
-        setIsSelectionMode(false);
-      }
+    // Use ref to get latest selection mode state
+    if (isSelectionModeRef.current) {
+      setSelectedReminders(prev => {
+        const newSelected = new Set(prev);
+        if (newSelected.has(reminder.id)) {
+          newSelected.delete(reminder.id);
+        } else {
+          newSelected.add(reminder.id);
+        }
+        if (newSelected.size === 0) {
+          isSelectionModeRef.current = false;
+          setIsSelectionMode(false);
+        }
+        return newSelected;
+      });
     } else {
       openEdit(reminder);
     }
-  }, [isSelectionMode, selectedReminders, openEdit]);
+  }, [openEdit]);
 
   const exitSelectionMode = useCallback(() => {
+    isSelectionModeRef.current = false;
     setIsSelectionMode(false);
     setSelectedReminders(new Set());
     setSelectionTab(null);
@@ -422,10 +430,12 @@ export default function HomeScreen() {
     const allSelected = ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
 
     if (allSelected) {
+      isSelectionModeRef.current = false;
       setSelectedReminders(new Set());
       setIsSelectionMode(false);
       setSelectionTab(null);
     } else {
+      isSelectionModeRef.current = true;
       setSelectedReminders(ids);
       setIsSelectionMode(true);
       setSelectionTab(scope);
