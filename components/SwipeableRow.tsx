@@ -4,6 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Reminder } from '@/types/reminder';
+import { useRenderTracking, animationConflictDetector, performanceMonitor } from '@/utils/debugUtils';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
@@ -24,6 +25,9 @@ const SwipeableRow = memo(function SwipeableRow({
   onSwipeLeft,
   swipeableRefs
 }: SwipeableRowProps) {
+  // Debug: Track renders
+  useRenderTracking('SwipeableRow', { reminderId: reminder.id });
+
   const swipeableRef = useRef<Swipeable>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [cardHeight, setCardHeight] = useState(120);
@@ -116,6 +120,16 @@ const SwipeableRow = memo(function SwipeableRow({
   const handleSwipeableOpen = useCallback((direction: 'left' | 'right') => {
     if (isRemoving) return;
     
+    // Debug: Track animation start
+    performanceMonitor.start(`SwipeAnimation-${reminder.id}`);
+    
+    // Debug: Register animations to detect conflicts
+    const nodeId = `swipeable-${reminder.id}`;
+    animationConflictDetector.registerAnimation(nodeId, 'slideAnim', true);
+    animationConflictDetector.registerAnimation(nodeId, 'fadeAnim', true);
+    animationConflictDetector.registerAnimation(nodeId, 'scaleAnim', true);
+    animationConflictDetector.registerAnimation(nodeId + '-height', 'heightAnim', false);
+    
     // Haptic feedback for action confirmation
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
@@ -164,6 +178,16 @@ const SwipeableRow = memo(function SwipeableRow({
         }),
       ]),
     ]).start(() => {
+      // Debug: Track animation end
+      performanceMonitor.end(`SwipeAnimation-${reminder.id}`);
+      
+      // Debug: Unregister animations
+      const nodeId = `swipeable-${reminder.id}`;
+      animationConflictDetector.unregisterAnimation(nodeId, 'slideAnim');
+      animationConflictDetector.unregisterAnimation(nodeId, 'fadeAnim');
+      animationConflictDetector.unregisterAnimation(nodeId, 'scaleAnim');
+      animationConflictDetector.unregisterAnimation(nodeId + '-height', 'heightAnim');
+      
       // Execute the action after animation completes
       if (direction === 'right' && onSwipeRight) {
         onSwipeRight();
@@ -171,14 +195,11 @@ const SwipeableRow = memo(function SwipeableRow({
         onSwipeLeft();
       }
     });
-  }, [isRemoving, slideAnim, fadeAnim, scaleAnim, heightAnim, onSwipeRight, onSwipeLeft]);
+  }, [isRemoving, slideAnim, fadeAnim, scaleAnim, heightAnim, onSwipeRight, onSwipeLeft, reminder.id]);
 
   return (
-    <Animated.View 
+    <Animated.View
       style={{
-        transform: [{ translateX: slideAnim }, { scaleY: scaleAnim }],
-        opacity: fadeAnim,
-        paddingHorizontal: 16,
         ...(isRemoving && {
           height: heightAnim.interpolate({
             inputRange: [0, 1],
@@ -199,7 +220,14 @@ const SwipeableRow = memo(function SwipeableRow({
         }
       }}
     >
-      <Swipeable
+      <Animated.View
+        style={{
+          transform: [{ translateX: slideAnim }, { scaleY: scaleAnim }],
+          opacity: fadeAnim,
+          paddingHorizontal: 16,
+        }}
+      >
+        <Swipeable
         ref={setRef}
         friction={2}
         leftThreshold={80}
@@ -212,10 +240,11 @@ const SwipeableRow = memo(function SwipeableRow({
         onSwipeableOpen={handleSwipeableOpen}
         enabled={!isRemoving}
       >
-        <View style={styles.cardContainer}>
-          {children}
-        </View>
-      </Swipeable>
+          <View style={styles.cardContainer}>
+            {children}
+          </View>
+        </Swipeable>
+      </Animated.View>
     </Animated.View>
   );
 }, (prevProps, nextProps) => {
