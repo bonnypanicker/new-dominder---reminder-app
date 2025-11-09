@@ -983,6 +983,16 @@ class RingtonePickerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Set status bar color to match page background
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = 0xFFFEF7FF.toInt()
+            
+            // Make status bar icons dark colored for light background
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            }
+        }
+        
         // Create layout programmatically to match app theme
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1021,8 +1031,8 @@ class RingtonePickerActivity : AppCompatActivity() {
         val cancelButton = com.google.android.material.button.MaterialButton(this).apply {
             text = "Cancel"
             textSize = 14f
-            setTextColor(0xFF6750A4.toInt())
-            backgroundTintList = null
+            setTextColor(0xFFFFFFFF.toInt())
+            setBackgroundColor(0xFF6750A4.toInt())
             cornerRadius = 50
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
