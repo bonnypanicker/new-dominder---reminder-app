@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     width: 80,
     borderRadius: 12,
     marginLeft: 24,
-    marginRight: 16,
+    marginRight: 20,
   },
   leftAction: {
     backgroundColor: '#4CAF50',
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     width: 80,
     borderRadius: 12,
     marginRight: 24,
-    marginLeft: 16,
+    marginLeft: 20,
   },
   actionText: {
     color: 'white',

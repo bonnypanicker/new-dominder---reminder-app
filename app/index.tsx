@@ -3150,6 +3150,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
+    marginHorizontal: 20,
     // ✅ Android GPU optimizations
     elevation: 2,  // Use elevation instead of shadow for Android
     shadowColor: Material3Colors.light.shadow,
