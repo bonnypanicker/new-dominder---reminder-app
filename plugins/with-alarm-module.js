@@ -11,159 +11,197 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFBFE"
+    android:background="#1A1A1A"
     android:orientation="vertical"
-    android:paddingStart="20dp"
-    android:paddingEnd="20dp"
-    android:paddingTop="56dp"
-    android:paddingBottom="40dp">
+    android:fitsSystemWindows="true">
 
-    <!-- Header -->
-    <TextView
+    <!-- Status Bar Space -->
+    <View
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="REMINDER"
-        android:textColor="#49454F"
-        android:textSize="12sp"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.1"
-        android:gravity="center"
-        android:layout_marginBottom="12dp" />
+        android:layout_height="0dp"
+        android:layout_weight="0"
+        android:minHeight="24dp" />
 
-    <!-- Reminder Title -->
-    <TextView
-        android:id="@+id/alarm_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="#1C1B1F"
-        android:textSize="32sp"
-        android:fontFamily="sans-serif"
-        android:gravity="center"
-        android:lineSpacingMultiplier="1.2"
-        android:layout_marginBottom="56dp"
-        android:maxLines="3"
-        android:ellipsize="end"
-        tools:text="Reminder Title" />
-
-    <!-- Center Time Display -->
+    <!-- Main Content Container -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:gravity="center"
-        android:layout_marginBottom="56dp">
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="32dp"
+        android:gravity="center">
 
+        <!-- Header Label -->
         <TextView
-            android:id="@+id/current_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#6750A4"
-            android:textSize="80sp"
-            android:fontFamily="sans-serif-thin"
-            android:letterSpacing="-0.01"
-            tools:text="12:34 PM" />
+            android:text="REMINDER"
+            android:textColor="#8A8A8A"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.15"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Reminder Title -->
+        <TextView
+            android:id="@+id/alarm_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:fontFamily="sans-serif"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="48dp"
+            android:maxLines="3"
+            android:ellipsize="end"
+            tools:text="Reminder Title" />
+
+        <!-- Time Display - Minimal Design -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="64dp">
+
+            <TextView
+                android:id="@+id/current_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="72sp"
+                android:fontFamily="sans-serif-light"
+                android:letterSpacing="0.02"
+                tools:text="12:34 PM" />
+            
+            <!-- Subtle underline -->
+            <View
+                android:layout_width="120dp"
+                android:layout_height="1dp"
+                android:background="#333333"
+                android:layout_marginTop="12dp" />
+        </LinearLayout>
+
     </LinearLayout>
 
-    <!-- Snooze Label -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="SNOOZE FOR"
-        android:textColor="#49454F"
-        android:textSize="11sp"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.1"
-        android:gravity="center"
-        android:layout_marginBottom="20dp" />
-
-    <!-- Snooze Buttons (Pill-shaped) -->
+    <!-- Bottom Action Section -->
     <LinearLayout
-        android:id="@+id/snooze_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginBottom="32dp">
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="40dp"
+        android:background="#1A1A1A">
 
+        <!-- Snooze Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Snooze Duration"
+            android:textColor="#8A8A8A"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Snooze Buttons Grid -->
+        <LinearLayout
+            android:id="@+id/snooze_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/snooze_5m"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:textColor="#E0E0E0"
+                android:text="5"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginEnd="8dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeWidth="1dp"
+                app:strokeColor="#3A3A3A"
+                app:cornerRadius="12dp"
+                app:backgroundTint="#252525"
+                app:rippleColor="#3A3A3A" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/snooze_10m"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:textColor="#E0E0E0"
+                android:text="10"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginEnd="8dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeWidth="1dp"
+                app:strokeColor="#3A3A3A"
+                app:cornerRadius="12dp"
+                app:backgroundTint="#252525"
+                app:rippleColor="#3A3A3A" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/snooze_15m"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:textColor="#E0E0E0"
+                android:text="15"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginEnd="8dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeWidth="1dp"
+                app:strokeColor="#3A3A3A"
+                app:cornerRadius="12dp"
+                app:backgroundTint="#252525"
+                app:rippleColor="#3A3A3A" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/snooze_30m"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:textColor="#E0E0E0"
+                android:text="30"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeWidth="1dp"
+                app:strokeColor="#3A3A3A"
+                app:cornerRadius="12dp"
+                app:backgroundTint="#252525"
+                app:rippleColor="#3A3A3A" />
+        </LinearLayout>
+
+        <!-- Done Button -->
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/snooze_5m"
-            android:layout_width="0dp"
+            android:id="@+id/done_button"
+            android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_weight="1"
-            android:textColor="#6750A4"
-            android:text="5m"
+            android:textColor="#1A1A1A"
+            android:text="Mark as Done"
             android:textSize="15sp"
             android:fontFamily="sans-serif-medium"
-            android:layout_marginEnd="8dp"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="#6750A4"
-            app:cornerRadius="28dp"
-            app:rippleColor="#E8DEF8" />
+            android:letterSpacing="0.05"
+            style="@style/Widget.Material3.Button"
+            app:cornerRadius="12dp"
+            app:rippleColor="#D0D0D0"
+            app:backgroundTint="#FFFFFF" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/snooze_10m"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:textColor="#6750A4"
-            android:text="10m"
-            android:textSize="15sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginEnd="8dp"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="#6750A4"
-            app:cornerRadius="28dp"
-            app:rippleColor="#E8DEF8" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/snooze_15m"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:textColor="#6750A4"
-            android:text="15m"
-            android:textSize="15sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginEnd="8dp"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="#6750A4"
-            app:cornerRadius="28dp"
-            app:rippleColor="#E8DEF8" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/snooze_30m"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1"
-            android:textColor="#6750A4"
-            android:text="30m"
-            android:textSize="15sp"
-            android:fontFamily="sans-serif-medium"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="#6750A4"
-            app:cornerRadius="28dp"
-            app:rippleColor="#E8DEF8" />
     </LinearLayout>
-
-    <!-- Done Button (Pill-shaped) -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/done_button"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:textColor="#FFFFFF"
-        android:text="Done"
-        android:textSize="17sp"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.02"
-        style="@style/Widget.Material3.Button"
-        app:cornerRadius="32dp"
-        app:rippleColor="#FFFFFF"
-        app:backgroundTint="#6750A4"
-        android:elevation="2dp" />
 
 </LinearLayout>`;
 
@@ -600,6 +638,16 @@ class AlarmActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
+
+        // --- Set status bar color to match dark background ---
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = android.graphics.Color.parseColor("#1A1A1A")
+            
+            // Make status bar icons light colored for dark background
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                window.decorView.systemUiVisibility = 0 // Clear light status bar flag for dark theme
+            }
+        }
 
         // --- Wake Lock and Screen On Logic (preserved) ---
         acquireWakeLock()
