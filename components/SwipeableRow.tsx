@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     borderRadius: 12,
-    marginLeft: 24,
+    marginLeft: 1,
     marginRight: 20,
   },
   leftAction: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     borderRadius: 12,
-    marginRight: 24,
+    marginRight: 1,
     marginLeft: 20,
   },
   actionText: {

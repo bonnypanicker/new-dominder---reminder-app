@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
@@ -30,7 +30,7 @@ const X = (props: any) => <Feather name="x" {...props} />;
 const Square = (props: any) => <Feather name="square" {...props} />;
 const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
-const Keyboard = (props: any) => <Feather name="keyboard" {...props} />;
+const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
