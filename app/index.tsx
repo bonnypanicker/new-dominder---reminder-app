@@ -381,9 +381,11 @@ export default function HomeScreen() {
   }, [deleteReminder]);
 
   const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
+    console.log('[Selection] Long press on:', reminderId, 'Current mode:', isSelectionModeRef.current);
     // Suppress the subsequent onPress triggered after a long press
     suppressNextPressRef.current = true;
     if (!isSelectionModeRef.current) {
+      console.log('[Selection] Entering selection mode');
       isSelectionModeRef.current = true;
       setIsSelectionMode(true);
       setSelectionTab(tab);
@@ -392,27 +394,34 @@ export default function HomeScreen() {
   }, []);
 
   const handleCardPress = useCallback((reminder: Reminder) => {
+    console.log('[Selection] Card press:', reminder.id, 'Mode:', isSelectionModeRef.current, 'Suppress:', suppressNextPressRef.current);
     // Ignore the press that follows a long-press
     if (suppressNextPressRef.current) {
+      console.log('[Selection] Suppressing press after long press');
       suppressNextPressRef.current = false;
       return;
     }
     // Use ref to get latest selection mode state
     if (isSelectionModeRef.current) {
+      console.log('[Selection] Toggling selection for:', reminder.id);
       setSelectedReminders(prev => {
         const newSelected = new Set(prev);
         if (newSelected.has(reminder.id)) {
           newSelected.delete(reminder.id);
+          console.log('[Selection] Deselected:', reminder.id);
         } else {
           newSelected.add(reminder.id);
+          console.log('[Selection] Selected:', reminder.id);
         }
         if (newSelected.size === 0) {
+          console.log('[Selection] No cards selected, exiting selection mode');
           isSelectionModeRef.current = false;
           setIsSelectionMode(false);
         }
         return newSelected;
       });
     } else {
+      console.log('[Selection] Opening edit for:', reminder.id);
       openEdit(reminder);
     }
   }, [openEdit]);
