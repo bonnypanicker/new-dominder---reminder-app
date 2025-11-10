@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -1591,6 +1591,7 @@ function CreateReminderPopup({
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
 
 
@@ -1632,8 +1633,30 @@ function CreateReminderPopup({
       });
     } else {
       setIsReady(false);
+      setKeyboardHeight(0);
     }
   }, [visible, mode]);
+
+  // Listen to keyboard events for smooth transition
+  useEffect(() => {
+    const keyboardWillShow = RNKeyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardWillHide = RNKeyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   if (!visible) return null;
 
@@ -1646,24 +1669,33 @@ function CreateReminderPopup({
       presentationStyle="overFullScreen"
       statusBarTranslucent
     >
-      <Pressable 
-        style={createPopupStyles.overlay} 
-        onPress={() => {
-          RNKeyboard.dismiss();
-          onClose();
-        }}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
+        <Pressable 
           style={[
-            createPopupStyles.popup, 
-            { 
-              height: popupHeight,
-              opacity: isReady ? 1 : 0,
-              ...(Platform.OS === 'android' && {})
+            createPopupStyles.overlay,
+            Platform.OS === 'android' && keyboardHeight > 0 && {
+              paddingBottom: keyboardHeight,
             }
-          ]}
+          ]} 
+          onPress={() => {
+            RNKeyboard.dismiss();
+            onClose();
+          }}
         >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={[
+              createPopupStyles.popup, 
+              { 
+                height: popupHeight,
+                opacity: isReady ? 1 : 0,
+                ...(Platform.OS === 'android' && {})
+              }
+            ]}
+          >
           <ScrollView 
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
@@ -1747,6 +1779,7 @@ function CreateReminderPopup({
           </View>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
       
       <TimeSelector
         visible={showTimeSelector}
