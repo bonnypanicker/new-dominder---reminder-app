@@ -20,6 +20,7 @@ export interface Reminder {
   everyInterval?: { value: number; unit: EveryUnit };
   isCompleted: boolean;
   isExpired?: boolean;
+  isDeleted?: boolean;
   snoozeUntil?: string;
   createdAt: string;
   lastTriggeredAt?: string;

@@ -4,7 +4,9 @@ import {
   getReminders, 
   addReminder as addReminderSvc, 
   updateReminder as updateReminderSvc,
-  deleteReminder as deleteReminderSvc
+  deleteReminder as deleteReminderSvc,
+  permanentlyDeleteReminder as permanentlyDeleteReminderSvc,
+  restoreReminder as restoreReminderSvc
 } from '@/services/reminder-service';
 
 export const useReminders = () => {
@@ -97,6 +99,32 @@ export const useBulkUpdateReminders = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    },
+  });
+};
+
+export const usePermanentlyDeleteReminder = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: permanentlyDeleteReminderSvc,
+    onSuccess: () => {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      }, 50);
+    },
+  });
+};
+
+export const useRestoreReminder = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: restoreReminderSvc,
+    onSuccess: () => {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      }, 50);
     },
   });
 };

@@ -85,17 +85,69 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
 }
 
 export async function deleteReminder(id: string): Promise<void> {
+  // Soft delete - mark as deleted instead of removing
   return serializeAsyncStorageWrite(async () => {
     const reminders = await getReminders();
     const reminderToDelete = reminders.find(r => r.id === id);
 
-    // Cancel all notifications for this reminder (both notifee and native alarms)
     if (reminderToDelete) {
-      console.log(`Cancelling all notifications for deleted reminder: ${id}`);
+      console.log(`Soft deleting reminder: ${id}`);
+      // Cancel all notifications when soft deleting
+      await notificationService.cancelAllNotificationsForReminder(id);
+      
+      // Mark as deleted
+      const updated = reminders.map(r => 
+        r.id === id 
+          ? { ...r, isDeleted: true, isActive: false }
+          : r
+      );
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
+  });
+}
+
+export async function permanentlyDeleteReminder(id: string): Promise<void> {
+  // Permanently remove from storage
+  return serializeAsyncStorageWrite(async () => {
+    const reminders = await getReminders();
+    const reminderToDelete = reminders.find(r => r.id === id);
+
+    if (reminderToDelete) {
+      console.log(`Permanently deleting reminder: ${id}`);
+      // Cancel all notifications for permanent deletion
       await notificationService.cancelAllNotificationsForReminder(id);
     }
     
     const updated = reminders.filter(r => r.id !== id);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  });
+}
+
+export async function restoreReminder(id: string): Promise<void> {
+  // Restore a deleted reminder
+  return serializeAsyncStorageWrite(async () => {
+    const reminders = await getReminders();
+    const reminderToRestore = reminders.find(r => r.id === id);
+
+    if (reminderToRestore && reminderToRestore.isDeleted) {
+      console.log(`Restoring reminder: ${id}`);
+      
+      // Restore the reminder
+      const updated = reminders.map(r => 
+        r.id === id 
+          ? { ...r, isDeleted: false, isActive: !r.isCompleted }
+          : r
+      );
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      
+      // Reschedule if it was active
+      if (!reminderToRestore.isCompleted) {
+        await notificationService.scheduleReminderByModel({
+          ...reminderToRestore,
+          isDeleted: false,
+          isActive: true
+        });
+      }
+    }
   });
 }

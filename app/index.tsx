@@ -4,7 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/reminder-store';
+import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
 import { calculateNextReminderDate } from '@/services/reminder-utils';
 import { CHANNEL_IDS } from '@/services/channels';
@@ -85,8 +85,10 @@ export default function HomeScreen() {
   const deleteReminder = useDeleteReminder();
   const bulkDeleteReminders = useBulkDeleteReminders();
   const bulkUpdateReminders = useBulkUpdateReminders();
+  const permanentlyDeleteReminder = usePermanentlyDeleteReminder();
+  const restoreReminder = useRestoreReminder();
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'expired'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<FlashList<any>>(null);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
@@ -162,11 +164,11 @@ export default function HomeScreen() {
     }
   }, [isSelectionMode, selectedReminders.size]);
 
-  const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
+  const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'deleted' | null>(null);
 
   const addReminder = useAddReminder();
 
-  const scrollToTab = useCallback((tab: 'active' | 'completed' | 'expired') => {
+  const scrollToTab = useCallback((tab: 'active' | 'completed' | 'deleted') => {
     setActiveTab(tab);
     const screenWidth = Dimensions.get('window').width;
     
@@ -182,11 +184,11 @@ export default function HomeScreen() {
         // Scroll to push 55% of "ACTIVE REMINDERS" out of view
         tabScrollX = tabWidth * 0.55; // This will push 55% of active tab out
         break;
-      case 'expired':
+      case 'deleted':
         // Calculate position to push "ACTIVE REMINDERS" out of view
-        // We need to scroll enough so that the expired tab is fully visible
+        // We need to scroll enough so that the deleted tab is fully visible
         // and the active tab is pushed out
-        tabScrollX = tabWidth * 2; // This will position expired at the start, pushing active completely out
+        tabScrollX = tabWidth * 2; // This will position deleted at the start, pushing active completely out
         break;
     }
     
@@ -203,7 +205,7 @@ export default function HomeScreen() {
 
   const activeReminders = React.useMemo(() => {
     const sortMode = settings?.sortMode ?? 'creation';
-    const active = reminders.filter(r => r.isActive && !r.isCompleted && !r.isExpired);
+    const active = reminders.filter(r => r.isActive && !r.isCompleted && !r.isExpired && !r.isDeleted);
 
     if (sortMode === 'creation') {
       return active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -225,7 +227,7 @@ export default function HomeScreen() {
     });
   }, [reminders, settings?.sortMode]);
   const completedReminders = React.useMemo(() => {
-    const completed = reminders.filter(r => r.isCompleted);
+    const completed = reminders.filter(r => r.isCompleted && !r.isDeleted);
     // Sort by when they were completed (using lastTriggeredAt or createdAt as fallback)
     return completed.sort((a, b) => {
       const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
@@ -234,20 +236,13 @@ export default function HomeScreen() {
     });
   }, [reminders]);
   
-  const expiredReminders = React.useMemo(() => {
-    const expired = reminders.filter(r => r.isExpired);
-    // Sort by when they expired (most recently expired first)
-    return expired.sort((a, b) => {
-      // Calculate when each reminder expired
-      const getExpiredTime = (reminder: Reminder) => {
-        const [year, month, day] = reminder.date.split('-').map(Number);
-        const [hours, minutes] = reminder.time.split(':').map(Number);
-        const expiredDate = new Date(year, month - 1, day, hours, minutes);
-        return expiredDate.getTime();
-      };
-      const expiredA = getExpiredTime(a);
-      const expiredB = getExpiredTime(b);
-      return expiredB - expiredA; // Most recently expired first
+  const deletedReminders = React.useMemo(() => {
+    const deleted = reminders.filter(r => r.isDeleted);
+    // Sort by creation date (most recently created first)
+    return deleted.sort((a, b) => {
+      const createdA = new Date(a.createdAt).getTime();
+      const createdB = new Date(b.createdAt).getTime();
+      return createdB - createdA; // Most recently created first
     });
   }, [reminders]);
 
@@ -258,12 +253,12 @@ export default function HomeScreen() {
         return activeReminders;
       case 'completed':
         return completedReminders;
-      case 'expired':
-        return expiredReminders;
+      case 'deleted':
+        return deletedReminders;
       default:
         return activeReminders;
     }
-  }, [activeTab, activeReminders, completedReminders, expiredReminders]);
+  }, [activeTab, activeReminders, completedReminders, deletedReminders]);
 
   const completeReminder = useCallback((reminder: Reminder) => {
     if (reminder.repeatType === 'none') {
@@ -397,7 +392,20 @@ export default function HomeScreen() {
     deleteReminder.mutate(reminder.id);
   }, [deleteReminder]);
 
-  const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'expired') => {
+  const handlePermanentDelete = useCallback((reminder: Reminder) => {
+    // Mark deletion in progress to prevent extraData updates that would interrupt animation
+    isDeletingRef.current = true;
+    setTimeout(() => {
+      isDeletingRef.current = false;
+    }, 650);
+    permanentlyDeleteReminder.mutate(reminder.id);
+  }, [permanentlyDeleteReminder]);
+
+  const handleRestore = useCallback((reminder: Reminder) => {
+    restoreReminder.mutate(reminder.id);
+  }, [restoreReminder]);
+
+  const handleLongPress = useCallback((reminderId: string, tab: 'active' | 'completed' | 'deleted') => {
     console.log('[Selection] Long press on:', reminderId, 'Current mode:', isSelectionModeRef.current);
     // Suppress the subsequent onPress triggered after a long press
     suppressNextPressRef.current = true;
@@ -456,7 +464,7 @@ export default function HomeScreen() {
       ? new Set(activeReminders.map(r => r.id))
       : scope === 'completed'
       ? new Set(completedReminders.map(r => r.id))
-      : new Set(expiredReminders.map(r => r.id));
+      : new Set(deletedReminders.map(r => r.id));
 
     const allSelected = ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
 
@@ -471,7 +479,7 @@ export default function HomeScreen() {
       setIsSelectionMode(true);
       setSelectionTab(scope);
     }
-  }, [selectionTab, activeTab, activeReminders, completedReminders, expiredReminders, selectedReminders]);
+  }, [selectionTab, activeTab, activeReminders, completedReminders, deletedReminders, selectedReminders]);
 
   const markAllAsDone = useCallback(() => {
     const selectedRemindersList = reminders.filter(r => selectedReminders.has(r.id));
@@ -564,7 +572,7 @@ export default function HomeScreen() {
     isSelectionMode: selectionMode 
   }: { 
     reminder: Reminder; 
-    listType: 'active' | 'completed' | 'expired';
+    listType: 'active' | 'completed' | 'deleted';
     isSelected: boolean;
     isSelectionMode: boolean;
   }) => {
@@ -600,13 +608,15 @@ export default function HomeScreen() {
 
 
     
+    const isDeleted = listType === 'deleted';
+    
     return (
       <SwipeableRow 
         reminder={reminder}
         swipeableRefs={swipeableRefs}
         simultaneousHandlers={contentScrollRef}
-        onSwipeRight={!selectionMode ? () => handleDelete(reminder) : undefined}
-        onSwipeLeft={isActive && !selectionMode ? () => completeAllOccurrences(reminder) : undefined}
+        onSwipeRight={!selectionMode ? (isDeleted ? () => handlePermanentDelete(reminder) : () => handleDelete(reminder)) : undefined}
+        onSwipeLeft={!selectionMode && !isDeleted ? (isActive ? () => completeAllOccurrences(reminder) : undefined) : (isDeleted ? () => handlePermanentDelete(reminder) : undefined)}
         isSelectionMode={selectionMode}
       >
         <TouchableOpacity
@@ -815,16 +825,12 @@ export default function HomeScreen() {
                   )}
                 </View>
                 
-                {isExpired && (
-                  <View style={styles.expiredBadge}>
-                    <AlertCircle size={12} color={Material3Colors.light.error} />
-                    <Text style={styles.expiredText}>Expired</Text>
-                  </View>
-                )}
+                {/* Removed expired badge - no longer using expired tab */}
               </View>
             </View>
             
-            {isActive && (
+            {/* Action buttons */}
+            {isActive && !isDeleted && (
               <View style={styles.reminderRight}>
                 {reminder.repeatType !== 'none' && (
                   reminder.isPaused ? (
@@ -865,7 +871,24 @@ export default function HomeScreen() {
               </View>
             )}
             
-            {!isActive && !isExpired && (
+            {/* Restore button for deleted items */}
+            {isDeleted && (
+              <View style={styles.reminderRight}>
+                <TouchableOpacity
+                  style={styles.restoreButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRestore(reminder);
+                  }}
+                  testID={`restore-button-${reminder.id}`}
+                >
+                  <RotateCcw size={20} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {/* Reassign button for completed items */}
+            {!isActive && !isDeleted && (
               <View style={styles.reminderRight}>
                 <TouchableOpacity
                   style={styles.reassignButton}
@@ -991,15 +1014,15 @@ export default function HomeScreen() {
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tabHeader, activeTab === 'expired' && styles.activeTabHeader]}
-            onPress={() => scrollToTab('expired')}
+            style={[styles.tabHeader, activeTab === 'deleted' && styles.activeTabHeader]}
+            onPress={() => scrollToTab('deleted')}
           >
             <View style={styles.tabHeaderContent}>
-              <Text style={[styles.tabHeaderText, activeTab === 'expired' && styles.activeTabHeaderText]}>
-                EXPIRED
+              <Text style={[styles.tabHeaderText, activeTab === 'deleted' && styles.activeTabHeaderText]}>
+                DELETED
               </Text>
-              <Text style={[styles.tabCount, activeTab === 'expired' && styles.activeTabCount]}>
-                {expiredReminders.length}
+              <Text style={[styles.tabCount, activeTab === 'deleted' && styles.activeTabCount]}>
+                {deletedReminders.length}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1019,7 +1042,7 @@ export default function HomeScreen() {
           </Text>
           <View style={styles.selectionActions}>
             {(() => {
-              const scope: 'active' | 'completed' | 'expired' = selectionTab ?? activeTab;
+              const scope: 'active' | 'completed' | 'deleted' = selectionTab ?? activeTab;
               return (
                 <>
                   {scope === 'active' && (
@@ -3387,6 +3410,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reassignButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Material3Colors.light.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  restoreButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
