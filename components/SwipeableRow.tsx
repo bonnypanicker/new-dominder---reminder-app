@@ -240,6 +240,8 @@ const SwipeableRow = memo(function SwipeableRow({
         onSwipeableWillOpen={handleSwipeableWillOpen}
         onSwipeableOpen={handleSwipeableOpen}
         enabled={!isRemoving && !isSelectionMode}
+        activeOffsetX={[-15, 15]}
+        failOffsetY={[-10, 10]}
       >
           <View style={styles.cardContainer}>
             {children}
