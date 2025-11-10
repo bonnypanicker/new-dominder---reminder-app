@@ -148,14 +148,13 @@ export default function HomeScreen() {
   // Track selection state changes for FlashList extraData
   const [selectionVersion, setSelectionVersion] = React.useState(0);
   
-  // Sync ref with state for reliability
+  // Sync ref with state for reliability and update version on any selection change
   React.useEffect(() => {
     isSelectionModeRef.current = isSelectionMode;
     console.log('[Selection] Mode changed:', isSelectionMode, 'Selected count:', selectedReminders.size);
-    // Increment version to trigger FlashList re-render only when selection mode changes
-    // Don't increment for every selection toggle to avoid interfering with deletion animations
+    // Increment version to trigger FlashList re-render when selections change
     setSelectionVersion(prev => prev + 1);
-  }, [isSelectionMode]);
+  }, [isSelectionMode, selectedReminders.size]);
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
 
@@ -1067,7 +1066,7 @@ export default function HomeScreen() {
             isSelectionMode={isSelectionMode}
           />
         )}
-        extraData={selectionVersion}
+        extraData={{ selectionVersion }}
         estimatedItemSize={120}
         keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
