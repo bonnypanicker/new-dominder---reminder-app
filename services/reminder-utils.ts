@@ -145,10 +145,12 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       const hasRecurringHistory = Boolean(reminder.nextReminderDate || reminder.lastTriggeredAt);
 
       // Baseline for subsequent occurrences (after the first trigger)
-      const baseline = reminder.nextReminderDate
-        ? new Date(reminder.nextReminderDate)
-        : reminder.lastTriggeredAt
+      // IMPORTANT: Use lastTriggeredAt (the time that just fired) instead of nextReminderDate (the future time)
+      // to calculate the next interval correctly
+      const baseline = reminder.lastTriggeredAt
         ? new Date(reminder.lastTriggeredAt)
+        : reminder.nextReminderDate
+        ? new Date(reminder.nextReminderDate)
         : startBoundary;
 
       let result: Date;
