@@ -1087,9 +1087,10 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: 100,
           paddingTop: 8,
+          paddingHorizontal: 0,
         }}
         drawDistance={Platform.OS === 'android' ? 500 : 250}
-        removeClippedSubviews={Platform.OS === 'android' ? true : false}
+        removeClippedSubviews={false}
         overrideItemLayout={(layout, item) => {
           if (Platform.OS === 'android') {
             layout.size = layout.size || 120;
@@ -3237,11 +3238,11 @@ const styles = StyleSheet.create({
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
     // ✅ Android GPU optimizations
-    elevation: 2,  // Use elevation instead of shadow for Android
+    elevation: 3,  // Increased for better shadow visibility
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
     // Allow swipeable content to draw beyond card bounds
     overflow: 'visible',
   },

@@ -209,6 +209,9 @@ const SwipeableRow = memo(function SwipeableRow({
           }),
           overflow: 'hidden',
         }),
+        ...(!isRemoving && {
+          overflow: 'visible',
+        }),
         marginBottom: isRemoving ? heightAnim.interpolate({
           inputRange: [0, 1],
           outputRange: [0, 8],
@@ -226,6 +229,7 @@ const SwipeableRow = memo(function SwipeableRow({
         style={{
           transform: [{ translateX: slideAnim }, { scaleY: scaleAnim }],
           opacity: fadeAnim,
+          overflow: 'visible',
         }}
       >
         <Swipeable
@@ -267,6 +271,7 @@ export default SwipeableRow;
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: 'transparent',
+    overflow: 'visible',
   },
   rightAction: {
     backgroundColor: '#F44336',
