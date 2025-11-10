@@ -941,6 +941,7 @@ export default function HomeScreen() {
   }
 
   return (
+    <>
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>DoMinder</Text>
@@ -1492,14 +1493,15 @@ export default function HomeScreen() {
         mode={editingReminder ? 'edit' : 'create'}
       />
 
-      <Toast
-        message={toastMessage}
-        visible={toastVisible}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
-
     </SafeAreaView>
+    
+    <Toast
+      message={toastMessage}
+      visible={toastVisible}
+      type={toastType}
+      onHide={() => setToastVisible(false)}
+    />
+    </>
   );
 }
 

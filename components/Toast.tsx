@@ -93,14 +93,16 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
     <Portal>
       <View style={styles.portalOverlay} pointerEvents="box-none" testID="toast-overlay">
         {/* Tap the toast itself to dismiss; outside remains interactive */}
-        <Pressable onPress={hideToast} accessibilityRole="button" accessibilityLabel="Dismiss notification">
-          <Animated.View
-            style={[styles.container, animatedStyle]}
-            testID="toast"
-          >
-            <Text style={[styles.message, { color: textColor }]}>{message}</Text>
-          </Animated.View>
-        </Pressable>
+        <View style={styles.toastWrapper}>
+          <Pressable onPress={hideToast} accessibilityRole="button" accessibilityLabel="Dismiss notification">
+            <Animated.View
+              style={[styles.container, animatedStyle]}
+              testID="toast"
+            >
+              <Text style={[styles.message, { color: textColor }]}>{message}</Text>
+            </Animated.View>
+          </Pressable>
+        </View>
       </View>
     </Portal>
   );
@@ -110,6 +112,16 @@ const styles = StyleSheet.create({
   portalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
+    zIndex: 999999,
+  },
+  toastWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 999999,
+    elevation: 999,
+    pointerEvents: 'box-none',
   },
   container: {
     position: 'absolute',
@@ -119,12 +131,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
-    elevation: 24,
+    elevation: 999,
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    zIndex: 2147483647,
+    zIndex: 999999,
     alignSelf: 'center',
     maxWidth: Dimensions.get('window').width - 40,
   },
