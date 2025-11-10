@@ -144,6 +144,8 @@ export default function HomeScreen() {
   const isSelectionModeRef = React.useRef<boolean>(false);
   // Prevent the immediate onPress firing right after onLongPress
   const suppressNextPressRef = React.useRef<boolean>(false);
+  // Track if any deletion is in progress to prevent extraData updates
+  const isDeletingRef = React.useRef<boolean>(false);
   // Timestamp for extraData - updates only during selection mode to trigger re-renders
   const [selectionTimestamp, setSelectionTimestamp] = React.useState<number | null>(null);
 
@@ -152,9 +154,10 @@ export default function HomeScreen() {
     isSelectionModeRef.current = isSelectionMode;
     console.log('[Selection] Mode changed:', isSelectionMode, 'Selected count:', selectedReminders.size);
     // Update timestamp when entering selection mode or when selections change during selection mode
-    if (isSelectionMode) {
+    // BUT only if not currently deleting
+    if (isSelectionMode && !isDeletingRef.current) {
       setSelectionTimestamp(Date.now());
-    } else {
+    } else if (!isSelectionMode) {
       setSelectionTimestamp(null);
     }
   }, [isSelectionMode, selectedReminders.size]);
@@ -385,6 +388,12 @@ export default function HomeScreen() {
   }, [to12h]);
 
   const handleDelete = useCallback((reminder: Reminder) => {
+    // Mark deletion in progress to prevent extraData updates that would interrupt animation
+    isDeletingRef.current = true;
+    // Allow extraData updates again after animation completes (typically 600ms)
+    setTimeout(() => {
+      isDeletingRef.current = false;
+    }, 650);
     deleteReminder.mutate(reminder.id);
   }, [deleteReminder]);
 
