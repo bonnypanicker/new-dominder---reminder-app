@@ -144,16 +144,19 @@ export default function HomeScreen() {
   const isSelectionModeRef = React.useRef<boolean>(false);
   // Prevent the immediate onPress firing right after onLongPress
   const suppressNextPressRef = React.useRef<boolean>(false);
+  // Timestamp for extraData - updates only during selection mode to trigger re-renders
+  const [selectionTimestamp, setSelectionTimestamp] = React.useState<number | null>(null);
 
-  // Track selection state changes for FlashList extraData
-  const [selectionVersion, setSelectionVersion] = React.useState(0);
-  
-  // Sync ref with state for reliability and update version on any selection change
+  // Sync ref with state and manage selection timestamp
   React.useEffect(() => {
     isSelectionModeRef.current = isSelectionMode;
     console.log('[Selection] Mode changed:', isSelectionMode, 'Selected count:', selectedReminders.size);
-    // Increment version to trigger FlashList re-render when selections change
-    setSelectionVersion(prev => prev + 1);
+    // Update timestamp when entering selection mode or when selections change during selection mode
+    if (isSelectionMode) {
+      setSelectionTimestamp(Date.now());
+    } else {
+      setSelectionTimestamp(null);
+    }
   }, [isSelectionMode, selectedReminders.size]);
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'expired' | null>(null);
@@ -1066,7 +1069,7 @@ export default function HomeScreen() {
             isSelectionMode={isSelectionMode}
           />
         )}
-        extraData={{ selectionVersion }}
+        extraData={selectionTimestamp}
         estimatedItemSize={120}
         keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
