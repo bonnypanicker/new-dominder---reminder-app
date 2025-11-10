@@ -1061,6 +1061,7 @@ export default function HomeScreen() {
             isSelectionMode={isSelectionMode}
           />
         )}
+        extraData={{ isSelectionMode, selectedCount: selectedReminders.size }}
         estimatedItemSize={120}
         keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
