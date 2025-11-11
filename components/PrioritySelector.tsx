@@ -11,9 +11,10 @@ const Info = (props: any) => <Feather name="info" {...props} />;
 interface PrioritySelectorProps {
   priority: Priority;
   onPriorityChange: (priority: Priority) => void;
+  onTouchStart?: () => void;
 }
 
-export default function PrioritySelector({ priority, onPriorityChange }: PrioritySelectorProps) {
+export default function PrioritySelector({ priority, onPriorityChange, onTouchStart }: PrioritySelectorProps) {
   const priorities: { value: Priority; label: string; IconComponent: any }[] = [
     {
       value: 'medium',
@@ -33,7 +34,7 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onTouchStart={onTouchStart}>
       <Text style={styles.title}>Reminder Mode</Text>
       <View style={styles.optionsContainer}>
         {priorities.map((item) => (
@@ -48,7 +49,10 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
                     { borderColor: Material3Colors.light.outlineVariant },
                   ],
             ]}
-            onPress={() => onPriorityChange(item.value)}
+            onPress={() => {
+              onTouchStart?.();
+              onPriorityChange(item.value);
+            }}
           >
             <View
               style={[

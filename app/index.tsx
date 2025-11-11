@@ -1728,7 +1728,15 @@ function CreateReminderPopup({
               }
             }}
           >
-              <View style={createPopupStyles.mainContent}>
+              <View 
+                style={createPopupStyles.mainContent}
+                onTouchStart={() => {
+                  // Close dropdowns when touching main content area
+                  if ((window as any).__closeCustomizePanelDropdowns) {
+                    (window as any).__closeCustomizePanelDropdowns();
+                  }
+                }}
+              >
               <View style={createPopupStyles.section}>
                 <TextInput
                   ref={titleInputRef}
@@ -1737,6 +1745,12 @@ function CreateReminderPopup({
                   placeholderTextColor="#9CA3AF"
                   value={title}
                   onChangeText={onTitleChange}
+                  onFocus={() => {
+                    // Close any open dropdowns when focusing title input
+                    if ((window as any).__closeCustomizePanelDropdowns) {
+                      (window as any).__closeCustomizePanelDropdowns();
+                    }
+                  }}
                   onSubmitEditing={() => {
                     RNKeyboard.dismiss();
                     titleInputRef.current?.blur();
@@ -1782,7 +1796,12 @@ function CreateReminderPopup({
                 <PrioritySelector 
                   priority={priority} 
                   onPriorityChange={onPriorityChange}
-
+                  onTouchStart={() => {
+                    // Close any open dropdowns when touching priority selector
+                    if ((window as any).__closeCustomizePanelDropdowns) {
+                      (window as any).__closeCustomizePanelDropdowns();
+                    }
+                  }}
                 />
               </View>
               </View>
