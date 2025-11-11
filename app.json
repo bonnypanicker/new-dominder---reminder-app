@@ -29,11 +29,15 @@
       "package": "app.rork.dominder_android_reminder_app",
       "jsEngine": "hermes",
       "permissions": [
-        "android.permission.VIBRATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {
@@ -47,6 +51,7 @@
       "./plugins/with-soft-input-mode.js",
       "./plugins/with-notifee-android.js",
       "./plugins/with-eas-notifee.js",
+      "./plugins/with-permissions-cleanup.js",
       [
         "expo-router",
         {
