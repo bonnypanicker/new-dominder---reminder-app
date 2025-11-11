@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -1618,7 +1618,6 @@ function CreateReminderPopup({
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const translateY = useRef(new Animated.Value(0)).current;
 
 
 
@@ -1669,30 +1668,13 @@ function CreateReminderPopup({
     const keyboardWillShow = RNKeyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
-        const kbHeight = e.endCoordinates.height;
-        setKeyboardHeight(kbHeight);
-        
-        // Calculate how much to move popup up
-        // Move it up by half the keyboard height to keep it centered and visible
-        const moveUp = Platform.OS === 'android' ? -kbHeight / 2.5 : 0;
-        
-        Animated.timing(translateY, {
-          toValue: moveUp,
-          duration: Platform.OS === 'android' ? 250 : e.duration || 250,
-          useNativeDriver: true,
-        }).start();
+        setKeyboardHeight(e.endCoordinates.height);
       }
     );
     const keyboardWillHide = RNKeyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      (e) => {
+      () => {
         setKeyboardHeight(0);
-        
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: Platform.OS === 'android' ? 250 : e?.duration || 250,
-          useNativeDriver: true,
-        }).start();
       }
     );
 
@@ -1700,7 +1682,7 @@ function CreateReminderPopup({
       keyboardWillShow.remove();
       keyboardWillHide.remove();
     };
-  }, [translateY]);
+  }, []);
 
   if (!visible) return null;
 
@@ -1718,30 +1700,28 @@ function CreateReminderPopup({
         style={{ flex: 1 }}
       >
         <Pressable 
-          style={createPopupStyles.overlay} 
+          style={[
+            createPopupStyles.overlay,
+            Platform.OS === 'android' && keyboardHeight > 0 && {
+              paddingBottom: keyboardHeight,
+            }
+          ]} 
           onPress={() => {
             RNKeyboard.dismiss();
             onClose();
           }}
         >
-          <Animated.View
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
             style={[
-              createPopupStyles.popupWrapper,
-              {
-                transform: [{ translateY }],
+              createPopupStyles.popup, 
+              { 
+                height: popupHeight,
+                opacity: isReady ? 1 : 0,
+                ...(Platform.OS === 'android' && {})
               }
             ]}
           >
-            <Pressable
-              onPress={(e) => e.stopPropagation()}
-              style={[
-                createPopupStyles.popup, 
-                { 
-                  height: popupHeight,
-                  opacity: isReady ? 1 : 0,
-                }
-              ]}
-            >
           <ScrollView 
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4 }}
@@ -1824,7 +1804,6 @@ function CreateReminderPopup({
             </TouchableOpacity>
           </View>
         </Pressable>
-          </Animated.View>
       </Pressable>
       </KeyboardAvoidingView>
       
@@ -1854,11 +1833,6 @@ const createPopupStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-  },
-  popupWrapper: {
-    width: '100%',
-    maxWidth: 480,
-    alignItems: 'center',
   },
   popup: {
     backgroundColor: '#FFFFFF',
