@@ -1723,7 +1723,7 @@ function CreateReminderPopup({
           >
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 4 }}
+            contentContainerStyle={{ paddingBottom: 4, flexGrow: 1 }}
             style={{ maxHeight: '100%' }}
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="always"
@@ -1884,6 +1884,7 @@ const createPopupStyles = StyleSheet.create({
     overflow: 'visible',
   },
   mainContent: {
+    flex: 1,
     zIndex: 1,
     paddingBottom: 4,
   },
