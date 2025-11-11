@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking, NativeModules } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking, NativeModules, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -378,6 +378,21 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
     { value: 'ringer', label: 'High Priority', icon: 'alert-circle' },
   ];
 
+  // Handle Android back button/gesture
+  useEffect(() => {
+    if (!visible) return;
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (visible) {
+        onClose();
+        return true; // Prevent default behavior
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [visible, onClose]);
+
   if (!visible) return null;
 
   return (
@@ -460,6 +475,21 @@ function LicensesModal({ visible, onClose }: LicensesModalProps) {
     { name: 'React Native Safe Area Context', version: '5.4.0', license: 'MIT', copyright: 'Copyright (c) 2019 Th3rd Wave' },
   ];
 
+  // Handle Android back button/gesture
+  useEffect(() => {
+    if (!visible) return;
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (visible) {
+        onClose();
+        return true; // Prevent default behavior
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [visible, onClose]);
+
   if (!visible) return null;
 
   return (
@@ -507,6 +537,21 @@ interface PrivacyPolicyModalProps {
 }
 
 function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
+  // Handle Android back button/gesture
+  useEffect(() => {
+    if (!visible) return;
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (visible) {
+        onClose();
+        return true; // Prevent default behavior
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [visible, onClose]);
+
   if (!visible) return null;
 
   return (
