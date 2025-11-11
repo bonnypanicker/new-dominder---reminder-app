@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, GestureResponderEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useReminders, useUpdateReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
+import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
+import { calculateNextReminderDate } from '@/services/reminder-utils';
+import { CHANNEL_IDS } from '@/services/channels';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
@@ -15,23 +17,20 @@ import Toast from '@/components/Toast';
 import SwipeableRow from '@/components/SwipeableRow';
 
 // Icon components (declared after all imports to satisfy import/first)
-type FeatherIconProps = React.ComponentProps<typeof Feather>;
-type MaterialIconProps = React.ComponentProps<typeof MaterialIcons>;
-
-const Plus = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="plus" {...props} />;
-const Clock = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="clock" {...props} />;
-const Settings = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="settings" {...props} />;
-const PauseCircle = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="pause-circle" {...props} />;
-const PlayCircle = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="play-circle" {...props} />;
-const CheckCircle = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="check-circle" {...props} />;
-const Trash2 = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="trash-2" {...props} />;
-const RotateCcw = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="rotate-ccw" {...props} />;
-const AlertCircle = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="alert-circle" {...props} />;
-const X = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="x" {...props} />;
-const Square = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="square" {...props} />;
-const CheckSquare = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="check-square" {...props} />;
-const Repeat = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="repeat" {...props} />;
-const Keyboard = (props: Omit<MaterialIconProps, 'name'>) => <MaterialIcons name="keyboard" {...props} />;
+const Plus = (props: any) => <Feather name="plus" {...props} />;
+const Clock = (props: any) => <Feather name="clock" {...props} />;
+const Settings = (props: any) => <Feather name="settings" {...props} />;
+const PauseCircle = (props: any) => <Feather name="pause-circle" {...props} />;
+const PlayCircle = (props: any) => <Feather name="play-circle" {...props} />;
+const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
+const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
+const RotateCcw = (props: any) => <Feather name="rotate-ccw" {...props} />;
+const AlertCircle = (props: any) => <Feather name="alert-circle" {...props} />;
+const X = (props: any) => <Feather name="x" {...props} />;
+const Square = (props: any) => <Feather name="square" {...props} />;
+const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
+const Repeat = (props: any) => <Feather name="repeat" {...props} />;
+const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -91,8 +90,8 @@ export default function HomeScreen() {
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
-  const contentScrollRef = useRef<FlashList<Reminder>>(null);
-  const swipeableRefs = useRef<Map<string, import('react-native-gesture-handler').Swipeable>>(new Map());
+  const contentScrollRef = useRef<FlashList<any>>(null);
+  const swipeableRefs = useRef<Map<string, any>>(new Map());
   const [toastVisible, setToastVisible] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
@@ -2086,7 +2085,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   };
 
   // Compute absolute angle (0..360) from finger position using pageX/pageY
-  const getAngleFromEvent = (evt: GestureResponderEvent) => {
+  const getAngleFromEvent = (evt: any) => {
     const { pageX, pageY } = evt?.nativeEvent || {};
     const cx = centerRef.current.x || 0;
     const cy = centerRef.current.y || 0;

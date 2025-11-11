@@ -6,17 +6,16 @@ import * as Haptics from 'expo-haptics';
 import { Reminder } from '@/types/reminder';
 import { useRenderTracking, animationConflictDetector, performanceMonitor } from '@/utils/debugUtils';
 
-type FeatherIconProps = React.ComponentProps<typeof Feather>;
-
-const CheckCircle = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="check-circle" {...props} />;
-const Trash2 = (props: Omit<FeatherIconProps, 'name'>) => <Feather name="trash-2" {...props} />;
+const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
+const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
 
 interface SwipeableRowProps {
   children: React.ReactNode;
   reminder: Reminder;
   onSwipeRight?: () => void;
   onSwipeLeft?: () => void;
-  swipeableRefs?: React.MutableRefObject<Map<string, Swipeable>>;
+  swipeableRefs?: React.MutableRefObject<Map<string, any>>;
+  simultaneousHandlers?: React.RefObject<any>;
   isSelectionMode?: boolean;
 }
 
@@ -256,15 +255,14 @@ const SwipeableRow = memo(function SwipeableRow({
     </Animated.View>
   );
 }, (prevProps, nextProps) => {
-  // Optimize re-renders - only update if reminder or callbacks change
+  // Optimize re-renders - only update if reminder changes
   return (
     prevProps.reminder.id === nextProps.reminder.id &&
     prevProps.reminder.isCompleted === nextProps.reminder.isCompleted &&
     prevProps.reminder.title === nextProps.reminder.title &&
     prevProps.onSwipeRight === nextProps.onSwipeRight &&
     prevProps.onSwipeLeft === nextProps.onSwipeLeft &&
-    prevProps.isSelectionMode === nextProps.isSelectionMode &&
-    prevProps.swipeableRefs === nextProps.swipeableRefs
+    prevProps.isSelectionMode === nextProps.isSelectionMode
   );
 });
 
