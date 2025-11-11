@@ -1721,6 +1721,12 @@ function CreateReminderPopup({
             style={{ maxHeight: '100%' }}
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="always"
+            onTouchStart={() => {
+              // Close any open dropdowns in CustomizePanel
+              if ((window as any).__closeCustomizePanelDropdowns) {
+                (window as any).__closeCustomizePanelDropdowns();
+              }
+            }}
           >
               <View style={createPopupStyles.mainContent}>
               <View style={createPopupStyles.section}>
@@ -1768,6 +1774,7 @@ function CreateReminderPopup({
                   onUntilDateChange={onUntilDateChange}
                   onUntilCountChange={onUntilCountChange}
                   onOpenUntilTime={onOpenUntilTime}
+                  onDropdownStateChange={() => {}}
                 />
               </View>
               

@@ -34,6 +34,8 @@ interface CustomizePanelProps {
   onUntilCountChange?: (count: number) => void;
   // Open time picker specifically for "Ends" flow
   onOpenUntilTime?: () => void;
+  // Expose close function
+  onDropdownStateChange?: (hasOpenDropdown: boolean) => void;
 }
 
 export default function CustomizePanel({
@@ -57,6 +59,7 @@ export default function CustomizePanel({
   onUntilDateChange,
   onUntilCountChange,
   onOpenUntilTime,
+  onDropdownStateChange,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const dateAnchorRef = useRef<View>(null);
@@ -208,7 +211,29 @@ export default function CustomizePanel({
     setUntilDropdownOpen(true);
   };
 
+  // Close all dropdowns function
+  const closeAllDropdowns = React.useCallback(() => {
+    setDropdownOpen(false);
+    setUnitDropdownOpen(false);
+    setUntilDropdownOpen(false);
+  }, []);
 
+  // Expose dropdown state to parent
+  React.useEffect(() => {
+    const hasOpenDropdown = dropdownOpen || unitDropdownOpen || untilDropdownOpen;
+    onDropdownStateChange?.(hasOpenDropdown);
+  }, [dropdownOpen, unitDropdownOpen, untilDropdownOpen, onDropdownStateChange]);
+
+  // Expose closeAllDropdowns via ref (using React.useImperativeHandle pattern)
+  React.useEffect(() => {
+    if (onDropdownStateChange) {
+      // Store the close function on a global ref that parent can access
+      (window as any).__closeCustomizePanelDropdowns = closeAllDropdowns;
+    }
+    return () => {
+      delete (window as any).__closeCustomizePanelDropdowns;
+    };
+  }, [closeAllDropdowns, onDropdownStateChange]);
 
   const units: EveryUnit[] = ['minutes', 'hours', 'days'];
   
@@ -238,6 +263,7 @@ export default function CustomizePanel({
         keyboardDismissMode="none"
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled={true}
+        onTouchStart={closeAllDropdowns}
       >
       <View style={styles.repeatOptionsContainer}>
         {repeatOptions.map((option) => (
