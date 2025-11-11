@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, TouchableWithoutFeedback } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -1810,6 +1810,18 @@ function CreateReminderPopup({
                   }}
                 />
               </View>
+              
+              {/* Spacer to fill empty space and close dropdowns on touch */}
+              <TouchableWithoutFeedback
+                onPress={() => {
+                  // Close any open dropdowns when touching empty space
+                  if ((window as any).__closeCustomizePanelDropdowns) {
+                    (window as any).__closeCustomizePanelDropdowns();
+                  }
+                }}
+              >
+                <View style={{ flex: 1, minHeight: 20 }} />
+              </TouchableWithoutFeedback>
               </View>
           </ScrollView>
           
