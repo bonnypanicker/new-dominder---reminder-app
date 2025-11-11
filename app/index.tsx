@@ -1197,8 +1197,6 @@ export default function HomeScreen() {
         untilIsAM={untilIsAM}
         priority={priority}
         onPriorityChange={setPriority}
-        showCustomize={false}
-        onShowCustomizeChange={() => {}}
         repeatType={repeatType}
         onRepeatTypeChange={setRepeatType}
         repeatDays={repeatDays}
@@ -1541,8 +1539,6 @@ interface CreateReminderPopupProps {
   untilIsAM: boolean;
   priority: Priority;
   onPriorityChange: (priority: Priority) => void;
-  showCustomize: boolean;
-  onShowCustomizeChange: (show: boolean) => void;
   repeatType: RepeatType;
   onRepeatTypeChange: (repeatType: RepeatType) => void;
   repeatDays: number[];
@@ -1583,8 +1579,6 @@ function CreateReminderPopup({
   untilIsAM,
   priority,
   onPriorityChange,
-  showCustomize,
-  onShowCustomizeChange,
   repeatType,
   onRepeatTypeChange,
   repeatDays,
@@ -1613,11 +1607,11 @@ function CreateReminderPopup({
   onUntilCountChange,
   onOpenUntilTime,
 }: CreateReminderPopupProps) {
-  const { data: reminders } = useReminders();
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const shouldAutoFocusOnCreate = false;
 
 
 
@@ -1633,7 +1627,7 @@ function CreateReminderPopup({
     updateHeight();
     const sub = Dimensions.addEventListener('change', updateHeight);
     return () => {
-      (sub as any)?.remove?.();
+      sub?.remove();
     };
   }, []);
 
@@ -1650,7 +1644,7 @@ function CreateReminderPopup({
       requestAnimationFrame(() => {
         setTimeout(() => {
           setIsReady(true);
-          if (mode === 'create') {
+          if (mode === 'create' && shouldAutoFocusOnCreate) {
             InteractionManager.runAfterInteractions(() => {
               titleInputRef.current?.focus();
             });
@@ -1661,7 +1655,7 @@ function CreateReminderPopup({
       setIsReady(false);
       setKeyboardHeight(0);
     }
-  }, [visible, mode]);
+  }, [visible, mode, shouldAutoFocusOnCreate]);
 
   // Listen to keyboard events for smooth transition
   useEffect(() => {
@@ -1718,7 +1712,6 @@ function CreateReminderPopup({
               { 
                 height: popupHeight,
                 opacity: isReady ? 1 : 0,
-                ...(Platform.OS === 'android' && {})
               }
             ]}
           >
