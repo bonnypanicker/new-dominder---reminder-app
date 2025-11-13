@@ -615,8 +615,20 @@ export default function HomeScreen() {
         reminder={reminder}
         swipeableRefs={swipeableRefs}
         simultaneousHandlers={contentScrollRef}
-        onSwipeRight={!selectionMode ? (isDeleted ? () => handlePermanentDelete(reminder) : () => handleDelete(reminder)) : undefined}
-        onSwipeLeft={!selectionMode && !isDeleted ? (isActive ? () => completeAllOccurrences(reminder) : undefined) : (isDeleted ? () => handlePermanentDelete(reminder) : undefined)}
+        onSwipeRight={!selectionMode ? 
+          // Right swipe: delete or permanent delete
+          (isDeleted || !isActive) ? 
+            () => handlePermanentDelete(reminder) : 
+            () => handleDelete(reminder) 
+          : undefined
+        }
+        onSwipeLeft={!selectionMode ? 
+          // Left swipe: complete active, permanent delete completed/deleted
+          (isDeleted || !isActive) ? 
+            () => handlePermanentDelete(reminder) : 
+            () => completeAllOccurrences(reminder)
+          : undefined
+        }
         isSelectionMode={selectionMode}
       >
         <TouchableOpacity
@@ -800,23 +812,7 @@ export default function HomeScreen() {
                     </View>
                   )}
                   
-                  {/* Show deleted badge for deleted items */}
-                  {isDeleted && (
-                    <View style={styles.repeatBadgeContainer}>
-                      <View style={[styles.repeatBadge, styles.repeatBadgeBottom, { backgroundColor: Material3Colors.light.errorContainer }]}>
-                        <Text style={[styles.repeatBadgeText, { color: Material3Colors.light.onErrorContainer }]}>
-                          Deleted
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  
-                  {/* Show deleted timestamp for deleted reminders */}
-                  {isDeleted && reminder.updatedAt && (
-                    <Text style={styles.nextReminderText}>
-                      Deleted on: {formatDate(reminder.updatedAt)} at {formatTime(new Date(reminder.updatedAt).toTimeString().slice(0, 5))}
-                    </Text>
-                  )}
+                  {/* Deleted badge and timestamp removed as requested */}
 
                 {/* Show snooze until time if snoozed */}
                   {reminder.snoozeUntil && (
