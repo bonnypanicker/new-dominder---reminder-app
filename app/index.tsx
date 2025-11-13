@@ -1155,10 +1155,10 @@ export default function HomeScreen() {
             </>
           ) : (
             <>
-              <AlertCircle size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Expired Reminders</Text>
+              <Trash2 size={64} color={Material3Colors.light.outline} />
+              <Text style={styles.emptyTitle}>No Deleted Reminders</Text>
               <Text style={styles.emptyDescription}>
-                Expired reminders will appear here
+                Deleted reminders will appear here
               </Text>
             </>
           )}
