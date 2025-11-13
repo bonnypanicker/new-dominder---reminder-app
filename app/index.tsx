@@ -630,6 +630,7 @@ export default function HomeScreen() {
           : undefined
         }
         isSelectionMode={selectionMode}
+        listType={listType}
       >
         <TouchableOpacity
             activeOpacity={0.85}
