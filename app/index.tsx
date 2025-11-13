@@ -1690,16 +1690,11 @@ function CreateReminderPopup({
       statusBarTranslucent
     >
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <Pressable 
-          style={[
-            createPopupStyles.overlay,
-            Platform.OS === 'android' && keyboardHeight > 0 && {
-              paddingBottom: keyboardHeight,
-            }
-          ]} 
+          style={createPopupStyles.overlay} 
           onPress={() => {
             RNKeyboard.dismiss();
             onClose();
