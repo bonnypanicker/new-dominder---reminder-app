@@ -79,6 +79,24 @@ const calculateDefaultTime = () => {
 };
 
 export default function HomeScreen() {
+  // Listen for keyboard events to ensure FAB doesn't move
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  
+  useEffect(() => {
+    const keyboardDidShowListener = RNKeyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = RNKeyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
   const { data: reminders = [], isLoading } = useReminders();
   const { data: settings } = useSettings();
   const updateReminder = useUpdateReminder();
@@ -3209,6 +3227,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     backgroundColor: 'transparent',
     alignItems: 'center',
+    zIndex: 999, // Ensure button stays above everything
   },
   createAlarmButton: {
     justifyContent: 'center',
