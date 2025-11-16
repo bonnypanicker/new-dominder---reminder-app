@@ -3822,7 +3822,7 @@ const styles = StyleSheet.create({
   compactSeparator: {
     fontSize: 12,
     color: Material3Colors.light.outline,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     flexShrink: 0,
   },
   reminderTimeCompact: {
