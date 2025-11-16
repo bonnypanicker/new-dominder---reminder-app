@@ -879,7 +879,8 @@ const UntilTypeButton = React.forwardRef<View, { untilType: UntilType; getLabel:
     };
 
     const label = getLabel(untilType);
-    const displayText = valueLabel && untilType !== 'none' ? `${label} • ${valueLabel}` : label;
+    // For count type, show only the valueLabel (e.g., "After 2 Occurrences") without the label prefix
+    const displayText = valueLabel && untilType !== 'none' ? valueLabel : label;
 
     const handlePress = () => {
       // Always open the dropdown on tap
