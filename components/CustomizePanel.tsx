@@ -248,9 +248,9 @@ export default function CustomizePanel({
 
   const getUntilLabel = (u: UntilType): string => {
     const labels: Record<UntilType, string> = {
-      none: 'Forever',
+      none: 'Never',
       endsAt: 'On date',
-      count: 'After count',
+      count: 'Occurrence',
     };
     return labels[u];
   };
@@ -385,7 +385,7 @@ export default function CustomizePanel({
       {repeatType === 'monthly' && (
         <View style={styles.dateSelectionContainer}>
           <View style={styles.topRow}>
-            <Text style={styles.topRowLabel}>Repeat on</Text>
+            <Text style={styles.topRowLabel}>Repeats on</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 testID="monthly-open-calendar"
@@ -406,7 +406,7 @@ export default function CustomizePanel({
       {repeatType === 'yearly' && (
         <View style={styles.dateSelectionContainer}>
           <View style={styles.topRow}>
-            <Text style={styles.topRowLabel}>Repeat on</Text>
+            <Text style={styles.topRowLabel}>Repeats on</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 testID="yearly-open-calendar"
@@ -544,7 +544,7 @@ export default function CustomizePanel({
         visible={untilDropdownOpen}
         anchor={untilDropdownAnchor}
         untilType={(untilType ?? 'none') as UntilType}
-        options={["none", "endsAt", "count"] as UntilType[]}
+        options={(repeatType === 'yearly' ? ["none", "endsAt"] : ["none", "endsAt", "count"]) as UntilType[]}
         getLabel={getUntilLabel}
         onChange={(type) => {
           try {
