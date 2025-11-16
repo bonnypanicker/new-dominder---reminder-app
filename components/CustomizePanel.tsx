@@ -263,7 +263,6 @@ export default function CustomizePanel({
         keyboardDismissMode="none"
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled={true}
-        onTouchStart={closeAllDropdowns}
       >
       <View style={styles.repeatOptionsContainer}>
         {repeatOptions.map((option) => (

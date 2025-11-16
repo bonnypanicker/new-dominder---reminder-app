@@ -1707,12 +1707,6 @@ function CreateReminderPopup({
         >
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            onTouchStart={() => {
-              // Close any open dropdowns when touching popup container
-              if ((window as any).__closeCustomizePanelDropdowns) {
-                (window as any).__closeCustomizePanelDropdowns();
-              }
-            }}
             style={[
               createPopupStyles.popup, 
               { 
@@ -1727,22 +1721,27 @@ function CreateReminderPopup({
             style={{ maxHeight: '100%' }}
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="always"
-            onTouchStart={() => {
-              // Close any open dropdowns in CustomizePanel
-              if ((window as any).__closeCustomizePanelDropdowns) {
-                (window as any).__closeCustomizePanelDropdowns();
-              }
-            }}
           >
+            <Pressable 
+              style={{ flex: 1 }}
+              onPress={() => {
+                // Close any open dropdowns when tapping blank space
+                if ((window as any).__closeCustomizePanelDropdowns) {
+                  (window as any).__closeCustomizePanelDropdowns();
+                }
+              }}
+            >
               <View 
                 style={createPopupStyles.mainContent}
-                onTouchStart={() => {
-                  // Close dropdowns when touching main content area
+                onStartShouldSetResponder={() => true}
+                onResponderRelease={() => {
+                  // Close dropdowns when tapping in this area
                   if ((window as any).__closeCustomizePanelDropdowns) {
                     (window as any).__closeCustomizePanelDropdowns();
                   }
                 }}
               >
+              <Pressable onPress={(e) => e.stopPropagation()}>
               <View style={createPopupStyles.section}>
                 <TextInput
                   ref={titleInputRef}
@@ -1802,25 +1801,15 @@ function CreateReminderPopup({
                 <PrioritySelector 
                   priority={priority} 
                   onPriorityChange={onPriorityChange}
-                  onTouchStart={() => {
-                    // Close any open dropdowns when touching priority selector
-                    if ((window as any).__closeCustomizePanelDropdowns) {
-                      (window as any).__closeCustomizePanelDropdowns();
-                    }
-                  }}
                 />
               </View>
+              </Pressable>
               </View>
+            </Pressable>
           </ScrollView>
           
           <View 
             style={createPopupStyles.buttonContainer}
-            onTouchStart={() => {
-              // Close any open dropdowns when touching button area
-              if ((window as any).__closeCustomizePanelDropdowns) {
-                (window as any).__closeCustomizePanelDropdowns();
-              }
-            }}
           >
             <TouchableOpacity style={createPopupStyles.cancelButton} onPress={onClose} testID="cancel-create">
               <Text style={createPopupStyles.cancelButtonText}>Cancel</Text>
