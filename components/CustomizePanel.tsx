@@ -544,7 +544,7 @@ export default function CustomizePanel({
         visible={untilDropdownOpen}
         anchor={untilDropdownAnchor}
         untilType={(untilType ?? 'none') as UntilType}
-        options={(repeatType === 'yearly' ? ["none", "endsAt"] : ["none", "endsAt", "count"]) as UntilType[]}
+        options={["none", "endsAt", "count"] as UntilType[]}
         getLabel={getUntilLabel}
         onChange={(type) => {
           try {
