@@ -17,6 +17,7 @@ interface SwipeableRowProps {
   swipeableRefs?: React.MutableRefObject<Map<string, any>>;
   simultaneousHandlers?: React.RefObject<any>;
   isSelectionMode?: boolean;
+  leftActionType?: 'complete' | 'delete';
 }
 
 const SwipeableRow = memo(function SwipeableRow({ 
@@ -25,7 +26,8 @@ const SwipeableRow = memo(function SwipeableRow({
   onSwipeRight,
   onSwipeLeft,
   swipeableRefs,
-  isSelectionMode = false
+  isSelectionMode = false,
+  leftActionType = 'complete'
 }: SwipeableRowProps) {
   // Debug: Track renders
   useRenderTracking('SwipeableRow', { reminderId: reminder.id });
@@ -100,12 +102,20 @@ const SwipeableRow = memo(function SwipeableRow({
     });
 
     return (
-      <Animated.View style={[styles.leftAction, { transform: [{ translateX }, { scale }], opacity }]}>
-        <CheckCircle size={24} color="white" />
-        <Text style={styles.actionText}>Complete</Text>
+      <Animated.View style={[
+        styles.leftAction,
+        leftActionType === 'delete' && styles.leftActionDelete,
+        { transform: [{ translateX }, { scale }], opacity }
+      ]}>
+        {leftActionType === 'delete' ? (
+          <Trash2 size={24} color="white" />
+        ) : (
+          <CheckCircle size={24} color="white" />
+        )}
+        <Text style={styles.actionText}>{leftActionType === 'delete' ? 'Delete' : 'Complete'}</Text>
       </Animated.View>
     );
-  }, [onSwipeLeft]);
+  }, [onSwipeLeft, leftActionType]);
 
   // Close other swipeables when this one opens
   const handleSwipeableWillOpen = useCallback((direction: 'left' | 'right') => {
@@ -290,6 +300,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 1,
     marginLeft: 20,
+  },
+  leftActionDelete: {
+    backgroundColor: '#F44336',
   },
   actionText: {
     color: 'white',

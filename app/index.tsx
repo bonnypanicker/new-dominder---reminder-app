@@ -609,7 +609,107 @@ export default function HomeScreen() {
 
     
     const isDeleted = listType === 'deleted';
+    const isCompletedOrDeleted = listType === 'completed' || listType === 'deleted';
     
+    // Minimized single-line layout for completed and deleted
+    if (isCompletedOrDeleted) {
+      return (
+        <SwipeableRow 
+          reminder={reminder}
+          swipeableRefs={swipeableRefs}
+          simultaneousHandlers={contentScrollRef}
+          onSwipeRight={!selectionMode ? () => handlePermanentDelete(reminder) : undefined}
+          onSwipeLeft={!selectionMode ? () => handlePermanentDelete(reminder) : undefined}
+          isSelectionMode={selectionMode}
+          leftActionType="delete"
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleCardPress(reminder)}
+            onLongPress={() => handleLongPress(reminder.id, listType)}
+            delayLongPress={200}
+            style={[
+              styles.reminderCardCompact,
+              isSelected && styles.selectedCard
+            ]}
+            testID={`reminder-card-${reminder.id}`}
+          >
+            <View style={styles.reminderContentCompact}>
+              <View style={styles.reminderLeftCompact}>
+                {selectionMode && (
+                  <TouchableOpacity
+                    style={styles.selectionCheckbox}
+                    onPress={() => handleCardPress(reminder)}
+                  >
+                    {isSelected ? (
+                      <CheckSquare size={20} color={Material3Colors.light.primary} />
+                    ) : (
+                      <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+                <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
+                  {reminder.title}
+                </Text>
+                <Text style={styles.compactSeparator}>•</Text>
+                <Text style={styles.reminderTimeCompact}>
+                  {formatTime(reminder.time)}
+                </Text>
+                {/* Show date only for non-daily reminders */}
+                {reminder.repeatType !== 'daily' && (
+                  <>
+                    <Text style={styles.compactSeparator}>•</Text>
+                    <Text style={styles.reminderDateCompact} numberOfLines={1}>
+                      {(() => {
+                        const [year, month, day] = reminder.date.split('-').map(Number);
+                        const date = new Date(year, month - 1, day);
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      })()}
+                    </Text>
+                  </>
+                )}
+                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                  <Text style={styles.repeatBadgeTextCompact}>
+                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                  </Text>
+                </View>
+                {/* Show compact duration for Every reminders */}
+                {reminder.repeatType === 'every' && reminder.everyInterval && (
+                  <Text style={styles.everyDurationCompact}>
+                    {(() => {
+                      const value = reminder.everyInterval.value;
+                      const unit = reminder.everyInterval.unit;
+                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
+                      return `${value}${unitShort}`;
+                    })()}
+                  </Text>
+                )}
+              </View>
+              
+              <View style={styles.reminderRight}>
+                <TouchableOpacity
+                  style={isDeleted ? styles.restoreButton : styles.reassignButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (isDeleted) {
+                      handleRestore(reminder);
+                    } else {
+                      reassignReminder(reminder);
+                    }
+                  }}
+                  testID={isDeleted ? `restore-button-${reminder.id}` : `reassign-button-${reminder.id}`}
+                >
+                  <RotateCcw size={18} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </SwipeableRow>
+      );
+    }
+    
+    // Full layout for active reminders
     return (
       <SwipeableRow 
         reminder={reminder}
@@ -1140,10 +1240,10 @@ export default function HomeScreen() {
             </>
           ) : (
             <>
-              <AlertCircle size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Expired Reminders</Text>
+              <Trash2 size={64} color={Material3Colors.light.outline} />
+              <Text style={styles.emptyTitle}>No Deleted Reminders</Text>
               <Text style={styles.emptyDescription}>
-                Expired reminders will appear here
+                Deleted reminders will appear here
               </Text>
             </>
           )}
@@ -3580,5 +3680,83 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 1,
+  },
+
+  // Compact card styles for completed and deleted reminders
+  reminderCardCompact: {
+    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Material3Colors.light.outlineVariant,
+    marginHorizontal: 20,
+    elevation: 1,
+    shadowColor: Material3Colors.light.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    overflow: 'visible',
+  },
+  reminderContentCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  reminderLeftCompact: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0, // Allow flex shrinking
+  },
+  priorityBarCompact: {
+    width: 3,
+    height: 24,
+    borderRadius: 1.5,
+    flexShrink: 0,
+  },
+  reminderTitleCompact: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurface,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  compactSeparator: {
+    fontSize: 12,
+    color: Material3Colors.light.outline,
+    marginHorizontal: 4,
+    flexShrink: 0,
+  },
+  reminderTimeCompact: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
+    flexShrink: 0,
+  },
+  reminderDateCompact: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
+    flexShrink: 0,
+  },
+  repeatBadgeCompact: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 4,
+    flexShrink: 0,
+  },
+  repeatBadgeTextCompact: {
+    fontSize: 10,
+    color: Material3Colors.light.primary,
+    fontWeight: '600',
+  },
+  everyDurationCompact: {
+    fontSize: 11,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '600',
+    marginLeft: 4,
+    flexShrink: 0,
   },
 });
