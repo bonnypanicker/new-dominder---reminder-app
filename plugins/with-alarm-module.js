@@ -1776,6 +1776,19 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun showToast(message: String, duration: Int = 0) {
+        try {
+            val toastDuration = if (duration == 1) android.widget.Toast.LENGTH_LONG else android.widget.Toast.LENGTH_SHORT
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(reactContext, message, toastDuration).show()
+            }
+            DebugLogger.log("AlarmModule: Toast shown: \$message")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error showing toast: \${e.message}")
+        }
+    }
+
+    @ReactMethod
     fun getCompletedAlarms(promise: Promise) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)

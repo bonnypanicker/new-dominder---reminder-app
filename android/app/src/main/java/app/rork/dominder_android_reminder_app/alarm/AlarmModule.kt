@@ -103,7 +103,24 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             pendingIntent.cancel()
             promise?.resolve(true)
         } catch (e: Exception) {
-            promise?.reject("CANCEL_ERROR", e.message, e)
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putBoolean("ringer_sound_enabled", soundEnabled)
+                putBoolean("ringer_vibration_enabled", vibrationEnabled)
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error saving notification settings: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
         }
     }
 

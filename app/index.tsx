@@ -13,7 +13,7 @@ import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
 import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel from '@/components/CustomizePanel';
-import Toast from '@/components/Toast';
+import { showToast } from '@/utils/toast';
 import SwipeableRow from '@/components/SwipeableRow';
 
 // Icon components (declared after all imports to satisfy import/first)
@@ -92,14 +92,7 @@ export default function HomeScreen() {
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<FlashList<any>>(null);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
-  const [toastVisible, setToastVisible] = useState<boolean>(false);
-  const [toastMessage, setToastMessage] = useState<string>('');
-  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
-  const showToast = useCallback((message: string, type: 'info' | 'error' | 'success' = 'error') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  }, []);
+  // Toast state removed - now using native Android toast
   const [selectedTime, setSelectedTime] = useState<string>(() => {
     const defaultTime = calculateDefaultTime();
     return defaultTime.time;
@@ -1318,7 +1311,6 @@ export default function HomeScreen() {
         }}
         showTimeSelector={showTimeSelector}
         onCloseTimeSelector={() => setShowTimeSelector(false)}
-        onShowToast={showToast}
         timeSelectorContext={timeSelectorContext}
         // Until props
         untilType={untilType}
@@ -1341,7 +1333,7 @@ export default function HomeScreen() {
         onOpenUntilTime={() => { setTimeSelectorContext('until'); setShowTimeSelector(true); }}
         onConfirm={() => {
           if (!title.trim()) {
-            showToast('Please enter your reminder', 'error');
+            showToast('Please enter your reminder');
             return;
           }
 
@@ -1353,7 +1345,7 @@ export default function HomeScreen() {
               const endDateTime = new Date(untilDate);
               endDateTime.setHours(0, 0, 0, 0);
               if (endDateTime < startDateTime) {
-                showToast('End date cannot be before start date', 'error');
+                showToast('End date cannot be before start date');
                 return;
               }
             } catch (_) {
@@ -1385,7 +1377,7 @@ export default function HomeScreen() {
             endDateTimeFull.setHours(finalUHours, uMinutes, 0, 0);
             const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
             if (withTime && endDateTimeFull <= startDateTimeFull) {
-              showToast('End time must be after start time', 'error');
+              showToast('End time must be after start time');
               return;
             }
 
@@ -1397,7 +1389,7 @@ export default function HomeScreen() {
                   : everyValue * 60 * 60 * 1000;
                 const diffMs = endDateTimeFull.getTime() - startDateTimeFull.getTime();
                 if (diffMs < intervalMs) {
-                  showToast(`End date/time must be at least ${everyValue} ${everyUnit} after start for 'Every' repeats`, 'error');
+                  showToast(`End date/time must be at least ${everyValue} ${everyUnit} after start for 'Every' repeats`);
                   return;
                 }
               } else if (everyUnit === 'days') {
@@ -1407,7 +1399,7 @@ export default function HomeScreen() {
                 endDay.setHours(0, 0, 0, 0);
                 const diffDays = Math.floor((endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000));
                 if (diffDays < everyValue) {
-                  showToast(`End date must be at least ${everyValue} day(s) after start for 'Every' repeats`, 'error');
+                  showToast(`End date must be at least ${everyValue} day(s) after start for 'Every' repeats`);
                   return;
                 }
               }
@@ -1426,7 +1418,7 @@ export default function HomeScreen() {
                           now.getDate() === selectedDateTime.getDate();
             
             if (selectedDateTime <= now || (isToday && selectedDateTime <= now)) {
-              showToast('Please select a future time', 'error');
+              showToast('Please select a future time');
               return;
             }
           }
@@ -1615,13 +1607,6 @@ export default function HomeScreen() {
       />
 
     </SafeAreaView>
-    
-    <Toast
-      message={toastMessage}
-      visible={toastVisible}
-      type={toastType}
-      onHide={() => setToastVisible(false)}
-    />
     </>
   );
 }
@@ -1656,7 +1641,6 @@ interface CreateReminderPopupProps {
   everyValue: number;
   everyUnit: EveryUnit;
   onEveryChange: (value: number, unit: EveryUnit) => void;
-  onShowToast: (message: string, type?: 'info' | 'error' | 'success') => void;
   timeSelectorContext: 'start' | 'until';
   // Until props
   untilType: 'none' | 'endsAt' | 'count';
@@ -1696,7 +1680,6 @@ function CreateReminderPopup({
   everyValue,
   everyUnit,
   onEveryChange,
-  onShowToast,
   timeSelectorContext,
   // Until props
   untilType,
@@ -1908,7 +1891,7 @@ function CreateReminderPopup({
         onClose={onCloseTimeSelector}
         selectedDate={timeSelectorContext === 'until' ? (untilDate || selectedDate) : selectedDate}
         repeatType={repeatType}
-        onPastTimeError={(msg) => onShowToast(msg ?? 'Please select a future time', 'error')}
+        onPastTimeError={(msg) => showToast(msg ?? 'Please select a future time')}
       />
       
 

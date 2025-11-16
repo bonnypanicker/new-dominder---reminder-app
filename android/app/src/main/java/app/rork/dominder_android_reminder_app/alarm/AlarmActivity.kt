@@ -30,7 +30,9 @@ class AlarmActivity : AppCompatActivity() {
     private var notificationId: Int = 0
     private var priority: String = "medium"
     private var timeUpdateRunnable: Runnable? = null
+    private var timeoutRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val TIMEOUT_DURATION = 5 * 60 * 1000L // 5 minutes in milliseconds
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +82,26 @@ class AlarmActivity : AppCompatActivity() {
             }
         }
         timeUpdateRunnable?.run()
+
+        // --- Setup 5-minute timeout ---
+        timeoutRunnable = Runnable {
+            DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
+            
+            // Send missed alarm broadcast
+            val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+                putExtra("time", timeFormat.format(Date()))
+            }
+            sendBroadcast(missedIntent)
+            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
+            
+            // Finish the activity
+            finishAlarmProperly()
+        }
+        
+        handler.postDelayed(timeoutRunnable!!, TIMEOUT_DURATION)
+        DebugLogger.log("AlarmActivity: 5-minute timeout scheduled")
 
         // --- Ringtone Service Already Playing ---
         DebugLogger.log("AlarmActivity: Ringtone service should already be playing")
@@ -234,6 +256,8 @@ class AlarmActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         timeUpdateRunnable?.let { handler.removeCallbacks(it) }
+        timeoutRunnable?.let { handler.removeCallbacks(it) }
+        DebugLogger.log("AlarmActivity: Canceled timeout and time update runnables")
         
         // Stop the ringtone service if it's running
         AlarmRingtoneService.stopAlarmRingtone(this)

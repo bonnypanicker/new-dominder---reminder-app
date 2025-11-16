@@ -126,6 +126,13 @@ class AlarmRingtoneService : Service() {
         try {
             DebugLogger.log("AlarmRingtoneService: Starting ringtone and vibration")
             
+            // Check settings for sound and vibration
+            val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            val soundEnabled = prefs.getBoolean("ringer_sound_enabled", true)
+            val vibrationEnabled = prefs.getBoolean("ringer_vibration_enabled", true)
+            
+            DebugLogger.log("AlarmRingtoneService: Settings - sound: $soundEnabled, vibration: $vibrationEnabled")
+            
             // Acquire wake lock for 10 minutes max
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
@@ -135,11 +142,19 @@ class AlarmRingtoneService : Service() {
                 acquire(10 * 60 * 1000L) // 10 minutes
             }
             
-            // Start ringtone
-            startRingtone()
+            // Start ringtone only if sound is enabled
+            if (soundEnabled) {
+                startRingtone()
+            } else {
+                DebugLogger.log("AlarmRingtoneService: Ringer sound disabled, skipping ringtone")
+            }
             
-            // Start vibration
-            startVibration()
+            // Start vibration only if vibration is enabled
+            if (vibrationEnabled) {
+                startVibration()
+            } else {
+                DebugLogger.log("AlarmRingtoneService: Ringer vibration disabled, skipping vibration")
+            }
             
         } catch (e: Exception) {
             DebugLogger.log("AlarmRingtoneService: Error starting ringtone/vibration: ${e.message}")
