@@ -2,18 +2,18 @@ import { Layout, Easing, withTiming, withSpring, SharedValue } from 'react-nativ
 
 // Spring presets tuned for snappy, 60fps UI-thread animations
 export const springFast = {
-  damping: 20,
-  stiffness: 300,
-  mass: 0.9,
+  damping: 22,
+  stiffness: 400,
+  mass: 0.8,
   overshootClamping: false,
   restSpeedThreshold: 0.001,
   restDisplacementThreshold: 0.001,
 };
 
 export const springSoft = {
-  damping: 18,
-  stiffness: 220,
-  mass: 1,
+  damping: 20,
+  stiffness: 280,
+  mass: 0.9,
 };
 
 // Compute a bounded bounce translation based on overscroll amount
@@ -30,7 +30,7 @@ export function springTo(shared: SharedValue<number>, to = 0, config = springFas
 }
 
 // Animate a SharedValue to a target using timing + easing
-export function fillTo(shared: SharedValue<number>, to = 1, duration = 280) {
+export function fillTo(shared: SharedValue<number>, to = 1, duration = 180) {
   'worklet';
   shared.value = withTiming(to, { duration, easing: Easing.out(Easing.cubic) });
 }

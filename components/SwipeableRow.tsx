@@ -148,10 +148,10 @@ const SwipeableRow = memo(function SwipeableRow({
     const screenWidth = Dimensions.get('window').width;
     const targetX = direction === 'right' ? screenWidth : -screenWidth;
     
-    // Platform-specific animation timing
-    const slideDuration = Platform.OS === 'android' ? 300 : 350;
-    const heightDuration = Platform.OS === 'android' ? 250 : 350;
-    const heightDelay = Platform.OS === 'android' ? 50 : 0;
+    // Platform-specific animation timing - increased speed
+    const slideDuration = Platform.OS === 'android' ? 200 : 250;
+    const heightDuration = Platform.OS === 'android' ? 180 : 250;
+    const heightDelay = Platform.OS === 'android' ? 30 : 0;
     
     // Set removing state after a brief delay on Android to prevent flash
     if (Platform.OS === 'android') {
