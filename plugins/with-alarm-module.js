@@ -816,8 +816,9 @@ class AlarmActivity : AppCompatActivity() {
             PowerManager.ON_AFTER_RELEASE,
             "DoMinder:AlarmWakeLock"
         ).apply {
-            acquire(30 * 1000L) // 30 seconds timeout
+            acquire(10 * 60 * 1000L) // 10 minutes timeout (covers 5-min cutoff + buffer)
         }
+        DebugLogger.log("AlarmActivity: Wake lock acquired for 10 minutes")
     }
 
     private fun setShowWhenLockedAndTurnScreenOn() {
@@ -826,13 +827,18 @@ class AlarmActivity : AppCompatActivity() {
             setTurnScreenOn(true)
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             keyguardManager.requestDismissKeyguard(this, null)
+            
+            // Keep screen on until user action or timeout
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             )
         }
+        DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
     }
 
 
