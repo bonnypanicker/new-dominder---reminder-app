@@ -1029,44 +1029,49 @@ class RingtonePickerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Set status bar color to match page background
+        // Set status bar color to match Material3 surface
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.statusBarColor = 0xFFFEF7FF.toInt()
             
-            // Make status bar icons dark colored for light background
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             }
         }
         
-        // Create layout programmatically to match app theme
+        // Main container matching Reminder Defaults design
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3 surface
+            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3Colors.light.surface
             setPadding(0, 0, 0, 0)
         }
 
-        // Header - Modern design
+        // Header matching Reminder Defaults modal style
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(24, 48, 20, 20)
-            setBackgroundColor(0xFFFAFAFA.toInt())
+            setPadding(64, 52, 52, 52) // paddingHorizontal 24dp, paddingVertical 20dp
+            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3Colors.light.surface
             elevation = 2f
+            
+            // Add bottom border
+            val borderDrawable = android.graphics.drawable.GradientDrawable()
+            borderDrawable.setColor(0xFFFEF7FF.toInt())
+            borderDrawable.setStroke(3, 0xFFE7E0EC.toInt()) // surfaceVariant border, bottom only via layer
+            background = borderDrawable
         }
 
         val titleText = TextView(this).apply {
-            text = "Select Ringer Tone"
-            textSize = 22f
-            setTextColor(0xFF1C1B1F.toInt())
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            text = "Ringer Mode Tone"
+            textSize = 20f // fontSize 20
+            setTextColor(0xFF1C1B1F.toInt()) // onSurface
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD) // fontWeight 600
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1074,37 +1079,68 @@ class RingtonePickerActivity : AppCompatActivity() {
             )
         }
 
-        val cancelButton = com.google.android.material.button.MaterialButton(this).apply {
-            text = "Cancel"
-            textSize = 14f
-            setTextColor(0xFFFFFFFF.toInt())
-            setBackgroundColor(0xFF6750A4.toInt())
-            cornerRadius = 50
+        val doneButton = TextView(this).apply {
+            text = "Done"
+            textSize = 14f // fontSize 14
+            setTextColor(0xFF6750A4.toInt()) // Material3Colors.light.primary
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // fontWeight 500
+            setPadding(42, 20, 42, 20) // paddingHorizontal 16dp, paddingVertical 8dp
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFFE8DEF8.toInt()) // Material3Colors.light.primaryContainer
+                cornerRadius = 52f // borderRadius 20
+            }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             setOnClickListener {
                 stopCurrentRingtone()
-                setResult(Activity.RESULT_CANCELED)
+                val result = Intent().apply {
+                    putExtra("selectedUri", selectedUri.toString())
+                }
+                setResult(Activity.RESULT_OK, result)
                 finish()
             }
         }
 
         header.addView(titleText)
-        header.addView(cancelButton)
+        header.addView(doneButton)
         mainLayout.addView(header)
 
-        // ListView for ringtones
-        val listView = ListView(this).apply {
+        // ScrollView container matching Reminder Defaults
+        val scrollContainer = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
-            dividerHeight = 1
-            setBackgroundColor(0xFFFAFAFA.toInt())
+            setPadding(64, 64, 64, 64) // padding 24dp matching defaultsList style
+            setBackgroundColor(0xFFFEF7FF.toInt())
         }
+        
+        val contentLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        
+        // Section title matching defaultsSectionTitle style
+        val sectionTitle = TextView(this).apply {
+            text = "SELECT TONE"
+            textSize = 14f // fontSize 14
+            setTextColor(0xFF49454F.toInt()) // Material3Colors.light.onSurfaceVariant
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD) // fontWeight 600
+            letterSpacing = 0.05f // letterSpacing 0.5
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = 42 // marginBottom 16dp
+            }
+        }
+        contentLayout.addView(sectionTitle)
 
         // Load ringtones
         val ringtoneManager = RingtoneManager(this)
@@ -1134,196 +1170,104 @@ class RingtonePickerActivity : AppCompatActivity() {
             customSongName = getFileName(customSongUri!!)
         }
 
-        // Add "Browse Files" button before the list (pill-shaped)
-        val browseButton = com.google.android.material.button.MaterialButton(this).apply {
+        // Browse button matching option chip style
+        val browseButton = TextView(this).apply {
             text = "📁 Browse Custom Songs"
-            textSize = 15f
-            setTextColor(0xFFFFFFFF.toInt())
-            cornerRadius = 100 // Full pill shape
+            textSize = 14f // fontSize 14
+            setTextColor(0xFF6750A4.toInt()) // primary color
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // fontWeight 500
+            setPadding(42, 26, 42, 26) // paddingHorizontal 16dp, paddingVertical 10dp
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFFE8DEF8.toInt()) // Material3Colors.light.primaryContainer
+                cornerRadius = 52f // borderRadius 20
+                setStroke(3, 0xFF6750A4.toInt()) // primary border
+            }
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(40, 20, 40, 20)
-                height = 140 // 56dp equivalent
+                setMargins(0, 0, 0, 52) // margin bottom 20dp
             }
-            setBackgroundColor(0xFF6750A4.toInt())
-            elevation = 2f
             setOnClickListener {
                 stopCurrentRingtone()
                 openFilePicker()
             }
         }
-        mainLayout.addView(browseButton)
+        contentLayout.addView(browseButton)
         
-        // Show custom song if one is selected - Modern pill design
+        // Show custom song if selected - Matching priority option card style
         if (customSongUri != null && customSongName != null) {
-            // Container with padding
-            val customSongContainer = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                setPadding(40, 0, 40, 20)
-            }
-
-            val customSongView = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                setPadding(32, 28, 32, 28)
-                setBackgroundColor(0xFFE8DEF8.toInt()) // Light primary container
+            val isSelected = customSongUri == selectedUri
+            
+            val customSongCard = TextView(this).apply {
+                text = "🎵 ${customSongName}"
+                textSize = 14f // fontSize 14
+                setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF49454F.toInt()) // primary when selected, onSurfaceVariant otherwise
+                typeface = android.graphics.Typeface.create("sans-serif-medium", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) // fontWeight 500 when selected
+                setPadding(42, 26, 42, 26) // paddingHorizontal 16dp, paddingVertical 10dp
                 background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(0xFFE8DEF8.toInt())
-                    cornerRadius = 50f
+                    setColor(if (isSelected) 0xFFE8DEF8.toInt() else 0xFFF5EFF7.toInt()) // primaryContainer when selected, surfaceContainerLow otherwise
+                    cornerRadius = 52f // borderRadius 20
+                    setStroke(3, if (isSelected) 0xFF6750A4.toInt() else 0xFFE7E0EC.toInt()) // primary border when selected, surfaceVariant otherwise
                 }
-                elevation = 2f
-                
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 0, 16, 16) // margin 6dp equivalent
+                }
                 setOnClickListener {
                     stopCurrentRingtone()
                     selectedUri = customSongUri
-                    
-                    // Play preview
-                    try {
-                        currentlyPlaying = RingtoneManager.getRingtone(this@RingtonePickerActivity, customSongUri)
-                        currentlyPlaying?.play()
-                    } catch (e: Exception) {
-                        DebugLogger.log("Error playing custom song: \${e.message}")
-                    }
+                    recreate() // Refresh to show selection
                 }
             }
+            
+            contentLayout.addView(customSongCard)
+        }
 
-            val radioButton = RadioButton(this).apply {
-                isChecked = customSongUri == selectedUri
+        // Add each ringtone as a chip matching optionChip style
+        ringtones.forEach { (title, uri) ->
+            val isSelected = uri == selectedUri
+            
+            val ringtoneChip = TextView(this).apply {
+                text = title
+                textSize = 14f // fontSize 14
+                setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF49454F.toInt()) // primary when selected, onSurfaceVariant otherwise
+                typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) // fontWeight 500 when selected
+                setPadding(42, 26, 42, 26) // paddingHorizontal 16dp, paddingVertical 10dp
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(if (isSelected) 0xFFE8DEF8.toInt() else 0xFFF5EFF7.toInt()) // primaryContainer when selected, surfaceContainerLow otherwise
+                    cornerRadius = 52f // borderRadius 20
+                    setStroke(3, if (isSelected) 0xFF6750A4.toInt() else 0xFFE7E0EC.toInt()) // primary border when selected, surfaceVariant otherwise
+                }
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            }
-
-            val textView = TextView(this).apply {
-                text = "🎵 \${customSongName}"
-                textSize = 16f
-                setTextColor(0xFF1C1B1F.toInt())
-                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-                setPadding(24, 0, 0, 0)
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    1f
-                )
-            }
-
-            customSongView.addView(radioButton)
-            customSongView.addView(textView)
-            customSongContainer.addView(customSongView)
-            mainLayout.addView(customSongContainer)
-        }
-
-        // Create adapter
-        val adapter = object : BaseAdapter() {
-            override fun getCount() = ringtones.size
-            override fun getItem(position: Int) = ringtones[position]
-            override fun getItemId(position: Int) = position.toLong()
-
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val (title, uri) = ringtones[position]
-                
-                val itemLayout = LinearLayout(this@RingtonePickerActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                    setPadding(48, 32, 48, 32)
-                    setBackgroundColor(0xFFFFFFFF.toInt())
+                ).apply {
+                    setMargins(16, 0, 16, 16) // margin 6dp equivalent
+                }
+                setOnClickListener {
+                    stopCurrentRingtone()
+                    selectedUri = uri
                     
-                    setOnClickListener {
-                        stopCurrentRingtone()
-                        selectedUri = uri
-                        notifyDataSetChanged()
-                        
-                        // Play preview
-                        try {
-                            currentlyPlaying = RingtoneManager.getRingtone(this@RingtonePickerActivity, uri)
-                            currentlyPlaying?.play()
-                        } catch (e: Exception) {
-                            DebugLogger.log("Error playing ringtone preview: \${e.message}")
-                        }
+                    // Play preview
+                    try {
+                        currentlyPlaying = RingtoneManager.getRingtone(this@RingtonePickerActivity, uri)
+                        currentlyPlaying?.play()
+                    } catch (e: Exception) {
+                        DebugLogger.log("Error playing ringtone preview: \${e.message}")
                     }
+                    
+                    recreate() // Refresh to show selection
                 }
-
-                val radioButton = RadioButton(this@RingtonePickerActivity).apply {
-                    isChecked = uri == selectedUri
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                    setOnClickListener { itemLayout.performClick() }
-                }
-
-                val textView = TextView(this@RingtonePickerActivity).apply {
-                    text = title
-                    textSize = 16f
-                    setTextColor(0xFF1C1B1F.toInt())
-                    setPadding(32, 0, 0, 0)
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f
-                    )
-                }
-
-                itemLayout.addView(radioButton)
-                itemLayout.addView(textView)
-                return itemLayout
             }
+            
+            contentLayout.addView(ringtoneChip)
         }
 
-        listView.adapter = adapter
-
-        mainLayout.addView(listView)
-
-        // Footer with OK button (pill-shaped)
-        val footer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(24, 20, 24, 24)
-            setBackgroundColor(0xFFFAFAFA.toInt())
-            elevation = 8f
-        }
-
-        val okButton = com.google.android.material.button.MaterialButton(this).apply {
-            text = "Confirm Selection"
-            textSize = 16f
-            setTextColor(0xFFFFFFFF.toInt())
-            cornerRadius = 100 // Full pill shape
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                height = 140 // 56dp equivalent
-            }
-            setBackgroundColor(0xFF6750A4.toInt())
-            elevation = 2f
-            setOnClickListener {
-                stopCurrentRingtone()
-                val result = Intent().apply {
-                    putExtra("selectedUri", selectedUri.toString())
-                }
-                setResult(Activity.RESULT_OK, result)
-                finish()
-            }
-        }
-
-        footer.addView(okButton)
-        mainLayout.addView(footer)
+        scrollContainer.addView(contentLayout)
+        mainLayout.addView(scrollContainer)
 
         setContentView(mainLayout)
     }
