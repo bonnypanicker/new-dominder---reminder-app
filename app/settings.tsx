@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Platform, Linking, NativeModules, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -363,35 +363,86 @@ interface DefaultsModalProps {
   onSelectPriority: (priority: 'standard' | 'silent' | 'ringer') => void;
 }
 
+// Memoized repeat mode chip component
+const RepeatModeChip = React.memo<{
+  mode: { value: RepeatType; label: string };
+  isSelected: boolean;
+  onPress: (value: RepeatType) => void;
+}>(({ mode, isSelected, onPress }) => {
+  const handlePress = useCallback(() => {
+    onPress(mode.value);
+  }, [mode.value, onPress]);
+
+  return (
+    <TouchableOpacity
+      style={[modalStyles.optionChip, isSelected && modalStyles.optionChipSelected]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <Text style={[modalStyles.optionChipText, isSelected && modalStyles.optionChipTextSelected]}>
+        {mode.label}
+      </Text>
+    </TouchableOpacity>
+  );
+});
+
+// Memoized priority option component
+const PriorityOption = React.memo<{
+  priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' };
+  isSelected: boolean;
+  onPress: (value: 'standard' | 'silent' | 'ringer') => void;
+}>(({ priority, isSelected, onPress }) => {
+  const handlePress = useCallback(() => {
+    onPress(priority.value);
+  }, [priority.value, onPress]);
+
+  const iconColor = isSelected ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant;
+
+  return (
+    <TouchableOpacity
+      style={[modalStyles.priorityOption, isSelected && modalStyles.priorityOptionSelected]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <Feather name={priority.icon} size={24} color={iconColor} />
+      <Text style={[modalStyles.priorityOptionText, isSelected && modalStyles.priorityOptionTextSelected]}>
+        {priority.label}
+      </Text>
+    </TouchableOpacity>
+  );
+});
+
 function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSelectMode, onSelectPriority }: DefaultsModalProps) {
-  const repeatModes: { value: RepeatType; label: string }[] = [
-    { value: 'none', label: 'Once' },
-    { value: 'daily', label: 'Daily' },
-    { value: 'monthly', label: 'Monthly' },
-    { value: 'yearly', label: 'Yearly' },
-    { value: 'every', label: 'Every' },
-  ];
+  // Static data - no need to recreate on every render
+  const repeatModes = useMemo(() => [
+    { value: 'none' as RepeatType, label: 'Once' },
+    { value: 'daily' as RepeatType, label: 'Daily' },
+    { value: 'monthly' as RepeatType, label: 'Monthly' },
+    { value: 'yearly' as RepeatType, label: 'Yearly' },
+    { value: 'every' as RepeatType, label: 'Every' },
+  ], []);
 
-  const priorities: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' }[] = [
-    { value: 'standard', label: 'Standard', icon: 'bell' },
-    { value: 'silent', label: 'Silent', icon: 'volume-2' },
-    { value: 'ringer', label: 'High Priority', icon: 'alert-circle' },
-  ];
+  const priorities = useMemo(() => [
+    { value: 'standard' as const, label: 'Standard', icon: 'bell' as const },
+    { value: 'silent' as const, label: 'Silent', icon: 'volume-2' as const },
+    { value: 'ringer' as const, label: 'High Priority', icon: 'alert-circle' as const },
+  ], []);
 
-  // Handle Android back button/gesture
+  // Handle Android back button - properly memoized
   useEffect(() => {
     if (!visible) return;
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (visible) {
-        onClose();
-        return true; // Prevent default behavior
-      }
-      return false;
-    });
+    const handleBackPress = () => {
+      onClose();
+      return true;
+    };
 
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
   }, [visible, onClose]);
+
+  // Don't render anything if not visible
+  if (!visible) return null;
 
   return (
     <Modal 
@@ -402,59 +453,57 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
       presentationStyle="fullScreen"
       statusBarTranslucent={false}
     >
-      <View style={{ flex: 1 }} pointerEvents={visible ? 'auto' : 'none'}>
-        <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
-          <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>Reminder Defaults</Text>
-          <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="defaults-close">
+      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
+        {/* Header */}
+        <View style={modalStyles.header}>
+          <Text style={modalStyles.title}>Reminder Defaults</Text>
+          <TouchableOpacity 
+            onPress={onClose} 
+            style={modalStyles.closeButton} 
+            testID="defaults-close"
+            activeOpacity={0.7}
+          >
             <Text style={modalStyles.closeButtonText}>Done</Text>
           </TouchableOpacity>
         </View>
         
-        <ScrollView style={modalStyles.defaultsList} showsVerticalScrollIndicator={false}>
+        {/* Content */}
+        <ScrollView 
+          style={modalStyles.defaultsList} 
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Repeat Mode Section */}
           <View style={modalStyles.defaultsSection}>
             <Text style={modalStyles.defaultsSectionTitle}>Default Repeat Mode</Text>
             <View style={modalStyles.optionsGrid}>
-              {repeatModes.map((mode) => {
-                const isSelected = mode.value === selectedMode;
-                return (
-                  <TouchableOpacity
-                    key={mode.value}
-                    style={[modalStyles.optionChip, isSelected && modalStyles.optionChipSelected]}
-                    onPress={() => onSelectMode(mode.value)}
-                  >
-                    <Text style={[modalStyles.optionChipText, isSelected && modalStyles.optionChipTextSelected]}>
-                      {mode.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {repeatModes.map((mode: { value: RepeatType; label: string }) => (
+                <RepeatModeChip
+                  key={mode.value}
+                  mode={mode}
+                  isSelected={mode.value === selectedMode}
+                  onPress={onSelectMode}
+                />
+              ))}
             </View>
           </View>
 
+          {/* Priority Section */}
           <View style={modalStyles.defaultsSection}>
             <Text style={modalStyles.defaultsSectionTitle}>Default Priority</Text>
             <View style={modalStyles.priorityOptions}>
-              {priorities.map((priority) => {
-                const isSelected = priority.value === selectedPriority;
-                return (
-                  <TouchableOpacity
-                    key={priority.value}
-                    style={[modalStyles.priorityOption, isSelected && modalStyles.priorityOptionSelected]}
-                    onPress={() => onSelectPriority(priority.value)}
-                  >
-                    <Feather name={priority.icon} size={24} color={isSelected ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
-                    <Text style={[modalStyles.priorityOptionText, isSelected && modalStyles.priorityOptionTextSelected]}>
-                      {priority.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {priorities.map((priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' }) => (
+                <PriorityOption
+                  key={priority.value}
+                  priority={priority}
+                  isSelected={priority.value === selectedPriority}
+                  onPress={onSelectPriority}
+                />
+              ))}
             </View>
           </View>
         </ScrollView>
-        </SafeAreaView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
