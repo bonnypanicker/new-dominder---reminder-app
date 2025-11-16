@@ -37,7 +37,7 @@ export default function SettingsScreen() {
 
   if (isLoading || !settings) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
             <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
           <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
@@ -401,7 +401,7 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={modalStyles.container} pointerEvents={visible ? 'auto' : 'none'}>
+      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>Reminder Defaults</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="defaults-close">
@@ -496,7 +496,7 @@ function LicensesModal({ visible, onClose }: LicensesModalProps) {
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={modalStyles.container} pointerEvents={visible ? 'auto' : 'none'}>
+      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>Open Source Licenses</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="licenses-close">
@@ -556,7 +556,7 @@ function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={modalStyles.container} pointerEvents={visible ? 'auto' : 'none'}>
+      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>Privacy Policy</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="privacy-close">
