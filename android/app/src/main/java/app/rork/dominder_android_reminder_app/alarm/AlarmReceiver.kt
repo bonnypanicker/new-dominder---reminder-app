@@ -82,7 +82,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setColor(0xFF6750A4.toInt())
             .setColorized(true)
             .setContentTitle(title)
-            .setContentText("Alarm is ringing")
+            .setContentText("Reminder")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
