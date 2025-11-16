@@ -400,10 +400,12 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
       animationType="fade" 
       onRequestClose={onClose}
       presentationStyle="fullScreen"
+      statusBarTranslucent={false}
     >
-      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']} pointerEvents={visible ? 'auto' : 'none'}>
-        <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Reminder Defaults</Text>
+      <View style={{ flex: 1 }} pointerEvents={visible ? 'auto' : 'none'}>
+        <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Reminder Defaults</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="defaults-close">
             <Text style={modalStyles.closeButtonText}>Done</Text>
           </TouchableOpacity>
@@ -451,7 +453,8 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
             </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -495,10 +498,12 @@ function LicensesModal({ visible, onClose }: LicensesModalProps) {
       animationType="fade" 
       onRequestClose={onClose}
       presentationStyle="fullScreen"
+      statusBarTranslucent={false}
     >
-      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']} pointerEvents={visible ? 'auto' : 'none'}>
-        <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Open Source Licenses</Text>
+      <View style={{ flex: 1 }} pointerEvents={visible ? 'auto' : 'none'}>
+        <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Open Source Licenses</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="licenses-close">
             <Text style={modalStyles.closeButtonText}>Done</Text>
           </TouchableOpacity>
@@ -522,7 +527,8 @@ function LicensesModal({ visible, onClose }: LicensesModalProps) {
             </View>
           ))}
         </ScrollView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -555,10 +561,12 @@ function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
       animationType="fade" 
       onRequestClose={onClose}
       presentationStyle="fullScreen"
+      statusBarTranslucent={false}
     >
-      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']} pointerEvents={visible ? 'auto' : 'none'}>
-        <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Privacy Policy</Text>
+      <View style={{ flex: 1 }} pointerEvents={visible ? 'auto' : 'none'}>
+        <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Privacy Policy</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="privacy-close">
             <Text style={modalStyles.closeButtonText}>Done</Text>
           </TouchableOpacity>
@@ -609,7 +617,8 @@ function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
             For privacy questions, please send feedback through the app.
           </Text>
         </ScrollView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
