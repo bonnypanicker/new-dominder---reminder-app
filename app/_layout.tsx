@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
 import { useCompletedAlarmSync } from '../hooks/useCompletedAlarmSync';
+import { missedAlarmService } from '../services/missed-alarm-service';
 
 // Import the functions directly from reminder-scheduler
 import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
@@ -265,6 +266,16 @@ function AppContent() {
       } catch {}
     };
   }, [router, queryClient]);
+
+  // Initialize missed alarm service
+  useEffect(() => {
+    console.log('[RootLayout] Initializing missed alarm service');
+    missedAlarmService.initialize();
+    
+    return () => {
+      missedAlarmService.cleanup();
+    };
+  }, []);
 
   // Other setup effects
   useEffect(() => {
