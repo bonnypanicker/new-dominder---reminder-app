@@ -393,8 +393,6 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
     return () => backHandler.remove();
   }, [visible, onClose]);
 
-  if (!visible) return null;
-
   return (
     <Modal 
       visible={visible} 
@@ -403,7 +401,7 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={modalStyles.container}>
+      <SafeAreaView style={modalStyles.container} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>Reminder Defaults</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="defaults-close">
@@ -490,8 +488,6 @@ function LicensesModal({ visible, onClose }: LicensesModalProps) {
     return () => backHandler.remove();
   }, [visible, onClose]);
 
-  if (!visible) return null;
-
   return (
     <Modal 
       visible={visible} 
@@ -500,7 +496,7 @@ function LicensesModal({ visible, onClose }: LicensesModalProps) {
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={modalStyles.container}>
+      <SafeAreaView style={modalStyles.container} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>Open Source Licenses</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="licenses-close">
@@ -552,8 +548,6 @@ function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
     return () => backHandler.remove();
   }, [visible, onClose]);
 
-  if (!visible) return null;
-
   return (
     <Modal 
       visible={visible} 
@@ -562,7 +556,7 @@ function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={modalStyles.container}>
+      <SafeAreaView style={modalStyles.container} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>Privacy Policy</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton} testID="privacy-close">
