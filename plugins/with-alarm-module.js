@@ -1195,59 +1195,81 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
         contentLayout.addView(browseButton)
         
-        // Show custom song if selected - Matching priority option card style
-        if (customSongUri != null && customSongName != null) {
+        // Show custom song if selected - Simple list item style
+        val customSongCard = if (customSongUri != null && customSongName != null) {
             val isSelected = customSongUri == selectedUri
             
-            val customSongCard = TextView(this).apply {
+            TextView(this).apply {
                 text = "🎵 \${customSongName}"
-                textSize = 14f // fontSize 14
-                setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF49454F.toInt()) // primary when selected, onSurfaceVariant otherwise
-                typeface = android.graphics.Typeface.create("sans-serif-medium", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) // fontWeight 500 when selected
-                setPadding(42, 26, 42, 26) // paddingHorizontal 16dp, paddingVertical 10dp
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(if (isSelected) 0xFFE8DEF8.toInt() else 0xFFF5EFF7.toInt()) // primaryContainer when selected, surfaceContainerLow otherwise
-                    cornerRadius = 52f // borderRadius 20
-                    setStroke(3, if (isSelected) 0xFF6750A4.toInt() else 0xFFE7E0EC.toInt()) // primary border when selected, surfaceVariant otherwise
-                }
+                textSize = 16f
+                setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF1C1B1F.toInt())
+                typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                setPadding(48, 36, 48, 36)
+                setBackgroundColor(if (isSelected) 0xFFE8DEF8.toInt() else 0x00000000.toInt())
                 layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(16, 0, 16, 16) // margin 6dp equivalent
+                    setMargins(0, 0, 0, 16) // Extra margin bottom before system ringtones
                 }
-                setOnClickListener {
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { view ->
                     stopCurrentRingtone()
                     selectedUri = customSongUri
-                    recreate() // Refresh to show selection
+                    try {
+                        currentlyPlaying = RingtoneManager.getRingtone(this@RingtonePickerActivity, customSongUri)
+                        currentlyPlaying?.play()
+                    } catch (e: Exception) {
+                        DebugLogger.log("Error playing custom song preview: \${e.message}")
+                    }
+                    // Update selection visually - deselect all, select this one
+                    (view.parent as? LinearLayout)?.let { parent ->
+                        for (i in 0 until parent.childCount) {
+                            val child = parent.getChildAt(i)
+                            // Skip section title and browse button
+                            if (child is TextView && child.text.toString() != "SELECT TONE" && !child.text.toString().contains("Browse")) {
+                                val isThisItem = child == view
+                                child.setBackgroundColor(if (isThisItem) 0xFFE8DEF8.toInt() else 0x00000000.toInt())
+                                child.setTextColor(if (isThisItem) 0xFF6750A4.toInt() else 0xFF1C1B1F.toInt())
+                                child.typeface = android.graphics.Typeface.create("sans-serif", if (isThisItem) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                            }
+                        }
+                    }
                 }
             }
-            
+        } else null
+        
+        if (customSongCard != null) {
             contentLayout.addView(customSongCard)
         }
 
-        // Add each ringtone as a chip matching optionChip style
+        // Add each ringtone as a simple list item
         ringtones.forEach { (title, uri) ->
             val isSelected = uri == selectedUri
             
-            val ringtoneChip = TextView(this).apply {
+            val ringtoneItem = TextView(this).apply {
                 text = title
-                textSize = 14f // fontSize 14
-                setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF49454F.toInt()) // primary when selected, onSurfaceVariant otherwise
-                typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) // fontWeight 500 when selected
-                setPadding(42, 26, 42, 26) // paddingHorizontal 16dp, paddingVertical 10dp
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(if (isSelected) 0xFFE8DEF8.toInt() else 0xFFF5EFF7.toInt()) // primaryContainer when selected, surfaceContainerLow otherwise
-                    cornerRadius = 52f // borderRadius 20
-                    setStroke(3, if (isSelected) 0xFF6750A4.toInt() else 0xFFE7E0EC.toInt()) // primary border when selected, surfaceVariant otherwise
-                }
+                textSize = 16f // Slightly larger for better readability
+                setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF1C1B1F.toInt()) // primary when selected, onSurface otherwise
+                typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                setPadding(48, 36, 48, 36) // More padding for easier clicking
+                
+                // Simple background - just a subtle highlight when selected
+                setBackgroundColor(if (isSelected) 0xFFE8DEF8.toInt() else 0x00000000.toInt()) // primaryContainer when selected, transparent otherwise
+                
                 layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT, // Full width for easier clicking
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(16, 0, 16, 16) // margin 6dp equivalent
+                    setMargins(0, 0, 0, 2) // Small gap between items
                 }
-                setOnClickListener {
+                
+                // Make it clear it's clickable
+                isClickable = true
+                isFocusable = true
+                
+                setOnClickListener { view ->
                     stopCurrentRingtone()
                     selectedUri = uri
                     
@@ -1259,11 +1281,23 @@ class RingtonePickerActivity : AppCompatActivity() {
                         DebugLogger.log("Error playing ringtone preview: \${e.message}")
                     }
                     
-                    recreate() // Refresh to show selection
+                    // Update selection visually - deselect all, select this one
+                    (view.parent as? LinearLayout)?.let { parent ->
+                        for (i in 0 until parent.childCount) {
+                            val child = parent.getChildAt(i)
+                            // Skip section title and browse button
+                            if (child is TextView && child.text.toString() != "SELECT TONE" && !child.text.toString().contains("Browse")) {
+                                val isThisItem = child == view
+                                child.setBackgroundColor(if (isThisItem) 0xFFE8DEF8.toInt() else 0x00000000.toInt())
+                                child.setTextColor(if (isThisItem) 0xFF6750A4.toInt() else 0xFF1C1B1F.toInt())
+                                child.typeface = android.graphics.Typeface.create("sans-serif", if (isThisItem) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                            }
+                        }
+                    }
                 }
             }
             
-            contentLayout.addView(ringtoneChip)
+            contentLayout.addView(ringtoneItem)
         }
 
         scrollContainer.addView(contentLayout)
