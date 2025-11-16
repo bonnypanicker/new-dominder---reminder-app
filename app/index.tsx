@@ -800,25 +800,7 @@ export default function HomeScreen() {
                     </View>
                   )}
                   
-                  {/* Show deleted badge for deleted items */}
-                  {isDeleted && (
-                    <View style={styles.repeatBadgeContainer}>
-                      <View style={[styles.repeatBadge, styles.repeatBadgeBottom, { backgroundColor: Material3Colors.light.errorContainer }]}>
-                        <Text style={[styles.repeatBadgeText, { color: Material3Colors.light.onErrorContainer }]}>
-                          Deleted
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  
-                  {/* Show deleted timestamp for deleted reminders */}
-                  {isDeleted && reminder.updatedAt && (
-                    <Text style={styles.nextReminderText}>
-                      Deleted on: {formatDate(reminder.updatedAt)} at {formatTime(new Date(reminder.updatedAt).toTimeString().slice(0, 5))}
-                    </Text>
-                  )}
-
-                {/* Show snooze until time if snoozed */}
+                  {/* Show snooze until time if snoozed */}
                   {reminder.snoozeUntil && (
                     <Text style={styles.snoozeUntilText}>
                       Snoozed until: {formatDate(reminder.snoozeUntil)} at {formatTime(new Date(reminder.snoozeUntil).toTimeString().slice(0, 5))}
@@ -826,7 +808,7 @@ export default function HomeScreen() {
                   )}
                   
                   {/* Show next reminder date for Weekly and Custom reminders (not for completed or daily) */}
-                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && !reminder.snoozeUntil && !reminder.isCompleted && !isDeleted && (
+                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && !reminder.snoozeUntil && !reminder.isCompleted && (
                     <Text style={styles.nextReminderText}>
                       Next: {(() => {
                         const getNextDate = () => {
@@ -889,11 +871,11 @@ export default function HomeScreen() {
               </View>
             )}
             
-            {/* Restore button for deleted items - styled the same as reassign button */}
+            {/* Restore button for deleted items */}
             {isDeleted && (
               <View style={styles.reminderRight}>
                 <TouchableOpacity
-                  style={styles.reassignButton} /* Use same style as completed items */
+                  style={styles.restoreButton}
                   onPress={(e) => {
                     e.stopPropagation();
                     handleRestore(reminder);
@@ -1708,11 +1690,16 @@ function CreateReminderPopup({
       statusBarTranslucent
     >
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <Pressable 
-          style={createPopupStyles.overlay} 
+          style={[
+            createPopupStyles.overlay,
+            Platform.OS === 'android' && keyboardHeight > 0 && {
+              paddingBottom: keyboardHeight,
+            }
+          ]} 
           onPress={() => {
             RNKeyboard.dismiss();
             onClose();
