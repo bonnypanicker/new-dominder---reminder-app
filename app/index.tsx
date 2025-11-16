@@ -263,12 +263,24 @@ export default function HomeScreen() {
     } else {
       // For repeating reminders, calculate next reminder date and keep active
       const nextDate = calculateNextReminderDate(reminder);
-      updateReminder.mutate({
-        ...reminder,
-        nextReminderDate: nextDate?.toISOString(),
-        lastTriggeredAt: new Date().toISOString(),
-        snoozeUntil: undefined, // Clear any snooze
-      });
+      
+      // If no next date and reminder has an end condition, it has ended - mark as completed
+      const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
+      if (!nextDate && hasEndCondition) {
+        updateReminder.mutate({
+          ...reminder,
+          isCompleted: true,
+          lastTriggeredAt: new Date().toISOString(),
+        });
+      } else {
+        // Continue with next occurrence
+        updateReminder.mutate({
+          ...reminder,
+          nextReminderDate: nextDate?.toISOString(),
+          lastTriggeredAt: new Date().toISOString(),
+          snoozeUntil: undefined, // Clear any snooze
+        });
+      }
     }
   }, [updateReminder]);
 
@@ -826,6 +838,7 @@ export default function HomeScreen() {
                       <Clock size={14} color={Material3Colors.light.primary} />
                       <Text style={styles.reminderNextOccurrenceLarge}>
                         {(() => {
+                          const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
                           const getNextDate = () => {
                             if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
                             if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
@@ -833,6 +846,27 @@ export default function HomeScreen() {
                             return calc ?? null;
                           };
                           const nextDate = getNextDate();
+                          
+                          // If no next date and has end condition, the reminder has ended - show last occurrence
+                          if (!nextDate && hasEndCondition) {
+                            // Get last occurrence date
+                            const lastDate = (() => {
+                              if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
+                              if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                              // Fall back to original date/time
+                              const [year, month, day] = reminder.date.split('-').map(Number);
+                              const [hours, minutes] = reminder.time.split(':').map(Number);
+                              return new Date(year, month - 1, day, hours, minutes);
+                            })();
+                            const dateStr = lastDate.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                            const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
+                            return `Ended: ${dateStr} at ${timeStr}`;
+                          }
+                          
                           if (!nextDate) return 'Calculating...';
                           
                           const dateStr = nextDate.toLocaleDateString('en-US', { 
@@ -903,16 +937,31 @@ export default function HomeScreen() {
                   {/* Show next reminder date for Weekly and Custom reminders (not for completed or daily) */}
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && !reminder.snoozeUntil && !reminder.isCompleted && (
                     <Text style={styles.nextReminderText}>
-                      Next: {(() => {
+                      {(() => {
+                        const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
                         const getNextDate = () => {
                           if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
                           const calc = calculateNextReminderDate(reminder);
                           return calc ?? null;
                         };
                         const nextDate = getNextDate();
-                        if (!nextDate) return 'Calculating...';
+                        
+                        // If no next date and has end condition, the reminder has ended - show last occurrence
+                        if (!nextDate && hasEndCondition) {
+                          const lastDate = (() => {
+                            if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
+                            if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                            // Fall back to original date/time
+                            const [year, month, day] = reminder.date.split('-').map(Number);
+                            const [hours, minutes] = reminder.time.split(':').map(Number);
+                            return new Date(year, month - 1, day, hours, minutes);
+                          })();
+                          return `Ended: ${formatDate(lastDate.toISOString())}`;
+                        }
+                        
+                        if (!nextDate) return 'Next: Calculating...';
 
-                        return formatDate(nextDate.toISOString());
+                        return `Next: ${formatDate(nextDate.toISOString())}`;
                       })()}
                     </Text>
                   )}
