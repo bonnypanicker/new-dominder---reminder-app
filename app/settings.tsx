@@ -134,7 +134,7 @@ export default function SettingsScreen() {
                 testID="toggle-sound"
               >
                 <Feather name="volume-2" size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
-                <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Sound</Text>
+                <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Ringer Sound</Text>
                 <Switch
                   value={settings.soundEnabled}
                   onValueChange={(value) => updateSettings.mutate({ soundEnabled: value })}
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
                 testID="toggle-vibration"
               >
                 <Feather name="smartphone" size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
-                <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Vibration</Text>
+                <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Ringer Vibration</Text>
                 <Switch
                   value={settings.vibrationEnabled}
                   onValueChange={(value) => updateSettings.mutate({ vibrationEnabled: value })}

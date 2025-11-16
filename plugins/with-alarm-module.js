@@ -442,6 +442,13 @@ class AlarmRingtoneService : Service() {
         try {
             DebugLogger.log("AlarmRingtoneService: Starting ringtone and vibration")
             
+            // Check settings for sound and vibration
+            val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            val soundEnabled = prefs.getBoolean("ringer_sound_enabled", true)
+            val vibrationEnabled = prefs.getBoolean("ringer_vibration_enabled", true)
+            
+            DebugLogger.log("AlarmRingtoneService: Settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
+            
             // Acquire wake lock for 10 minutes max
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
@@ -451,11 +458,19 @@ class AlarmRingtoneService : Service() {
                 acquire(10 * 60 * 1000L) // 10 minutes
             }
             
-            // Start ringtone
-            startRingtone()
+            // Start ringtone only if sound is enabled
+            if (soundEnabled) {
+                startRingtone()
+            } else {
+                DebugLogger.log("AlarmRingtoneService: Ringer sound disabled, skipping ringtone")
+            }
             
-            // Start vibration
-            startVibration()
+            // Start vibration only if vibration is enabled
+            if (vibrationEnabled) {
+                startVibration()
+            } else {
+                DebugLogger.log("AlarmRingtoneService: Ringer vibration disabled, skipping vibration")
+            }
             
         } catch (e: Exception) {
             DebugLogger.log("AlarmRingtoneService: Error starting ringtone/vibration: \${e.message}")
@@ -1709,7 +1724,24 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             pendingIntent.cancel()
             promise?.resolve(true)
         } catch (e: Exception) {
-            promise?.reject("CANCEL_ERROR", e.message, e)
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putBoolean("ringer_sound_enabled", soundEnabled)
+                putBoolean("ringer_vibration_enabled", vibrationEnabled)
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error saving notification settings: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
         }
     }
 

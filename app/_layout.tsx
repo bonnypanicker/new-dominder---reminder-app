@@ -277,6 +277,30 @@ function AppContent() {
     };
   }, []);
 
+  // Initialize notification settings for native code
+  useEffect(() => {
+    (async () => {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const settingsStr = await AsyncStorage.getItem('dominder_settings');
+        if (settingsStr) {
+          const settings = JSON.parse(settingsStr);
+          const { NativeModules } = require('react-native');
+          const { AlarmModule } = NativeModules;
+          if (AlarmModule?.saveNotificationSettings) {
+            await AlarmModule.saveNotificationSettings(
+              settings.soundEnabled ?? true,
+              settings.vibrationEnabled ?? true
+            );
+            console.log('[RootLayout] Initialized notification settings in native');
+          }
+        }
+      } catch (e) {
+        console.log('[RootLayout] Error initializing notification settings:', e);
+      }
+    })();
+  }, []);
+
   // Other setup effects
   useEffect(() => {
     const timer = setTimeout(() => {

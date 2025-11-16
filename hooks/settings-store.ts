@@ -76,9 +76,19 @@ export const useUpdateSettings = () => {
         }
 
         if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean') {
-          // No reschedule needed; future notifications will respect toggles.
-          // Optionally clear presented notifications to apply immediately
-
+          // Save to native SharedPreferences for AlarmRingtoneService to read
+          const { NativeModules } = require('react-native');
+          const { AlarmModule } = NativeModules;
+          if (AlarmModule?.saveNotificationSettings) {
+            try {
+              await AlarmModule.saveNotificationSettings(
+                data.soundEnabled,
+                data.vibrationEnabled
+              );
+            } catch (e) {
+              console.log('Failed to save notification settings to native:', e);
+            }
+          }
         }
       } catch (e) {
         console.log('Post-settings toggle side effects failed');

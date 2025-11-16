@@ -152,6 +152,21 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
 }
 
 export async function scheduleReminderByModel(reminder: Reminder) {
+  // Check if notifications are enabled in settings
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  try {
+    const settingsStr = await AsyncStorage.getItem('dominder_settings');
+    if (settingsStr) {
+      const settings = JSON.parse(settingsStr);
+      if (settings.notificationsEnabled === false) {
+        console.log('[NotificationService] Notifications disabled in settings, skipping schedule');
+        return;
+      }
+    }
+  } catch (e) {
+    console.log('[NotificationService] Error checking settings, proceeding with schedule');
+  }
+
   // At the start of scheduleReminderByModel
   let permissionSettings = await notifee.getNotificationSettings();
   if (permissionSettings.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
