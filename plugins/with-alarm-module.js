@@ -1737,10 +1737,10 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putBoolean("ringer_vibration_enabled", vibrationEnabled)
                 apply()
             }
-            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled")
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error saving notification settings: ${e.message}")
+            DebugLogger.log("AlarmModule: Error saving notification settings: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }
