@@ -1200,7 +1200,7 @@ class RingtonePickerActivity : AppCompatActivity() {
             val isSelected = customSongUri == selectedUri
             
             val customSongCard = TextView(this).apply {
-                text = "🎵 ${customSongName}"
+                text = "🎵 \${customSongName}"
                 textSize = 14f // fontSize 14
                 setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF49454F.toInt()) // primary when selected, onSurfaceVariant otherwise
                 typeface = android.graphics.Typeface.create("sans-serif-medium", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL) // fontWeight 500 when selected
