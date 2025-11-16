@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -1610,7 +1610,6 @@ function CreateReminderPopup({
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const shouldAutoFocusOnCreate = false;
 
 
@@ -1640,43 +1639,22 @@ function CreateReminderPopup({
   useEffect(() => {
     if (visible) {
       setIsReady(false);
-      // Use a single requestAnimationFrame + setTimeout for reliable focus and opacity control
+      // Use a single requestAnimationFrame + setTimeout for reliable opacity control
       requestAnimationFrame(() => {
         setTimeout(() => {
           setIsReady(true);
-          if (mode === 'create' && shouldAutoFocusOnCreate) {
-            InteractionManager.runAfterInteractions(() => {
-              titleInputRef.current?.focus();
-            });
-          }
+          // Auto-focus disabled to prevent keyboard from opening automatically
+          // if (mode === 'create' && shouldAutoFocusOnCreate) {
+          //   InteractionManager.runAfterInteractions(() => {
+          //     titleInputRef.current?.focus();
+          //   });
+          // }
         }, Platform.OS === 'android' ? 80 : 120);
       });
     } else {
       setIsReady(false);
-      setKeyboardHeight(0);
     }
   }, [visible, mode, shouldAutoFocusOnCreate]);
-
-  // Listen to keyboard events for smooth transition
-  useEffect(() => {
-    const keyboardWillShow = RNKeyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const keyboardWillHide = RNKeyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
-    };
-  }, []);
 
   if (!visible) return null;
 
@@ -1689,17 +1667,8 @@ function CreateReminderPopup({
       presentationStyle="overFullScreen"
       statusBarTranslucent
     >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
         <Pressable 
-          style={[
-            createPopupStyles.overlay,
-            Platform.OS === 'android' && keyboardHeight > 0 && {
-              paddingBottom: keyboardHeight,
-            }
-          ]} 
+          style={createPopupStyles.overlay}
           onPress={() => {
             RNKeyboard.dismiss();
             onClose();
@@ -1827,7 +1796,6 @@ function CreateReminderPopup({
           </View>
         </Pressable>
       </Pressable>
-      </KeyboardAvoidingView>
       
       <TimeSelector
         visible={showTimeSelector}
