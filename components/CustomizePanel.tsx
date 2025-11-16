@@ -36,6 +36,8 @@ interface CustomizePanelProps {
   onOpenUntilTime?: () => void;
   // Expose close function
   onDropdownStateChange?: (hasOpenDropdown: boolean) => void;
+  // Scale factor for responsive sizing on small screens
+  scaleFactor?: number;
 }
 
 export default function CustomizePanel({
@@ -60,6 +62,7 @@ export default function CustomizePanel({
   onUntilCountChange,
   onOpenUntilTime,
   onDropdownStateChange,
+  scaleFactor = 1,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const dateAnchorRef = useRef<View>(null);

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -1742,6 +1742,7 @@ function CreateReminderPopup({
   onOpenUntilTime,
 }: CreateReminderPopupProps) {
   const [popupHeight, setPopupHeight] = useState<number>(480);
+  const [scaleFactor, setScaleFactor] = useState<number>(1);
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
   const shouldAutoFocusOnCreate = false;
@@ -1756,6 +1757,18 @@ function CreateReminderPopup({
       const target = 470;
       const computed = Math.min(target, Math.max(380, winH - paddingVertical));
       setPopupHeight(computed);
+      
+      // Calculate scale factor for small screens
+      // Base height threshold: 700px
+      // Scale down everything proportionally on smaller screens
+      const baseHeight = 700;
+      if (winH < baseHeight) {
+        // Scale from 0.75 to 1.0 based on screen height
+        const scale = Math.max(0.75, Math.min(1, winH / baseHeight));
+        setScaleFactor(scale);
+      } else {
+        setScaleFactor(1);
+      }
     };
     updateHeight();
     const sub = Dimensions.addEventListener('change', updateHeight);
@@ -1790,6 +1803,54 @@ function CreateReminderPopup({
     }
   }, [visible, mode, shouldAutoFocusOnCreate]);
 
+  // Create scaled styles for small screens
+  const scaledStyles = useMemo(() => ({
+    popup: {
+      ...createPopupStyles.popup,
+      borderRadius: 16 * scaleFactor,
+      padding: 16 * scaleFactor,
+      paddingBottom: 16 * scaleFactor,
+    },
+    section: {
+      ...createPopupStyles.section,
+      marginBottom: 10 * scaleFactor,
+    },
+    titleInput: {
+      ...createPopupStyles.titleInput,
+      borderRadius: 8 * scaleFactor,
+      padding: 10 * scaleFactor,
+      fontSize: 16 * scaleFactor,
+    },
+    buttonContainer: {
+      ...createPopupStyles.buttonContainer,
+      marginTop: 8 * scaleFactor,
+      paddingTop: 8 * scaleFactor,
+    },
+    cancelButton: {
+      ...createPopupStyles.cancelButton,
+      paddingHorizontal: 16 * scaleFactor,
+      paddingVertical: 6 * scaleFactor,
+    },
+    createButton: {
+      ...createPopupStyles.createButton,
+      paddingHorizontal: 16 * scaleFactor,
+      paddingVertical: 6 * scaleFactor,
+      borderRadius: 6 * scaleFactor,
+    },
+    cancelButtonText: {
+      ...createPopupStyles.cancelButtonText,
+      fontSize: 14 * scaleFactor,
+    },
+    createButtonText: {
+      ...createPopupStyles.createButtonText,
+      fontSize: 14 * scaleFactor,
+    },
+    customizeContent: {
+      ...createPopupStyles.customizeContent,
+      marginBottom: 6 * scaleFactor,
+    },
+  }), [scaleFactor]);
+
   if (!visible) return null;
 
   return (
@@ -1811,7 +1872,7 @@ function CreateReminderPopup({
           <Pressable
             onPress={(e) => e.stopPropagation()}
             style={[
-              createPopupStyles.popup, 
+              scaledStyles.popup, 
               { 
                 height: popupHeight,
                 opacity: isReady ? 1 : 0,
@@ -1845,10 +1906,10 @@ function CreateReminderPopup({
                 }}
               >
               <Pressable onPress={(e) => e.stopPropagation()}>
-              <View style={createPopupStyles.section}>
+              <View style={scaledStyles.section}>
                 <TextInput
                   ref={titleInputRef}
-                  style={createPopupStyles.titleInput}
+                  style={scaledStyles.titleInput}
                   placeholder="Enter reminder"
                   placeholderTextColor="#9CA3AF"
                   value={title}
@@ -1870,7 +1931,7 @@ function CreateReminderPopup({
                 />
               </View>
               
-              <View style={[createPopupStyles.customizeContent, { marginBottom: 6 }]}> 
+              <View style={scaledStyles.customizeContent}> 
                 <CustomizePanel
                   repeatType={repeatType}
                   repeatDays={repeatDays}
@@ -1897,10 +1958,11 @@ function CreateReminderPopup({
                   onUntilCountChange={onUntilCountChange}
                   onOpenUntilTime={onOpenUntilTime}
                   onDropdownStateChange={() => {}}
+                  scaleFactor={scaleFactor}
                 />
               </View>
               
-              <View style={createPopupStyles.section}>
+              <View style={scaledStyles.section}>
                 <PrioritySelector 
                   priority={priority} 
                   onPriorityChange={onPriorityChange}
@@ -1912,18 +1974,18 @@ function CreateReminderPopup({
           </ScrollView>
           
           <View 
-            style={createPopupStyles.buttonContainer}
+            style={scaledStyles.buttonContainer}
           >
-            <TouchableOpacity style={createPopupStyles.cancelButton} onPress={onClose} testID="cancel-create">
-              <Text style={createPopupStyles.cancelButtonText}>Cancel</Text>
+            <TouchableOpacity style={scaledStyles.cancelButton} onPress={onClose} testID="cancel-create">
+              <Text style={scaledStyles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[createPopupStyles.createButton, isLoading && createPopupStyles.createButtonDisabled]} 
+              style={[scaledStyles.createButton, isLoading && createPopupStyles.createButtonDisabled]} 
               onPress={onConfirm}
               disabled={isLoading}
               testID="confirm-create"
             >
-              <Text style={createPopupStyles.createButtonText}>
+              <Text style={scaledStyles.createButtonText}>
                 {isLoading ? (mode === 'edit' ? 'Rescheduling...' : 'Creating...') : (mode === 'edit' ? 'Reschedule' : 'Create')}
               </Text>
             </TouchableOpacity>
