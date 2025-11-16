@@ -155,7 +155,11 @@ export default function CustomizePanel({
       const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
       return withTime ? `${formattedUntilDate} • ${formattedUntilTime}` : formattedUntilDate;
     }
-    if (untilType === 'count') return `${untilCount ?? 1} occurrences`;
+    if (untilType === 'count') {
+      const count = untilCount ?? 1;
+      const unit = count === 1 ? 'Occurrence' : 'Occurrences';
+      return `After ${count} ${unit}`;
+    }
     return undefined;
   }, [untilType, formattedUntilDate, untilCount, repeatType, everyUnit, formattedUntilTime]);
 
