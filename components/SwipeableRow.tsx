@@ -17,7 +17,6 @@ interface SwipeableRowProps {
   swipeableRefs?: React.MutableRefObject<Map<string, any>>;
   simultaneousHandlers?: React.RefObject<any>;
   isSelectionMode?: boolean;
-  listType?: 'active' | 'completed' | 'deleted';
 }
 
 const SwipeableRow = memo(function SwipeableRow({ 
@@ -26,8 +25,7 @@ const SwipeableRow = memo(function SwipeableRow({
   onSwipeRight,
   onSwipeLeft,
   swipeableRefs,
-  isSelectionMode = false,
-  listType = 'active'
+  isSelectionMode = false
 }: SwipeableRowProps) {
   // Debug: Track renders
   useRenderTracking('SwipeableRow', { reminderId: reminder.id });
@@ -79,7 +77,7 @@ const SwipeableRow = memo(function SwipeableRow({
     );
   }, [onSwipeRight]);
 
-  // Left swipe action - Complete for active, Delete for completed/deleted
+  // Left swipe action - Complete (green)
   const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
     if (!onSwipeLeft) return null;
 
@@ -101,31 +99,13 @@ const SwipeableRow = memo(function SwipeableRow({
       extrapolate: 'clamp',
     });
 
-    // For completed or deleted tabs, show delete action instead of complete
-    const isActiveTab = listType === 'active';
-    const isCompleted = reminder.isCompleted || !isActiveTab;
-    
     return (
-      <Animated.View 
-        style={[
-          isCompleted ? styles.rightAction : styles.leftAction, 
-          { transform: [{ translateX }, { scale }], opacity }
-        ]}
-      >
-        {isCompleted ? (
-          <>
-            <Trash2 size={24} color="white" />
-            <Text style={styles.actionText}>Delete</Text>
-          </>
-        ) : (
-          <>
-            <CheckCircle size={24} color="white" />
-            <Text style={styles.actionText}>Complete</Text>
-          </>
-        )}
+      <Animated.View style={[styles.leftAction, { transform: [{ translateX }, { scale }], opacity }]}>
+        <CheckCircle size={24} color="white" />
+        <Text style={styles.actionText}>Complete</Text>
       </Animated.View>
     );
-  }, [onSwipeLeft, listType, reminder.isCompleted]);
+  }, [onSwipeLeft]);
 
   // Close other swipeables when this one opens
   const handleSwipeableWillOpen = useCallback((direction: 'left' | 'right') => {

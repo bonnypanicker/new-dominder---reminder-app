@@ -615,22 +615,9 @@ export default function HomeScreen() {
         reminder={reminder}
         swipeableRefs={swipeableRefs}
         simultaneousHandlers={contentScrollRef}
-        onSwipeRight={!selectionMode ? 
-          // Right swipe: delete or permanent delete
-          (isDeleted || !isActive) ? 
-            () => handlePermanentDelete(reminder) : 
-            () => handleDelete(reminder) 
-          : undefined
-        }
-        onSwipeLeft={!selectionMode ? 
-          // Left swipe: complete active, permanent delete completed/deleted
-          (isDeleted || !isActive) ? 
-            () => handlePermanentDelete(reminder) : 
-            () => completeAllOccurrences(reminder)
-          : undefined
-        }
+        onSwipeRight={!selectionMode ? (isDeleted ? () => handlePermanentDelete(reminder) : () => handleDelete(reminder)) : undefined}
+        onSwipeLeft={!selectionMode && !isDeleted ? (isActive ? () => completeAllOccurrences(reminder) : undefined) : (isDeleted ? () => handlePermanentDelete(reminder) : undefined)}
         isSelectionMode={selectionMode}
-        listType={listType}
       >
         <TouchableOpacity
             activeOpacity={0.85}
@@ -813,7 +800,23 @@ export default function HomeScreen() {
                     </View>
                   )}
                   
-                  {/* Deleted badge and timestamp removed as requested */}
+                  {/* Show deleted badge for deleted items */}
+                  {isDeleted && (
+                    <View style={styles.repeatBadgeContainer}>
+                      <View style={[styles.repeatBadge, styles.repeatBadgeBottom, { backgroundColor: Material3Colors.light.errorContainer }]}>
+                        <Text style={[styles.repeatBadgeText, { color: Material3Colors.light.onErrorContainer }]}>
+                          Deleted
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                  
+                  {/* Show deleted timestamp for deleted reminders */}
+                  {isDeleted && reminder.updatedAt && (
+                    <Text style={styles.nextReminderText}>
+                      Deleted on: {formatDate(reminder.updatedAt)} at {formatTime(new Date(reminder.updatedAt).toTimeString().slice(0, 5))}
+                    </Text>
+                  )}
 
                 {/* Show snooze until time if snoozed */}
                   {reminder.snoozeUntil && (
@@ -1155,10 +1158,10 @@ export default function HomeScreen() {
             </>
           ) : (
             <>
-              <Trash2 size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Deleted Reminders</Text>
+              <AlertCircle size={64} color={Material3Colors.light.outline} />
+              <Text style={styles.emptyTitle}>No Expired Reminders</Text>
               <Text style={styles.emptyDescription}>
-                Deleted reminders will appear here
+                Expired reminders will appear here
               </Text>
             </>
           )}
