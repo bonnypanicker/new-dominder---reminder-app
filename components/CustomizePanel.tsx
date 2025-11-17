@@ -2725,4 +2725,4 @@ const dropdownModalStyles = StyleSheet.create({
 });
 
 // Export components for use in parent
-export { DropdownModal, UnitDropdownModal, InlineDropdown, InlineUnitDropdown, type AnchorRect };
+export { DropdownModal, UnitDropdownModal, InlineDropdown, InlineUnitDropdown, CalendarModal, type AnchorRect };
