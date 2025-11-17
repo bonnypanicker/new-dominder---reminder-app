@@ -31,6 +31,38 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
     const nowTimestamp = now.getTime();
     
     for (const reminder of reminders) {
+      // Check if reminder should be auto-resumed from pause-until-date
+      if (reminder.isPaused && reminder.pauseUntilDate) {
+        try {
+          // Parse pause until date and set to end of that day (23:59:59.999)
+          // This means the reminder is paused INCLUDING the selected date
+          // and will auto-resume AFTER that date passes
+          const pauseUntil = new Date(reminder.pauseUntilDate);
+          pauseUntil.setHours(23, 59, 59, 999);
+          
+          if (now > pauseUntil) {
+            // Pause period has ended - automatically resume the reminder
+            console.log(`[ReminderEngine] Auto-resuming reminder ${reminder.id} - pause until ${reminder.pauseUntilDate} has passed`);
+            updateReminderRef.current.mutate({
+              ...reminder,
+              isPaused: false,
+              pauseUntilDate: undefined,
+            });
+            // Skip this iteration - will be processed on next tick when updates are reflected
+            processedReminders.current.delete(reminder.id);
+            continue;
+          } else {
+            // Still within pause period
+            console.log(`[ReminderEngine] Reminder ${reminder.id} is paused until ${reminder.pauseUntilDate}`);
+            processedReminders.current.delete(reminder.id);
+            continue;
+          }
+        } catch (e) {
+          console.error(`[ReminderEngine] Error parsing pauseUntilDate for ${reminder.id}:`, e);
+          // If date parsing fails, treat as regular pause
+        }
+      }
+      
       if (!reminder.isActive || reminder.isCompleted || reminder.isPaused) {
         processedReminders.current.delete(reminder.id);
         continue;
