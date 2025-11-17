@@ -3965,7 +3965,7 @@ function PauseDurationModal({ visible, onClose, onSubmit }: PauseDurationModalPr
               color: Material3Colors.light.onSurface,
               marginRight: 8,
             }}>
-              Pause for
+              For
             </Text>
             <TextInput
               style={{
