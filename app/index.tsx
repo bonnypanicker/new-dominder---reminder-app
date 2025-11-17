@@ -133,6 +133,8 @@ export default function HomeScreen() {
   const [untilCount, setUntilCount] = useState<number>(1);
 
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [pauseDurationModalVisible, setPauseDurationModalVisible] = useState<boolean>(false);
+  const [reminderToPause, setReminderToPause] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
   // Use ref to always access latest selection mode state
@@ -294,7 +296,30 @@ export default function HomeScreen() {
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
-    updateReminder.mutate({ ...reminder, isPaused: !reminder.isPaused });
+    // If unpausing, clear pause duration fields
+    if (reminder.isPaused) {
+      updateReminder.mutate({ 
+        ...reminder, 
+        isPaused: false,
+        pausedUntil: undefined,
+        pauseDays: undefined
+      });
+    } else {
+      updateReminder.mutate({ ...reminder, isPaused: true });
+    }
+  }, [updateReminder]);
+
+  const pauseReminderForDays = useCallback((reminder: Reminder, days: number) => {
+    const pausedUntil = new Date();
+    pausedUntil.setDate(pausedUntil.getDate() + days);
+    pausedUntil.setHours(0, 0, 0, 0); // Set to start of day
+    
+    updateReminder.mutate({ 
+      ...reminder, 
+      isPaused: true,
+      pausedUntil: pausedUntil.toISOString(),
+      pauseDays: days
+    });
   }, [updateReminder]);
 
   const reassignReminder = useCallback((reminder: Reminder) => {
@@ -934,6 +959,13 @@ export default function HomeScreen() {
                     </Text>
                   )}
                   
+                  {/* Show pause duration for daily reminders */}
+                  {reminder.isPaused && reminder.pauseDays && reminder.repeatType === 'daily' && (
+                    <Text style={styles.snoozeUntilText}>
+                      Paused for {reminder.pauseDays} {reminder.pauseDays === 1 ? 'day' : 'days'}
+                    </Text>
+                  )}
+                  
                   {/* Show next reminder date for Weekly and Custom reminders (not for completed or daily) */}
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && !reminder.snoozeUntil && !reminder.isCompleted && (
                     <Text style={styles.nextReminderText}>
@@ -992,6 +1024,13 @@ export default function HomeScreen() {
                       onPress={(e) => {
                         e.stopPropagation();
                         pauseReminder(reminder);
+                      }}
+                      onLongPress={(e) => {
+                        e.stopPropagation();
+                        if (reminder.repeatType === 'daily') {
+                          setReminderToPause(reminder);
+                          setPauseDurationModalVisible(true);
+                        }
                       }}
                       testID={`pause-button-${reminder.id}`}
                     >
@@ -1658,6 +1697,21 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
     )}
+    
+    <PauseDurationModal
+      visible={pauseDurationModalVisible}
+      onClose={() => {
+        setPauseDurationModalVisible(false);
+        setReminderToPause(null);
+      }}
+      onSubmit={(days) => {
+        if (reminderToPause) {
+          pauseReminderForDays(reminderToPause, days);
+        }
+        setPauseDurationModalVisible(false);
+        setReminderToPause(null);
+      }}
+    />
     </>
   );
 }
@@ -3856,3 +3910,135 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
 });
+
+// Pause Duration Modal Component
+interface PauseDurationModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (days: number) => void;
+}
+
+function PauseDurationModal({ visible, onClose, onSubmit }: PauseDurationModalProps) {
+  const [days, setDays] = useState<string>('1');
+
+  useEffect(() => {
+    if (visible) setDays('1');
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable 
+        style={{ 
+          flex: 1, 
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        onPress={onClose}
+      >
+        <Pressable
+          style={{
+            width: 280,
+            backgroundColor: Material3Colors.light.surfaceContainerLow,
+            borderRadius: 16,
+            padding: 16,
+            shadowColor: Material3Colors.light.shadow,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.24,
+            shadowRadius: 20,
+            elevation: 24,
+          }}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: Material3Colors.light.onSurface,
+            marginBottom: 16,
+          }}>
+            Pause Daily Reminder
+          </Text>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{
+              fontSize: 16,
+              color: Material3Colors.light.onSurface,
+              marginRight: 8,
+            }}>
+              Pause for
+            </Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: Material3Colors.light.outline,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                fontSize: 16,
+                textAlign: 'center',
+                width: 60,
+                color: Material3Colors.light.onSurface,
+                backgroundColor: Material3Colors.light.surface,
+              }}
+              keyboardType="number-pad"
+              maxLength={3}
+              value={days}
+              onChangeText={(txt) => {
+                const sanitized = txt.replace(/\D/g, '');
+                setDays(sanitized);
+              }}
+              testID="pause-days-input"
+            />
+            <Text style={{
+              fontSize: 16,
+              color: Material3Colors.light.onSurface,
+              marginLeft: 8,
+            }}>
+              days
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <TouchableOpacity
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
+              onPress={onClose}
+              testID="pause-duration-cancel"
+            >
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: Material3Colors.light.primary,
+              }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                marginLeft: 8,
+              }}
+              onPress={() => {
+                const val = parseInt(days || '1', 10);
+                const clampedDays = Math.min(365, Math.max(1, val));
+                onSubmit(clampedDays);
+              }}
+              testID="pause-duration-done"
+            >
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: Material3Colors.light.primary,
+              }}>
+                Pause
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}

@@ -13,6 +13,8 @@ export interface Reminder {
   priority: Priority;
   isActive: boolean;
   isPaused?: boolean;
+  pausedUntil?: string; // ISO date string for when pause ends
+  pauseDays?: number; // Number of days the reminder is paused for
   repeatType: RepeatType;
   repeatDays?: number[];
   customDates?: string[];
