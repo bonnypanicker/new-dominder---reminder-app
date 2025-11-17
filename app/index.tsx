@@ -1033,11 +1033,11 @@ export default function HomeScreen() {
                       style={styles.pauseButton}
                       onPress={(e) => {
                         e.stopPropagation();
-                        // For Daily reminders, show toast to guide users to long press
+                        // Pause the reminder
+                        pauseReminder(reminder);
+                        // For Daily reminders, show toast to guide users to long press feature
                         if (reminder.repeatType === 'daily') {
                           showToast('Long press to pause until');
-                        } else {
-                          pauseReminder(reminder);
                         }
                       }}
                       onLongPress={(e) => {
