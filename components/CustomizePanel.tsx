@@ -596,9 +596,10 @@ interface CalendarModalProps {
   onSelectDate: (date: string) => void;
   hideYear?: boolean;
   disablePast?: boolean;
+  title?: string;
 }
 
-function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear = false, disablePast = true }: CalendarModalProps) {
+function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear = false, disablePast = true, title }: CalendarModalProps) {
   const [isReady, setIsReady] = useState(false);
   // Safely parse expected YYYY-MM-DD; fallback to today if malformed
   const now = new Date();
@@ -716,6 +717,9 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
           activeOpacity={1} 
           onPress={(e) => e.stopPropagation()}
         >
+          {title && (
+            <Text style={calendarStyles.modalTitle}>{title}</Text>
+          )}
           <View style={calendarStyles.header}>
             {!hideYear ? (
               <TouchableOpacity
@@ -1863,6 +1867,13 @@ const calendarStyles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
     overflow: 'hidden',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',

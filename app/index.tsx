@@ -296,7 +296,11 @@ export default function HomeScreen() {
   }, [updateReminder]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
-    updateReminder.mutate({ ...reminder, isPaused: !reminder.isPaused });
+    // When resuming (isPaused is currently true), clear pauseUntilDate
+    const updates = reminder.isPaused 
+      ? { isPaused: false, pauseUntilDate: undefined }
+      : { isPaused: true };
+    updateReminder.mutate({ ...reminder, ...updates });
   }, [updateReminder]);
 
   const handlePauseUntilDate = useCallback((date: string) => {
@@ -1717,6 +1721,7 @@ export default function HomeScreen() {
       onSelectDate={handlePauseUntilDate}
       disablePast={true}
       hideYear={false}
+      title="Pause Until"
     />
     </>
   );
