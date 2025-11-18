@@ -1164,7 +1164,7 @@ export default function HomeScreen() {
   return (
     <>
     <KeyboardAvoidingView style={{ flex: 1 }} enabled={false}>
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>DoMinder</Text>
         <TouchableOpacity
