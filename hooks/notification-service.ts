@@ -180,6 +180,16 @@ export async function scheduleReminderByModel(reminder: Reminder) {
     throw new Error('Notification permission denied');
   }
 
+  // Check exact alarm permission for precise timing
+  const exactAlarmEnabled = permissionSettings?.android?.alarm === AndroidNotificationSetting.ENABLED;
+  if (!exactAlarmEnabled) {
+    console.warn('[NotificationService] SCHEDULE_EXACT_ALARM permission not granted - notifications may be delayed');
+    console.warn('[NotificationService] User should grant exact alarm permission in system settings');
+    // Continue scheduling but notifications may be delayed
+  } else {
+    console.log('[NotificationService] SCHEDULE_EXACT_ALARM permission granted - using exact timing');
+  }
+
   console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
   
   let when = reminderToTimestamp(reminder);
@@ -257,17 +267,14 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   
   {
     // Use notifee for medium/low priority OR as fallback for high priority
-    let s = await notifee.getNotificationSettings();
-    if (s.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
-      await notifee.requestPermission();
-      s = await notifee.getNotificationSettings();
-    }
-    const exactEnabled = s?.android?.alarm === AndroidNotificationSetting.ENABLED;
-
+    // CRITICAL: Always use alarmManager with allowWhileIdle for exact timing
+    // Even if SCHEDULE_EXACT_ALARM permission is not granted, this gives best-effort exact delivery
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: when,
-      alarmManager: exactEnabled ? { allowWhileIdle: true } : undefined,
+      alarmManager: {
+        allowWhileIdle: true, // Ensures notification fires even in Doze mode
+      },
     };
 
     const channelId = reminder.priority === 'high' ? 'alarm-v2' : 
