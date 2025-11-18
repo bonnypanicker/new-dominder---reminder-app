@@ -3377,7 +3377,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 20,
+    paddingTop: 16,
     paddingBottom: 20,
     backgroundColor: Material3Colors.light.surface,
     elevation: 2,
