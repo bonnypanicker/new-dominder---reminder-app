@@ -138,6 +138,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             isActive: false,
           });
           processedReminders.current.delete(reminder.id);
+        } else if (reminder.snoozeUntil) {
+          // CRITICAL FIX: Do NOT auto-advance snoozed reminders
+          // The snooze alarm should fire and clear snoozeUntil via markReminderDone/reschedule
+          // If we auto-advance here, we cancel the snoozed native alarm prematurely
+          console.log(`[ReminderEngine] Skipping auto-advance for snoozed reminder ${reminder.id} - letting snooze alarm fire`);
+          processedReminders.current.delete(reminder.id);
         } else if (reminder.repeatType !== 'none') {
           // Auto-advance repeating reminders (e.g., Every X minutes)
           // For recurring reminders, we need to advance to the next occurrence automatically
