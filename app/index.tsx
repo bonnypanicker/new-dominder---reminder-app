@@ -1309,7 +1309,7 @@ export default function HomeScreen() {
         ItemSeparatorComponent={() => null}
         contentContainerStyle={{
           paddingBottom: 100,
-          paddingTop: 8,
+          paddingTop: 4,
           paddingHorizontal: 0,
         }}
         drawDistance={Platform.OS === 'android' ? 500 : 250}
@@ -3519,6 +3519,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
+    marginVertical: 8,
     // ✅ Android GPU optimizations
     elevation: 3,  // Increased for better shadow visibility
     shadowColor: Material3Colors.light.shadow,
@@ -3855,6 +3856,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
+    marginVertical: 6,
     elevation: 1,
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 1 },
