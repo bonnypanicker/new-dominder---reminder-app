@@ -17,8 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.rork.dominder-android-reminder-app",
       "requireFullScreen": true,
-      "infoPlist": {
-      },
+      "infoPlist": {},
       "usesIcloudStorage": true
     },
     "android": {
