@@ -136,6 +136,8 @@ class AlarmActivity : AppCompatActivity() {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
+            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
+            putExtra("priority", priority)
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
