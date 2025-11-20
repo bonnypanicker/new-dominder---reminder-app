@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
@@ -79,6 +79,7 @@ const calculateDefaultTime = () => {
 };
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { data: reminders = [], isLoading } = useReminders();
   const { data: settings } = useSettings();
   const updateReminder = useUpdateReminder();
@@ -1164,8 +1165,8 @@ export default function HomeScreen() {
   return (
     <>
     <KeyboardAvoidingView style={{ flex: 1 }} enabled={false}>
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.title}>DoMinder</Text>
         <TouchableOpacity
           style={styles.settingsButton}
@@ -3377,7 +3378,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16,
     paddingBottom: 20,
     backgroundColor: Material3Colors.light.surface,
     elevation: 2,
@@ -3519,13 +3519,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
-    marginVertical: 6,
+    marginVertical: 3,
     // ✅ Android GPU optimizations
-    elevation: 2,  // Reduced for tighter look
+    elevation: 1,  // Minimal elevation
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1.5,
     // Allow swipeable content to draw beyond card bounds
     overflow: 'visible',
   },
@@ -3856,12 +3856,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
-    marginVertical: 4,
-    elevation: 1,
+    marginVertical: 2,
+    elevation: 0.5,
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 1,
     overflow: 'visible',
   },
   reminderContentCompact: {
