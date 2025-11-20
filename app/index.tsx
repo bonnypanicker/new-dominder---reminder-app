@@ -3519,13 +3519,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
-    marginVertical: 8,
+    marginVertical: 6,
     // ✅ Android GPU optimizations
-    elevation: 3,  // Increased for better shadow visibility
+    elevation: 2,  // Reduced for tighter look
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowRadius: 3,
     // Allow swipeable content to draw beyond card bounds
     overflow: 'visible',
   },
@@ -3856,12 +3856,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
-    marginVertical: 6,
+    marginVertical: 4,
     elevation: 1,
     shadowColor: Material3Colors.light.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowRadius: 1.5,
     overflow: 'visible',
   },
   reminderContentCompact: {
