@@ -214,9 +214,12 @@ const files = [
     path: 'alarm/AlarmActionBridge.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import app.rork.dominder_android_reminder_app.DebugLogger
 import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.Arguments
@@ -245,8 +248,15 @@ class AlarmActionBridge : BroadcastReceiver() {
             "app.rork.dominder.ALARM_SNOOZE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
                 val snoozeMinutes = intent.getIntExtra("snoozeMinutes", 0)
+                val title = intent.getStringExtra("title") ?: "Reminder"
+                val priority = intent.getStringExtra("priority") ?: "medium"
+
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
+                    // 1. Schedule Native Alarm IMMEDIATELY (Fallback)
+                    scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
+
+                    // 2. Try emit to RN (UI Update)
                     DebugLogger.log("AlarmActionBridge: About to emit alarmSnooze event to React Native")
                     emitEventToReactNative(context, "alarmSnooze", reminderId, snoozeMinutes)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
@@ -257,6 +267,46 @@ class AlarmActionBridge : BroadcastReceiver() {
             else -> {
                 DebugLogger.log("AlarmActionBridge: Unknown action received: \${action}")
             }
+        }
+    }
+    
+    private fun scheduleNativeAlarm(context: Context, reminderId: String, title: String, priority: String, minutes: Int) {
+        try {
+            DebugLogger.log("AlarmActionBridge: Scheduling native fallback alarm")
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            val triggerTime = System.currentTimeMillis() + (minutes * 60 * 1000L)
+            
+             val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_FIRED"
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+                putExtra("priority", priority)
+            }
+            
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                reminderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                 if (!alarmManager.canScheduleExactAlarms()) {
+                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm, skipping native fallback")
+                     return
+                 }
+            }
+
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerTime,
+                pendingIntent
+            )
+            DebugLogger.log("AlarmActionBridge: Native fallback alarm scheduled for \${triggerTime}")
+
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActionBridge: Error scheduling native fallback: \${e.message}")
         }
     }
     
@@ -754,6 +804,8 @@ class AlarmActivity : AppCompatActivity() {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
+            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
+            putExtra("priority", priority)
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
