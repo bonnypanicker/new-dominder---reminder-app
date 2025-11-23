@@ -89,9 +89,19 @@ export default function HomeScreen() {
   const permanentlyDeleteReminder = usePermanentlyDeleteReminder();
   const restoreReminder = useRestoreReminder();
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
   const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<FlashList<any>>(null);
+
+  useEffect(() => {
+    const showSub = RNKeyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = RNKeyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
   // Toast state removed - now using native Android toast
   const [selectedTime, setSelectedTime] = useState<string>(() => {
@@ -1685,36 +1695,43 @@ export default function HomeScreen() {
     </SafeAreaView>
     </KeyboardAvoidingView>
     
-    {!isSelectionMode && (
-      <View style={[styles.bottomContainer, { bottom: insets.bottom }]} pointerEvents="box-none">
-        <TouchableOpacity
-          style={styles.createAlarmButton}
-          onPress={() => {
-            setEditingReminder(null);
-            setTitle('');
-            const defaultPriority = settings?.defaultPriority ?? 'standard';
-            const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
-            setPriority(mappedPriority);
-            setRepeatType(settings?.defaultReminderMode ?? 'none');
-            setRepeatDays([]);
-            setEveryValue(1);
-            setEveryUnit('hours');
-            const defaultTime = calculateDefaultTime();
-            setSelectedTime(defaultTime.time);
-            setIsAM(defaultTime.isAM);
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            setSelectedDate(`${yyyy}-${mm}-${dd}`);
-            setShowCreatePopup(true);
-          }}
-          testID="fab-create-reminder"
-        >
-          <Plus size={32} color="white" />
-        </TouchableOpacity>
+    <Modal
+      visible={!isSelectionMode && !isKeyboardVisible}
+      transparent
+      statusBarTranslucent
+      animationType="none"
+    >
+      <View pointerEvents="box-none" style={styles.fabOverlay}>
+        <View style={styles.bottomContainer}>
+          <TouchableOpacity
+            style={styles.createAlarmButton}
+            onPress={() => {
+              setEditingReminder(null);
+              setTitle('');
+              const defaultPriority = settings?.defaultPriority ?? 'standard';
+              const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
+              setPriority(mappedPriority);
+              setRepeatType(settings?.defaultReminderMode ?? 'none');
+              setRepeatDays([]);
+              setEveryValue(1);
+              setEveryUnit('hours');
+              const defaultTime = calculateDefaultTime();
+              setSelectedTime(defaultTime.time);
+              setIsAM(defaultTime.isAM);
+              const now = new Date();
+              const yyyy = now.getFullYear();
+              const mm = String(now.getMonth() + 1).padStart(2, '0');
+              const dd = String(now.getDate()).padStart(2, '0');
+              setSelectedDate(`${yyyy}-${mm}-${dd}`);
+              setShowCreatePopup(true);
+            }}
+            testID="fab-create-reminder"
+          >
+            <Plus size={32} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
-    )}
+    </Modal>
     
     {/* Calendar modal for pause-until-date selection */}
     <CalendarModal
@@ -3400,8 +3417,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Material3Colors.light.surfaceVariant,
   },
+  fabOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   bottomContainer: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 24,
