@@ -1166,7 +1166,7 @@ export default function HomeScreen() {
     <>
     <KeyboardAvoidingView style={{ flex: 1 }} enabled={false}>
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>DoMinder</Text>
         <TouchableOpacity
           style={styles.settingsButton}
@@ -3371,7 +3371,7 @@ const timeSelectorStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.background,
+    backgroundColor: Material3Colors.light.surface,
   },
   header: {
     flexDirection: 'row',
