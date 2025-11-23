@@ -156,29 +156,17 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount as number)
             ? occurred
             : occurred + 1;
-          const reminderForCalc = { ...reminder, occurrenceCount: nextOccurCount };
           
-          let nextDate = calculateNextReminderDate(reminderForCalc, now);
+          // IMPORTANT: Pretend the reminder just triggered at its scheduled time.
+          // This tells calculateNextReminderDate to compute the *subsequent* interval
+          // relative to the current trigger, preventing duplicate scheduling of the same time.
+          const reminderForCalc = { 
+            ...reminder, 
+            occurrenceCount: nextOccurCount,
+            lastTriggeredAt: reminder.nextReminderDate || now.toISOString()
+          };
           
-          // For 'every' type reminders, if the calculated next date is still in the past,
-          // we need to keep advancing until we get a future date
-          if (reminder.repeatType === 'every' && reminder.everyInterval && nextDate && nextDate <= now) {
-            console.log(`[ReminderEngine] Next calculated date ${nextDate.toISOString()} is still in past, advancing further`);
-            
-            const interval = reminder.everyInterval;
-            const addMs = interval.unit === 'minutes' 
-              ? interval.value * 60 * 1000 
-              : interval.unit === 'hours' 
-              ? interval.value * 60 * 60 * 1000 
-              : interval.value * 24 * 60 * 60 * 1000;
-            
-            // Calculate how many intervals we need to skip to get to the future
-            const timeDiff = now.getTime() - nextDate.getTime();
-            const intervalsToSkip = Math.ceil(timeDiff / addMs);
-            nextDate = new Date(nextDate.getTime() + (intervalsToSkip * addMs));
-            
-            console.log(`[ReminderEngine] Advanced ${reminder.id} by ${intervalsToSkip} intervals to ${nextDate.toISOString()}`);
-          }
+          const nextDate = calculateNextReminderDate(reminderForCalc, now);
           
           if (nextDate && nextDate > now) {
             const updated = {

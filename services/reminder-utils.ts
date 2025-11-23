@@ -173,8 +173,9 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         if (result <= fromDate) {
           // FIX: Calculate skip from result (not baseline) to avoid skipping occurrences
           // due to processing delays (e.g., if result=12:01:00 but fromDate=12:01:00.500)
+          // Use Math.floor + 1 to ensure we always jump ahead of fromDate, even if diff is 0
           const diff = fromDate.getTime() - result.getTime();
-          const steps = Math.ceil(diff / addMs);
+          const steps = Math.floor(diff / addMs) + 1;
           result = new Date(result.getTime() + steps * addMs);
           console.log(`[calculateNextReminderDate] Advanced occurrence aligned after now: ${result.toISOString()} (steps=${steps})`);
         } else {
