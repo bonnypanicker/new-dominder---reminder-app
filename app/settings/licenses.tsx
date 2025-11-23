@@ -7,14 +7,18 @@ import { Material3Colors } from '@/constants/colors';
 
 export default function LicensesScreen() {
   const licenses = [
-    { name: 'React Native', version: '0.79.5', license: 'MIT', copyright: 'Copyright (c) Meta Platforms, Inc.' },
-    { name: 'Expo', version: '~53', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
+    { name: 'React Native', version: '0.79.6', license: 'MIT', copyright: 'Copyright (c) Meta Platforms, Inc.' },
+    { name: 'Expo', version: '~53.0.23', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
     { name: 'React', version: '19.0.0', license: 'MIT', copyright: 'Copyright (c) Meta Platforms, Inc.' },
-    { name: 'TypeScript', version: '~5.8', license: 'Apache-2.0', copyright: 'Copyright (c) Microsoft' },
-    { name: 'Expo Router', version: '~5', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
-    { name: 'React Query', version: '^5', license: 'MIT', copyright: 'Copyright (c) TanStack' },
-    { name: 'Lucide React Native', version: '^0.544', license: 'ISC', copyright: 'Copyright (c) 2020 Lucide Contributors' },
+    { name: 'TypeScript', version: '~5.8.3', license: 'Apache-2.0', copyright: 'Copyright (c) Microsoft' },
+    { name: 'Expo Router', version: '~5.1.7', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
+    { name: 'TanStack React Query', version: '^5.83.0', license: 'MIT', copyright: 'Copyright (c) TanStack' },
+    { name: 'Notifee', version: '^9.1.8', license: 'Apache-2.0', copyright: 'Copyright (c) Invertase Limited' },
+    { name: 'Lucide React Native', version: '^0.544.0', license: 'ISC', copyright: 'Copyright (c) 2020 Lucide Contributors' },
     { name: 'React Native Safe Area Context', version: '5.4.0', license: 'MIT', copyright: 'Copyright (c) 2019 Th3rd Wave' },
+    { name: 'React Native Gesture Handler', version: '~2.24.0', license: 'MIT', copyright: 'Copyright (c) Software Mansion' },
+    { name: 'React Native Reanimated', version: '~4.1.0', license: 'MIT', copyright: 'Copyright (c) Software Mansion' },
+    { name: 'Zustand', version: '^5.0.2', license: 'MIT', copyright: 'Copyright (c) 2019 Paul Henschel' },
   ];
 
   return (

@@ -295,7 +295,7 @@ export default function SettingsScreen() {
                 style={styles.feedbackButton}
                 onPress={() => {
                   if (Platform.OS !== 'web') {
-                    Linking.openURL('mailto:feedback@dominder.app');
+                    Linking.openURL('mailto:bonnyregipanicker@proton.me');
                   }
                 }}
                 testID="send-feedback"
