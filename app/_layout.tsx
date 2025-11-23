@@ -168,15 +168,7 @@ function AppContent() {
             const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount as number)
               ? occurred
               : occurred + 1;
-            
-            // IMPORTANT: Pretend the reminder just triggered at its scheduled time.
-            // This tells calculateNextReminderDate to compute the *subsequent* interval
-            // relative to the current trigger, preventing duplicate scheduling of the same time.
-            const forCalc = { 
-              ...reminder, 
-              occurrenceCount: nextOccurCount,
-              lastTriggeredAt: reminder.nextReminderDate || new Date().toISOString()
-            };
+            const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
 
             const reminderUtils = require('../services/reminder-utils');
             const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());

@@ -99,9 +99,8 @@ function reminderToTimestamp(reminder: Reminder): number {
 
 // Apply sequential delay if multiple reminders are scheduled at the same time
 function applySequentialDelay(baseTimestamp: number, reminderId: string): number {
-  // Round to nearest 500ms to group reminders
-  const slotSize = 500;
-  const baseSlot = Math.floor(baseTimestamp / slotSize) * slotSize;
+  // Round to nearest second to group reminders
+  const baseSecond = Math.floor(baseTimestamp / 1000) * 1000;
   
   // First, remove any existing entries for this reminder ID from all timestamps
   // This prevents stale entries when rescheduling repeating reminders
@@ -124,18 +123,17 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
   }
   
   // Find available slot starting from base timestamp
-  let candidateTimestamp = baseSlot;
+  let candidateTimestamp = baseSecond;
   let delayCount = 0;
-  const maxDelays = 60 * (1000 / slotSize); // 60 seconds worth of slots
   
   while (scheduledTimestamps.has(candidateTimestamp)) {
-    // Slot taken by another reminder, try next slot
-    candidateTimestamp += slotSize;
+    // Slot taken by another reminder, try next second
+    candidateTimestamp += 1000;
     delayCount++;
     
     // Limit to 60 seconds of delay
-    if (delayCount >= maxDelays) {
-      console.warn(`[NotificationService] Max delay reached for ${reminderId}, using ${delayCount * slotSize}ms delay`);
+    if (delayCount >= 60) {
+      console.warn(`[NotificationService] Max delay reached for ${reminderId}, using ${delayCount}s delay`);
       break;
     }
   }
@@ -147,7 +145,7 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
   scheduledTimestamps.get(candidateTimestamp)!.push(reminderId);
   
   if (delayCount > 0) {
-    console.log(`[NotificationService] Applied ${delayCount * slotSize}ms sequential delay to ${reminderId} (${new Date(baseSlot).toISOString()} -> ${new Date(candidateTimestamp).toISOString()})`);
+    console.log(`[NotificationService] Applied ${delayCount}s sequential delay to ${reminderId} (${new Date(baseSecond).toISOString()} -> ${new Date(candidateTimestamp).toISOString()})`);
   }
   
   return candidateTimestamp;
@@ -246,8 +244,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   }
   
   // Apply sequential delay to prevent multiple reminders from firing simultaneously
-  // Valid for ALL reminder types including 'every' since we calculate next occurrence from scheduled time
-  when = applySequentialDelay(when, reminder.id);
+  // SKIP for 'every' type reminders to preserve exact timing (e.g., every 1 minute at :00 seconds)
+  if (reminder.repeatType !== 'every') {
+    when = applySequentialDelay(when, reminder.id);
+  } else {
+    console.log(`[NotificationService] Skipping sequential delay for 'every' reminder to preserve exact timing`);
+  }
   
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
