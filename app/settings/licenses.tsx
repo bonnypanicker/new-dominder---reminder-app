@@ -14,10 +14,13 @@ export default function LicensesScreen() {
     { name: 'Expo Router', version: '~5.1.7', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
     { name: 'TanStack React Query', version: '^5.83.0', license: 'MIT', copyright: 'Copyright (c) TanStack' },
     { name: 'Notifee', version: '^9.1.8', license: 'Apache-2.0', copyright: 'Copyright (c) Invertase Limited' },
+    { name: 'Shopify FlashList', version: '1.7.6', license: 'MIT', copyright: 'Copyright (c) Shopify Inc.' },
     { name: 'Lucide React Native', version: '^0.544.0', license: 'ISC', copyright: 'Copyright (c) 2020 Lucide Contributors' },
+    { name: 'React Native Async Storage', version: '2.1.2', license: 'MIT', copyright: 'Copyright (c) React Native Community' },
     { name: 'React Native Safe Area Context', version: '5.4.0', license: 'MIT', copyright: 'Copyright (c) 2019 Th3rd Wave' },
     { name: 'React Native Gesture Handler', version: '~2.24.0', license: 'MIT', copyright: 'Copyright (c) Software Mansion' },
     { name: 'React Native Reanimated', version: '~4.1.0', license: 'MIT', copyright: 'Copyright (c) Software Mansion' },
+    { name: 'React Native Screens', version: '~4.11.1', license: 'MIT', copyright: 'Copyright (c) Software Mansion' },
     { name: 'Zustand', version: '^5.0.2', license: 'MIT', copyright: 'Copyright (c) 2019 Paul Henschel' },
   ];
 
