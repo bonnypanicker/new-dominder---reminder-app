@@ -1686,7 +1686,7 @@ export default function HomeScreen() {
     </KeyboardAvoidingView>
     
     {!isSelectionMode && (
-      <View style={styles.bottomContainer}>
+      <View style={[styles.bottomContainer, { bottom: insets.bottom }]} pointerEvents="box-none">
         <TouchableOpacity
           style={styles.createAlarmButton}
           onPress={() => {
@@ -3402,7 +3402,6 @@ const styles = StyleSheet.create({
   },
   bottomContainer: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 24,
