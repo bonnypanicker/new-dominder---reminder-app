@@ -160,6 +160,29 @@ export default function HomeScreen() {
     }
   }, [isSelectionMode, selectedReminders.size]);
 
+  // Listen for keyboard visibility
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardDidShowListener = RNKeyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = RNKeyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'deleted' | null>(null);
 
   const addReminder = useAddReminder();
@@ -1685,7 +1708,7 @@ export default function HomeScreen() {
     </SafeAreaView>
     </KeyboardAvoidingView>
     
-    {!isSelectionMode && (
+    {!isSelectionMode && !isKeyboardVisible && (
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={styles.createAlarmButton}
