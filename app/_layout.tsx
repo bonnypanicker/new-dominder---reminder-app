@@ -61,6 +61,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ ...(isIOS ? { headerBackTitle: "Back" } : {}) }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen
         name="alarm"
         options={{
