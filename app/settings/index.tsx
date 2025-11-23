@@ -37,7 +37,7 @@ export default function SettingsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
+          <TouchableOpacity style={styles.backButton} onPress={() => router.navigate('/')} testID="settings-back">
             <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
           </TouchableOpacity>
           <Text style={styles.title}>Settings</Text>
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
+        <TouchableOpacity style={styles.backButton} onPress={() => router.navigate('/')} testID="settings-back">
           <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
