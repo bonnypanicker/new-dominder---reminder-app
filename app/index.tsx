@@ -3519,13 +3519,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Material3Colors.light.outlineVariant,
     marginHorizontal: 20,
-    marginVertical: 3,
+    marginVertical: 2,
     // ✅ Android GPU optimizations
-    elevation: 1,  // Minimal elevation
+    elevation: 0.5,  // Minimal elevation
     shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 0.3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 1,
     // Allow swipeable content to draw beyond card bounds
     overflow: 'visible',
   },

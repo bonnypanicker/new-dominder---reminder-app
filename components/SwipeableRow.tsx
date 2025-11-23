@@ -224,8 +224,8 @@ const SwipeableRow = memo(function SwipeableRow({
         }),
         marginBottom: isRemoving ? heightAnim.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, 8],
-        }) : 8,
+          outputRange: [0, 5],
+        }) : 5,
       }}
       onLayout={(e) => {
         const { height } = e.nativeEvent.layout;
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     width: 80,
     borderRadius: 12,
     marginLeft: 1,
-    marginRight: 20,
+    marginRight: 16,
   },
   leftAction: {
     backgroundColor: '#4CAF50',
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     width: 80,
     borderRadius: 12,
     marginRight: 1,
-    marginLeft: 20,
+    marginLeft: 16,
   },
   leftActionDelete: {
     backgroundColor: '#F44336',
