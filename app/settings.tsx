@@ -442,57 +442,59 @@ function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSel
       presentationStyle="fullScreen"
       statusBarTranslucent={false}
     >
-      <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
-        {/* Header */}
-        <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Reminder Defaults</Text>
-          <TouchableOpacity 
-            onPress={onClose} 
-            style={modalStyles.closeButton} 
-            testID="defaults-close"
-            activeOpacity={0.7}
+      <View style={{ flex: 1 }} pointerEvents={visible ? 'auto' : 'none'}>
+        <SafeAreaView style={modalStyles.container} edges={['left', 'right', 'bottom']}>
+          {/* Header */}
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Reminder Defaults</Text>
+            <TouchableOpacity 
+              onPress={onClose} 
+              style={modalStyles.closeButton} 
+              testID="defaults-close"
+              activeOpacity={0.7}
+            >
+              <Text style={modalStyles.closeButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Content */}
+          <ScrollView 
+            style={modalStyles.defaultsList} 
+            showsVerticalScrollIndicator={false}
+            bounces={false}
           >
-            <Text style={modalStyles.closeButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Content */}
-        <ScrollView 
-          style={modalStyles.defaultsList} 
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          {/* Repeat Mode Section */}
-          <View style={modalStyles.defaultsSection}>
-            <Text style={modalStyles.defaultsSectionTitle}>Default Repeat Mode</Text>
-            <View style={modalStyles.optionsGrid}>
-              {repeatModes.map((mode: { value: RepeatType; label: string }) => (
-                <RepeatModeChip
-                  key={mode.value}
-                  mode={mode}
-                  isSelected={mode.value === selectedMode}
-                  onPress={onSelectMode}
-                />
-              ))}
+            {/* Repeat Mode Section */}
+            <View style={modalStyles.defaultsSection}>
+              <Text style={modalStyles.defaultsSectionTitle}>Default Repeat Mode</Text>
+              <View style={modalStyles.optionsGrid}>
+                {repeatModes.map((mode: { value: RepeatType; label: string }) => (
+                  <RepeatModeChip
+                    key={mode.value}
+                    mode={mode}
+                    isSelected={mode.value === selectedMode}
+                    onPress={onSelectMode}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
 
-          {/* Priority Section */}
-          <View style={modalStyles.defaultsSection}>
-            <Text style={modalStyles.defaultsSectionTitle}>Default Priority</Text>
-            <View style={modalStyles.priorityOptions}>
-              {priorities.map((priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' }) => (
-                <PriorityOption
-                  key={priority.value}
-                  priority={priority}
-                  isSelected={priority.value === selectedPriority}
-                  onPress={onSelectPriority}
-                />
-              ))}
+            {/* Priority Section */}
+            <View style={modalStyles.defaultsSection}>
+              <Text style={modalStyles.defaultsSectionTitle}>Default Priority</Text>
+              <View style={modalStyles.priorityOptions}>
+                {priorities.map((priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' }) => (
+                  <PriorityOption
+                    key={priority.value}
+                    priority={priority}
+                    isSelected={priority.value === selectedPriority}
+                    onPress={onSelectPriority}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+          </ScrollView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
