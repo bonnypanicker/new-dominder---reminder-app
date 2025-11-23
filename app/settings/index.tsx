@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Linking, NativeModules } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
@@ -12,6 +12,7 @@ const { AlarmModule } = NativeModules;
 export default function SettingsScreen() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
+  const insets = useSafeAreaInsets();
   // Modals replaced by routes
   const [currentRingtone, setCurrentRingtone] = useState<string>('Default Alarm');
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
@@ -36,7 +37,7 @@ export default function SettingsScreen() {
   if (isLoading || !settings) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
             <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
           </TouchableOpacity>
@@ -74,7 +75,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
           <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
         </TouchableOpacity>
@@ -332,21 +333,15 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.background,
+    backgroundColor: Material3Colors.light.surface,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 32,
     paddingBottom: 20,
     backgroundColor: Material3Colors.light.surface,
-    elevation: 2,
-    shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
   },
   backButton: {
     width: 40,

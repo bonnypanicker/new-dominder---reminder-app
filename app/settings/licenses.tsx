@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 
 export default function LicensesScreen() {
+  const insets = useSafeAreaInsets();
   const licenses = [
     { name: 'React Native', version: '0.79.6', license: 'MIT', copyright: 'Copyright (c) Meta Platforms, Inc.' },
     { name: 'Expo', version: '~53.0.23', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
@@ -26,7 +27,7 @@ export default function LicensesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="licenses-back">
           <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
         </TouchableOpacity>
@@ -66,16 +67,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 32,
     paddingBottom: 20,
     backgroundColor: Material3Colors.light.surface,
-    elevation: 2,
-    shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: Material3Colors.light.surfaceVariant,
   },
   title: {
     fontSize: 20,
