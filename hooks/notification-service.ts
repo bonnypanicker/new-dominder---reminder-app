@@ -244,7 +244,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   }
   
   // Apply sequential delay to prevent multiple reminders from firing simultaneously
-  when = applySequentialDelay(when, reminder.id);
+  // SKIP for 'every' type reminders to preserve exact timing (e.g., every 1 minute at :00 seconds)
+  if (reminder.repeatType !== 'every') {
+    when = applySequentialDelay(when, reminder.id);
+  } else {
+    console.log(`[NotificationService] Skipping sequential delay for 'every' reminder to preserve exact timing`);
+  }
   
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
