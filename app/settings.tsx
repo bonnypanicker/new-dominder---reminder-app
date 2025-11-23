@@ -385,6 +385,7 @@ const RepeatModeChip = React.memo<{
     </TouchableOpacity>
   );
 });
+RepeatModeChip.displayName = 'RepeatModeChip';
 
 // Memoized priority option component
 const PriorityOption = React.memo<{
@@ -411,6 +412,7 @@ const PriorityOption = React.memo<{
     </TouchableOpacity>
   );
 });
+PriorityOption.displayName = 'PriorityOption';
 
 function DefaultsModal({ visible, onClose, selectedMode, selectedPriority, onSelectMode, onSelectPriority }: DefaultsModalProps) {
   // Static data - no need to recreate on every render
