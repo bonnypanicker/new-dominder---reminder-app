@@ -321,6 +321,9 @@ function AppContent() {
         // Initialize midnight notification refresh service
         const { initializeNotificationRefresh } = require('../services/notification-refresh-service');
         await initializeNotificationRefresh();
+        // Check for pending/missed notifications on startup
+        const { checkAndTriggerPendingNotifications } = require('../services/startup-notification-check');
+        await checkAndTriggerPendingNotifications();
       } catch {}
     })();
     return () => clearTimeout(timer);
