@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'center',
   },
   selectedOption: {
