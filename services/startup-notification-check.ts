@@ -14,7 +14,7 @@ export async function checkAndTriggerPendingNotifications() {
   if (Platform.OS !== 'android') return;
 
   try {
-    console.log('[StartupCheck] Checking for pending notifications...');
+    console.log('[StartupCheck] Checking for pending notifications and rescheduling all active reminders...');
     
     const reminderService = require('./reminder-service');
     const allReminders = await reminderService.getAllReminders();
@@ -27,6 +27,7 @@ export async function checkAndTriggerPendingNotifications() {
     const now = Date.now();
     const pendingReminders: Reminder[] = [];
     const expiredRingerReminders: Reminder[] = [];
+    const remindersToReschedule: Reminder[] = [];
 
     // Check each active reminder
     for (const reminder of allReminders) {
@@ -67,6 +68,10 @@ export async function checkAndTriggerPendingNotifications() {
           expiredRingerReminders.push(reminder);
           console.log(`[StartupCheck] Found expired ringer reminder: ${reminder.id} (${reminder.title})`);
         }
+      } else {
+        // Future reminder - needs rescheduling after force stop
+        remindersToReschedule.push(reminder);
+        console.log(`[StartupCheck] Will reschedule future reminder: ${reminder.id} (${reminder.title})`);
       }
     }
 
@@ -82,7 +87,21 @@ export async function checkAndTriggerPendingNotifications() {
       await showExpiredRingerNotifications(expiredRingerReminders);
     }
 
-    console.log('[StartupCheck] Completed pending notification check');
+    // Reschedule all future reminders (force stop clears AlarmManager alarms)
+    if (remindersToReschedule.length > 0) {
+      console.log(`[StartupCheck] Rescheduling ${remindersToReschedule.length} future reminders`);
+      const notificationService = require('../hooks/notification-service');
+      for (const reminder of remindersToReschedule) {
+        try {
+          await notificationService.scheduleReminderByModel(reminder);
+          console.log(`[StartupCheck] Rescheduled reminder: ${reminder.id}`);
+        } catch (error) {
+          console.error(`[StartupCheck] Error rescheduling ${reminder.id}:`, error);
+        }
+      }
+    }
+
+    console.log('[StartupCheck] Completed pending notification check and rescheduling');
   } catch (error) {
     console.error('[StartupCheck] Error checking pending notifications:', error);
   }
