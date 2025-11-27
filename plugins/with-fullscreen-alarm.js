@@ -14,14 +14,13 @@ module.exports = (config) =>
       delete main['$']['android:turnScreenOn'];
     }
 
-    // Configure AlarmActivity with additional lock screen bypass flags for Android 13+
+    // Configure AlarmActivity with lock screen bypass flags
     const alarmActivity = (app.activity || []).find(a => a['$']['android:name']?.endsWith('.AlarmActivity'));
     if (alarmActivity) {
-      // Ensure all necessary flags are set for reliable lock screen bypass
+      // Ensure necessary flags are set for reliable lock screen bypass
+      // Note: dismissKeyguard and showForAllUsers must be set programmatically in the activity code
       alarmActivity['$']['android:showWhenLocked'] = 'true';
       alarmActivity['$']['android:turnScreenOn'] = 'true';
-      alarmActivity['$']['android:dismissKeyguard'] = 'true';
-      alarmActivity['$']['android:showForAllUsers'] = 'true';
       alarmActivity['$']['android:excludeFromRecents'] = 'true';
       alarmActivity['$']['android:launchMode'] = 'singleTask';
     }
