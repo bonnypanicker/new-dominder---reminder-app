@@ -24,6 +24,39 @@ if (Platform.OS === 'android') {
   }
 }
 
+function formatSmartDateTime(when: number): string {
+  const reminderDate = new Date(when);
+  const now = new Date();
+  
+  // Reset time to start of day for date comparison
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const reminderStart = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  
+  const timeStr = reminderDate.toLocaleString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  if (reminderStart.getTime() === todayStart.getTime()) {
+    return `Today ${timeStr}`;
+  } else if (reminderStart.getTime() === yesterdayStart.getTime()) {
+    return `Yesterday ${timeStr}`;
+  } else {
+    // Full date and time
+    return reminderDate.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+}
+
 function formatRepeatType(repeatType: string, everyInterval?: { value: number; unit: string }): string {
   switch (repeatType) {
     case 'none': return 'Once';
@@ -42,9 +75,8 @@ function formatRepeatType(repeatType: string, everyInterval?: { value: number; u
 }
 
 function bodyWithTime(desc: string | undefined, when: number) {
-  // Don't include time in body - Android's showTimestamp will display it automatically
-  // and update it dynamically (Today, Yesterday, etc.)
-  return desc?.trim() || '';
+  const formatted = formatSmartDateTime(when);
+  return [desc?.trim(), formatted].filter(Boolean).join('\n');
 }
 
 // Track scheduled timestamps to prevent collisions and add sequential delays
