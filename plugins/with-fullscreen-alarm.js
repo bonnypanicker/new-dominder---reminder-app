@@ -14,6 +14,18 @@ module.exports = (config) =>
       delete main['$']['android:turnScreenOn'];
     }
 
+    // Configure AlarmActivity with additional lock screen bypass flags for Android 13+
+    const alarmActivity = (app.activity || []).find(a => a['$']['android:name']?.endsWith('.AlarmActivity'));
+    if (alarmActivity) {
+      // Ensure all necessary flags are set for reliable lock screen bypass
+      alarmActivity['$']['android:showWhenLocked'] = 'true';
+      alarmActivity['$']['android:turnScreenOn'] = 'true';
+      alarmActivity['$']['android:dismissKeyguard'] = 'true';
+      alarmActivity['$']['android:showForAllUsers'] = 'true';
+      alarmActivity['$']['android:excludeFromRecents'] = 'true';
+      alarmActivity['$']['android:launchMode'] = 'singleTask';
+    }
+
     // Ensure permission USE_FULL_SCREEN_INTENT
     const perms = manifest.manifest['uses-permission'] ?? [];
     const has = perms.find(p => p.$['android:name'] === 'android.permission.USE_FULL_SCREEN_INTENT');
