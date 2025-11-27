@@ -140,6 +140,15 @@ function AppContent() {
         const { notification, pressAction } = detail || {};
         console.log('[RootLayout] Foreground event:', { type, pressAction: pressAction?.id });
 
+        // Handle midnight refresh trigger
+        if (type === EventType.DELIVERED && notification?.data?.type === 'midnight-refresh') {
+          console.log('[RootLayout] Midnight refresh trigger received');
+          const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('../services/notification-refresh-service');
+          await refreshDisplayedNotifications();
+          await scheduleMidnightRefresh(); // Schedule next midnight refresh
+          return;
+        }
+
         // Handle notification delivered events for automatic rescheduling (foreground)
         if (type === EventType.DELIVERED) {
           if (!notification || !notification.data) return;
@@ -309,6 +318,9 @@ function AppContent() {
     (async () => {
       try {
         await ensureBaseChannels();
+        // Initialize midnight notification refresh service
+        const { initializeNotificationRefresh } = require('../services/notification-refresh-service');
+        await initializeNotificationRefresh();
       } catch {}
     })();
     return () => clearTimeout(timer);

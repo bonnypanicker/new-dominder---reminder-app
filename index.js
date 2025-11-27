@@ -8,6 +8,18 @@ import notifee, { EventType } from '@notifee/react-native';
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   try {
+    // Handle midnight refresh trigger
+    if (type === EventType.DELIVERED) {
+      const { notification } = detail || {};
+      if (notification?.data?.type === 'midnight-refresh') {
+        console.log('[onBackgroundEvent] Midnight refresh trigger received');
+        const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('./services/notification-refresh-service');
+        await refreshDisplayedNotifications();
+        await scheduleMidnightRefresh(); // Schedule next midnight refresh
+        return;
+      }
+    }
+
     // Handle notification delivered events for automatic rescheduling
     if (type === EventType.DELIVERED) {
       const { notification } = detail || {};
