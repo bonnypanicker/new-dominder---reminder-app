@@ -1,6 +1,6 @@
 const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
 
-// Ensure the main activity uses adjustResize for smooth keyboard animations
+// Ensure the main activity uses adjustPan to keep FAB fixed at bottom when keyboard opens
 module.exports = function withSoftInputMode(config) {
   return withAndroidManifest(config, (cfg) => {
     const manifest = cfg.modResults;
@@ -8,11 +8,11 @@ module.exports = function withSoftInputMode(config) {
 
     if (!mainActivity.$) mainActivity.$ = {};
     const current = mainActivity.$['android:windowSoftInputMode'];
-    if (current !== 'adjustResize') {
-      mainActivity.$['android:windowSoftInputMode'] = 'adjustResize';
-      console.log('✅ Set android:windowSoftInputMode=adjustResize on MainActivity');
+    if (current !== 'adjustPan') {
+      mainActivity.$['android:windowSoftInputMode'] = 'adjustPan';
+      console.log('✅ Set android:windowSoftInputMode=adjustPan on MainActivity');
     } else {
-      console.log('ℹ️ android:windowSoftInputMode already set to adjustResize');
+      console.log('ℹ️ android:windowSoftInputMode already set to adjustPan');
     }
 
     return cfg;
