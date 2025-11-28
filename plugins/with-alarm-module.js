@@ -1164,7 +1164,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         header.addView(doneButton)
         mainLayout.addView(header)
 
-        // ScrollView container matching Reminder Defaults - no scroll bars
+        // ScrollView container matching Reminder Defaults - scrollable, no visible scroll bars
         val scrollContainer = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1173,10 +1173,14 @@ class RingtonePickerActivity : AppCompatActivity() {
             )
             setPadding(64, 64, 64, 64) // padding 24dp matching defaultsList style
             setBackgroundColor(0xFFFEF7FF.toInt())
-            // Hide scroll bars for cleaner look
+            // Hide scroll bar indicator but keep scrolling enabled
             isVerticalScrollBarEnabled = false
             isHorizontalScrollBarEnabled = false
-            scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
+            // Ensure scrolling works properly
+            isFillViewport = true
+            isNestedScrollingEnabled = true
+            // Smooth scrolling
+            isSmoothScrollingEnabled = true
         }
         
         val contentLayout = LinearLayout(this).apply {
