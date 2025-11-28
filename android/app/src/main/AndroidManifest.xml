@@ -34,7 +34,7 @@
       </intent-filter>
     </activity>
     <activity android:name=".alarm.AlarmActivity" android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:theme="@style/Theme.Material3.DayNight.NoActionBar"/>
-    <activity android:name=".alarm.RingtonePickerActivity" android:exported="false" android:theme="@style/Theme.Material3.DayNight.NoActionBar"/>
+    <activity android:name=".alarm.RingtonePickerActivity" android:exported="false" android:theme="@style/Theme.RingtonePicker"/>
     <receiver android:name=".alarm.AlarmReceiver" android:exported="false">
       <intent-filter>
         <action android:name="app.rork.dominder.ALARM_FIRED"/>
