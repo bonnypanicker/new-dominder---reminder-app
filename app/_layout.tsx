@@ -317,14 +317,20 @@ function AppContent() {
     }, 5000);
     (async () => {
       try {
+        console.log('[AppStartup] Initializing notification services...');
         await ensureBaseChannels();
+        // Check for pending/missed notifications on startup FIRST
+        // This ensures overdue reminders are triggered immediately
+        const { checkAndTriggerPendingNotifications } = require('../services/startup-notification-check');
+        await checkAndTriggerPendingNotifications();
+        console.log('[AppStartup] Pending notifications check completed');
         // Initialize midnight notification refresh service
         const { initializeNotificationRefresh } = require('../services/notification-refresh-service');
         await initializeNotificationRefresh();
-        // Check for pending/missed notifications on startup
-        const { checkAndTriggerPendingNotifications } = require('../services/startup-notification-check');
-        await checkAndTriggerPendingNotifications();
-      } catch {}
+        console.log('[AppStartup] Notification services initialized');
+      } catch (error) {
+        console.error('[AppStartup] Error initializing notification services:', error);
+      }
     })();
     return () => clearTimeout(timer);
   }, []);
