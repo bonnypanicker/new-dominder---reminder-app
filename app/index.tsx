@@ -3398,7 +3398,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 8,
     backgroundColor: Material3Colors.light.surface,
     elevation: 2,
     shadowColor: Material3Colors.light.shadow,
