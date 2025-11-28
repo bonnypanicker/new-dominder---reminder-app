@@ -1814,6 +1814,7 @@ function CreateReminderPopup({
 }: CreateReminderPopupProps) {
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [scaleFactor, setScaleFactor] = useState<number>(1);
+  const [isLandscape, setIsLandscape] = useState<boolean>(false);
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
   const shouldAutoFocusOnCreate = false;
@@ -1822,23 +1823,38 @@ function CreateReminderPopup({
 
   useEffect(() => {
     const updateHeight = () => {
-      // Use screen height so the keyboard doesn't shrink the popup and push buttons up
-      const winH = Dimensions.get('screen').height;
-      const paddingVertical = 48;
-      const target = 470;
-      const computed = Math.min(target, Math.max(380, winH - paddingVertical));
-      setPopupHeight(computed);
+      // Use screen dimensions to detect orientation
+      const { width: winW, height: winH } = Dimensions.get('screen');
+      const landscape = winW > winH;
+      setIsLandscape(landscape);
       
-      // Calculate scale factor for small screens
-      // Base height threshold: 700px
-      // Scale down everything proportionally on smaller screens
-      const baseHeight = 700;
-      if (winH < baseHeight) {
-        // Scale from 0.75 to 1.0 based on screen height
-        const scale = Math.max(0.75, Math.min(1, winH / baseHeight));
+      if (landscape) {
+        // Landscape mode: use more of the available height, less aggressive scaling
+        const paddingVertical = 32;
+        const target = winH - paddingVertical;
+        const computed = Math.min(400, Math.max(280, target));
+        setPopupHeight(computed);
+        
+        // In landscape, use a gentler scale factor based on height
+        // Minimum scale 0.85 to keep elements readable
+        const baseHeight = 400;
+        const scale = Math.max(0.85, Math.min(1, winH / baseHeight));
         setScaleFactor(scale);
       } else {
-        setScaleFactor(1);
+        // Portrait mode: original logic
+        const paddingVertical = 48;
+        const target = 470;
+        const computed = Math.min(target, Math.max(380, winH - paddingVertical));
+        setPopupHeight(computed);
+        
+        // Calculate scale factor for small screens
+        const baseHeight = 700;
+        if (winH < baseHeight) {
+          const scale = Math.max(0.75, Math.min(1, winH / baseHeight));
+          setScaleFactor(scale);
+        } else {
+          setScaleFactor(1);
+        }
       }
     };
     updateHeight();
@@ -1874,53 +1890,57 @@ function CreateReminderPopup({
     }
   }, [visible, mode, shouldAutoFocusOnCreate]);
 
-  // Create scaled styles for small screens
+  // Create scaled styles for small screens and landscape mode
   const scaledStyles = useMemo(() => ({
     popup: {
       ...createPopupStyles.popup,
       borderRadius: 16 * scaleFactor,
-      padding: 16 * scaleFactor,
-      paddingBottom: 16 * scaleFactor,
+      padding: isLandscape ? 12 : 16 * scaleFactor,
+      paddingBottom: isLandscape ? 8 : 16 * scaleFactor,
+      // In landscape, use wider popup and ensure minimum width
+      maxWidth: isLandscape ? 600 : 480,
+      width: isLandscape ? ('90%' as const) : ('100%' as const),
     },
     section: {
       ...createPopupStyles.section,
-      marginBottom: 10 * scaleFactor,
+      marginBottom: isLandscape ? 6 : 10 * scaleFactor,
     },
     titleInput: {
       ...createPopupStyles.titleInput,
       borderRadius: 8 * scaleFactor,
-      padding: 10 * scaleFactor,
-      fontSize: 16 * scaleFactor,
+      padding: isLandscape ? 8 : 10 * scaleFactor,
+      fontSize: isLandscape ? 15 : 16 * scaleFactor,
+      minHeight: isLandscape ? 36 : undefined,
     },
     buttonContainer: {
       ...createPopupStyles.buttonContainer,
-      marginTop: 8 * scaleFactor,
-      paddingTop: 8 * scaleFactor,
+      marginTop: isLandscape ? 4 : 8 * scaleFactor,
+      paddingTop: isLandscape ? 4 : 8 * scaleFactor,
     },
     cancelButton: {
       ...createPopupStyles.cancelButton,
-      paddingHorizontal: 16 * scaleFactor,
-      paddingVertical: 6 * scaleFactor,
+      paddingHorizontal: isLandscape ? 14 : 16 * scaleFactor,
+      paddingVertical: isLandscape ? 6 : 6 * scaleFactor,
     },
     createButton: {
       ...createPopupStyles.createButton,
-      paddingHorizontal: 16 * scaleFactor,
-      paddingVertical: 6 * scaleFactor,
+      paddingHorizontal: isLandscape ? 14 : 16 * scaleFactor,
+      paddingVertical: isLandscape ? 6 : 6 * scaleFactor,
       borderRadius: 6 * scaleFactor,
     },
     cancelButtonText: {
       ...createPopupStyles.cancelButtonText,
-      fontSize: 14 * scaleFactor,
+      fontSize: isLandscape ? 14 : 14 * scaleFactor,
     },
     createButtonText: {
       ...createPopupStyles.createButtonText,
-      fontSize: 14 * scaleFactor,
+      fontSize: isLandscape ? 14 : 14 * scaleFactor,
     },
     customizeContent: {
       ...createPopupStyles.customizeContent,
-      marginBottom: 6 * scaleFactor,
+      marginBottom: isLandscape ? 4 : 6 * scaleFactor,
     },
-  }), [scaleFactor]);
+  }), [scaleFactor, isLandscape]);
 
   if (!visible) return null;
 
