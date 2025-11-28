@@ -1081,14 +1081,23 @@ class RingtonePickerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Set status bar color to match Material3 surface
+        // Make status bar seamless/transparent - no separation line
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = 0xFFFEF7FF.toInt()
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                window.decorView.systemUiVisibility = (
+                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                )
             }
         }
+        
+        // Get status bar height for proper padding
+        val statusBarHeight = getStatusBarHeight()
         
         // Main container matching Reminder Defaults design
         val mainLayout = LinearLayout(this).apply {
@@ -1099,24 +1108,20 @@ class RingtonePickerActivity : AppCompatActivity() {
             )
             setBackgroundColor(0xFFFEF7FF.toInt()) // Material3Colors.light.surface
             setPadding(0, 0, 0, 0)
+            fitsSystemWindows = false
         }
 
-        // Header matching Reminder Defaults modal style
+        // Header matching Reminder Defaults modal style - seamless with status bar
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(64, 52, 52, 52) // paddingHorizontal 24dp, paddingVertical 20dp
-            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3Colors.light.surface
-            elevation = 2f
-            
-            // Add bottom border
-            val borderDrawable = android.graphics.drawable.GradientDrawable()
-            borderDrawable.setColor(0xFFFEF7FF.toInt())
-            borderDrawable.setStroke(3, 0xFFE7E0EC.toInt()) // surfaceVariant border, bottom only via layer
-            background = borderDrawable
+            // Add status bar height to top padding for seamless look
+            setPadding(64, statusBarHeight + 52, 52, 52)
+            setBackgroundColor(0xFFFEF7FF.toInt()) // Material3Colors.light.surface - same as main
+            elevation = 0f // No elevation for seamless look
         }
 
         val titleText = TextView(this).apply {
@@ -1159,7 +1164,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         header.addView(doneButton)
         mainLayout.addView(header)
 
-        // ScrollView container matching Reminder Defaults
+        // ScrollView container matching Reminder Defaults - no scroll bars
         val scrollContainer = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1168,6 +1173,10 @@ class RingtonePickerActivity : AppCompatActivity() {
             )
             setPadding(64, 64, 64, 64) // padding 24dp matching defaultsList style
             setBackgroundColor(0xFFFEF7FF.toInt())
+            // Hide scroll bars for cleaner look
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
         }
         
         val contentLayout = LinearLayout(this).apply {
@@ -1434,6 +1443,15 @@ class RingtonePickerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+    
+    private fun getStatusBarHeight(): Int {
+        var result = 0
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) {
+            result = resources.getDimensionPixelSize(resourceId)
+        }
+        return result
     }
     
     private fun getFileName(uri: Uri): String {
@@ -2097,12 +2115,12 @@ const withAlarmManifest = (config) => {
         'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
       },
     });
-    // Add RingtonePickerActivity
+    // Add RingtonePickerActivity with custom seamless theme
     activities.push({
       $: {
         'android:name': '.alarm.RingtonePickerActivity',
         'android:exported': 'false',
-        'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
+        'android:theme': '@style/Theme.RingtonePicker'
       },
     });
     application.activity = activities;

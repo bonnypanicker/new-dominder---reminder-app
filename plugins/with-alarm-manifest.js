@@ -20,13 +20,13 @@ module.exports = function withAlarmManifest(config) {
       });
     }
 
-    // Add RingtonePickerActivity if missing
+    // Add RingtonePickerActivity if missing - use custom seamless theme
     if (!activities.some(a => a.$['android:name']?.includes('.alarm.RingtonePickerActivity'))) {
       activities.push({
         $: {
           'android:name': '.alarm.RingtonePickerActivity',
           'android:exported': 'false',
-          'android:theme': '@style/Theme.AppCompat.Light.NoActionBar'
+          'android:theme': '@style/Theme.RingtonePicker'
         }
       });
     }
