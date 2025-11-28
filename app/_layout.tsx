@@ -255,6 +255,31 @@ function AppContent() {
             return;
           }
 
+          // Handle delete action from missed notification
+          if (pressAction.id === 'delete_missed') {
+            console.log('[RootLayout] Delete missed reminder:', reminderId);
+            const reminderService = require('../services/reminder-service');
+            const reminder = await reminderService.getReminder(reminderId);
+            if (reminder) {
+              // Mark as deleted (soft delete)
+              const deletedReminder = {
+                ...reminder,
+                isActive: false,
+                isCompleted: false,
+                isPaused: false,
+                isDeleted: true,
+                deletedAt: new Date().toISOString(),
+              };
+              await reminderService.updateReminder(deletedReminder);
+              // Cancel any pending notifications for this reminder
+              try {
+                await notifee.cancelNotification(`rem-${reminderId}`);
+              } catch {}
+              console.log('[RootLayout] Reminder moved to deleted:', reminderId);
+            }
+            return;
+          }
+
           const snoozeMatch = /^snooze_(\d+)$/.exec(pressAction.id);
           if (snoozeMatch) {
             const mins = parseInt(snoozeMatch[1], 10);

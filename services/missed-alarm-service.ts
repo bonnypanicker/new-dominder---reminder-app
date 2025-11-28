@@ -49,6 +49,14 @@ class MissedAlarmService {
     const { reminderId, title, time } = data;
     
     try {
+      // Cancel the original full-screen intent notification first
+      try {
+        await notifee.cancelNotification(`rem-${reminderId}`);
+        console.log('[MissedAlarmService] Cancelled original notification for:', reminderId);
+      } catch (cancelError) {
+        console.log('[MissedAlarmService] No original notification to cancel');
+      }
+
       // Create notification for missed ringer
       const channelId = 'missed-alarm-v1';
       
@@ -85,8 +93,11 @@ class MissedAlarmService {
             type: AndroidStyle.BIGTEXT,
             text: body,
           },
-          autoCancel: true, // Swipeable only, no buttons
+          autoCancel: true,
           ongoing: false,
+          actions: [
+            { title: 'Delete', pressAction: { id: 'delete_missed' } },
+          ],
         },
       });
 

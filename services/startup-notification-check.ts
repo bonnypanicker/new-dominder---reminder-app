@@ -224,6 +224,11 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
         const timeText = formatSmartDateTime(scheduledTime);
         const body = `${reminder.title}\n${timeText}`;
 
+        // Cancel original notification if it exists
+        try {
+          await notifee.cancelNotification(`rem-${reminder.id}`);
+        } catch {}
+
         await notifee.displayNotification({
           id: `missed-${reminder.id}`,
           title: 'You missed a Ringer reminder',
@@ -249,6 +254,9 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
             },
             autoCancel: true,
             ongoing: false,
+            actions: [
+              { title: 'Delete', pressAction: { id: 'delete_missed' } },
+            ],
           },
         });
 
