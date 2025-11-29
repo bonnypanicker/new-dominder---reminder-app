@@ -668,10 +668,14 @@ class AlarmRingtoneService : Service() {
     path: 'alarm/AlarmActivity.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
+import android.app.AlarmManager
 import android.app.KeyguardManager
 import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -696,11 +700,11 @@ class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
     private var notificationId: Int = 0
-    private var priority: String = "medium"
+    private var priority: String? = null
     private var timeUpdateRunnable: Runnable? = null
-    private var timeoutRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val TIMEOUT_DURATION = 5 * 60 * 1000L // 5 minutes in milliseconds
+    private var timeoutPendingIntent: PendingIntent? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -751,25 +755,9 @@ class AlarmActivity : AppCompatActivity() {
         }
         timeUpdateRunnable?.run()
 
-        // --- Setup 5-minute timeout ---
-        timeoutRunnable = Runnable {
-            DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
-            
-            // Send missed alarm broadcast
-            val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("time", timeFormat.format(Date()))
-            }
-            sendBroadcast(missedIntent)
-            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
-            
-            // Finish the activity
-            finishAlarmProperly()
-        }
-        
-        handler.postDelayed(timeoutRunnable!!, TIMEOUT_DURATION)
-        DebugLogger.log("AlarmActivity: 5-minute timeout scheduled")
+        // --- Setup 5-minute timeout using AlarmManager (survives activity lifecycle) ---
+        scheduleTimeout(title)
+        DebugLogger.log("AlarmActivity: 5-minute timeout scheduled via AlarmManager")
 
         // --- Ringtone Service Already Playing ---
         DebugLogger.log("AlarmActivity: Ringtone service should already be playing")
@@ -812,6 +800,9 @@ class AlarmActivity : AppCompatActivity() {
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
+        // Cancel the 5-minute timeout since user interacted
+        cancelTimeout()
+        
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
             finishAlarmProperly()
@@ -842,9 +833,12 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("reminderId", reminderId)
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
+        
+        // Cancel the 5-minute timeout since user interacted
+        cancelTimeout()
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
@@ -929,11 +923,49 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 
+    private fun scheduleTimeout(title: String) {
+        try {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            val timeoutIntent = Intent(this, AlarmTimeoutReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_TIMEOUT"
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+            }
+            
+            timeoutPendingIntent = PendingIntent.getBroadcast(
+                this,
+                reminderId.hashCode(),
+                timeoutIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            val triggerTime = System.currentTimeMillis() + TIMEOUT_DURATION
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTime, timeoutPendingIntent!!)
+            
+            DebugLogger.log("AlarmActivity: Timeout alarm set for 5 minutes from now")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error scheduling timeout: \${e.message}")
+        }
+    }
+    
+    private fun cancelTimeout() {
+        try {
+            timeoutPendingIntent?.let {
+                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                alarmManager.cancel(it)
+                it.cancel()
+                DebugLogger.log("AlarmActivity: Timeout alarm cancelled")
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Error cancelling timeout: \${e.message}")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         timeUpdateRunnable?.let { handler.removeCallbacks(it) }
-        timeoutRunnable?.let { handler.removeCallbacks(it) }
-        DebugLogger.log("AlarmActivity: Canceled timeout and time update runnables")
+        DebugLogger.log("AlarmActivity: Canceled time update runnable")
         
         // Stop the ringtone service if it's running
         AlarmRingtoneService.stopAlarmRingtone(this)
@@ -1529,6 +1561,89 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
             DebugLogger.log("MissedAlarmReceiver: Unregistered broadcast receiver")
         } catch (e: Exception) {
             DebugLogger.log("MissedAlarmReceiver: Error unregistering: \${e.message}")
+        }
+    }
+}`
+  },
+  {
+    path: 'alarm/AlarmTimeoutReceiver.kt',
+    content: `package app.rork.dominder_android_reminder_app.alarm
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import app.rork.dominder_android_reminder_app.DebugLogger
+import app.rork.dominder_android_reminder_app.R
+import java.text.SimpleDateFormat
+import java.util.*
+
+class AlarmTimeoutReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val reminderId = intent.getStringExtra("reminderId")
+        val title = intent.getStringExtra("title") ?: "Reminder"
+        
+        if (reminderId == null) {
+            DebugLogger.log("AlarmTimeoutReceiver: reminderId is null")
+            return
+        }
+        
+        DebugLogger.log("AlarmTimeoutReceiver: 5-minute timeout reached for \$reminderId")
+        
+        // Stop the ringtone service
+        AlarmRingtoneService.stopAlarmRingtone(context)
+        DebugLogger.log("AlarmTimeoutReceiver: Stopped ringtone service")
+        
+        // Show "Missed Ringer" notification
+        showMissedNotification(context, reminderId, title)
+        
+        // Send broadcast to close AlarmActivity if it's still open
+        val closeIntent = Intent("app.rork.dominder.CLOSE_ALARM_ACTIVITY").apply {
+            putExtra("reminderId", reminderId)
+        }
+        context.sendBroadcast(closeIntent)
+        DebugLogger.log("AlarmTimeoutReceiver: Sent broadcast to close AlarmActivity")
+    }
+    
+    private fun showMissedNotification(context: Context, reminderId: String, title: String) {
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelId = "missed_ringer_v1"
+            
+            // Create notification channel for missed ringers
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    "Missed Ringer Alarms",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications for missed ringer alarms (timeout after 5 minutes)"
+                    enableLights(true)
+                    enableVibration(false) // No vibration for missed notification
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+            
+            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val timeText = timeFormat.format(Date())
+            
+            val notification = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.drawable.small_icon_noti)
+                .setContentTitle("You missed a Ringer reminder")
+                .setContentText("\$title (timed out at \$timeText)")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("\$title\\n\\nTimed out at \$timeText after 5 minutes"))
+                .setColor(context.getColor(android.R.color.holo_red_dark))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .build()
+            
+            notificationManager.notify("missed_\$reminderId".hashCode(), notification)
+            DebugLogger.log("AlarmTimeoutReceiver: Showed missed notification for \$reminderId")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmTimeoutReceiver: Error showing missed notification: \${e.message}")
         }
     }
 }`
@@ -2133,7 +2248,8 @@ const withAlarmManifest = (config) => {
     const receivers = application.receiver.filter(r => 
         r.$['android:name'] !== '.alarm.AlarmReceiver' && 
         r.$['android:name'] !== '.BootReceiver' &&
-        r.$['android:name'] !== '.alarm.AlarmActionBridge' // Filter out old one if present
+        r.$['android:name'] !== '.alarm.AlarmActionBridge' && // Filter out old one if present
+        r.$['android:name'] !== '.alarm.AlarmTimeoutReceiver' // Filter out AlarmTimeoutReceiver
     );
     
     // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
@@ -2169,6 +2285,17 @@ const withAlarmManifest = (config) => {
             ]
         }]
     });
+    
+    // NEW: Register AlarmTimeoutReceiver for 5-minute timeout handling
+    receivers.push({
+        $: { 'android:name': '.alarm.AlarmTimeoutReceiver', 'android:exported': 'false' },
+        'intent-filter': [{
+            action: [
+                { $: { 'android:name': 'app.rork.dominder.ALARM_TIMEOUT' } }
+            ]
+        }]
+    });
+    
     application.receiver = receivers;
 
     if (!application.service) application.service = [];
