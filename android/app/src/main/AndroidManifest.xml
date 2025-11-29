@@ -62,5 +62,10 @@
         <action android:name="app.rork.dominder.DELETE_MISSED_REMINDER"/>
       </intent-filter>
     </receiver>
+    <receiver android:name=".alarm.MidnightRefreshReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="app.rork.dominder.MIDNIGHT_REFRESH_ALARM"/>
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>
