@@ -1,6 +1,7 @@
 import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import { Reminder } from '@/types/reminder';
+import { createNotificationConfig } from '../hooks/notification-service';
 
 /**
  * Service to check and trigger pending/missed notifications on app startup
@@ -144,47 +145,14 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
       }
 
       // Format time display
-      const timeText = formatSmartDateTime(scheduledTime);
-      const body = [reminder.description?.trim(), timeText].filter(Boolean).join('\n');
+      // const timeText = formatSmartDateTime(scheduledTime);
+      // const body = [reminder.description?.trim(), timeText].filter(Boolean).join('\n');
+
+      // Create config using shared helper
+      const notificationConfig = createNotificationConfig(reminder, scheduledTime);
 
       // Display notification immediately
-      await notifee.displayNotification({
-        id: `rem-${reminder.id}`,
-        title: reminder.title,
-        body,
-        data: {
-          reminderId: reminder.id,
-          priority: reminder.priority,
-          title: reminder.title,
-          route: 'index'
-        },
-        android: {
-          channelId,
-          importance: isRinger ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
-          smallIcon: 'small_icon_noti',
-          color: '#6750A4',
-          timestamp: scheduledTime,
-          showTimestamp: true,
-          lightUpScreen: isRinger,
-          ongoing: true,
-          autoCancel: false,
-          pressAction: {
-            id: 'default',
-            launchActivity: 'default'
-          },
-          style: {
-            type: AndroidStyle.BIGTEXT,
-            text: body
-          },
-          actions: [
-            { title: 'Done', pressAction: { id: 'done' } },
-            { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
-            { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
-            { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
-            { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
-          ],
-        },
-      });
+      await notifee.displayNotification(notificationConfig);
 
       console.log(`[StartupCheck] Triggered notification for ${reminder.id}`);
     } catch (error) {
