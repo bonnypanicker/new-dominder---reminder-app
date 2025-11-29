@@ -1,54 +1,57 @@
 const { withAndroidManifest, withAndroidStyles, AndroidConfig } = require('@expo/config-plugins');
-const { resolve } = require('path');
-const fs = require('fs');
 
 /**
  * Plugin to style RingtonePickerActivity with seamless status bar
  * and remove scroll bars
  */
 
-// Add custom theme to styles.xml
+// Add custom theme to styles.xml using the proper mod system
 function withCustomRingtonePickerTheme(config) {
-  return withAndroidStyles(config, async (cfg) => {
-    const stylesPath = resolve(
-      cfg.modRequest.platformProjectRoot,
-      'app/src/main/res/values/styles.xml'
+  return withAndroidStyles(config, (cfg) => {
+    // Get the styles resources object
+    const styles = cfg.modResults;
+    
+    // Ensure resources.style exists as an array
+    if (!styles.resources) {
+      styles.resources = {};
+    }
+    if (!styles.resources.style) {
+      styles.resources.style = [];
+    }
+    
+    // Check if Theme.RingtonePicker already exists
+    const existingTheme = styles.resources.style.find(
+      s => s.$ && s.$.name === 'Theme.RingtonePicker'
     );
-
-    try {
-      let stylesXml = '';
+    
+    if (!existingTheme) {
+      // Add the custom theme for RingtonePickerActivity
+      styles.resources.style.push({
+        $: {
+          name: 'Theme.RingtonePicker',
+          parent: 'Theme.AppCompat.Light.NoActionBar'
+        },
+        item: [
+          {
+            $: { name: 'android:statusBarColor' },
+            _: '@android:color/transparent'
+          },
+          {
+            $: { name: 'android:windowDrawsSystemBarBackgrounds' },
+            _: 'true'
+          },
+          {
+            $: { name: 'android:windowLightStatusBar' },
+            _: 'true'
+          },
+          {
+            $: { name: 'android:fitsSystemWindows' },
+            _: 'false'
+          }
+        ]
+      });
       
-      if (fs.existsSync(stylesPath)) {
-        stylesXml = await fs.promises.readFile(stylesPath, 'utf-8');
-      } else {
-        // Create basic styles.xml if it doesn't exist
-        stylesXml = '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>';
-      }
-
-      // Check if our custom theme already exists
-      if (!stylesXml.includes('Theme.RingtonePicker')) {
-        // Add custom theme with seamless status bar and no scroll bars
-        // Use Theme.AppCompat.Light.NoActionBar as parent - guaranteed to exist
-        const customTheme = `
-    <!-- Custom theme for RingtonePickerActivity with seamless status bar -->
-    <style name="Theme.RingtonePicker" parent="Theme.AppCompat.Light.NoActionBar">
-        <!-- Make status bar completely transparent and seamless -->
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:windowLightStatusBar">true</item>
-        
-        <!-- Ensure content extends into status bar area -->
-        <item name="android:fitsSystemWindows">false</item>
-    </style>`;
-
-        // Insert before closing </resources> tag
-        stylesXml = stylesXml.replace('</resources>', `${customTheme}\n</resources>`);
-        
-        await fs.promises.writeFile(stylesPath, stylesXml, 'utf-8');
-        console.log('✅ Added custom RingtonePicker theme to styles.xml');
-      }
-    } catch (error) {
-      console.warn('⚠️  Could not modify styles.xml:', error.message);
+      console.log('✅ Added custom RingtonePicker theme to styles.xml');
     }
 
     return cfg;
