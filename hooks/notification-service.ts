@@ -151,6 +151,54 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
   return candidateTimestamp;
 }
 
+export function createNotificationConfig(reminder: Reminder, when: number) {
+  const channelId = reminder.priority === 'high' ? 'alarm-v2' : 
+                    reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
+
+  const body = bodyWithTime(reminder.description, when);
+  const repeatTypeLabel = formatRepeatType(reminder.repeatType, reminder.everyInterval);
+
+  return {
+    id: `rem-${reminder.id}`,
+    title: reminder.title,
+    subtitle: repeatTypeLabel, // Add repeat type next to app name
+    body,
+    data: { 
+      reminderId: reminder.id, 
+      priority: reminder.priority,
+      title: reminder.title,
+      route: 'index'
+    },
+    android: {
+      channelId,
+      importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
+      category: reminder.priority === 'high' ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
+      smallIcon: 'small_icon_noti',
+      color: '#6750A4',
+      lightUpScreen: reminder.priority === 'high',
+      ongoing: true,
+      autoCancel: false,
+      pressAction: { 
+        id: 'default',
+        launchActivity: 'default'
+      },
+      timestamp: when,
+      showTimestamp: true, // Show relative duration next to app name (e.g., 5m)
+      style: { 
+        type: AndroidStyle.BIGTEXT as AndroidStyle.BIGTEXT, 
+        text: body 
+      },
+      actions: [
+        { title: 'Done',      pressAction: { id: 'done' } },
+        { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
+        { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
+        { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
+        { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
+      ],
+    },
+  };
+}
+
 export async function scheduleReminderByModel(reminder: Reminder) {
   // Check if notifications are enabled in settings
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -282,51 +330,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       },
     };
 
-    const channelId = reminder.priority === 'high' ? 'alarm-v2' : 
-                      reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
-
-    const body = bodyWithTime(reminder.description, when);
-    const repeatTypeLabel = formatRepeatType(reminder.repeatType, reminder.everyInterval);
-
-    const notificationConfig: any = {
-      id: `rem-${reminder.id}`,
-      title: reminder.title,
-      subtitle: repeatTypeLabel, // Add repeat type next to app name
-      body,
-      data: { 
-        reminderId: reminder.id, 
-        priority: reminder.priority,
-        title: reminder.title,
-        route: 'index'
-      },
-      android: {
-        channelId,
-        importance: reminder.priority === 'high' ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
-        category: reminder.priority === 'high' ? AndroidCategory.ALARM : AndroidCategory.REMINDER,
-        smallIcon: 'small_icon_noti',
-        color: '#6750A4',
-        lightUpScreen: reminder.priority === 'high',
-        ongoing: true,
-        autoCancel: false,
-        pressAction: { 
-          id: 'default',
-          launchActivity: 'default'
-        },
-        timestamp: when,
-        showTimestamp: true, // Show relative duration next to app name (e.g., 5m)
-        style: { 
-          type: AndroidStyle.BIGTEXT, 
-          text: body 
-        },
-        actions: [
-          { title: 'Done',      pressAction: { id: 'done' } },
-          { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
-          { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
-          { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
-          { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
-        ],
-      },
-    };
+    const notificationConfig = createNotificationConfig(reminder, when);
 
     await notifee.createTriggerNotification(notificationConfig, trigger);
     

@@ -1,5 +1,7 @@
 import notifee, { TriggerType, TimestampTrigger, AndroidImportance } from '@notifee/react-native';
 import { Platform } from 'react-native';
+import { getReminder } from './reminder-service';
+import { createNotificationConfig } from '../hooks/notification-service';
 
 /**
  * Service to refresh displayed notifications at midnight
@@ -64,36 +66,31 @@ export async function refreshDisplayedNotifications() {
     for (const displayed of displayedNotifications) {
       try {
         const { notification } = displayed;
-        if (!notification || !notification.id) continue;
+        if (!notification || !notification.id || !notification.data?.reminderId) continue;
 
+        const reminderId = notification.data.reminderId as string;
+        
         // Only update reminder notifications (those with timestamp in android config)
         const timestamp = notification.android?.timestamp;
         if (!timestamp) continue;
 
-        // Get current body text and extract description (everything before the time line)
-        const currentBody = notification.body || '';
-        const lines = currentBody.split('\n');
-        const description = lines.length > 1 ? lines.slice(0, -1).join('\n') : '';
+        // Fetch full reminder data to ensure we have all config (actions, channel, etc.)
+        const reminder = await getReminder(reminderId);
+        if (!reminder) {
+            console.log(`[NotificationRefresh] Reminder ${reminderId} not found, skipping update`);
+            continue;
+        }
 
-        // Generate new time text based on current date
-        const newTimeText = formatSmartDateTime(timestamp);
-        const newBody = [description.trim(), newTimeText].filter(Boolean).join('\n');
+        // Re-generate full notification config with current time text logic
+        // The timestamp remains the same (when it was scheduled/due), but the body text will
+        // be re-evaluated by createNotificationConfig -> bodyWithTime -> formatSmartDateTime
+        // which uses 'new Date()' inside formatSmartDateTime to determine 'Today' vs 'Yesterday'.
+        const config = createNotificationConfig(reminder, timestamp);
 
-        // Update the notification with new body text
-        await notifee.displayNotification({
-          id: notification.id,
-          title: notification.title,
-          subtitle: notification.subtitle,
-          body: newBody,
-          data: notification.data,
-          android: {
-            ...notification.android,
-            timestamp,
-            showTimestamp: true,
-          },
-        });
+        // Update the notification
+        await notifee.displayNotification(config);
 
-        console.log(`[NotificationRefresh] Updated notification ${notification.id} with new time: ${newTimeText}`);
+        console.log(`[NotificationRefresh] Updated notification ${notification.id} for reminder ${reminderId}`);
       } catch (err) {
         console.error('[NotificationRefresh] Error updating individual notification:', err);
       }
