@@ -125,6 +125,12 @@ export async function checkAndTriggerPendingNotifications() {
 async function triggerPendingNotifications(reminders: Reminder[]) {
   for (const reminder of reminders) {
     try {
+      // Skip reminders with no title (prevents blank notifications)
+      if (!reminder.title?.trim()) {
+        console.log(`[StartupCheck] Skipping reminder with empty title: ${reminder.id}`);
+        continue;
+      }
+
       console.log(`[StartupCheck] Triggering pending notification for: ${reminder.id}`);
       
       const isRinger = reminder.priority === 'high';
@@ -143,11 +149,18 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
         scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
       }
 
-      // Format time display
+      // Format time display - use our consistent format for both collapsed and expanded
       const timeText = formatSmartDateTime(scheduledTime);
-      const body = [reminder.description?.trim(), timeText].filter(Boolean).join('\n');
+      // Body for collapsed view: description + time
+      const bodyParts = [];
+      if (reminder.description?.trim()) {
+        bodyParts.push(reminder.description.trim());
+      }
+      bodyParts.push(timeText);
+      const body = bodyParts.join('\n');
 
       // Display notification immediately
+      // Note: Don't use Android's timestamp display as it can show different date than our formatted text
       await notifee.displayNotification({
         id: `rem-${reminder.id}`,
         title: reminder.title,
@@ -163,8 +176,9 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
           importance: isRinger ? AndroidImportance.HIGH : AndroidImportance.DEFAULT,
           smallIcon: 'small_icon_noti',
           color: '#6750A4',
-          timestamp: scheduledTime,
-          showTimestamp: true,
+          // Don't use timestamp/showTimestamp - use our formatted time in body instead
+          // This ensures collapsed and expanded views show consistent "Yesterday" / "Today" text
+          showTimestamp: false,
           lightUpScreen: isRinger,
           ongoing: true,
           autoCancel: false,
@@ -174,7 +188,7 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
           },
           style: {
             type: AndroidStyle.BIGTEXT,
-            text: body
+            text: body // Same text for expanded view
           },
           actions: [
             { title: 'Done', pressAction: { id: 'done' } },
@@ -209,6 +223,12 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
 
     for (const reminder of reminders) {
       try {
+        // Skip reminders with no title (prevents blank notifications)
+        if (!reminder.title?.trim()) {
+          console.log(`[StartupCheck] Skipping missed reminder with empty title: ${reminder.id}`);
+          continue;
+        }
+
         // Get scheduled time
         let scheduledTime: number;
         if (reminder.snoozeUntil) {
@@ -242,8 +262,8 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
             importance: AndroidImportance.HIGH,
             smallIcon: 'small_icon_noti',
             color: '#F44336', // Red for missed
-            timestamp: scheduledTime,
-            showTimestamp: true,
+            // Don't use timestamp - use our formatted time in body instead
+            showTimestamp: false,
             pressAction: {
               id: 'default',
               launchActivity: 'default',
