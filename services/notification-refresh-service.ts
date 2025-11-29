@@ -88,9 +88,8 @@ export async function refreshDisplayedNotifications() {
           data: notification.data,
           android: {
             ...notification.android,
-            // Don't use showTimestamp - our formatted time in body is more accurate
-            // showTimestamp would show Android's native format which conflicts with our "Yesterday" text
-            showTimestamp: false,
+            timestamp,
+            showTimestamp: true,
           },
         });
 
@@ -107,22 +106,45 @@ export async function refreshDisplayedNotifications() {
 }
 
 /**
- * Schedule the next midnight refresh using native AlarmManager
- * More reliable than notifee triggers - survives app restarts and Doze mode
+ * Schedule the next midnight refresh
+ * Sets up an alarm to trigger at the next midnight (12:00 AM)
  */
 export async function scheduleMidnightRefresh() {
   if (Platform.OS !== 'android') return;
 
   try {
-    const { NativeModules } = require('react-native');
-    const { AlarmModule } = NativeModules;
+    const now = new Date();
+    const midnight = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1, // Next day
+      0, 0, 0, 0 // 12:00:00 AM
+    );
+
+    const timeUntilMidnight = midnight.getTime() - now.getTime();
     
-    if (AlarmModule && AlarmModule.scheduleMidnightRefresh) {
-      await AlarmModule.scheduleMidnightRefresh();
-      console.log('[NotificationRefresh] Midnight refresh scheduled via native AlarmManager');
-    } else {
-      console.warn('[NotificationRefresh] AlarmModule.scheduleMidnightRefresh not available');
-    }
+    console.log(`[NotificationRefresh] Scheduling midnight refresh in ${Math.round(timeUntilMidnight / 1000 / 60)} minutes`);
+
+    // Use notifee's trigger notification as a silent alarm
+    // This will wake the app at midnight to refresh notifications
+    await notifee.createTriggerNotification(
+      {
+        id: 'midnight-refresh-trigger',
+        title: '', // Silent - no visible notification
+        body: '',
+        data: { type: 'midnight-refresh' },
+        android: {
+          channelId: 'silent-v2',
+          autoCancel: true,
+        },
+      },
+      {
+        type: TriggerType.TIMESTAMP,
+        timestamp: midnight.getTime(),
+      } as TimestampTrigger
+    );
+
+    console.log('[NotificationRefresh] Midnight refresh scheduled for:', midnight.toISOString());
   } catch (error) {
     console.error('[NotificationRefresh] Error scheduling midnight refresh:', error);
   }

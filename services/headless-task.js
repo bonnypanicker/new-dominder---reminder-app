@@ -9,15 +9,21 @@ const RescheduleAlarms = async () => {
   try {
     await notificationService.initialize();
     
-    // CRITICAL: Check for pending/overdue notifications FIRST
-    // This ensures any missed notifications are triggered immediately
-    console.log('[Dominder-Debug] Headless task: Checking for pending notifications...');
-    const { checkAndTriggerPendingNotifications } = require('./startup-notification-check');
-    await checkAndTriggerPendingNotifications();
-    console.log('[Dominder-Debug] Headless task: Pending notifications check completed');
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    const reminders = stored ? JSON.parse(stored) : [];
+    console.log(`[Dominder-Debug] Headless task: Found ${reminders.length} reminders to reschedule`);
     
+    let rescheduledCount = 0;
+    for (const reminder of reminders) {
+      if (reminder.isActive && !reminder.isCompleted && !reminder.isExpired && !reminder.isPaused) {
+        console.log(`[Dominder-Debug] Headless task: Rescheduling reminder ${reminder.id}`);
+        await notificationService.scheduleReminderByModel(reminder);
+        rescheduledCount++;
+      }
+    }
+    console.log(`[Dominder-Debug] Headless task: Rescheduled ${rescheduledCount} reminders`);
   } catch (error) {
-    console.error('[Dominder-Debug] Error in headless task:', error);
+    console.error('[Dominder-Debug] Error rescheduling reminders from headless task:', error);
   }
 };
 

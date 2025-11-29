@@ -668,14 +668,10 @@ class AlarmRingtoneService : Service() {
     path: 'alarm/AlarmActivity.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
-import android.app.AlarmManager
 import android.app.KeyguardManager
 import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -700,11 +696,11 @@ class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
     private var notificationId: Int = 0
-    private var priority: String? = null
+    private var priority: String = "medium"
     private var timeUpdateRunnable: Runnable? = null
+    private var timeoutRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val TIMEOUT_DURATION = 5 * 60 * 1000L // 5 minutes in milliseconds
-    private var timeoutPendingIntent: PendingIntent? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -755,9 +751,25 @@ class AlarmActivity : AppCompatActivity() {
         }
         timeUpdateRunnable?.run()
 
-        // --- Setup 5-minute timeout using AlarmManager (survives activity lifecycle) ---
-        scheduleTimeout(title)
-        DebugLogger.log("AlarmActivity: 5-minute timeout scheduled via AlarmManager")
+        // --- Setup 5-minute timeout ---
+        timeoutRunnable = Runnable {
+            DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
+            
+            // Send missed alarm broadcast
+            val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+                putExtra("time", timeFormat.format(Date()))
+            }
+            sendBroadcast(missedIntent)
+            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
+            
+            // Finish the activity
+            finishAlarmProperly()
+        }
+        
+        handler.postDelayed(timeoutRunnable!!, TIMEOUT_DURATION)
+        DebugLogger.log("AlarmActivity: 5-minute timeout scheduled")
 
         // --- Ringtone Service Already Playing ---
         DebugLogger.log("AlarmActivity: Ringtone service should already be playing")
@@ -800,9 +812,6 @@ class AlarmActivity : AppCompatActivity() {
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
-        // Cancel the 5-minute timeout since user interacted
-        cancelTimeout()
-        
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
             finishAlarmProperly()
@@ -833,12 +842,9 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("reminderId", reminderId)
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}")
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
-        
-        // Cancel the 5-minute timeout since user interacted
-        cancelTimeout()
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
@@ -923,49 +929,11 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 
-    private fun scheduleTimeout(title: String) {
-        try {
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            
-            val timeoutIntent = Intent(this, AlarmTimeoutReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_TIMEOUT"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-            }
-            
-            timeoutPendingIntent = PendingIntent.getBroadcast(
-                this,
-                reminderId.hashCode(),
-                timeoutIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            val triggerTime = System.currentTimeMillis() + TIMEOUT_DURATION
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTime, timeoutPendingIntent!!)
-            
-            DebugLogger.log("AlarmActivity: Timeout alarm set for 5 minutes from now")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error scheduling timeout: \${e.message}")
-        }
-    }
-    
-    private fun cancelTimeout() {
-        try {
-            timeoutPendingIntent?.let {
-                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                alarmManager.cancel(it)
-                it.cancel()
-                DebugLogger.log("AlarmActivity: Timeout alarm cancelled")
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error cancelling timeout: \${e.message}")
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         timeUpdateRunnable?.let { handler.removeCallbacks(it) }
-        DebugLogger.log("AlarmActivity: Canceled time update runnable")
+        timeoutRunnable?.let { handler.removeCallbacks(it) }
+        DebugLogger.log("AlarmActivity: Canceled timeout and time update runnables")
         
         // Stop the ringtone service if it's running
         AlarmRingtoneService.stopAlarmRingtone(this)
@@ -1566,218 +1534,6 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
 }`
   },
   {
-    path: 'alarm/AlarmTimeoutReceiver.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
-
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.os.Build
-import androidx.core.app.NotificationCompat
-import app.rork.dominder_android_reminder_app.DebugLogger
-import app.rork.dominder_android_reminder_app.R
-import java.text.SimpleDateFormat
-import java.util.*
-
-class AlarmTimeoutReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val reminderId = intent.getStringExtra("reminderId")
-        val title = intent.getStringExtra("title") ?: "Reminder"
-        
-        if (reminderId == null) {
-            DebugLogger.log("AlarmTimeoutReceiver: reminderId is null")
-            return
-        }
-        
-        DebugLogger.log("AlarmTimeoutReceiver: 5-minute timeout reached for \$reminderId")
-        
-        // Stop the ringtone service
-        AlarmRingtoneService.stopAlarmRingtone(context)
-        DebugLogger.log("AlarmTimeoutReceiver: Stopped ringtone service")
-        
-        // Show "Missed Ringer" notification
-        showMissedNotification(context, reminderId, title)
-        
-        // Send broadcast to close AlarmActivity if it's still open
-        val closeIntent = Intent("app.rork.dominder.CLOSE_ALARM_ACTIVITY").apply {
-            putExtra("reminderId", reminderId)
-        }
-        context.sendBroadcast(closeIntent)
-        DebugLogger.log("AlarmTimeoutReceiver: Sent broadcast to close AlarmActivity")
-    }
-    
-    private fun showMissedNotification(context: Context, reminderId: String, title: String) {
-        try {
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val channelId = "missed_ringer_v1"
-            
-            // Create notification channel for missed ringers
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    channelId,
-                    "Missed Ringer Alarms",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Notifications for missed ringer alarms (timeout after 5 minutes)"
-                    enableLights(true)
-                    enableVibration(false) // No vibration for missed notification
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-            
-            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-            val timeText = timeFormat.format(Date())
-            
-            // Create Delete action with PendingIntent
-            val deleteIntent = Intent(context, MissedReminderDeleteReceiver::class.java).apply {
-                action = "app.rork.dominder.DELETE_MISSED_REMINDER"
-                putExtra("reminderId", reminderId)
-                putExtra("notificationId", "missed_\$reminderId".hashCode())
-            }
-            
-            val deletePendingIntent = PendingIntent.getBroadcast(
-                context,
-                "missed_delete_\$reminderId".hashCode(),
-                deleteIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            val notification = NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.drawable.small_icon_noti)
-                .setContentTitle("You missed a Ringer reminder")
-                .setContentText("\$title (timed out at \$timeText)")
-                .setStyle(NotificationCompat.BigTextStyle().bigText("\$title\\n\\nTimed out at \$timeText after 5 minutes"))
-                .setColor(context.getColor(android.R.color.holo_red_dark))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .addAction(0, "Delete", deletePendingIntent) // Add Delete button
-                .build()
-            
-            notificationManager.notify("missed_\$reminderId".hashCode(), notification)
-            DebugLogger.log("AlarmTimeoutReceiver: Showed missed notification with Delete button for \$reminderId")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmTimeoutReceiver: Error showing missed notification: \${e.message}")
-        }
-    }
-}`
-  },
-  {
-    path: 'alarm/MissedReminderDeleteReceiver.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
-
-import android.app.NotificationManager
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import app.rork.dominder_android_reminder_app.DebugLogger
-
-class MissedReminderDeleteReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val reminderId = intent.getStringExtra("reminderId")
-        val notificationId = intent.getIntExtra("notificationId", 0)
-        
-        if (reminderId == null) {
-            DebugLogger.log("MissedReminderDeleteReceiver: reminderId is null")
-            return
-        }
-        
-        DebugLogger.log("MissedReminderDeleteReceiver: Deleting missed reminder: \$reminderId")
-        
-        // Cancel the notification
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(notificationId)
-        DebugLogger.log("MissedReminderDeleteReceiver: Cancelled notification \$notificationId")
-        
-        // Save deletion to SharedPreferences for React Native to pick up
-        try {
-            val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("deleted_\$reminderId", System.currentTimeMillis().toString())
-                apply()
-            }
-            DebugLogger.log("MissedReminderDeleteReceiver: Saved deletion to SharedPreferences for \$reminderId")
-        } catch (e: Exception) {
-            DebugLogger.log("MissedReminderDeleteReceiver: Error saving deletion: \${e.message}")
-        }
-        
-        // Also send broadcast to React Native if app is running
-        val deleteIntent = Intent("app.rork.dominder.REMINDER_DELETED").apply {
-            putExtra("reminderId", reminderId)
-        }
-        context.sendBroadcast(deleteIntent)
-        DebugLogger.log("MissedReminderDeleteReceiver: Sent REMINDER_DELETED broadcast")
-    }
-}`
-  },
-  {
-    path: 'alarm/MidnightRefreshReceiver.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
-
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import app.rork.dominder_android_reminder_app.DebugLogger
-import java.util.Calendar
-
-class MidnightRefreshReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        DebugLogger.log("MidnightRefreshReceiver: Midnight reached, triggering notification refresh")
-        
-        // Send broadcast to trigger React Native notification refresh
-        val refreshIntent = Intent("app.rork.dominder.MIDNIGHT_NOTIFICATION_REFRESH")
-        context.sendBroadcast(refreshIntent)
-        DebugLogger.log("MidnightRefreshReceiver: Sent MIDNIGHT_NOTIFICATION_REFRESH broadcast")
-        
-        // Schedule next midnight refresh
-        scheduleNextMidnightRefresh(context)
-    }
-    
-    companion object {
-        fun scheduleNextMidnightRefresh(context: Context) {
-            try {
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                
-                // Calculate next midnight
-                val midnight = Calendar.getInstance().apply {
-                    add(Calendar.DAY_OF_YEAR, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                
-                val intent = Intent(context, MidnightRefreshReceiver::class.java).apply {
-                    action = "app.rork.dominder.MIDNIGHT_REFRESH_ALARM"
-                }
-                
-                val pendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    999999, // Unique ID for midnight refresh
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                
-                // Use setExactAndAllowWhileIdle for reliable midnight trigger even in Doze mode
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    midnight.timeInMillis,
-                    pendingIntent
-                )
-                
-                DebugLogger.log("MidnightRefreshReceiver: Scheduled next midnight refresh at \${midnight.time}")
-            } catch (e: Exception) {
-                DebugLogger.log("MidnightRefreshReceiver: Error scheduling midnight refresh: \${e.message}")
-            }
-        }
-    }
-}`
-  },
-  {
     path: 'alarm/AlarmPackage.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
@@ -1807,21 +1563,10 @@ class AlarmPackage : ReactPackage {
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
-import com.facebook.react.HeadlessJsTaskService
-import com.facebook.react.bridge.Arguments
-import com.facebook.react.jstasks.HeadlessJsTaskConfig
 
-class RescheduleAlarmsService : HeadlessJsTaskService() {
-    override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
-        DebugLogger.log("RescheduleAlarmsService: Starting headless task 'RescheduleAlarms'")
-        return intent?.let {
-            HeadlessJsTaskConfig(
-                "RescheduleAlarms",
-                Arguments.createMap(),
-                60000, // 60 second timeout - enough time to check and trigger all pending notifications
-                true  // Allow in foreground
-            )
-        }
+class RescheduleAlarmsService : Service() {
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
     }
 }`
   },
@@ -1944,17 +1689,12 @@ object DebugLogger {
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import app.rork.dominder_android_reminder_app.alarm.MidnightRefreshReceiver
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
             context.startService(serviceIntent)
-            
-            // Schedule midnight notification refresh
-            MidnightRefreshReceiver.scheduleNextMidnightRefresh(context)
-            DebugLogger.log("BootReceiver: Scheduled midnight refresh on boot")
         }
     }
 }`
@@ -1980,10 +1720,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
 
-class AlarmModule(private val _reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(_reactContext) {
-
-    private val reactContext: ReactApplicationContext
-        get() = _reactContext
+class AlarmModule(private val reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
 
     private var ringtonePickerPromise: Promise? = null
     private val RINGTONE_PICKER_REQUEST_CODE = 1001
@@ -2275,18 +2013,6 @@ class AlarmModule(private val _reactContext: ReactApplicationContext) : ReactCon
             promise.reject("ERROR", e.message, e)
         }
     }
-    
-    @ReactMethod
-    fun scheduleMidnightRefresh(promise: Promise? = null) {
-        try {
-            MidnightRefreshReceiver.scheduleNextMidnightRefresh(reactContext)
-            DebugLogger.log("AlarmModule: Midnight refresh scheduled via native AlarmManager")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling midnight refresh: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
 }`
   }
 ];
@@ -2407,10 +2133,7 @@ const withAlarmManifest = (config) => {
     const receivers = application.receiver.filter(r => 
         r.$['android:name'] !== '.alarm.AlarmReceiver' && 
         r.$['android:name'] !== '.BootReceiver' &&
-        r.$['android:name'] !== '.alarm.AlarmActionBridge' && // Filter out old one if present
-        r.$['android:name'] !== '.alarm.AlarmTimeoutReceiver' && // Filter out AlarmTimeoutReceiver
-        r.$['android:name'] !== '.alarm.MissedReminderDeleteReceiver' && // Filter out MissedReminderDeleteReceiver
-        r.$['android:name'] !== '.alarm.MidnightRefreshReceiver' // Filter out MidnightRefreshReceiver
+        r.$['android:name'] !== '.alarm.AlarmActionBridge' // Filter out old one if present
     );
     
     // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
@@ -2446,37 +2169,6 @@ const withAlarmManifest = (config) => {
             ]
         }]
     });
-    
-    // NEW: Register AlarmTimeoutReceiver for 5-minute timeout handling
-    receivers.push({
-        $: { 'android:name': '.alarm.AlarmTimeoutReceiver', 'android:exported': 'false' },
-        'intent-filter': [{
-            action: [
-                { $: { 'android:name': 'app.rork.dominder.ALARM_TIMEOUT' } }
-            ]
-        }]
-    });
-    
-    // NEW: Register MissedReminderDeleteReceiver for deleting missed reminders
-    receivers.push({
-        $: { 'android:name': '.alarm.MissedReminderDeleteReceiver', 'android:exported': 'false' },
-        'intent-filter': [{
-            action: [
-                { $: { 'android:name': 'app.rork.dominder.DELETE_MISSED_REMINDER' } }
-            ]
-        }]
-    });
-    
-    // NEW: Register MidnightRefreshReceiver for midnight notification refresh
-    receivers.push({
-        $: { 'android:name': '.alarm.MidnightRefreshReceiver', 'android:exported': 'false' },
-        'intent-filter': [{
-            action: [
-                { $: { 'android:name': 'app.rork.dominder.MIDNIGHT_REFRESH_ALARM' } }
-            ]
-        }]
-    });
-    
     application.receiver = receivers;
 
     if (!application.service) application.service = [];
