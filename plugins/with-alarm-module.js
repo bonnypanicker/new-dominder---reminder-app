@@ -1712,6 +1712,71 @@ class MissedReminderDeleteReceiver : BroadcastReceiver() {
 }`
   },
   {
+    path: 'alarm/MidnightRefreshReceiver.kt',
+    content: `package app.rork.dominder_android_reminder_app.alarm
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import app.rork.dominder_android_reminder_app.DebugLogger
+import java.util.Calendar
+
+class MidnightRefreshReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        DebugLogger.log("MidnightRefreshReceiver: Midnight reached, triggering notification refresh")
+        
+        // Send broadcast to trigger React Native notification refresh
+        val refreshIntent = Intent("app.rork.dominder.MIDNIGHT_NOTIFICATION_REFRESH")
+        context.sendBroadcast(refreshIntent)
+        DebugLogger.log("MidnightRefreshReceiver: Sent MIDNIGHT_NOTIFICATION_REFRESH broadcast")
+        
+        // Schedule next midnight refresh
+        scheduleNextMidnightRefresh(context)
+    }
+    
+    companion object {
+        fun scheduleNextMidnightRefresh(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                
+                // Calculate next midnight
+                val midnight = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                
+                val intent = Intent(context, MidnightRefreshReceiver::class.java).apply {
+                    action = "app.rork.dominder.MIDNIGHT_REFRESH_ALARM"
+                }
+                
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    999999, // Unique ID for midnight refresh
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                
+                // Use setExactAndAllowWhileIdle for reliable midnight trigger even in Doze mode
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    midnight.timeInMillis,
+                    pendingIntent
+                )
+                
+                DebugLogger.log("MidnightRefreshReceiver: Scheduled next midnight refresh at \${midnight.time}")
+            } catch (e: Exception) {
+                DebugLogger.log("MidnightRefreshReceiver: Error scheduling midnight refresh: \${e.message}")
+            }
+        }
+    }
+}`
+  },
+  {
     path: 'alarm/AlarmPackage.kt',
     content: `package app.rork.dominder_android_reminder_app.alarm
 
@@ -1867,12 +1932,17 @@ object DebugLogger {
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import app.rork.dominder_android_reminder_app.alarm.MidnightRefreshReceiver
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
             context.startService(serviceIntent)
+            
+            // Schedule midnight notification refresh
+            MidnightRefreshReceiver.scheduleNextMidnightRefresh(context)
+            DebugLogger.log("BootReceiver: Scheduled midnight refresh on boot")
         }
     }
 }`
@@ -1898,8 +1968,10 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
 
-class AlarmModule(private val reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule(reactContext) {
+class AlarmModule(private val _reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(_reactContext) {
+
+    private val reactContext: ReactApplicationContext
+        get() = _reactContext
 
     private var ringtonePickerPromise: Promise? = null
     private val RINGTONE_PICKER_REQUEST_CODE = 1001
@@ -2191,6 +2263,18 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.reject("ERROR", e.message, e)
         }
     }
+    
+    @ReactMethod
+    fun scheduleMidnightRefresh(promise: Promise? = null) {
+        try {
+            MidnightRefreshReceiver.scheduleNextMidnightRefresh(reactContext)
+            DebugLogger.log("AlarmModule: Midnight refresh scheduled via native AlarmManager")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error scheduling midnight refresh: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
 }`
   }
 ];
@@ -2313,7 +2397,8 @@ const withAlarmManifest = (config) => {
         r.$['android:name'] !== '.BootReceiver' &&
         r.$['android:name'] !== '.alarm.AlarmActionBridge' && // Filter out old one if present
         r.$['android:name'] !== '.alarm.AlarmTimeoutReceiver' && // Filter out AlarmTimeoutReceiver
-        r.$['android:name'] !== '.alarm.MissedReminderDeleteReceiver' // Filter out MissedReminderDeleteReceiver
+        r.$['android:name'] !== '.alarm.MissedReminderDeleteReceiver' && // Filter out MissedReminderDeleteReceiver
+        r.$['android:name'] !== '.alarm.MidnightRefreshReceiver' // Filter out MidnightRefreshReceiver
     );
     
     // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
@@ -2366,6 +2451,16 @@ const withAlarmManifest = (config) => {
         'intent-filter': [{
             action: [
                 { $: { 'android:name': 'app.rork.dominder.DELETE_MISSED_REMINDER' } }
+            ]
+        }]
+    });
+    
+    // NEW: Register MidnightRefreshReceiver for midnight notification refresh
+    receivers.push({
+        $: { 'android:name': '.alarm.MidnightRefreshReceiver', 'android:exported': 'false' },
+        'intent-filter': [{
+            action: [
+                { $: { 'android:name': 'app.rork.dominder.MIDNIGHT_REFRESH_ALARM' } }
             ]
         }]
     });

@@ -52,5 +52,15 @@
         <action android:name="app.rork.dominder.ALARM_SNOOZE"/>
       </intent-filter>
     </receiver>
+    <receiver android:name=".alarm.AlarmTimeoutReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="app.rork.dominder.ALARM_TIMEOUT"/>
+      </intent-filter>
+    </receiver>
+    <receiver android:name=".alarm.MissedReminderDeleteReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="app.rork.dominder.DELETE_MISSED_REMINDER"/>
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>
