@@ -1571,6 +1571,7 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
