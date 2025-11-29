@@ -90,9 +90,9 @@ function withRingtonePickerManifest(config) {
   });
 }
 
-// Compose both modifications
+// Compose modification
 module.exports = (config) => {
   config = withCustomRingtonePickerTheme(config);
-  config = withRingtonePickerManifest(config);
+  // Manifest update is now handled by with-alarm-module.js directly
   return config;
 };
