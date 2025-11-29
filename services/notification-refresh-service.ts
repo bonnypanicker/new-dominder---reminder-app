@@ -1,4 +1,4 @@
-import notifee, { TriggerType, TimestampTrigger } from '@notifee/react-native';
+import notifee, { TriggerType, TimestampTrigger, AndroidImportance } from '@notifee/react-native';
 import { Platform } from 'react-native';
 
 /**
@@ -130,17 +130,26 @@ export async function scheduleMidnightRefresh() {
     await notifee.createTriggerNotification(
       {
         id: 'midnight-refresh-trigger',
-        title: '', // Silent - no visible notification
+        title: 'Refreshing...', // Add minimal title to ensure delivery
         body: '',
         data: { type: 'midnight-refresh' },
         android: {
           channelId: 'silent-v2',
           autoCancel: true,
+          smallIcon: 'small_icon_noti', // Ensure icon is set
+          importance: AndroidImportance.MIN, // MIN importance for least intrusion
+          pressAction: {
+            id: 'default',
+            launchActivity: 'default',
+          },
         },
       },
       {
         type: TriggerType.TIMESTAMP,
         timestamp: midnight.getTime(),
+        alarmManager: {
+          allowWhileIdle: true, // CRITICAL: Trigger even in Doze mode
+        },
       } as TimestampTrigger
     );
 
