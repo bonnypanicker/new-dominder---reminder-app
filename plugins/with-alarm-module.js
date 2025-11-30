@@ -658,6 +658,14 @@ class AlarmRingtoneService : Service() {
         try {
             DebugLogger.log("AlarmRingtoneService: Stopping ringtone and vibration")
             
+            // Explicitly remove foreground notification
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+
             // Stop ringtone
             mediaPlayer?.let {
                 if (it.isPlaying) {
@@ -800,6 +808,9 @@ class AlarmActivity : AppCompatActivity() {
             }
             sendBroadcast(missedIntent)
             DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
+            
+            // Cancel notification on timeout to prevent it from lingering
+            cancelNotification()
             
             // Finish the activity
             finishAlarmProperly()
