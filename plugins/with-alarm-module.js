@@ -1619,7 +1619,7 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
         return HeadlessJsTaskConfig(
             "RescheduleAlarms",
             Arguments.createMap(),
-            5000L, // timeout for the task
+            30000L, // timeout for the task (30s) - increased to ensure RN inits on boot
             true // allowed in foreground
         )
     }
