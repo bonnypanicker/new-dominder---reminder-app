@@ -50,6 +50,17 @@ class AlarmActionBridge : BroadcastReceiver() {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
             }
+            "com.dominder.MISSED_ALARM" -> {
+                val reminderId = intent.getStringExtra("reminderId")
+                val title = intent.getStringExtra("title")
+                val time = intent.getStringExtra("time")
+                
+                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}")
+                
+                if (reminderId != null) {
+                    emitMissedAlarmToReactNative(context, reminderId, title, time)
+                }
+            }
             else -> {
                 DebugLogger.log("AlarmActionBridge: Unknown action received: ${action}")
             }
@@ -96,6 +107,32 @@ class AlarmActionBridge : BroadcastReceiver() {
         }
     }
     
+    private fun emitMissedAlarmToReactNative(context: Context, reminderId: String, title: String?, time: String?) {
+        try {
+            val app = context.applicationContext
+            if (app is ReactApplication) {
+                val reactInstanceManager = app.reactNativeHost.reactInstanceManager
+                val reactContext = reactInstanceManager.currentReactContext
+                
+                if (reactContext != null) {
+                    val params = Arguments.createMap().apply {
+                        putString("reminderId", reminderId)
+                        putString("title", title ?: "Reminder")
+                        putString("time", time ?: "")
+                    }
+                    
+                    reactContext
+                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                        .emit("onMissedAlarm", params)
+                        
+                    DebugLogger.log("AlarmActionBridge: Emitted onMissedAlarm event")
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActionBridge: Error emitting missed alarm: ${e.message}")
+        }
+    }
+
     private fun emitEventToReactNative(context: Context, eventName: String, reminderId: String, snoozeMinutes: Int) {
         try {
             DebugLogger.log("AlarmActionBridge: ===== emitEventToReactNative START =====")

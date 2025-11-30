@@ -17,10 +17,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
 
-class AlarmModule(private val _reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(_reactContext) {
-
-    private val reactContext: ReactApplicationContext
-        get() = _reactContext
+class AlarmModule(private val reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
 
     private var ringtonePickerPromise: Promise? = null
     private val RINGTONE_PICKER_REQUEST_CODE = 1001
@@ -310,18 +308,6 @@ class AlarmModule(private val _reactContext: ReactApplicationContext) : ReactCon
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error getting ringtone: ${e.message}")
             promise.reject("ERROR", e.message, e)
-        }
-    }
-    
-    @ReactMethod
-    fun scheduleMidnightRefresh(promise: Promise? = null) {
-        try {
-            MidnightRefreshReceiver.scheduleNextMidnightRefresh(reactContext)
-            DebugLogger.log("AlarmModule: Midnight refresh scheduled via native AlarmManager")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling midnight refresh: ${e.message}")
-            promise?.reject("ERROR", e.message, e)
         }
     }
 }
