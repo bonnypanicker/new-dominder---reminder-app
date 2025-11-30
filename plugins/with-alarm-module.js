@@ -1614,11 +1614,11 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
 
 class RescheduleAlarmsService : HeadlessJsTaskService() {
-    override fun getTaskConfig(intent: Intent): HeadlessJsTaskConfig? {
+    override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
         return HeadlessJsTaskConfig(
             "RescheduleAlarms",
             Arguments.createMap(),
-            5000, // timeout for the task
+            5000L, // timeout for the task
             true // allowed in foreground
         )
     }
