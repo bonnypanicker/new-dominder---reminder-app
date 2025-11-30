@@ -1,4 +1,4 @@
-const { withAndroidManifest, withAndroidStyles, AndroidConfig } = require('@expo/config-plugins');
+const { withAndroidManifest, withDangerousMod, AndroidConfig } = require('@expo/config-plugins');
 const { resolve } = require('path');
 const fs = require('fs');
 
@@ -9,26 +9,28 @@ const fs = require('fs');
 
 // Add custom theme to styles.xml
 function withCustomRingtonePickerTheme(config) {
-  return withAndroidStyles(config, async (cfg) => {
-    const stylesPath = resolve(
-      cfg.modRequest.platformProjectRoot,
-      'app/src/main/res/values/styles.xml'
-    );
+  return withDangerousMod(config, [
+    'android',
+    async (cfg) => {
+      const stylesPath = resolve(
+        cfg.modRequest.platformProjectRoot,
+        'app/src/main/res/values/styles.xml'
+      );
 
-    try {
-      let stylesXml = '';
-      
-      if (fs.existsSync(stylesPath)) {
-        stylesXml = await fs.promises.readFile(stylesPath, 'utf-8');
-      } else {
-        // Create basic styles.xml if it doesn't exist
-        stylesXml = '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>';
-      }
+      try {
+        let stylesXml = '';
+        
+        if (fs.existsSync(stylesPath)) {
+          stylesXml = fs.readFileSync(stylesPath, 'utf-8');
+        } else {
+          // Create basic styles.xml if it doesn't exist
+          stylesXml = '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>';
+        }
 
-      // Check if our custom theme already exists
-      if (!stylesXml.includes('Theme.RingtonePicker')) {
-        // Add custom theme with seamless status bar and no scroll bars
-        const customTheme = `
+        // Check if our custom theme already exists
+        if (!stylesXml.includes('Theme.RingtonePicker')) {
+          // Add custom theme with seamless status bar and no scroll bars
+          const customTheme = `
     <!-- Custom theme for RingtonePickerActivity with seamless status bar -->
     <style name="Theme.RingtonePicker" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Make status bar completely transparent and seamless -->
@@ -50,18 +52,21 @@ function withCustomRingtonePickerTheme(config) {
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>`;
 
-        // Insert before closing </resources> tag
-        stylesXml = stylesXml.replace('</resources>', `${customTheme}\n</resources>`);
-        
-        await fs.promises.writeFile(stylesPath, stylesXml, 'utf-8');
-        console.log('✅ Added custom RingtonePicker theme to styles.xml');
+          // Insert before closing </resources> tag
+          stylesXml = stylesXml.replace('</resources>', `${customTheme}\n</resources>`);
+          
+          fs.writeFileSync(stylesPath, stylesXml, 'utf-8');
+          console.log('✅ Added custom RingtonePicker theme to styles.xml');
+        } else {
+          console.log('✅ Theme.RingtonePicker already exists in styles.xml');
+        }
+      } catch (error) {
+        console.warn('⚠️  Could not modify styles.xml:', error.message);
       }
-    } catch (error) {
-      console.warn('⚠️  Could not modify styles.xml:', error.message);
-    }
 
-    return cfg;
-  });
+      return cfg;
+    },
+  ]);
 }
 
 // Update manifest to use custom theme
