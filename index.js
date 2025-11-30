@@ -18,6 +18,10 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
           try { await notifee.cancelNotification(notification.id); } catch {}
         }
         const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('./services/notification-refresh-service');
+        // Trigger pending check to catch any missed ringers at midnight
+        const { checkAndTriggerPendingNotifications } = require('./services/startup-notification-check');
+        await checkAndTriggerPendingNotifications();
+        
         await refreshDisplayedNotifications();
         await scheduleMidnightRefresh(); // Schedule next midnight refresh
         return;

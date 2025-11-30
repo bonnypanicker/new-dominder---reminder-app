@@ -70,12 +70,12 @@ export async function checkAndTriggerPendingNotifications() {
       if (timeDiff > 0) {
         // Notification time has passed - trigger it!
         const isRinger = reminder.priority === 'high';
-        const veryOldThreshold = 24 * 60 * 60 * 1000; // 24 hours
+        const missedThreshold = 5 * 60 * 1000; // 5 minutes
 
-        // For ringer reminders older than 24 hours, show "missed" instead
-        if (isRinger && timeDiff > veryOldThreshold) {
+        // For ringer reminders older than 5 minutes, show "missed" instead of ringing
+        if (isRinger && timeDiff > missedThreshold) {
           expiredRingerReminders.push(reminder);
-          console.log(`[StartupCheck] Found very old ringer reminder (>24h): ${reminder.id} (${reminder.title})`);
+          console.log(`[StartupCheck] Found missed ringer reminder (>5m): ${reminder.id} (${reminder.title})`);
         } else {
           // ALL overdue reminders get triggered (standard, silent, or recent ringer)
           overdueReminders.push(reminder);
