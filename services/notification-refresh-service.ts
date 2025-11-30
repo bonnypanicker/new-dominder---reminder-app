@@ -127,8 +127,8 @@ export async function scheduleMidnightRefresh() {
     await notifee.createTriggerNotification(
       {
         id: 'midnight-refresh-trigger',
-        title: ' ', // Minimal title, will be cancelled immediately
-        body: '',
+        title: ' ', // Minimal title to ensure delivery but keep hidden
+        body: ' ',
         data: { type: 'midnight-refresh' },
         android: {
           channelId: 'silent-v2',

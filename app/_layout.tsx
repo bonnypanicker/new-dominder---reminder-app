@@ -143,12 +143,10 @@ function AppContent() {
         // Handle midnight refresh trigger
         if (type === EventType.DELIVERED && notification?.data?.type === 'midnight-refresh') {
           console.log('[RootLayout] Midnight refresh trigger received');
-          
-          // Cancel the trigger notification immediately so it doesn't stay visible
-          if (notification.id) {
-             try { await notifee.cancelNotification(notification.id); } catch {}
+          // Immediately cancel the trigger notification
+          if (notification?.id) {
+            try { await notifee.cancelNotification(notification.id); } catch {}
           }
-
           const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('../services/notification-refresh-service');
           await refreshDisplayedNotifications();
           await scheduleMidnightRefresh(); // Schedule next midnight refresh

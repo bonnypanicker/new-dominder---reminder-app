@@ -13,12 +13,10 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       const { notification } = detail || {};
       if (notification?.data?.type === 'midnight-refresh') {
         console.log('[onBackgroundEvent] Midnight refresh trigger received');
-        
-        // Cancel the trigger notification immediately so it doesn't stay visible
-        if (notification.id) {
+        // Immediately cancel the trigger notification
+        if (notification?.id) {
           try { await notifee.cancelNotification(notification.id); } catch {}
         }
-
         const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('./services/notification-refresh-service');
         await refreshDisplayedNotifications();
         await scheduleMidnightRefresh(); // Schedule next midnight refresh
