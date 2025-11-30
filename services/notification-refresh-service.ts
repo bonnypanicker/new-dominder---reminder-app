@@ -87,6 +87,11 @@ export async function refreshDisplayedNotifications() {
         // which uses 'new Date()' inside formatSmartDateTime to determine 'Today' vs 'Yesterday'.
         const config = createNotificationConfig(reminder, timestamp);
 
+        // Ensure update is silent (onlyAlertOnce: true prevents sound/vibration on update)
+        if (config.android) {
+          (config.android as any).onlyAlertOnce = true;
+        }
+
         // Update the notification
         await notifee.displayNotification(config);
 
