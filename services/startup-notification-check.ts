@@ -28,7 +28,8 @@ export async function checkAndTriggerPendingNotifications() {
     // Get currently displayed notifications to avoid duplicates
     const displayedNotifications = await notifee.getDisplayedNotifications();
     const displayedIds = new Set(displayedNotifications.map(n => n.id));
-    console.log(`[StartupCheck] Currently displayed notifications: ${displayedIds.size}`);
+    console.log(`[StartupCheck] Currently displayed notifications count: ${displayedIds.size}`);
+    console.log(`[StartupCheck] Displayed IDs: ${Array.from(displayedIds).join(', ')}`);
 
     const now = Date.now();
     const overdueReminders: Reminder[] = [];
@@ -44,7 +45,7 @@ export async function checkAndTriggerPendingNotifications() {
       // Skip if notification already displayed
       const notificationId = `rem-${reminder.id}`;
       if (displayedIds.has(notificationId)) {
-        console.log(`[StartupCheck] Notification already displayed for: ${reminder.id}`);
+        console.log(`[StartupCheck] Notification already displayed for: ${reminder.id} (Skipping)`);
         continue;
       }
 
@@ -62,10 +63,14 @@ export async function checkAndTriggerPendingNotifications() {
         scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
       }
 
-      if (!scheduledTime) continue;
+      if (!scheduledTime) {
+          console.log(`[StartupCheck] Could not determine scheduled time for ${reminder.id}`);
+          continue;
+      }
 
       // Check if the notification time has passed
       const timeDiff = now - scheduledTime;
+      console.log(`[StartupCheck] Reminder ${reminder.id}: scheduled=${new Date(scheduledTime).toISOString()}, diff=${timeDiff}ms`);
       
       if (timeDiff > 0) {
         // Notification time has passed - trigger it!
@@ -75,16 +80,16 @@ export async function checkAndTriggerPendingNotifications() {
         // For ringer reminders older than 5 minutes, show "missed" instead of ringing
         if (isRinger && timeDiff > missedThreshold) {
           expiredRingerReminders.push(reminder);
-          console.log(`[StartupCheck] Found missed ringer reminder (>5m): ${reminder.id} (${reminder.title})`);
+          console.log(`[StartupCheck] -> Classified as MISSED RINGER (>5m): ${reminder.id}`);
         } else {
           // ALL overdue reminders get triggered (standard, silent, or recent ringer)
           overdueReminders.push(reminder);
-          console.log(`[StartupCheck] Found overdue reminder: ${reminder.id} (${reminder.title}) - ${Math.round(timeDiff / 60000)} min ago`);
+          console.log(`[StartupCheck] -> Classified as OVERDUE (Triggering): ${reminder.id}`);
         }
       } else {
         // Future reminder - needs rescheduling after force stop
         remindersToReschedule.push(reminder);
-        console.log(`[StartupCheck] Will reschedule future reminder: ${reminder.id} (${reminder.title})`);
+        console.log(`[StartupCheck] -> Classified as FUTURE (Rescheduling): ${reminder.id}`);
       }
     }
 
