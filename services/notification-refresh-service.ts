@@ -127,7 +127,7 @@ export async function scheduleMidnightRefresh() {
     await notifee.createTriggerNotification(
       {
         id: 'midnight-refresh-trigger',
-        title: 'Refreshing...', // Add minimal title to ensure delivery
+        title: ' ', // Minimal title, will be cancelled immediately
         body: '',
         data: { type: 'midnight-refresh' },
         android: {
