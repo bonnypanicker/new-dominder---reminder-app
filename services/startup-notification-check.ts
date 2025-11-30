@@ -18,7 +18,7 @@ export async function checkAndTriggerPendingNotifications() {
     console.log('[StartupCheck] Checking for pending notifications and rescheduling all active reminders...');
     
     const reminderService = require('./reminder-service');
-    const allReminders = await reminderService.getAllReminders();
+    const allReminders = await reminderService.getReminders();
     
     if (!allReminders || allReminders.length === 0) {
       console.log('[StartupCheck] No reminders to check');
