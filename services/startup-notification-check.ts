@@ -124,14 +124,15 @@ export async function checkAndTriggerPendingNotifications() {
  * Trigger notifications for pending reminders that should have fired
  */
 async function triggerPendingNotifications(reminders: Reminder[]) {
+  const { NativeModules } = require('react-native');
+  const { AlarmModule } = NativeModules;
+
   for (const reminder of reminders) {
     try {
       console.log(`[StartupCheck] Triggering pending notification for: ${reminder.id}`);
       
       const isRinger = reminder.priority === 'high';
-      const channelId = isRinger ? 'alarm-v2' : 
-                        reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
-
+      
       // Get scheduled time for display
       let scheduledTime: number;
       if (reminder.snoozeUntil) {
@@ -144,17 +145,19 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
         scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
       }
 
-      // Format time display
-      // const timeText = formatSmartDateTime(scheduledTime);
-      // const body = [reminder.description?.trim(), timeText].filter(Boolean).join('\n');
+      if (isRinger && AlarmModule?.scheduleAlarm) {
+        // For valid ringers (< 5 mins late), launch the native Alarm Screen immediately
+        console.log(`[StartupCheck] Launching native alarm screen for ringer: ${reminder.id}`);
+        // Schedule for "now" (small delay to ensure reliable scheduling)
+        AlarmModule.scheduleAlarm(reminder.id, reminder.title, Date.now() + 500, reminder.priority);
+      } else {
+        // Create config using shared helper
+        const notificationConfig = createNotificationConfig(reminder, scheduledTime);
+        // Display notification immediately
+        await notifee.displayNotification(notificationConfig);
+      }
 
-      // Create config using shared helper
-      const notificationConfig = createNotificationConfig(reminder, scheduledTime);
-
-      // Display notification immediately
-      await notifee.displayNotification(notificationConfig);
-
-      console.log(`[StartupCheck] Triggered notification for ${reminder.id}`);
+      console.log(`[StartupCheck] Triggered notification/alarm for ${reminder.id}`);
     } catch (error) {
       console.error(`[StartupCheck] Error triggering notification for ${reminder.id}:`, error);
     }
