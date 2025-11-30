@@ -497,11 +497,12 @@ class AlarmRingtoneService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Alarm Ringtone Service",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_MIN
             ).apply {
                 description = "Plays alarm ringtone in background"
                 setSound(null, null)
                 enableVibration(false)
+                setShowBadge(false)
             }
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -516,7 +517,7 @@ class AlarmRingtoneService : Service() {
             .setContentTitle("Reminder")
             .setContentText(title)
             .setSmallIcon(R.drawable.small_icon_noti)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setSilent(true)
             .build()
