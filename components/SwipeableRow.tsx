@@ -289,8 +289,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     borderRadius: 12,
-    marginLeft: 1,
-    marginRight: 16,
+    marginLeft: -12,
+    marginRight: 20,
+    marginVertical: 2,
   },
   leftAction: {
     backgroundColor: '#4CAF50',
@@ -298,8 +299,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 80,
     borderRadius: 12,
-    marginRight: 1,
-    marginLeft: 16,
+    marginRight: -12,
+    marginLeft: 20,
+    marginVertical: 2,
   },
   leftActionDelete: {
     backgroundColor: '#F44336',

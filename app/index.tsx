@@ -3378,7 +3378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 8,
     backgroundColor: Material3Colors.light.surface,
     elevation: 2,
     shadowColor: Material3Colors.light.shadow,
@@ -3429,7 +3429,7 @@ const styles = StyleSheet.create({
     backgroundColor: Material3Colors.light.surface,
     borderBottomWidth: 1,
     borderBottomColor: Material3Colors.light.outlineVariant,
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   tabScrollView: {
     flexGrow: 0,
@@ -3538,14 +3538,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   reminderLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   priorityBar: {
     width: 5,
@@ -3641,7 +3641,7 @@ const styles = StyleSheet.create({
   reminderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
   },
   pauseButton: {
     width: 36,
