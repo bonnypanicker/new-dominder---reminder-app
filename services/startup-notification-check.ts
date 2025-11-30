@@ -220,8 +220,8 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
               type: AndroidStyle.BIGTEXT,
               text: body,
             },
-            autoCancel: true,
-            ongoing: false,
+            autoCancel: false,
+            ongoing: true, // Non-swipable
             actions: [
               { title: 'Delete', pressAction: { id: 'delete_missed' } },
             ],

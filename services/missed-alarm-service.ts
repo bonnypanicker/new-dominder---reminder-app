@@ -94,7 +94,7 @@ class MissedAlarmService {
             text: body,
           },
           autoCancel: true,
-          ongoing: false,
+          ongoing: true, // Non-swipable
           actions: [
             { title: 'Delete', pressAction: { id: 'delete_missed' } },
           ],
