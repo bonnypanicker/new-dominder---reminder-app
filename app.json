@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DoMinder",
-    "slug": "dominder-android-reminder-app",
+    "slug": "new-dominder-reminder-app",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",

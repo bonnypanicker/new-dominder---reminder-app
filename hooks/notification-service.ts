@@ -12,7 +12,7 @@ import { NativeModules, Platform } from 'react-native';
 import type { Priority, RepeatType, EveryUnit } from '@/types/reminder';
 
 const AlarmModule: {
-  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => void;
+  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => Promise<void>;
   cancelAlarm?: (reminderId: string) => void;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
@@ -309,7 +309,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
     } else {
       try {
-        AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
+        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
         console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
         return;
       } catch (e) {
@@ -529,3 +529,4 @@ export const notificationService = {
   displayInfoNotification,
   scheduleNotification,
 };
+
