@@ -2180,7 +2180,9 @@ const withAlarmManifest = (config) => {
       // FIX: VIBRATE permission is needed for the custom vibration pattern.
       'android.permission.VIBRATE',
       // Required for foreground service
-      'android.permission.FOREGROUND_SERVICE'
+      'android.permission.FOREGROUND_SERVICE',
+      // Required for shortService foreground service type (Android 14+)
+      'android.permission.FOREGROUND_SERVICE_SHORT_SERVICE'
     ];
     requiredPermissions.forEach(permission => {
       if (!manifest["uses-permission"].some(p => p.$['android:name'] === permission)) {
