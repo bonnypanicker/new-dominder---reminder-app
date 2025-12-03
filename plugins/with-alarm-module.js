@@ -1609,7 +1609,11 @@ class AlarmPackage : ReactPackage {
     path: 'RescheduleAlarmsService.kt',
     content: `package app.rork.dominder_android_reminder_app
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import com.facebook.react.HeadlessJsTaskService
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
@@ -1619,9 +1623,32 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
         return HeadlessJsTaskConfig(
             "RescheduleAlarms",
             Arguments.createMap(),
-            30000L, // timeout for the task (30s) - increased to ensure RN inits on boot
+            30000L, // timeout for the task (30s)
             true // allowed in foreground
         )
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "alarm_reschedule_channel"
+            val channelName = "System Maintenance"
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            
+            if (notificationManager != null) {
+                val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
+                notificationManager.createNotificationChannel(channel)
+                
+                val notification = NotificationCompat.Builder(this, channelId)
+                    .setContentTitle("Updating Reminders")
+                    .setContentText("Rescheduling your alarms...")
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+                
+                startForeground(1001, notification)
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
     }
 }`
   },
@@ -1744,12 +1771,17 @@ object DebugLogger {
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
-            context.startService(serviceIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
         }
     }
 }`
@@ -2235,7 +2267,8 @@ const withAlarmManifest = (config) => {
     services.push({
       $: { 
         'android:name': '.RescheduleAlarmsService',
-        'android:exported': 'false'
+        'android:exported': 'false',
+        'android:foregroundServiceType': 'shortService'
       },
     });
     services.push({
