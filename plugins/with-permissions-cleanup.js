@@ -20,6 +20,7 @@ const withPermissionsCleanup = (config) => {
       'android.permission.READ_MEDIA_VIDEO',
       'android.permission.READ_MEDIA_AUDIO',
       'android.permission.ACCESS_MEDIA_LOCATION',
+      'android.permission.INTERNET',
     ];
 
     // Remove unwanted permissions

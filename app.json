@@ -26,11 +26,9 @@
         "backgroundColor": "#ffffff"
       },
       "package": "app.rork.dominder_android_reminder_app",
-      "googleServicesFile": "./google-services.json",
       "jsEngine": "hermes",
       "permissions": [
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.INTERNET",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
@@ -45,8 +43,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "@react-native-firebase/app",
-      "@react-native-firebase/crashlytics",
       "./plugins/with-back-invoked.js",
       "./plugins/with-fullscreen-alarm",
       "./plugins/with-alarm-module.js",
