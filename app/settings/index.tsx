@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
+import crashlytics from '@react-native-firebase/crashlytics';
 
 const { AlarmModule } = NativeModules;
 
@@ -16,6 +17,30 @@ export default function SettingsScreen() {
   // Modals replaced by routes
   const [currentRingtone, setCurrentRingtone] = useState<string>('Default Alarm');
   const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
+  const [crashlyticsStatus, setCrashlyticsStatus] = useState<string>('Checking...');
+
+  // Check Crashlytics status
+  useEffect(() => {
+    const checkCrashlytics = async () => {
+      try {
+        const enabled = crashlytics().isCrashlyticsCollectionEnabled;
+        const didCrash = await crashlytics().didCrashOnPreviousExecution();
+        const status = `Enabled: ${enabled}, DidCrash: ${didCrash}`;
+        console.log('Crashlytics Status:', status);
+        setCrashlyticsStatus(status);
+        
+        if (!enabled) {
+           // Try to enable it if disabled
+           await crashlytics().setCrashlyticsCollectionEnabled(true);
+           setCrashlyticsStatus(prev => `${prev} (Attempting to enable...)`);
+        }
+      } catch (e) {
+        console.error('Crashlytics check failed:', e);
+        setCrashlyticsStatus('Error checking status');
+      }
+    };
+    checkCrashlytics();
+  }, []);
 
   // Load current ringtone on mount
   useEffect(() => {
@@ -322,6 +347,20 @@ export default function SettingsScreen() {
                 <Text style={styles.licensesButtonText}>Privacy Policy</Text>
                 <Feather name="chevron-right" size={16} color={Material3Colors.light.primary} />
               </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.licensesButton, { marginTop: 10, backgroundColor: Material3Colors.light.errorContainer }]}
+                onPress={() => crashlytics().crash()}
+                testID="crash-test"
+              >
+                <Feather name="alert-triangle" size={16} color={Material3Colors.light.error} />
+                <Text style={[styles.licensesButtonText, { color: Material3Colors.light.error }]}>Crash Test</Text>
+                <Feather name="chevron-right" size={16} color={Material3Colors.light.error} />
+              </TouchableOpacity>
+              
+              <Text style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: Material3Colors.light.onSurfaceVariant }}>
+                Crashlytics: {crashlyticsStatus}
+              </Text>
             </View>
           </View>
         )}
@@ -568,3 +607,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+
