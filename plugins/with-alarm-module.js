@@ -1765,23 +1765,45 @@ object DebugLogger {
 }`
   },
   {
+    path: 'RescheduleAlarmsWorker.kt',
+    content: `package app.rork.dominder_android_reminder_app
+
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.work.Worker
+import androidx.work.WorkerParameters
+
+class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
+    override fun doWork(): Result {
+        val context = applicationContext
+        val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+        
+        return Result.success()
+    }
+}`
+  },
+  {
     path: 'BootReceiver.kt',
     content: `package app.rork.dominder_android_reminder_app
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
+            val workRequest = OneTimeWorkRequest.Builder(RescheduleAlarmsWorker::class.java).build()
+            WorkManager.getInstance(context).enqueue(workRequest)
         }
     }
 }`
@@ -2318,6 +2340,18 @@ const withAppGradle = (config) => {
           );
         } else {
           buildGradle += `\n\ndependencies {\n    implementation 'com.google.android.material:material:1.11.0'\n}\n`;
+        }
+      }
+
+      // Ensure WorkManager library
+      if (!buildGradle.includes('androidx.work:work-runtime-ktx')) {
+        if (/dependencies\s*{/.test(buildGradle)) {
+          buildGradle = buildGradle.replace(
+            /dependencies\s*{/,
+            `dependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'`
+          );
+        } else {
+          buildGradle += `\n\ndependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n}\n`;
         }
       }
       config.modResults.contents = buildGradle;

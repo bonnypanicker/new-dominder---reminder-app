@@ -3,17 +3,14 @@ package app.rork.dominder_android_reminder_app
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
+            val workRequest = OneTimeWorkRequest.Builder(RescheduleAlarmsWorker::class.java).build()
+            WorkManager.getInstance(context).enqueue(workRequest)
         }
     }
 }
