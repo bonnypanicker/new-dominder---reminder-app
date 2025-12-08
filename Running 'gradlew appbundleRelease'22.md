@@ -1,9 +1,9 @@
-Running 'gradlew :app:assembleRelease' in /home/expo/workingdir/build/android
+Running 'gradlew :app:bundleRelease' in /home/expo/workingdir/build/android
 Welcome to Gradle 8.13!
 Here are the highlights of this release:
 - Daemon JVM auto-provisioning
-- Enhancements for Scala plugin and JUnit testing
-- Improvements for build authors and plugin developers
+ - Enhancements for Scala plugin and JUnit testing
+ - Improvements for build authors and plugin developers
 For more details see https://docs.gradle.org/8.13/release-notes.html
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build
@@ -13,22 +13,20 @@ w: file:///home/expo/workingdir/build/node_modules/expo-modules-autolinking/andr
 > Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors
-> Task :gradle-plugin:settings-plugin:pluginDescriptors
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors
+> Task :gradle-plugin:settings-plugin:pluginDescriptors
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources
 > Task :gradle-plugin:settings-plugin:processResources
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
 > Task :gradle-plugin:shared:processResources NO-SOURCE
 > Task :gradle-plugin:shared:compileKotlin
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar
-> Task :gradle-plugin:shared:compileJava NO-SOURCE
-> Task :gradle-plugin:shared:classes UP-TO-DATE
-> Task :gradle-plugin:shared:jar
 > Task :gradle-plugin:settings-plugin:compileKotlin
 > Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
 > Task :gradle-plugin:settings-plugin:classes
@@ -37,9 +35,9 @@ e: The daemon has terminated unexpectedly on startup attempt #1 with error code:
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar
-> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
 > Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :expo-module-gradle-plugin:pluginDescriptors
 > Task :expo-module-gradle-plugin:processResources
 > Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors
@@ -90,7 +88,7 @@ Using expo modules
   - [33m[📦][0m [32mexpo-keep-awake[0m (14.1.4)
   - [33m[📦][0m [32mexpo-linear-gradient[0m (14.1.5)
   - [33m[📦][0m [32mexpo-linking[0m (7.1.7)
-- [33m[📦][0m [32mexpo-screen-orientation[0m (8.1.7)
+  - [33m[📦][0m [32mexpo-screen-orientation[0m (8.1.7)
   - [33m[📦][0m [32mexpo-splash-screen[0m (0.30.10)
   - [33m[📦][0m [32mexpo-system-ui[0m (5.0.11)
   - [33m[📦][0m [32mexpo-web-browser[0m (14.2.0)
@@ -104,171 +102,164 @@ Using expo modules
 :notifee_react-native:reactNativeAndroidDir /home/expo/workingdir/build/node_modules/react-native/android
 > Task :expo-modules-core:preBuild UP-TO-DATE
 > Task :expo-modules-core:preReleaseBuild UP-TO-DATE
-> Task :expo-modules-core:writeReleaseAarMetadata
+> Task :expo-modules-core:generateReleaseResValues
+> Task :expo-modules-core:generateReleaseResources
+> Task :expo-modules-core:packageReleaseResources
 > Task :notifee_react-native:preBuild UP-TO-DATE
 > Task :notifee_react-native:preReleaseBuild UP-TO-DATE
-> Task :notifee_react-native:writeReleaseAarMetadata
-> Task :app:buildKotlinToolingMetadata
-> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :app:generateAutolinkingNewArchitectureFiles
-> Task :app:generateAutolinkingPackageList
-> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
-> Task :app:generateCodegenArtifactsFromSchema SKIPPED
-> Task :app:preBuild
-> Task :app:preReleaseBuild
-> Task :app:generateReleaseBuildConfig
+> Task :notifee_react-native:generateReleaseResValues
+> Task :notifee_react-native:generateReleaseResources
+> Task :notifee_react-native:packageReleaseResources
 > Task :expo-constants:createExpoConfig
 > Task :expo-constants:preBuild
-> Task :expo-constants:preReleaseBuild
-> Task :expo-constants:writeReleaseAarMetadata
 The NODE_ENV environment variable is required but was not specified. Ensure the project is bundled with Expo CLI or NODE_ENV is set. Using only .env.local and .env
-> Task :react-native-async-storage_async-storage:generateCodegenSchemaFromJavaScript
-> Task :react-native-reanimated:assertMinimalReactNativeVersionTask
-> Task :react-native-reanimated:assertNewArchitectureEnabledTask SKIPPED
-> Task :react-native-gesture-handler:generateCodegenSchemaFromJavaScript
+> Task :expo-constants:preReleaseBuild
+> Task :expo-constants:generateReleaseResValues
+> Task :expo-constants:generateReleaseResources
+> Task :expo-constants:packageReleaseResources
 > Task :expo:generatePackagesList
 > Task :expo:preBuild
 > Task :expo:preReleaseBuild
-> Task :expo:writeReleaseAarMetadata
+> Task :expo:generateReleaseResValues
+> Task :expo:generateReleaseResources
+> Task :expo:packageReleaseResources
+> Task :react-native-async-storage_async-storage:generateCodegenSchemaFromJavaScript
+> Task :react-native-reanimated:assertMinimalReactNativeVersionTask
+> Task :react-native-reanimated:assertNewArchitectureEnabledTask SKIPPED
 > Task :react-native-reanimated:assertWorkletsVersionTask
+> Task :react-native-gesture-handler:generateCodegenSchemaFromJavaScript
 > Task :react-native-async-storage_async-storage:generateCodegenArtifactsFromSchema
 > Task :react-native-async-storage_async-storage:preBuild
 > Task :react-native-async-storage_async-storage:preReleaseBuild
-> Task :react-native-async-storage_async-storage:writeReleaseAarMetadata
+> Task :react-native-async-storage_async-storage:generateReleaseResValues
+> Task :react-native-async-storage_async-storage:generateReleaseResources
+> Task :react-native-reanimated:generateCodegenSchemaFromJavaScript
+> Task :react-native-async-storage_async-storage:packageReleaseResources
 > Task :react-native-gesture-handler:generateCodegenArtifactsFromSchema
 > Task :react-native-gesture-handler:preBuild
 > Task :react-native-gesture-handler:preReleaseBuild
-> Task :react-native-gesture-handler:writeReleaseAarMetadata
+> Task :react-native-gesture-handler:generateReleaseResValues
+> Task :react-native-gesture-handler:generateReleaseResources
 > Task :react-native-ringtone-manager-new:generateCodegenSchemaFromJavaScript
-> Task :react-native-reanimated:generateCodegenSchemaFromJavaScript
-No modules to process in combine-js-to-schema-cli. If this is unexpected, please check if you set up your NativeComponent correctly. See combine-js-to-schema.js for how codegen finds modules.
-> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript
-> Task :react-native-screens:generateCodegenSchemaFromJavaScript
 > Task :react-native-reanimated:generateCodegenArtifactsFromSchema
-> Task :react-native-ringtone-manager-new:generateCodegenArtifactsFromSchema
-> Task :react-native-ringtone-manager-new:preBuild
-> Task :react-native-ringtone-manager-new:preReleaseBuild
-> Task :react-native-ringtone-manager-new:writeReleaseAarMetadata
+> Task :react-native-gesture-handler:packageReleaseResources
+No modules to process in combine-js-to-schema-cli. If this is unexpected, please check if you set up your NativeComponent correctly. See combine-js-to-schema.js for how codegen finds modules.
 > Task :react-native-reanimated:prepareReanimatedHeadersForPrefabs
 > Task :react-native-reanimated:preBuild
 > Task :react-native-reanimated:preReleaseBuild
-> Task :react-native-reanimated:writeReleaseAarMetadata
-> Task :react-native-worklets:assertMinimalReactNativeVersionTask
-> Task :react-native-worklets:assertNewArchitectureEnabledTask SKIPPED
-> Task :react-native-screens:generateCodegenArtifactsFromSchema
-> Task :react-native-screens:preBuild
-> Task :react-native-screens:preReleaseBuild
-> Task :react-native-screens:writeReleaseAarMetadata
+> Task :react-native-reanimated:generateReleaseResValues
+> Task :react-native-reanimated:generateReleaseResources
+> Task :react-native-reanimated:packageReleaseResources
+> Task :react-native-ringtone-manager-new:generateCodegenArtifactsFromSchema
+> Task :react-native-ringtone-manager-new:preBuild
+> Task :react-native-ringtone-manager-new:preReleaseBuild
+> Task :react-native-ringtone-manager-new:generateReleaseResValues
+> Task :react-native-ringtone-manager-new:generateReleaseResources
+> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript
+> Task :react-native-ringtone-manager-new:packageReleaseResources
+> Task :react-native-screens:generateCodegenSchemaFromJavaScript
 > Task :react-native-safe-area-context:generateCodegenArtifactsFromSchema
 > Task :react-native-safe-area-context:preBuild
 > Task :react-native-safe-area-context:preReleaseBuild
-> Task :react-native-safe-area-context:writeReleaseAarMetadata
-> Task :react-native-worklets:generateCodegenSchemaFromJavaScript
-> Task :shopify_flash-list:generateCodegenSchemaFromJavaScript
+> Task :react-native-safe-area-context:generateReleaseResValues
+> Task :react-native-safe-area-context:generateReleaseResources
+> Task :react-native-safe-area-context:packageReleaseResources
+> Task :react-native-worklets:assertMinimalReactNativeVersionTask
+> Task :react-native-worklets:assertNewArchitectureEnabledTask SKIPPED
 > Task :react-native-svg:generateCodegenSchemaFromJavaScript
-> Task :react-native-worklets:generateCodegenArtifactsFromSchema
-> Task :react-native-worklets:prepareWorkletsHeadersForPrefabs
-> Task :react-native-worklets:preBuild
-> Task :react-native-worklets:preReleaseBuild
-> Task :react-native-worklets:writeReleaseAarMetadata
-> Task :expo:generateReleaseResValues
-> Task :shopify_flash-list:generateCodegenArtifactsFromSchema
-> Task :shopify_flash-list:preBuild
-> Task :expo:generateReleaseResources
-> Task :shopify_flash-list:preReleaseBuild
-> Task :shopify_flash-list:writeReleaseAarMetadata
-> Task :expo-constants:generateReleaseResValues
-> Task :expo-constants:generateReleaseResources
+> Task :react-native-screens:generateCodegenArtifactsFromSchema
+> Task :react-native-screens:preBuild
+> Task :react-native-screens:preReleaseBuild
+> Task :react-native-screens:generateReleaseResValues
+> Task :react-native-screens:generateReleaseResources
+> Task :react-native-worklets:generateCodegenSchemaFromJavaScript
+> Task :react-native-screens:packageReleaseResources
 > Task :react-native-svg:generateCodegenArtifactsFromSchema
 > Task :react-native-svg:preBuild
 > Task :react-native-svg:preReleaseBuild
-> Task :react-native-svg:writeReleaseAarMetadata
-> Task :expo-modules-core:generateReleaseResValues
-> Task :expo-constants:packageReleaseResources
-> Task :expo:packageReleaseResources
-> Task :notifee_react-native:generateReleaseResValues
-> Task :react-native-async-storage_async-storage:generateReleaseResValues
-> Task :expo-modules-core:generateReleaseResources
-> Task :react-native-async-storage_async-storage:generateReleaseResources
-> Task :notifee_react-native:generateReleaseResources
-> Task :react-native-async-storage_async-storage:packageReleaseResources
-> Task :notifee_react-native:packageReleaseResources
-> Task :expo-modules-core:packageReleaseResources
-> Task :react-native-ringtone-manager-new:generateReleaseResValues
-> Task :react-native-reanimated:generateReleaseResValues
-> Task :react-native-gesture-handler:generateReleaseResValues
-> Task :react-native-ringtone-manager-new:generateReleaseResources
-> Task :react-native-reanimated:generateReleaseResources
-> Task :react-native-gesture-handler:generateReleaseResources
-> Task :react-native-ringtone-manager-new:packageReleaseResources
-> Task :react-native-gesture-handler:packageReleaseResources
-> Task :react-native-safe-area-context:generateReleaseResValues
-> Task :react-native-screens:generateReleaseResValues
-> Task :react-native-reanimated:packageReleaseResources
 > Task :react-native-svg:generateReleaseResValues
-> Task :react-native-safe-area-context:generateReleaseResources
 > Task :react-native-svg:generateReleaseResources
-> Task :react-native-screens:generateReleaseResources
 > Task :react-native-svg:packageReleaseResources
-> Task :react-native-safe-area-context:packageReleaseResources
-> Task :react-native-worklets:generateReleaseResValues
-> Task :shopify_flash-list:generateReleaseResValues
-> Task :react-native-worklets:generateReleaseResources
-> Task :shopify_flash-list:generateReleaseResources
-> Task :react-native-worklets:packageReleaseResources
-> Task :shopify_flash-list:packageReleaseResources
 > Task :expo:extractDeepLinksRelease
+> Task :app:createBundleReleaseJsAndAssets
+Starting Metro Bundler
+> Task :react-native-worklets:generateCodegenArtifactsFromSchema
+> Task :shopify_flash-list:generateCodegenSchemaFromJavaScript
+> Task :react-native-worklets:prepareWorkletsHeadersForPrefabs
+> Task :react-native-worklets:preBuild
+> Task :react-native-worklets:preReleaseBuild
+> Task :react-native-worklets:generateReleaseResValues
+> Task :react-native-worklets:generateReleaseResources
+> Task :react-native-worklets:packageReleaseResources
 > Task :expo-constants:extractDeepLinksRelease
-> Task :react-native-screens:packageReleaseResources
-> Task :expo-modules-core:extractDeepLinksRelease
 > Task :expo-constants:processReleaseManifest
 > Task :expo:processReleaseManifest
-> Task :expo-modules-core:processReleaseManifest
-/home/expo/workingdir/build/node_modules/expo-modules-core/android/src/main/AndroidManifest.xml:8:9-11:45 Warning:
-	meta-data#com.facebook.soloader.enabled@android:value was tagged at AndroidManifest.xml:8 to replace other declarations but no other declaration present
-> Task :react-native-async-storage_async-storage:extractDeepLinksRelease
 > Task :notifee_react-native:extractDeepLinksRelease
-> Task :react-native-gesture-handler:extractDeepLinksRelease
-> Task :react-native-async-storage_async-storage:processReleaseManifest
-package="com.reactnativecommunity.asyncstorage" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
-Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
-Recommendation: remove package="com.reactnativecommunity.asyncstorage" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
+> Task :expo-modules-core:extractDeepLinksRelease
 > Task :notifee_react-native:processReleaseManifest
 package="io.invertase.notifee" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@notifee/react-native/android/src/main/AndroidManifest.xml.
 Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
 Recommendation: remove package="io.invertase.notifee" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@notifee/react-native/android/src/main/AndroidManifest.xml.
+> Task :expo-modules-core:processReleaseManifest
+/home/expo/workingdir/build/node_modules/expo-modules-core/android/src/main/AndroidManifest.xml:8:9-11:45 Warning:
+	meta-data#com.facebook.soloader.enabled@android:value was tagged at AndroidManifest.xml:8 to replace other declarations but no other declaration present
+> Task :react-native-gesture-handler:extractDeepLinksRelease
+> Task :react-native-async-storage_async-storage:extractDeepLinksRelease
 > Task :react-native-gesture-handler:processReleaseManifest
-> Task :react-native-reanimated:extractDeepLinksRelease
-> Task :react-native-safe-area-context:extractDeepLinksRelease
-> Task :react-native-ringtone-manager-new:extractDeepLinksRelease
-> Task :react-native-reanimated:processReleaseManifest
-> Task :react-native-screens:extractDeepLinksRelease
-> Task :react-native-safe-area-context:processReleaseManifest
-package="com.th3rdwave.safeareacontext" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+> Task :react-native-async-storage_async-storage:processReleaseManifest
+package="com.reactnativecommunity.asyncstorage" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
 Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
-Recommendation: remove package="com.th3rdwave.safeareacontext" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
-> Task :react-native-svg:extractDeepLinksRelease
+Recommendation: remove package="com.reactnativecommunity.asyncstorage" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
+> Task :react-native-ringtone-manager-new:extractDeepLinksRelease
+> Task :react-native-reanimated:extractDeepLinksRelease
+> Task :react-native-reanimated:processReleaseManifest
 > Task :react-native-ringtone-manager-new:processReleaseManifest
 package="com.ringtonemanager" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-ringtone-manager-new/android/src/main/AndroidManifest.xml.
 Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
 Recommendation: remove package="com.ringtonemanager" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-ringtone-manager-new/android/src/main/AndroidManifest.xml.
-> Task :react-native-worklets:extractDeepLinksRelease
+> Task :react-native-screens:extractDeepLinksRelease
+> Task :react-native-safe-area-context:extractDeepLinksRelease
 > Task :react-native-screens:processReleaseManifest
+> Task :react-native-svg:extractDeepLinksRelease
+> Task :react-native-safe-area-context:processReleaseManifest
+package="com.th3rdwave.safeareacontext" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.th3rdwave.safeareacontext" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+> Task :shopify_flash-list:generateCodegenArtifactsFromSchema
+> Task :shopify_flash-list:preBuild
+> Task :react-native-worklets:extractDeepLinksRelease
+> Task :shopify_flash-list:preReleaseBuild
 > Task :react-native-svg:processReleaseManifest
-> Task :shopify_flash-list:extractDeepLinksRelease
+> Task :shopify_flash-list:generateReleaseResValues
+> Task :shopify_flash-list:generateReleaseResources
 > Task :react-native-worklets:processReleaseManifest
+> Task :shopify_flash-list:packageReleaseResources
+> Task :shopify_flash-list:extractDeepLinksRelease
 > Task :shopify_flash-list:processReleaseManifest
 package="com.shopify.reactnative.flash_list" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@shopify/flash-list/android/src/main/AndroidManifest.xml.
 Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
 Recommendation: remove package="com.shopify.reactnative.flash_list" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@shopify/flash-list/android/src/main/AndroidManifest.xml.
+> Task :expo-constants:writeReleaseAarMetadata
+> Task :expo:writeReleaseAarMetadata
+> Task :expo-modules-core:writeReleaseAarMetadata
+> Task :notifee_react-native:writeReleaseAarMetadata
+> Task :react-native-async-storage_async-storage:writeReleaseAarMetadata
+> Task :react-native-ringtone-manager-new:writeReleaseAarMetadata
+> Task :react-native-reanimated:writeReleaseAarMetadata
+> Task :react-native-gesture-handler:writeReleaseAarMetadata
+> Task :react-native-safe-area-context:writeReleaseAarMetadata
+> Task :react-native-svg:writeReleaseAarMetadata
+> Task :react-native-screens:writeReleaseAarMetadata
+> Task :shopify_flash-list:writeReleaseAarMetadata
+> Task :react-native-worklets:writeReleaseAarMetadata
 > Task :expo-constants:compileReleaseLibraryResources
-> Task :expo:compileReleaseLibraryResources
 > Task :expo-modules-core:compileReleaseLibraryResources
-> Task :expo-modules-core:parseReleaseLocalResources
+> Task :expo:compileReleaseLibraryResources
 > Task :expo-constants:parseReleaseLocalResources
+> Task :expo-modules-core:parseReleaseLocalResources
 > Task :expo:parseReleaseLocalResources
-> Task :expo-constants:generateReleaseRFile
 > Task :expo:generateReleaseRFile
+> Task :expo-constants:generateReleaseRFile
 > Task :expo-modules-core:generateReleaseRFile
 > Task :notifee_react-native:compileReleaseLibraryResources
 > Task :react-native-gesture-handler:compileReleaseLibraryResources
@@ -276,120 +267,85 @@ Recommendation: remove package="com.shopify.reactnative.flash_list" from the sou
 > Task :notifee_react-native:parseReleaseLocalResources
 > Task :react-native-async-storage_async-storage:parseReleaseLocalResources
 > Task :react-native-gesture-handler:parseReleaseLocalResources
-> Task :react-native-gesture-handler:generateReleaseRFile
+> Task :notifee_react-native:generateReleaseRFile
 > Task :react-native-async-storage_async-storage:generateReleaseRFile
+> Task :react-native-gesture-handler:generateReleaseRFile
 > Task :react-native-reanimated:compileReleaseLibraryResources
 > Task :react-native-ringtone-manager-new:compileReleaseLibraryResources
-> Task :notifee_react-native:generateReleaseRFile
-> Task :react-native-reanimated:parseReleaseLocalResources
 > Task :react-native-safe-area-context:compileReleaseLibraryResources
 > Task :react-native-ringtone-manager-new:parseReleaseLocalResources
+> Task :react-native-reanimated:parseReleaseLocalResources
 > Task :react-native-safe-area-context:parseReleaseLocalResources
-> Task :react-native-reanimated:generateReleaseRFile
 > Task :react-native-ringtone-manager-new:generateReleaseRFile
-> Task :react-native-svg:compileReleaseLibraryResources
+> Task :react-native-reanimated:generateReleaseRFile
 > Task :react-native-safe-area-context:generateReleaseRFile
-> Task :react-native-screens:parseReleaseLocalResources
+> Task :react-native-svg:compileReleaseLibraryResources
 > Task :react-native-svg:parseReleaseLocalResources
+> Task :react-native-screens:parseReleaseLocalResources
 > Task :react-native-svg:generateReleaseRFile
-> Task :react-native-screens:compileReleaseLibraryResources
 > Task :react-native-screens:generateReleaseRFile
-> Task :react-native-worklets:compileReleaseLibraryResources
-> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :shopify_flash-list:compileReleaseLibraryResources
-> Task :expo:generateReleaseBuildConfig
-> Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-worklets:parseReleaseLocalResources
+> Task :react-native-worklets:compileReleaseLibraryResources
+> Task :react-native-screens:compileReleaseLibraryResources
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :shopify_flash-list:parseReleaseLocalResources
-> Task :expo-constants:generateReleaseBuildConfig
-> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-modules-core:generateReleaseBuildConfig
+> Task :react-native-worklets:parseReleaseLocalResources
 > Task :react-native-worklets:generateReleaseRFile
 > Task :shopify_flash-list:generateReleaseRFile
-> Task :expo:javaPreCompileRelease
-> Task :expo-constants:javaPreCompileRelease
-> Task :notifee_react-native:generateReleaseBuildConfig
-> Task :notifee_react-native:javaPreCompileRelease
-> Task :react-native-async-storage_async-storage:generateReleaseBuildConfig
+> Task :react-native-gesture-handler:generateReleaseBuildConfig
+> Task :react-native-worklets:generateReleaseBuildConfig
+> Task :react-native-reanimated:generateReleaseBuildConfig
+> Task :react-native-worklets:javaPreCompileRelease
+> Task :react-native-reanimated:javaPreCompileRelease
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-gesture-handler:javaPreCompileRelease
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:generateReleaseBuildConfig
+> Task :react-native-safe-area-context:generateReleaseBuildConfig
 > Task :app:createBundleReleaseJsAndAssets
-Starting Metro Bundler
-Android ./index.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 68.2% (709/905)
-Android Bundled 4155ms index.js (1584 modules)
+Android ./index.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 73.6% (1079/1258)
+Android Bundled 3945ms index.js (1584 modules)
 Writing bundle output to: /home/expo/workingdir/build/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle
 Writing sourcemap output to: /home/expo/workingdir/build/android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map
 Copying 45 asset files
 Done writing bundle output
 Done writing sourcemap output
-> Task :react-native-async-storage_async-storage:javaPreCompileRelease
+> Task :react-native-safe-area-context:compileReleaseKotlin
+w: file:///home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaView.kt:59:23 'val uiImplementation: UIImplementation!' is deprecated. Deprecated in Java.
+> Task :react-native-worklets:compileReleaseJavaWithJavac
+Note: /home/expo/workingdir/build/node_modules/react-native-worklets/android/src/main/java/com/swmansion/worklets/WorkletsPackage.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+> Task :react-native-safe-area-context:javaPreCompileRelease
+> Task :react-native-safe-area-context:compileReleaseJavaWithJavac
+> Task :react-native-worklets:bundleLibCompileToJarRelease
+> Task :react-native-safe-area-context:bundleLibRuntimeToDirRelease
+> Task :app:generateAutolinkingNewArchitectureFiles
+> Task :app:generateAutolinkingPackageList
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:preBuild
+> Task :app:preReleaseBuild
+> Task :app:generateReleaseResValues
+> Task :react-native-reanimated:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+> Task :react-native-screens:javaPreCompileRelease
+> Task :notifee_react-native:generateReleaseBuildConfig
+> Task :notifee_react-native:javaPreCompileRelease
+> Task :react-native-reanimated:bundleLibCompileToJarRelease
+> Task :react-native-screens:compileReleaseKotlin
 > Task :notifee_react-native:compileReleaseJavaWithJavac
+> Task :notifee_react-native:bundleLibRuntimeToDirRelease
 /home/expo/workingdir/build/node_modules/@notifee/react-native/android/src/main/java/io/invertase/notifee/NotifeeApiModule.java:42: warning: [removal] onCatalystInstanceDestroy() in NativeModule has been deprecated and marked for removal
   public void onCatalystInstanceDestroy() {
               ^
 Note: /home/expo/workingdir/build/node_modules/@notifee/react-native/android/src/main/java/io/invertase/notifee/NotifeeReactUtils.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
 1 warning
-> Task :react-native-async-storage_async-storage:compileReleaseJavaWithJavac
-> Task :expo-modules-core:javaPreCompileRelease
-Note: Some input files use or override a deprecated API.
-Note: Recompile with -Xlint:deprecation for details.
-Note: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/javaPackage/java/com/reactnativecommunity/asyncstorage/AsyncStoragePackage.java uses unchecked or unsafe operations.
-Note: Recompile with -Xlint:unchecked for details.
-> Task :react-native-async-storage_async-storage:bundleLibCompileToJarRelease
-> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :notifee_react-native:bundleLibCompileToJarRelease
-> Task :react-native-gesture-handler:generateReleaseBuildConfig
-> Task :react-native-reanimated:generateReleaseBuildConfig
-> Task :react-native-worklets:generateReleaseBuildConfig
-> Task :react-native-reanimated:javaPreCompileRelease
-> Task :react-native-worklets:javaPreCompileRelease
-> Task :react-native-gesture-handler:javaPreCompileRelease
-> Task :react-native-ringtone-manager-new:generateReleaseBuildConfig
-> Task :react-native-ringtone-manager-new:javaPreCompileRelease
-> Task :react-native-ringtone-manager-new:compileReleaseJavaWithJavac
-> Task :react-native-ringtone-manager-new:bundleLibCompileToJarRelease
-> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
-Note: /home/expo/workingdir/build/node_modules/react-native-ringtone-manager-new/android/src/main/java/com/ringtonemanager/RingtoneManagerModule.java uses or overrides a deprecated API.
-Note: Recompile with -Xlint:deprecation for details.
-> Task :react-native-safe-area-context:generateReleaseBuildConfig
-> Task :react-native-worklets:compileReleaseJavaWithJavac
-Note: /home/expo/workingdir/build/node_modules/react-native-worklets/android/src/main/java/com/swmansion/worklets/WorkletsPackage.java uses unchecked or unsafe operations.
-Note: Recompile with -Xlint:unchecked for details.
-> Task :react-native-worklets:bundleLibCompileToJarRelease
-> Task :react-native-reanimated:compileReleaseJavaWithJavac
-Note: Some input files use or override a deprecated API.
-Note: Recompile with -Xlint:deprecation for details.
-Note: Some input files use unchecked or unsafe operations.
-Note: Recompile with -Xlint:unchecked for details.
-> Task :react-native-safe-area-context:compileReleaseKotlin
-w: file:///home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaView.kt:59:23 'val uiImplementation: UIImplementation!' is deprecated. Deprecated in Java.
-> Task :react-native-safe-area-context:javaPreCompileRelease
-> Task :react-native-safe-area-context:compileReleaseJavaWithJavac
-> Task :react-native-safe-area-context:bundleLibCompileToJarRelease
-> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-screens:generateReleaseBuildConfig
-> Task :react-native-reanimated:bundleLibCompileToJarRelease
-> Task :expo-modules-core:compileReleaseKotlin
-> Task :app:checkReleaseAarMetadata
-> Task :app:generateReleaseResValues
-> Task :app:mapReleaseSourceSetPaths
-> Task :app:generateReleaseResources
-> Task :app:mergeReleaseResources
-> Task :app:packageReleaseResources
-> Task :app:parseReleaseLocalResources
-> Task :app:createReleaseCompatibleScreenManifests
-> Task :app:extractDeepLinksRelease
-> Task :app:processReleaseMainManifest
-/home/expo/workingdir/build/android/app/src/main/AndroidManifest.xml Warning:
-	provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
-> Task :react-native-gesture-handler:compileReleaseKotlin
-> Task :app:processReleaseManifest
-> Task :app:processReleaseManifestForPackage
-> Task :react-native-gesture-handler:compileReleaseJavaWithJavac
-> Task :react-native-gesture-handler:bundleLibCompileToJarRelease
-> Task :react-native-screens:javaPreCompileRelease
-> Task :react-native-svg:generateReleaseBuildConfig
-> Task :react-native-svg:javaPreCompileRelease
-> Task :app:processReleaseResources FAILED
+> Task :react-native-async-storage_async-storage:generateReleaseBuildConfig
+> Task :react-native-async-storage_async-storage:javaPreCompileRelease
 > Task :react-native-screens:compileReleaseKotlin
 w: file:///home/expo/workingdir/build/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/RNScreensPackage.kt:66:17 'constructor(name: String, className: String, canOverrideExistingModule: Boolean, needsEagerInit: Boolean, hasConstants: Boolean, isCxxModule: Boolean, isTurboModule: Boolean): ReactModuleInfo' is deprecated. This constructor is deprecated and will be removed in the future. Use ReactModuleInfo(String, String, boolean, boolean, boolean, boolean)].
 w: file:///home/expo/workingdir/build/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt:46:77 Unchecked cast of '(androidx.coordinatorlayout.widget.CoordinatorLayout.Behavior<android.view.View!>?..androidx.coordinatorlayout.widget.CoordinatorLayout.Behavior<*>?)' to 'com.google.android.material.bottomsheet.BottomSheetBehavior<com.swmansion.rnscreens.Screen>'.
@@ -452,29 +408,232 @@ w: file:///home/expo/workingdir/build/node_modules/react-native-screens/android/
 w: file:///home/expo/workingdir/build/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:154:13 'class MapBuilder : Any' is deprecated. Deprecated in Java.
 w: file:///home/expo/workingdir/build/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:7:8 'object ReactFeatureFlags : Any' is deprecated. Use com.facebook.react.internal.featureflags.ReactNativeFeatureFlags instead.
 w: file:///home/expo/workingdir/build/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/bottomsheet/BottomSheetDialogRootView.kt:25:13 'object ReactFeatureFlags : Any' is deprecated. Use com.facebook.react.internal.featureflags.ReactNativeFeatureFlags instead.
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :react-native-async-storage_async-storage:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/javaPackage/java/com/reactnativecommunity/asyncstorage/AsyncStoragePackage.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+> Task :react-native-async-storage_async-storage:bundleLibRuntimeToDirRelease
+> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:generateReleaseBuildConfig
+> Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-constants:generateReleaseBuildConfig
+> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-modules-core:generateReleaseBuildConfig
+> Task :react-native-screens:compileReleaseJavaWithJavac
+> Task :react-native-screens:bundleLibRuntimeToDirRelease
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :expo-modules-core:javaPreCompileRelease
+> Task :expo-constants:javaPreCompileRelease
+> Task :expo:javaPreCompileRelease
+> Task :react-native-reanimated:bundleLibRuntimeToDirRelease
+> Task :app:processReleaseMainManifest
+/home/expo/workingdir/build/android/app/src/main/AndroidManifest.xml Warning:
+provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+> Task :app:processReleaseManifest
+> Task :app:processApplicationManifestReleaseForBundle
+> Task :react-native-ringtone-manager-new:generateReleaseBuildConfig
+> Task :react-native-gesture-handler:compileReleaseKotlin
+> Task :react-native-ringtone-manager-new:javaPreCompileRelease
+> Task :app:checkReleaseAarMetadata
+> Task :app:packageReleaseResources
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseManifestForPackage
+> Task :react-native-gesture-handler:compileReleaseJavaWithJavac
+> Task :react-native-ringtone-manager-new:compileReleaseJavaWithJavac
+Note: /home/expo/workingdir/build/node_modules/react-native-ringtone-manager-new/android/src/main/java/com/ringtonemanager/RingtoneManagerModule.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+> Task :react-native-gesture-handler:bundleLibRuntimeToDirRelease
+> Task :react-native-ringtone-manager-new:bundleLibRuntimeToDirRelease
+> Task :react-native-svg:generateReleaseBuildConfig
+> Task :react-native-svg:javaPreCompileRelease
+> Task :app:extractReleaseVersionControlInfo
+> Task :react-native-worklets:bundleLibRuntimeToDirRelease
+> Task :shopify_flash-list:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shopify_flash-list:generateReleaseBuildConfig
+> Task :app:processReleaseResources
 > Task :react-native-svg:compileReleaseJavaWithJavac
 Note: Some input files use or override a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
 Note: Some input files use unchecked or unsafe operations.
 Note: Recompile with -Xlint:unchecked for details.
+> Task :react-native-svg:bundleLibRuntimeToDirRelease
+> Task :app:bundleReleaseResources
+> Task :shopify_flash-list:javaPreCompileRelease
+> Task :shopify_flash-list:compileReleaseKotlin
+w: file:///home/expo/workingdir/build/node_modules/@shopify/flash-list/android/src/main/kotlin/com/shopify/reactnative/flash_list/AutoLayoutView.kt:16:8 'interface RCTEventEmitter : JavaScriptModule' is deprecated. Use [RCTModernEventEmitter] instead.
+w: file:///home/expo/workingdir/build/node_modules/@shopify/flash-list/android/src/main/kotlin/com/shopify/reactnative/flash_list/BlankAreaEvent.kt:22:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Please add the '@Deprecated' annotation or suppress the diagnostic.
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateReleaseBuildConfig
+> Task :notifee_react-native:bundleLibCompileToJarRelease
+> Task :react-native-async-storage_async-storage:bundleLibCompileToJarRelease
+> Task :shopify_flash-list:compileReleaseJavaWithJavac
+> Task :react-native-gesture-handler:bundleLibCompileToJarRelease
+> Task :react-native-ringtone-manager-new:bundleLibCompileToJarRelease
+> Task :shopify_flash-list:bundleLibRuntimeToDirRelease
+> Task :react-native-safe-area-context:bundleLibCompileToJarRelease
+> Task :react-native-screens:bundleLibCompileToJarRelease
+> Task :react-native-svg:bundleLibCompileToJarRelease
+> Task :shopify_flash-list:bundleLibCompileToJarRelease
+> Task :app:javaPreCompileRelease
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :expo-constants:mergeReleaseShaders
+> Task :expo-constants:compileReleaseShaders NO-SOURCE
+> Task :expo-constants:generateReleaseAssets UP-TO-DATE
 > Task :expo-modules-core:compileReleaseKotlin
 w: file:///home/expo/workingdir/build/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderProvider.kt:34:52 Unchecked cast of 'java.lang.Class<*>!' to 'java.lang.Class<out expo.modules.apploader.HeadlessAppLoader>'.
+> Task :expo:mergeReleaseShaders
+> Task :app:mergeExtDexRelease
+> Task :expo-constants:packageReleaseAssets
+> Task :expo:compileReleaseShaders NO-SOURCE
+> Task :expo:generateReleaseAssets UP-TO-DATE
+> Task :expo:packageReleaseAssets
+> Task :notifee_react-native:mergeReleaseShaders
+> Task :notifee_react-native:compileReleaseShaders NO-SOURCE
+> Task :notifee_react-native:generateReleaseAssets
+UP-TO-DATE
+> Task :expo-modules-core:mergeReleaseShaders
+> Task :react-native-async-storage_async-storage:mergeReleaseShaders
+> Task :react-native-async-storage_async-storage:compileReleaseShaders NO-SOURCE
+> Task :react-native-async-storage_async-storage:generateReleaseAssets UP-TO-DATE
+> Task :notifee_react-native:packageReleaseAssets
+> Task :react-native-async-storage_async-storage:packageReleaseAssets
+> Task :react-native-gesture-handler:mergeReleaseShaders
+> Task :react-native-gesture-handler:compileReleaseShaders NO-SOURCE
+> Task :react-native-gesture-handler:generateReleaseAssets UP-TO-DATE
+> Task :react-native-reanimated:mergeReleaseShaders
+> Task :react-native-reanimated:compileReleaseShaders NO-SOURCE
+> Task :react-native-reanimated:generateReleaseAssets UP-TO-DATE
+> Task :react-native-gesture-handler:packageReleaseAssets
+> Task :react-native-reanimated:packageReleaseAssets
+> Task :react-native-safe-area-context:mergeReleaseShaders
+> Task :react-native-safe-area-context:compileReleaseShaders NO-SOURCE
+> Task :react-native-safe-area-context:generateReleaseAssets UP-TO-DATE
+> Task :react-native-ringtone-manager-new:mergeReleaseShaders
+> Task :react-native-ringtone-manager-new:compileReleaseShaders NO-SOURCE
+> Task :react-native-ringtone-manager-new:generateReleaseAssets UP-TO-DATE
+> Task :react-native-safe-area-context:packageReleaseAssets
+> Task :react-native-ringtone-manager-new:packageReleaseAssets
+> Task :react-native-screens:mergeReleaseShaders
+> Task :react-native-screens:compileReleaseShaders NO-SOURCE
+> Task :react-native-screens:generateReleaseAssets UP-TO-DATE
+> Task :react-native-svg:mergeReleaseShaders
+> Task :react-native-svg:compileReleaseShaders NO-SOURCE
+> Task :react-native-svg:generateReleaseAssets UP-TO-DATE
+> Task :react-native-screens:packageReleaseAssets
+> Task :react-native-svg:packageReleaseAssets
+> Task :react-native-worklets:mergeReleaseShaders
+> Task :react-native-worklets:compileReleaseShaders NO-SOURCE
+> Task :react-native-worklets:generateReleaseAssets UP-TO-DATE
+> Task :shopify_flash-list:mergeReleaseShaders
+> Task :shopify_flash-list:compileReleaseShaders NO-SOURCE
+> Task :shopify_flash-list:generateReleaseAssets UP-TO-DATE
+> Task :react-native-worklets:packageReleaseAssets
+> Task :shopify_flash-list:packageReleaseAssets
+> Task :react-native-gesture-handler:bundleLibRuntimeToJarRelease
+> Task :react-native-safe-area-context:bundleLibRuntimeToJarRelease
+> Task :react-native-screens:bundleLibRuntimeToJarRelease
+> Task :notifee_react-native:bundleLibRuntimeToJarRelease
+> Task :react-native-async-storage_async-storage:bundleLibRuntimeToJarRelease
+> Task :react-native-reanimated:bundleLibRuntimeToJarRelease
+> Task :react-native-ringtone-manager-new:bundleLibRuntimeToJarRelease
+> Task :react-native-worklets:bundleLibRuntimeToJarRelease
+> Task :react-native-svg:bundleLibRuntimeToJarRelease
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :shopify_flash-list:bundleLibRuntimeToJarRelease
+> Task :expo-modules-core:compileReleaseJavaWithJavac
+> Task :expo-modules-core:bundleLibCompileToJarRelease
+> Task :expo-modules-core:bundleLibRuntimeToDirRelease
+> Task :expo-constants:compileReleaseKotlin
+> Task :expo-modules-core:compileReleaseShaders NO-SOURCE
+> Task :expo-modules-core:generateReleaseAssets UP-TO-DATE
+> Task :expo-modules-core:packageReleaseAssets
+> Task :expo-constants:compileReleaseJavaWithJavac
+> Task :app:mergeReleaseAssets
+> Task :expo-constants:bundleLibCompileToJarRelease
+> Task :expo-constants:bundleLibRuntimeToDirRelease
+> Task :expo-modules-core:bundleLibRuntimeToJarRelease
+> Task :expo:compileReleaseKotlin
+w: file:///home/expo/workingdir/build/node_modules/expo/android/src/main/java/expo/modules/fetch/ExpoFetchModule.kt:30:39 'constructor(reactContext: ReactContext): ForwardingCookieHandler' is deprecated. Use the default constructor.
+w: file:///home/expo/workingdir/build/node_modules/expo/android/src/main/java/expo/modules/fetch/NativeResponse.kt:41:16 This declaration overrides a deprecated member but is not marked as deprecated itself. Please add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///home/expo/workingdir/build/node_modules/expo/android/src/main/java/expo/modules/fetch/NativeResponse.kt:43:11 'fun deallocate(): Unit' is deprecated. Use sharedObjectDidRelease() instead.
+> Task :expo-constants:processReleaseJavaRes
+> Task :expo-modules-core:processReleaseJavaRes
+> Task :notifee_react-native:processReleaseJavaRes NO-SOURCE
+> Task :react-native-async-storage_async-storage:processReleaseJavaRes NO-SOURCE
+> Task :react-native-gesture-handler:processReleaseJavaRes
+> Task :react-native-reanimated:processReleaseJavaRes NO-SOURCE
+> Task :react-native-ringtone-manager-new:processReleaseJavaRes NO-SOURCE
+> Task :react-native-safe-area-context:processReleaseJavaRes
+> Task :react-native-screens:processReleaseJavaRes
+> Task :react-native-svg:processReleaseJavaRes NO-SOURCE
+> Task :react-native-worklets:processReleaseJavaRes NO-SOURCE
+> Task :shopify_flash-list:processReleaseJavaRes
+> Task :expo-constants:bundleLibRuntimeToJarRelease
+> Task :app:mergeReleaseJniLibFolders
+> Task :expo-constants:mergeReleaseJniLibFolders
+> Task :expo-constants:mergeReleaseNativeLibs NO-SOURCE
+> Task :expo-constants:copyReleaseJniLibsProjectOnly
+> Task :expo:compileReleaseJavaWithJavac
+> Task :expo:bundleLibRuntimeToDirRelease
+> Task :expo:bundleLibCompileToJarRelease
+> Task :expo:bundleLibRuntimeToJarRelease
+> Task :expo:processReleaseJavaRes
+> Task :expo:mergeReleaseJniLibFolders
+> Task :expo:mergeReleaseNativeLibs NO-SOURCE
+> Task :expo:copyReleaseJniLibsProjectOnly
+> Task :notifee_react-native:mergeReleaseJniLibFolders
+> Task :notifee_react-native:mergeReleaseNativeLibs NO-SOURCE
+> Task :notifee_react-native:copyReleaseJniLibsProjectOnly
+> Task :react-native-async-storage_async-storage:mergeReleaseJniLibFolders
+> Task :react-native-async-storage_async-storage:mergeReleaseNativeLibs NO-SOURCE
+> Task :react-native-async-storage_async-storage:copyReleaseJniLibsProjectOnly
+> Task :react-native-gesture-handler:mergeReleaseJniLibFolders
+> Task :react-native-reanimated:mergeReleaseJniLibFolders
+> Task :react-native-ringtone-manager-new:mergeReleaseJniLibFolders
+> Task :react-native-ringtone-manager-new:mergeReleaseNativeLibs NO-SOURCE
+> Task :react-native-ringtone-manager-new:copyReleaseJniLibsProjectOnly
+> Task :react-native-safe-area-context:mergeReleaseJniLibFolders
+> Task :react-native-safe-area-context:mergeReleaseNativeLibs NO-SOURCE
+> Task :react-native-safe-area-context:copyReleaseJniLibsProjectOnly
+> Task :react-native-worklets:configureCMakeRelWithDebInfo[arm64-v8a]
+Checking the license for package CMake 3.22.1 in /home/expo/Android/Sdk/licenses
+License for package CMake 3.22.1 accepted.
+Preparing "Install CMake 3.22.1 v.3.22.1".
+"Install CMake 3.22.1 v.3.22.1" ready.
+Installing CMake 3.22.1 in /home/expo/Android/Sdk/cmake/3.22.1
+"Install CMake 3.22.1 v.3.22.1" complete.
+"Install CMake 3.22.1 v.3.22.1" finished.
+> Task :app:compileReleaseKotlin FAILED
+e: file:///home/expo/workingdir/build/android/app/src/main/java/app/rork/dominder_android_reminder_app/MainActivity.kt:12:34 Unresolved reference 'SplashScreen'.
+e: file:///home/expo/workingdir/build/android/app/src/main/java/app/rork/dominder_android_reminder_app/MainActivity.kt:13:34 Unresolved reference 'SplashScreenImageResizeMode'.
+e: file:///home/expo/workingdir/build/android/app/src/main/java/app/rork/dominder_android_reminder_app/MainActivity.kt:25:5 Unresolved reference 'SplashScreen'.
+e: file:///home/expo/workingdir/build/android/app/src/main/java/app/rork/dominder_android_reminder_app/MainActivity.kt:25:29 Unresolved reference 'SplashScreenImageResizeMode'.
+> Task :react-native-screens:configureCMakeRelWithDebInfo[arm64-v8a]
+> Task :expo-modules-core:configureCMakeRelWithDebInfo[arm64-v8a]
 [Incubating] Problems report is available at: file:///home/expo/workingdir/build/android/build/reports/problems/problems-report.html
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
 For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-231 actionable tasks: 231 executed
+335 actionable tasks: 335 executed
 FAILURE: Build failed with an exception.
 * What went wrong:
-Execution failed for task ':app:processReleaseResources'.
-> A failure occurred while executing com.android.build.gradle.internal.res.LinkApplicationAndroidResourcesTask$TaskAction
-   > Android resource linking failed
-     ERROR: /home/expo/workingdir/build/android/app/src/main/AndroidManifest.xml:37:5-130: AAPT: error: resource style/Theme.RingtonePicker (aka app.rork.dominder_android_reminder_app:style/Theme.RingtonePicker) not found.
-         
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
 * Try:
 > Run with --stacktrace option to get the stack trace.
 > Run with --info or --debug option to get more log output.
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
-BUILD FAILED in 3m 25s
+BUILD FAILED in 4m 18s
 Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.

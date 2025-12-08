@@ -406,6 +406,7 @@ class AlarmActionBridge : BroadcastReceiver() {
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -522,7 +523,11 @@ class AlarmRingtoneService : Service() {
             .setSilent(true)
             .build()
         
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         isServiceRunning = true
     }
     
@@ -1612,6 +1617,7 @@ class AlarmPackage : ReactPackage {
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.facebook.react.HeadlessJsTaskService
@@ -1645,7 +1651,11 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     .build()
                 
-                startForeground(1001, notification)
+                if (Build.VERSION.SDK_INT >= 34) {
+                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE)
+                } else {
+                    startForeground(1001, notification)
+                }
             }
         }
         return super.onStartCommand(intent, flags, startId)
@@ -1726,8 +1736,6 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import expo.modules.ReactActivityDelegateWrapper
 import app.rork.dominder_android_reminder_app.DebugLogger
-import expo.modules.splashscreen.SplashScreen
-import expo.modules.splashscreen.SplashScreenImageResizeMode
 import com.facebook.react.ReactRootView
 
 class MainActivity : ReactActivity() {
@@ -1736,7 +1744,6 @@ class MainActivity : ReactActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(null)
-    SplashScreen.show(this, SplashScreenImageResizeMode.CONTAIN, ReactRootView::class.java, false)
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -2213,7 +2220,9 @@ const withAlarmManifest = (config) => {
       // Required for foreground service
       'android.permission.FOREGROUND_SERVICE',
       // Required for shortService foreground service type (Android 14+)
-      'android.permission.FOREGROUND_SERVICE_SHORT_SERVICE'
+      'android.permission.FOREGROUND_SERVICE_SHORT_SERVICE',
+      // Required for mediaPlayback foreground service type (Android 14+)
+      'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK'
     ];
     requiredPermissions.forEach(permission => {
       if (!manifest["uses-permission"].some(p => p.$['android:name'] === permission)) {

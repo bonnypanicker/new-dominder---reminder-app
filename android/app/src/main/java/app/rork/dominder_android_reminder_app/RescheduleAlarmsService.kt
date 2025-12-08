@@ -3,6 +3,7 @@ package app.rork.dominder_android_reminder_app
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.facebook.react.HeadlessJsTaskService
@@ -36,7 +37,11 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     .build()
                 
-                startForeground(1001, notification)
+                if (Build.VERSION.SDK_INT >= 34) {
+                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE)
+                } else {
+                    startForeground(1001, notification)
+                }
             }
         }
         return super.onStartCommand(intent, flags, startId)
