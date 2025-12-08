@@ -1724,7 +1724,11 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
+import expo.modules.ReactActivityDelegateWrapper
 import app.rork.dominder_android_reminder_app.DebugLogger
+import expo.modules.splashscreen.SplashScreen
+import expo.modules.splashscreen.SplashScreenImageResizeMode
+import com.facebook.react.ReactRootView
 
 class MainActivity : ReactActivity() {
 
@@ -1732,6 +1736,7 @@ class MainActivity : ReactActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(null)
+    SplashScreen.show(this, SplashScreenImageResizeMode.CONTAIN, ReactRootView::class.java, false)
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -1743,10 +1748,14 @@ class MainActivity : ReactActivity() {
   }
 
   override fun createReactActivityDelegate(): ReactActivityDelegate {
-    return DefaultReactActivityDelegate(
+    return ReactActivityDelegateWrapper(
       this,
-      mainComponentName,
-      DefaultNewArchitectureEntryPoint.fabricEnabled
+      DefaultNewArchitectureEntryPoint.fabricEnabled,
+      DefaultReactActivityDelegate(
+        this,
+        mainComponentName,
+        DefaultNewArchitectureEntryPoint.fabricEnabled
+      )
     )
   }
 }`
