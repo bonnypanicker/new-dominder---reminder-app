@@ -1658,7 +1658,13 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                 }
             }
         }
-        return super.onStartCommand(intent, flags, startId)
+        try {
+            return super.onStartCommand(intent, flags, startId)
+        } catch (e: Exception) {
+            DebugLogger.error("RescheduleAlarmsService: Failed to start headless task", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
     }
 }`
   },
