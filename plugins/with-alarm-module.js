@@ -1538,6 +1538,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContext
@@ -1549,7 +1550,11 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
 
     init {
         val filter = IntentFilter("com.dominder.MISSED_ALARM")
-        reactContext.registerReceiver(this, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            reactContext.registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            reactContext.registerReceiver(this, filter)
+        }
         DebugLogger.log("MissedAlarmReceiver: Registered broadcast receiver")
     }
 
@@ -1623,6 +1628,7 @@ import androidx.core.app.NotificationCompat
 import com.facebook.react.HeadlessJsTaskService
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
+import com.facebook.react.ReactApplication
 
 class RescheduleAlarmsService : HeadlessJsTaskService() {
     override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
@@ -1658,6 +1664,17 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                 }
             }
         }
+
+        // Ensure React Context is initialized to avoid CatalystInstance not available errors
+        try {
+            val reactInstanceManager = (application as ReactApplication).reactNativeHost.reactInstanceManager
+            if (!reactInstanceManager.hasStartedCreatingInitialContext()) {
+                reactInstanceManager.createReactContextInBackground()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("RescheduleAlarmsService: Failed to initialize React Context", e)
+        }
+
         try {
             return super.onStartCommand(intent, flags, startId)
         } catch (e: Exception) {

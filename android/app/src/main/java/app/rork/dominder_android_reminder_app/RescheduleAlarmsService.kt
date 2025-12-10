@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import com.facebook.react.HeadlessJsTaskService
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
+import com.facebook.react.ReactApplication
 
 class RescheduleAlarmsService : HeadlessJsTaskService() {
     override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
@@ -44,6 +45,17 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                 }
             }
         }
+
+        // Ensure React Context is initialized to avoid CatalystInstance not available errors
+        try {
+            val reactInstanceManager = (application as ReactApplication).reactNativeHost.reactInstanceManager
+            if (!reactInstanceManager.hasStartedCreatingInitialContext()) {
+                reactInstanceManager.createReactContextInBackground()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("RescheduleAlarmsService: Failed to initialize React Context", e)
+        }
+
         try {
             return super.onStartCommand(intent, flags, startId)
         } catch (e: Exception) {
