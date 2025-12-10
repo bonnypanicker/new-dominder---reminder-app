@@ -84,6 +84,13 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
   });
 }
 
+export async function saveReminders(reminders: Reminder[]): Promise<void> {
+  return serializeAsyncStorageWrite(async () => {
+    console.log(`[ReminderService] Saving all ${reminders.length} reminders`);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reminders));
+  });
+}
+
 export async function deleteReminder(id: string): Promise<void> {
   // Soft delete - mark as deleted instead of removing
   return serializeAsyncStorageWrite(async () => {

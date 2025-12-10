@@ -18,12 +18,71 @@ export async function checkAndTriggerPendingNotifications() {
     console.log('[StartupCheck] Checking for pending notifications and rescheduling all active reminders...');
     
     const reminderService = require('./reminder-service');
-    const allReminders = await reminderService.getReminders();
+    let allReminders = await reminderService.getReminders();
     
     if (!allReminders || allReminders.length === 0) {
       console.log('[StartupCheck] No reminders to check');
       return;
     }
+
+    // --- NEW: Sync native state (snooze/completed) ---
+    const { NativeModules } = require('react-native');
+    const { AlarmModule } = NativeModules;
+    
+    if (AlarmModule) {
+        try {
+            const completedAlarmsMap = await AlarmModule.getCompletedAlarms();
+            const snoozedAlarmsMap = await AlarmModule.getSnoozedAlarms();
+            
+            // Only log if we actually have something to sync
+            const completedCount = Object.keys(completedAlarmsMap || {}).length;
+            const snoozedCount = Object.keys(snoozedAlarmsMap || {}).length;
+            
+            if (completedCount > 0 || snoozedCount > 0) {
+                console.log(`[StartupCheck] Syncing native state: ${completedCount} completed, ${snoozedCount} snoozed`);
+
+                let stateChanged = false;
+
+                // Apply native state changes
+                allReminders = allReminders.map(reminder => {
+                    // Check if completed natively
+                    if (completedAlarmsMap && completedAlarmsMap[reminder.id]) {
+                         console.log(`[StartupCheck] Syncing: Marking ${reminder.id} as completed from native state`);
+                         stateChanged = true;
+                         // Clear native state
+                         AlarmModule.clearCompletedAlarm(reminder.id);
+                         return { ...reminder, isCompleted: true, isActive: false };
+                    }
+                    
+                    // Check if snoozed natively
+                    if (snoozedAlarmsMap && snoozedAlarmsMap[reminder.id]) {
+                         const snoozeData = snoozedAlarmsMap[reminder.id].split(':');
+                         if (snoozeData.length === 2) {
+                             const snoozeTime = parseInt(snoozeData[0]);
+                             const snoozeMinutes = parseInt(snoozeData[1]);
+                             const newSnoozeUntil = new Date(snoozeTime + snoozeMinutes * 60 * 1000).toISOString();
+                             
+                             console.log(`[StartupCheck] Syncing: Snoozing ${reminder.id} until ${newSnoozeUntil} from native state`);
+                             stateChanged = true;
+                             // Clear native state
+                             AlarmModule.clearSnoozedAlarm(reminder.id);
+                             return { ...reminder, snoozeUntil: newSnoozeUntil };
+                         }
+                    }
+                    return reminder;
+                });
+
+                // Save updated state back to storage if needed
+                if (stateChanged) {
+                     await reminderService.saveReminders(allReminders);
+                     console.log('[StartupCheck] Persisted synced state to storage');
+                }
+            }
+        } catch (e) {
+            console.error('[StartupCheck] Error syncing native state:', e);
+        }
+    }
+    // --- END NEW LOGIC ---
 
     // Get currently displayed notifications to avoid duplicates
     const displayedNotifications = await notifee.getDisplayedNotifications();
@@ -279,3 +338,4 @@ function formatSmartDateTime(when: number): string {
     });
   }
 }
+
