@@ -30,7 +30,7 @@
       "permissions": [
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.FOREGROUND_SERVICE_SHORT_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",

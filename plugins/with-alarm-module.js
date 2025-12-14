@@ -1658,7 +1658,7 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                     .build()
                 
                 if (Build.VERSION.SDK_INT >= 34) {
-                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE)
+                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
                 } else {
                     startForeground(1001, notification)
                 }
@@ -2250,8 +2250,8 @@ const withAlarmManifest = (config) => {
       'android.permission.VIBRATE',
       // Required for foreground service
       'android.permission.FOREGROUND_SERVICE',
-      // Required for shortService foreground service type (Android 14+)
-      'android.permission.FOREGROUND_SERVICE_SHORT_SERVICE',
+      // Required for dataSync foreground service type (Android 14+)
+      'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
       // Required for mediaPlayback foreground service type (Android 14+)
       'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK'
     ];
@@ -2341,7 +2341,7 @@ const withAlarmManifest = (config) => {
       $: { 
         'android:name': '.RescheduleAlarmsService',
         'android:exported': 'false',
-        'android:foregroundServiceType': 'shortService'
+        'android:foregroundServiceType': 'dataSync'
       },
     });
     services.push({

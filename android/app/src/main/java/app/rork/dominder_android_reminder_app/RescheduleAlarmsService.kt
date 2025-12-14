@@ -39,7 +39,7 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                     .build()
                 
                 if (Build.VERSION.SDK_INT >= 34) {
-                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE)
+                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
                 } else {
                     startForeground(1001, notification)
                 }
