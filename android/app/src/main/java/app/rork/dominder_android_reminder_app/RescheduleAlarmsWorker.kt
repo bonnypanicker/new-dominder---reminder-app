@@ -11,10 +11,15 @@ class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) :
         val context = applicationContext
         val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
-        } else {
-            context.startService(serviceIntent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("RescheduleAlarmsWorker: Failed to start service", e)
+            return Result.failure()
         }
         
         return Result.success()
