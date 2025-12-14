@@ -39,7 +39,12 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                     .build()
                 
                 if (Build.VERSION.SDK_INT >= 34) {
-                    startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                    try {
+                        startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                    } catch (e: Exception) {
+                        DebugLogger.error("RescheduleAlarmsService: Failed to start foreground service", e)
+                        stopSelf()
+                    }
                 } else {
                     startForeground(1001, notification)
                 }

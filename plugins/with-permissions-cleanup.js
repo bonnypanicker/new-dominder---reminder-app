@@ -21,6 +21,8 @@ const withPermissionsCleanup = (config) => {
       'android.permission.READ_MEDIA_AUDIO',
       'android.permission.ACCESS_MEDIA_LOCATION',
       'android.permission.INTERNET',
+      // Remove shortService permission as we switched to dataSync
+      'android.permission.FOREGROUND_SERVICE_SHORT_SERVICE',
     ];
 
     // Remove unwanted permissions
