@@ -224,7 +224,7 @@ export default function SettingsScreen() {
           <View style={styles.sectionContent}>
             <TouchableOpacity 
               style={styles.preferenceCard}
-              onPress={() => router.push('/settings/defaults')}
+              onPress={() => router.push('/settings/defaults' as any)}
               testID="open-defaults"
             >
               <View style={styles.preferenceIcon}>
@@ -305,7 +305,7 @@ export default function SettingsScreen() {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.licensesButton}
-                onPress={() => router.push('/settings/licenses')}
+                onPress={() => router.push('/settings/licenses' as any)}
                 testID="open-licenses"
               >
                 <Feather name="file-text" size={16} color={Material3Colors.light.primary} />
@@ -315,7 +315,7 @@ export default function SettingsScreen() {
 
               <TouchableOpacity 
                 style={[styles.licensesButton, { marginTop: 10 }]}
-                onPress={() => router.push('/settings/privacy')}
+                onPress={() => router.push('/settings/privacy' as any)}
                 testID="open-privacy"
               >
                 <Feather name="file-text" size={16} color={Material3Colors.light.primary} />

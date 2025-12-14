@@ -44,7 +44,7 @@ export async function checkAndTriggerPendingNotifications() {
                 let stateChanged = false;
 
                 // Apply native state changes
-                allReminders = allReminders.map(reminder => {
+                allReminders = allReminders.map((reminder: Reminder) => {
                     // Check if completed natively
                     if (completedAlarmsMap && completedAlarmsMap[reminder.id]) {
                          console.log(`[StartupCheck] Syncing: Marking ${reminder.id} as completed from native state`);

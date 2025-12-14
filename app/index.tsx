@@ -1145,7 +1145,7 @@ export default function HomeScreen() {
         <Text style={styles.title}>DoMinder</Text>
         <TouchableOpacity
           style={styles.settingsButton}
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/settings' as any)}
         >
           <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
         </TouchableOpacity>

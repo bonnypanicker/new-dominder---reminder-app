@@ -2029,6 +2029,7 @@ const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, ope
     </TouchableOpacity>
   );
 });
+DropdownAnchor.displayName = 'DropdownAnchor';
 
 // New inline dropdown components that don't use Modal
 interface InlineDropdownProps {

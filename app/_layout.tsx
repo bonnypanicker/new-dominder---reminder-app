@@ -240,7 +240,7 @@ function AppContent() {
 
           if (pressAction?.id === 'open_alarm' && isRinger) {
             setAlarmLaunchOrigin('inapp');
-            router.push(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}`);
+            router.push(`/alarm?reminderId=${reminderId}&title=${encodeURIComponent(title || 'Reminder')}` as any);
             return;
           }
 
