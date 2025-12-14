@@ -282,10 +282,15 @@ export default function CustomizePanel({
             onPress={() => onRepeatTypeChange(option.value)}
             testID={`repeat-${option.value}`}
           >
-            <Text style={[
-              styles.repeatOptionText,
-              repeatType === option.value && styles.repeatOptionTextSelected
-            ]}>
+            <Text 
+              style={[
+                styles.repeatOptionText,
+                repeatType === option.value && styles.repeatOptionTextSelected
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -1107,14 +1112,14 @@ const styles = StyleSheet.create({
   repeatOptionsContainer: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    gap: 6,
+    gap: 4,
     marginBottom: 8,
     zIndex: 1,
     minHeight: 40,
   },
   repeatOption: {
     flex: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: 2,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#F3F4F6',
