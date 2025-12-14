@@ -166,31 +166,6 @@ export default function HomeScreen() {
 
   const scrollToTab = useCallback((tab: 'active' | 'completed' | 'deleted') => {
     setActiveTab(tab);
-    const screenWidth = Dimensions.get('window').width;
-    
-    // Auto-scroll tab headers
-    const tabWidth = 140; // Approximate width of each tab
-    let tabScrollX = 0;
-    
-    switch (tab) {
-      case 'active':
-        tabScrollX = 0; // Left align for active
-        break;
-      case 'completed':
-        // Scroll to push 55% of "ACTIVE REMINDERS" out of view
-        tabScrollX = tabWidth * 0.55; // This will push 55% of active tab out
-        break;
-      case 'deleted':
-        // Calculate position to push "ACTIVE REMINDERS" out of view
-        // We need to scroll enough so that the deleted tab is fully visible
-        // and the active tab is pushed out
-        tabScrollX = tabWidth * 2; // This will position deleted at the start, pushing active completely out
-        break;
-    }
-    
-    // Ensure we don't scroll negative
-    tabScrollX = Math.max(0, tabScrollX);
-    tabScrollRef.current?.scrollTo({ x: tabScrollX, animated: true });
   }, []);
 
 
@@ -1176,55 +1151,64 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Windows Phone 8 Style Tab Headers */}
-      <View style={styles.tabContainer}>
+      {/* Modern Pill Tabs */}
+      <View style={styles.modernTabContainer}>
         <ScrollView 
           ref={tabScrollRef}
           horizontal 
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabScrollContent}
-          style={styles.tabScrollView}
+          contentContainerStyle={styles.modernTabContent}
+          style={styles.modernTabScrollView}
         >
           <TouchableOpacity 
-            style={[styles.tabHeader, activeTab === 'active' && styles.activeTabHeader]}
+            style={[styles.modernTab, activeTab === 'active' && styles.modernTabActive]}
             onPress={() => scrollToTab('active')}
+            activeOpacity={0.7}
           >
-            <View style={styles.tabHeaderContent}>
-              <Text style={[styles.tabHeaderText, activeTab === 'active' && styles.activeTabHeaderText]}>
-                ACTIVE REMINDERS
-              </Text>
-              <Text style={[styles.tabCount, activeTab === 'active' && styles.activeTabCount]}>
-                {activeReminders.length}
-              </Text>
-            </View>
+            <Text style={[styles.modernTabText, activeTab === 'active' && styles.modernTabTextActive]}>
+              Active
+            </Text>
+            {activeReminders.length > 0 && (
+              <View style={[styles.modernTabBadge, activeTab === 'active' && styles.modernTabBadgeActive]}>
+                <Text style={[styles.modernTabBadgeText, activeTab === 'active' && styles.modernTabBadgeTextActive]}>
+                  {activeReminders.length}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tabHeader, activeTab === 'completed' && styles.activeTabHeader]}
+            style={[styles.modernTab, activeTab === 'completed' && styles.modernTabActive]}
             onPress={() => scrollToTab('completed')}
+            activeOpacity={0.7}
           >
-            <View style={styles.tabHeaderContent}>
-              <Text style={[styles.tabHeaderText, activeTab === 'completed' && styles.activeTabHeaderText]}>
-                COMPLETED
-              </Text>
-              <Text style={[styles.tabCount, activeTab === 'completed' && styles.activeTabCount]}>
-                {completedReminders.length}
-              </Text>
-            </View>
+            <Text style={[styles.modernTabText, activeTab === 'completed' && styles.modernTabTextActive]}>
+              Completed
+            </Text>
+            {completedReminders.length > 0 && (
+              <View style={[styles.modernTabBadge, activeTab === 'completed' && styles.modernTabBadgeActive]}>
+                <Text style={[styles.modernTabBadgeText, activeTab === 'completed' && styles.modernTabBadgeTextActive]}>
+                  {completedReminders.length}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tabHeader, activeTab === 'deleted' && styles.activeTabHeader]}
+            style={[styles.modernTab, activeTab === 'deleted' && styles.modernTabActive]}
             onPress={() => scrollToTab('deleted')}
+            activeOpacity={0.7}
           >
-            <View style={styles.tabHeaderContent}>
-              <Text style={[styles.tabHeaderText, activeTab === 'deleted' && styles.activeTabHeaderText]}>
-                DELETED
-              </Text>
-              <Text style={[styles.tabCount, activeTab === 'deleted' && styles.activeTabCount]}>
-                {deletedReminders.length}
-              </Text>
-            </View>
+            <Text style={[styles.modernTabText, activeTab === 'deleted' && styles.modernTabTextActive]}>
+              Deleted
+            </Text>
+            {deletedReminders.length > 0 && (
+              <View style={[styles.modernTabBadge, activeTab === 'deleted' && styles.modernTabBadgeActive]}>
+                <Text style={[styles.modernTabBadgeText, activeTab === 'deleted' && styles.modernTabBadgeTextActive]}>
+                  {deletedReminders.length}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -3425,55 +3409,64 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
 
-  tabContainer: {
+  modernTabContainer: {
     backgroundColor: Material3Colors.light.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Material3Colors.light.outlineVariant,
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
-  tabScrollView: {
+  modernTabScrollView: {
     flexGrow: 0,
   },
-  tabScrollContent: {
+  modernTabContent: {
     paddingHorizontal: 24,
-    alignItems: 'center',
+    gap: 12,
   },
-  tabHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 6,
-    borderRadius: 0,
-    alignItems: 'center',
-    minWidth: 120,
-  },
-  tabHeaderContent: {
+  modernTab: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: Material3Colors.light.surfaceContainerHigh,
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  activeTabHeader: {
-    borderBottomWidth: 3,
-    borderBottomColor: Material3Colors.light.primary,
+  modernTabActive: {
+    backgroundColor: Material3Colors.light.primary,
+    borderColor: Material3Colors.light.primary,
+    elevation: 2,
+    shadowColor: Material3Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
-  tabHeaderText: {
+  modernTabText: {
     fontSize: 14,
-    fontWeight: '300',
-    color: Material3Colors.light.onSurfaceVariant,
-    letterSpacing: 0.5,
-  },
-  activeTabHeaderText: {
-    color: Material3Colors.light.primary,
-    fontWeight: '400',
-  },
-  tabCount: {
-    fontSize: 12,
     fontWeight: '600',
     color: Material3Colors.light.onSurfaceVariant,
-    opacity: 0.7,
   },
-  activeTabCount: {
-    color: Material3Colors.light.primary,
-    opacity: 1,
+  modernTabTextActive: {
+    color: Material3Colors.light.onPrimary,
+  },
+  modernTabBadge: {
+    backgroundColor: Material3Colors.light.surfaceContainerHighest,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modernTabBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  modernTabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Material3Colors.light.onSurfaceVariant,
+  },
+  modernTabBadgeTextActive: {
+    color: Material3Colors.light.onPrimary,
   },
 
   content: {
