@@ -95,10 +95,10 @@ const styles = StyleSheet.create({
   },
   option: {
     flex: 1,
-    padding: 10,
+    padding: 6,
     borderRadius: 8,
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
     flexDirection: 'column',
     justifyContent: 'center',

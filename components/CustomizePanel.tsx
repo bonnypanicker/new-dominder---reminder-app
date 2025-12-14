@@ -1143,10 +1143,10 @@ const styles = StyleSheet.create({
   },
   daysContainer: {
     marginTop: 8,
-    gap: 8,
+    gap: 2,
   },
   dailySection: {
-    gap: 8,
+    gap: 4,
   },
   dailyTimeRow: {
     flexDirection: 'row',
