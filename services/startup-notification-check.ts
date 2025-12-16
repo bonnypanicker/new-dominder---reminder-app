@@ -2,6 +2,7 @@ import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native'
 import { Platform } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { createNotificationConfig } from '../hooks/notification-service';
+import { calculateNextReminderDate } from './reminder-utils';
 
 /**
  * Service to check and trigger pending/missed notifications on app startup
@@ -14,7 +15,33 @@ import { createNotificationConfig } from '../hooks/notification-service';
 export async function checkAndTriggerPendingNotifications() {
   if (Platform.OS !== 'android') return;
 
+  const maintenanceId = 'maintenance-notification';
+
   try {
+    await notifee.createChannel({
+      id: 'alarm_reschedule_channel',
+      name: 'System Maintenance',
+      importance: AndroidImportance.LOW,
+      sound: undefined,
+      vibration: false,
+    });
+
+    await notifee.displayNotification({
+      id: maintenanceId,
+      title: 'Updating Reminders',
+      body: 'Rescheduling your alarms...',
+      android: {
+        channelId: 'alarm_reschedule_channel',
+        smallIcon: 'small_icon_noti',
+        importance: AndroidImportance.LOW,
+        ongoing: true,
+        autoCancel: false,
+        progress: {
+            indeterminate: true,
+        },
+      },
+    });
+
     console.log('[StartupCheck] Checking for pending notifications and rescheduling all active reminders...');
     
     const reminderService = require('./reminder-service');
@@ -51,7 +78,51 @@ export async function checkAndTriggerPendingNotifications() {
                          stateChanged = true;
                          // Clear native state
                          AlarmModule.clearCompletedAlarm(reminder.id);
-                         return { ...reminder, isCompleted: true, isActive: false };
+
+                         if (reminder.repeatType === 'none') {
+                             return { ...reminder, isCompleted: true, isActive: false };
+                         } else {
+                             // Handle repeating reminder
+                             const occurrenceCount = (reminder.occurrenceCount ?? 0) + 1;
+                             const calcContext = { ...reminder, occurrenceCount };
+                             const nextDate = calculateNextReminderDate(calcContext, new Date());
+                             
+                             if (nextDate) {
+                                 const yyyy = nextDate.getFullYear();
+                                 const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+                                 const dd = String(nextDate.getDate()).padStart(2, '0');
+                                 const dateStr = `${yyyy}-${mm}-${dd}`;
+                                 
+                                 const hh = String(nextDate.getHours()).padStart(2, '0');
+                                 const min = String(nextDate.getMinutes()).padStart(2, '0');
+                                 const timeStr = `${hh}:${min}`;
+                                 
+                                 console.log(`[StartupCheck] Syncing: Rescheduling repeating reminder ${reminder.id} to ${dateStr} ${timeStr}`);
+                                 
+                                 return {
+                                     ...reminder,
+                                     date: dateStr,
+                                     time: timeStr,
+                                     nextReminderDate: nextDate.toISOString(),
+                                     occurrenceCount,
+                                     isCompleted: false,
+                                     isActive: true,
+                                     snoozeUntil: undefined,
+                                     wasSnoozed: undefined,
+                                     lastTriggeredAt: new Date().toISOString()
+                                 };
+                             } else {
+                                 // Series ended
+                                 console.log(`[StartupCheck] Syncing: Repeating reminder ${reminder.id} series ended`);
+                                 return {
+                                     ...reminder,
+                                     isCompleted: true,
+                                     isActive: false,
+                                     occurrenceCount,
+                                     lastTriggeredAt: new Date().toISOString()
+                                 };
+                             }
+                         }
                     }
                     
                     // Check if snoozed natively
@@ -181,6 +252,8 @@ export async function checkAndTriggerPendingNotifications() {
     console.log('[StartupCheck] Completed pending notification check and rescheduling');
   } catch (error) {
     console.error('[StartupCheck] Error checking pending notifications:', error);
+  } finally {
+    await notifee.cancelNotification(maintenanceId);
   }
 }
 
@@ -338,4 +411,3 @@ function formatSmartDateTime(when: number): string {
     });
   }
 }
-

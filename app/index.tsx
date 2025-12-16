@@ -1151,64 +1151,54 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Modern Pill Tabs */}
-      <View style={styles.modernTabContainer}>
-        <ScrollView 
+      {/* Metro/Windows Phone 8 Style Tabs */}
+      <View>
+        <ScrollView
           ref={tabScrollRef}
-          horizontal 
+          horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.modernTabContent}
-          style={styles.modernTabScrollView}
+          style={styles.metroTabContainer}
+          contentContainerStyle={styles.metroTabContent}
+          decelerationRate="fast"
+          snapToInterval={undefined} // Let it flow naturally
         >
           <TouchableOpacity 
-            style={[styles.modernTab, activeTab === 'active' && styles.modernTabActive]}
+            style={styles.metroTab}
             onPress={() => scrollToTab('active')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.modernTabText, activeTab === 'active' && styles.modernTabTextActive]}>
-              Active
+            <Text style={[styles.metroTabText, activeTab === 'active' && styles.metroTabTextActive]}>
+              active reminders
             </Text>
-            {activeReminders.length > 0 && (
-              <View style={[styles.modernTabBadge, activeTab === 'active' && styles.modernTabBadgeActive]}>
-                <Text style={[styles.modernTabBadgeText, activeTab === 'active' && styles.modernTabBadgeTextActive]}>
-                  {activeReminders.length}
-                </Text>
-              </View>
-            )}
+            <Text style={[styles.metroTabCount, activeTab === 'active' && styles.metroTabCountActive]}>
+              {activeReminders.length}
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.modernTab, activeTab === 'completed' && styles.modernTabActive]}
+            style={styles.metroTab}
             onPress={() => scrollToTab('completed')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.modernTabText, activeTab === 'completed' && styles.modernTabTextActive]}>
-              Completed
+            <Text style={[styles.metroTabText, activeTab === 'completed' && styles.metroTabTextActive]}>
+              completed
             </Text>
-            {completedReminders.length > 0 && (
-              <View style={[styles.modernTabBadge, activeTab === 'completed' && styles.modernTabBadgeActive]}>
-                <Text style={[styles.modernTabBadgeText, activeTab === 'completed' && styles.modernTabBadgeTextActive]}>
-                  {completedReminders.length}
-                </Text>
-              </View>
-            )}
+            <Text style={[styles.metroTabCount, activeTab === 'completed' && styles.metroTabCountActive]}>
+              {completedReminders.length}
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.modernTab, activeTab === 'deleted' && styles.modernTabActive]}
+            style={styles.metroTab}
             onPress={() => scrollToTab('deleted')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.modernTabText, activeTab === 'deleted' && styles.modernTabTextActive]}>
-              Deleted
+            <Text style={[styles.metroTabText, activeTab === 'deleted' && styles.metroTabTextActive]}>
+              deleted
             </Text>
-            {deletedReminders.length > 0 && (
-              <View style={[styles.modernTabBadge, activeTab === 'deleted' && styles.modernTabBadgeActive]}>
-                <Text style={[styles.modernTabBadgeText, activeTab === 'deleted' && styles.modernTabBadgeTextActive]}>
-                  {deletedReminders.length}
-                </Text>
-              </View>
-            )}
+            <Text style={[styles.metroTabCount, activeTab === 'deleted' && styles.metroTabCountActive]}>
+              {deletedReminders.length}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -3409,65 +3399,49 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
 
-  modernTabContainer: {
+  metroTabContainer: {
     backgroundColor: Material3Colors.light.surface,
-    paddingVertical: 12,
   },
-  modernTabScrollView: {
-    flexGrow: 0,
-  },
-  modernTabContent: {
+  metroTabContent: {
     paddingHorizontal: 24,
-    gap: 12,
+    paddingTop: 0,
+    paddingBottom: 10,
+    alignItems: 'baseline',
+    gap: 24,
   },
-  modernTab: {
+  metroTab: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: Material3Colors.light.surfaceContainerHigh,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    alignItems: 'flex-start',
   },
-  modernTabActive: {
-    backgroundColor: Material3Colors.light.primary,
-    borderColor: Material3Colors.light.primary,
-    elevation: 2,
-    shadowColor: Material3Colors.light.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  modernTabText: {
-    fontSize: 14,
+  metroTabText: {
+    fontSize: 11,
     fontWeight: '600',
     color: Material3Colors.light.onSurfaceVariant,
+    opacity: 0.5,
+    textTransform: 'uppercase',
   },
-  modernTabTextActive: {
-    color: Material3Colors.light.onPrimary,
+  metroTabTextActive: {
+    fontSize: 17,
+    fontWeight: '300',
+    color: Material3Colors.light.primary,
+    opacity: 1,
+    letterSpacing: 0,
   },
-  modernTabBadge: {
-    backgroundColor: Material3Colors.light.surfaceContainerHighest,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-    minWidth: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modernTabBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  modernTabBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+  metroTabCount: {
+    fontSize: 9,
+    fontWeight: '600',
     color: Material3Colors.light.onSurfaceVariant,
+    marginLeft: 1,
+    marginTop: -2,
+    opacity: 0.7,
   },
-  modernTabBadgeTextActive: {
-    color: Material3Colors.light.onPrimary,
+  metroTabCountActive: {
+    color: Material3Colors.light.primary,
+    fontSize: 10,
+    marginTop: -3,
+    opacity: 1,
   },
+
 
   content: {
     flex: 1,
