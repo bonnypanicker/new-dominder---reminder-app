@@ -36,7 +36,8 @@ module.exports = function withAlarmManifest(config) {
       ...(config.modResults.manifest['uses-permission'] || []),
       { $: { 'android:name': 'android.permission.USE_FULL_SCREEN_INTENT' } },
       { $: { 'android:name': 'android.permission.POST_NOTIFICATIONS' } },
-      { $: { 'android:name': 'android.permission.SCHEDULE_EXACT_ALARM' } }
+      { $: { 'android:name': 'android.permission.SCHEDULE_EXACT_ALARM' } },
+      { $: { 'android:name': 'android.permission.USE_EXACT_ALARM' } }
     ];
 
     console.log('✅ AlarmActivity + permissions injected into manifest');
