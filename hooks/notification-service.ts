@@ -6,7 +6,7 @@ import notifee, {
   TimestampTrigger,
   AuthorizationStatus,
   AndroidNotificationSetting,
-  AndroidAlarmType,
+  AlarmType,
 } from '@notifee/react-native';
 import { Reminder } from '@/types/reminder';
 import { NativeModules, Platform } from 'react-native';
@@ -328,7 +328,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       timestamp: when,
       alarmManager: {
         allowWhileIdle: true, // Ensures notification fires even in Doze mode
-        type: exactAlarmEnabled ? AndroidAlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE : AndroidAlarmType.SET_AND_ALLOW_WHILE_IDLE,
+        type: exactAlarmEnabled ? AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE : AlarmType.SET_AND_ALLOW_WHILE_IDLE,
       },
     };
 
