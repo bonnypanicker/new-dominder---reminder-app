@@ -90,7 +90,6 @@ export default function HomeScreen() {
   const restoreReminder = useRestoreReminder();
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
-  const tabScrollRef = useRef<ScrollView>(null);
   const contentScrollRef = useRef<FlashList<any>>(null);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
   // Toast state removed - now using native Android toast
@@ -1152,16 +1151,8 @@ export default function HomeScreen() {
       </View>
 
       {/* Metro/Windows Phone 8 Style Tabs */}
-      <View>
-        <ScrollView
-          ref={tabScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.metroTabContainer}
-          contentContainerStyle={styles.metroTabContent}
-          decelerationRate="fast"
-          snapToInterval={undefined} // Let it flow naturally
-        >
+      <View style={styles.metroTabContainer}>
+        <View style={styles.metroTabContent}>
           <TouchableOpacity 
             style={styles.metroTab}
             onPress={() => scrollToTab('active')}
@@ -1200,7 +1191,7 @@ export default function HomeScreen() {
               {deletedReminders.length}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       </View>
 
       {isSelectionMode && (
@@ -3407,7 +3398,8 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 10,
     alignItems: 'baseline',
-    gap: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   metroTab: {
     flexDirection: 'row',
