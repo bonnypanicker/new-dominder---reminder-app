@@ -261,7 +261,6 @@ export async function checkAndTriggerPendingNotifications() {
  * Trigger notifications for pending reminders that should have fired
  */
 async function triggerPendingNotifications(reminders: Reminder[]) {
-  const { NativeModules } = require('react-native');
   const { AlarmModule } = NativeModules;
 
   for (const reminder of reminders) {
