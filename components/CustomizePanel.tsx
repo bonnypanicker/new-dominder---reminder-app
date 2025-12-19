@@ -271,13 +271,14 @@ export default function CustomizePanel({
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled={true}
       >
-      <View style={styles.repeatOptionsContainer}>
+      <View style={[styles.repeatOptionsContainer, { marginBottom: 8 * scaleFactor }]}>
         {repeatOptions.map((option) => (
           <TouchableOpacity
             key={option.value}
             style={[
               styles.repeatOption,
-              repeatType === option.value && styles.repeatOptionSelected
+              repeatType === option.value && styles.repeatOptionSelected,
+              { paddingVertical: 6 * scaleFactor }
             ]}
             onPress={() => onRepeatTypeChange(option.value)}
             testID={`repeat-${option.value}`}
@@ -285,7 +286,8 @@ export default function CustomizePanel({
             <Text 
               style={[
                 styles.repeatOptionText,
-                repeatType === option.value && styles.repeatOptionTextSelected
+                repeatType === option.value && styles.repeatOptionTextSelected,
+                { fontSize: 12 * scaleFactor }
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
@@ -298,9 +300,9 @@ export default function CustomizePanel({
       </View>
 
       {(repeatType === 'none' || repeatType === 'every') && (
-        <View style={[styles.dateSelectionContainer, repeatType === 'every' && { marginBottom: 8 }]}>
-          <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 8 }]}>
-            <Text style={styles.topRowLabel}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
+        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 8 * scaleFactor }]}>
+          <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 8 * scaleFactor }]}>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
             <View style={styles.menuWrapper}
               >
               <DropdownAnchor
@@ -341,23 +343,23 @@ export default function CustomizePanel({
       )}
 
       {repeatType === 'daily' && (
-        <View style={styles.daysContainer}>
+        <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
           <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={styles.dailySectionLabel}>Time</Text>
+            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Time</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
-                style={styles.menuButton}
+                style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
                 onPress={() => { onOpenTime?.(); }}
                 testID="daily-time-button"
               >
                 <Feather name="clock" size={16} color="#111827" />
-                <Text style={styles.menuButtonText}>{displayTime}</Text>
+                <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{displayTime}</Text>
                 <Feather name="chevron-down" size={16} color="#111827" />
               </TouchableOpacity>
             </View>
           </View>
           <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={styles.dailySectionLabel}>Ends</Text>
+            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
             <View style={styles.menuWrapper}>
               <UntilTypeButton
                 ref={untilAnchorRef}
@@ -369,43 +371,52 @@ export default function CustomizePanel({
             </View>
           </View>
           <View style={styles.dailySection}>
-            <Text style={styles.dailySectionLabel}>Days</Text>
-            <View style={styles.daysRow}>
-              {DAYS_OF_WEEK.map((day) => (
-                <TouchableOpacity
-                  key={day.value}
-                  style={[
-                    styles.dayButtonCompact,
-                    repeatDays.includes(day.value) && styles.dayButtonCompactSelected
-                  ]}
-                  onPress={() => toggleDay(day.value)}
-                  testID={`weekday-${day.value}`}
-                >
-                  <Text style={[
-                    styles.dayButtonCompactText,
-                    repeatDays.includes(day.value) && styles.dayButtonCompactTextSelected
-                  ]}>
-                    {day.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Days</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={{ paddingVertical: 2 }}
+              style={{ marginHorizontal: -4 }}
+            >
+              <View style={[styles.daysRow, { paddingHorizontal: 4 }]}>
+                {DAYS_OF_WEEK.map((day) => (
+                  <TouchableOpacity
+                    key={day.value}
+                    style={[
+                      styles.dayButtonCompact,
+                      repeatDays.includes(day.value) && styles.dayButtonCompactSelected,
+                      { minWidth: 40 * scaleFactor, width: 40 * scaleFactor, height: 40 * scaleFactor }
+                    ]}
+                    onPress={() => toggleDay(day.value)}
+                    testID={`weekday-${day.value}`}
+                  >
+                    <Text style={[
+                      styles.dayButtonCompactText,
+                      repeatDays.includes(day.value) && styles.dayButtonCompactTextSelected,
+                      { fontSize: 14 * scaleFactor }
+                    ]}>
+                      {day.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         </View>
       )}
 
       {repeatType === 'monthly' && (
-        <View style={styles.dateSelectionContainer}>
+        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
           <View style={styles.topRow}>
-            <Text style={styles.topRowLabel}>Repeats on</Text>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 testID="monthly-open-calendar"
-                style={styles.menuButton}
+                style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
                 onPress={() => { setMonthlyCalendarOpen(true); }}
               >
                 <MaterialIcons name="calendar-today" size={16} color="#111827" />
-                <Text style={styles.menuButtonText}>
+                <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>
                   Day {monthlyDate} • {displayTime}
                 </Text>
                 <Feather name="chevron-down" size={16} color="#111827" />
@@ -416,17 +427,17 @@ export default function CustomizePanel({
       )}
 
       {repeatType === 'yearly' && (
-        <View style={styles.dateSelectionContainer}>
+        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
           <View style={styles.topRow}>
-            <Text style={styles.topRowLabel}>Repeats on</Text>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 testID="yearly-open-calendar"
-                style={styles.menuButton}
+                style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
                 onPress={() => { setYearlyCalendarOpen(true); }}
               >
                 <MaterialIcons name="calendar-today" size={16} color="#111827" />
-                <Text style={styles.menuButtonText}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
+                <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
                 <Feather name="chevron-down" size={16} color="#111827" />
               </TouchableOpacity>
             </View>
@@ -435,9 +446,9 @@ export default function CustomizePanel({
       )}
 
       {repeatType !== 'none' && repeatType !== 'daily' && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 0 }]}>
+        <View style={[styles.dateSelectionContainer, { marginTop: 0, marginBottom: 12 * scaleFactor }]}>
           <View style={styles.topRow}>
-            <Text style={styles.topRowLabel}>Ends</Text>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
             <View style={styles.menuWrapper}>
               <UntilTypeButton
                 ref={untilAnchorRef}
@@ -1045,8 +1056,8 @@ const styles = StyleSheet.create({
     height: 0,
   },
   dateSelectionContainer: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 12,
+    marginBottom: 12,
   },
   topRow: {
     flexDirection: 'row',
@@ -1120,7 +1131,7 @@ const styles = StyleSheet.create({
   repeatOption: {
     flex: 1,
     paddingHorizontal: 2,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
@@ -1142,11 +1153,11 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   daysContainer: {
-    marginTop: 8,
+    marginTop: 6,
     gap: 2,
   },
   dailySection: {
-    gap: 4,
+    gap: 2,
   },
   dailyTimeRow: {
     flexDirection: 'row',

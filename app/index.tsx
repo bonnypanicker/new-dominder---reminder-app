@@ -1785,26 +1785,37 @@ function CreateReminderPopup({
 
 
 
+  const [isLandscape, setIsLandscape] = useState<boolean>(() => {
+    const { width, height } = Dimensions.get('screen');
+    return width > height;
+  });
+
   useEffect(() => {
     const updateHeight = () => {
       // Use screen height so the keyboard doesn't shrink the popup and push buttons up
       const winH = Dimensions.get('screen').height;
+      const winW = Dimensions.get('screen').width;
+      setIsLandscape(winW > winH);
+
       const paddingVertical = 48;
-      const target = 470;
-      const computed = Math.min(target, Math.max(380, winH - paddingVertical));
+      const target = 420;
+      const computed = Math.min(target, Math.max(340, winH - paddingVertical));
       setPopupHeight(computed);
       
       // Calculate scale factor for small screens
-      // Base height threshold: 700px
-      // Scale down everything proportionally on smaller screens
-      const baseHeight = 700;
-      if (winH < baseHeight) {
-        // Scale from 0.75 to 1.0 based on screen height
-        const scale = Math.max(0.75, Math.min(1, winH / baseHeight));
-        setScaleFactor(scale);
-      } else {
-        setScaleFactor(1);
-      }
+      // Base height threshold: 850px to trigger scaling sooner on modern phones
+      // Scale down everything proportionally on smaller screens to prevent scrolling
+      const baseHeight = 850;
+      const baseWidth = 400;
+      
+      const heightScale = winH < baseHeight ? winH / baseHeight : 1;
+      const widthScale = winW < baseWidth ? winW / baseWidth : 1;
+      
+      // Use the smaller of the two scales to ensure fit
+      const scale = Math.min(heightScale, widthScale, 1);
+      
+      // Allow scaling down to 0.6 to prevent scrolling
+      setScaleFactor(Math.max(0.6, scale));
     };
     updateHeight();
     const sub = Dimensions.addEventListener('change', updateHeight);
@@ -1849,18 +1860,18 @@ function CreateReminderPopup({
     },
     section: {
       ...createPopupStyles.section,
-      marginBottom: 10 * scaleFactor,
+      marginBottom: 6 * scaleFactor,
     },
     titleInput: {
       ...createPopupStyles.titleInput,
       borderRadius: 8 * scaleFactor,
-      padding: 10 * scaleFactor,
+      padding: 8 * scaleFactor,
       fontSize: 16 * scaleFactor,
     },
     buttonContainer: {
       ...createPopupStyles.buttonContainer,
-      marginTop: 8 * scaleFactor,
-      paddingTop: 8 * scaleFactor,
+      marginTop: 6 * scaleFactor,
+      paddingTop: 6 * scaleFactor,
     },
     cancelButton: {
       ...createPopupStyles.cancelButton,
@@ -1898,6 +1909,10 @@ function CreateReminderPopup({
       presentationStyle="overFullScreen"
       statusBarTranslucent
     >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
         <Pressable 
           style={createPopupStyles.overlay}
           onPress={() => {
@@ -1910,17 +1925,18 @@ function CreateReminderPopup({
             style={[
               scaledStyles.popup, 
               { 
-                height: popupHeight,
                 opacity: isReady ? 1 : 0,
+                maxHeight: '85%',
+                minHeight: isLandscape ? undefined : popupHeight
               }
             ]}
           >
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 4, flexGrow: 1 }}
-            style={{ maxHeight: '100%' }}
+            contentContainerStyle={{ paddingBottom: 4, flexGrow: isLandscape ? 1 : 0 }}
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="always"
+            scrollEnabled={true}
           >
             <Pressable 
               style={{ flex: 1 }}
@@ -2028,6 +2044,7 @@ function CreateReminderPopup({
           </View>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
       
       <TimeSelector
         visible={showTimeSelector}
@@ -2059,8 +2076,8 @@ const createPopupStyles = StyleSheet.create({
   popup: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
-    paddingBottom: 16,
+    padding: 12,
+    paddingBottom: 12,
     width: '100%',
     maxWidth: 480,
     maxHeight: '90%',
@@ -2075,14 +2092,14 @@ const createPopupStyles = StyleSheet.create({
   mainContent: {
     flex: 1,
     zIndex: 1,
-    paddingBottom: 4,
+    paddingBottom: 2,
   },
   customizeContent: {
     zIndex: 20,
     overflow: 'visible',
   },
   section: {
-    marginBottom: 10,
+    marginBottom: 8,
     overflow: 'visible',
     zIndex: 10,
   },
