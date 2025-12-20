@@ -1,5 +1,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { notificationService } from '@/hooks/notification-service';
 
@@ -44,6 +45,7 @@ export async function addReminder(newReminder: Reminder): Promise<Reminder> {
     const updated = [...reminders, newReminder];
     
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    DeviceEventEmitter.emit('remindersChanged');
     return newReminder;
   });
 }
@@ -81,6 +83,7 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
     const updated = reminders.map(r => r.id === updatedReminder.id ? cleanedReminder : r);
     
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    DeviceEventEmitter.emit('remindersChanged');
   });
 }
 
@@ -88,6 +91,7 @@ export async function saveReminders(reminders: Reminder[]): Promise<void> {
   return serializeAsyncStorageWrite(async () => {
     console.log(`[ReminderService] Saving all ${reminders.length} reminders`);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reminders));
+    DeviceEventEmitter.emit('remindersChanged');
   });
 }
 
@@ -109,6 +113,7 @@ export async function deleteReminder(id: string): Promise<void> {
           : r
       );
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      DeviceEventEmitter.emit('remindersChanged');
     }
   });
 }
@@ -127,6 +132,7 @@ export async function permanentlyDeleteReminder(id: string): Promise<void> {
     
     const updated = reminders.filter(r => r.id !== id);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    DeviceEventEmitter.emit('remindersChanged');
   });
 }
 
@@ -155,6 +161,7 @@ export async function restoreReminder(id: string): Promise<void> {
           isActive: true
         });
       }
+      DeviceEventEmitter.emit('remindersChanged');
     }
   });
 }

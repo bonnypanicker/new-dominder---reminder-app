@@ -370,6 +370,10 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
     
     // Cancel displayed notifications (notifications already showing in notification center)
     await notifee.cancelDisplayedNotification(`rem-${reminderId}`);
+
+    // Cancel missed notification (if any)
+    await notifee.cancelNotification(`missed-${reminderId}`);
+    await notifee.cancelDisplayedNotification(`missed-${reminderId}`);
     
     // Cancel native alarms
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
