@@ -3423,7 +3423,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   metroTabText: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '600',
     color: Material3Colors.light.onSurfaceVariant,
     opacity: 0.5,

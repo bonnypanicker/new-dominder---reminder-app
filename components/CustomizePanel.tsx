@@ -372,35 +372,28 @@ export default function CustomizePanel({
           </View>
           <View style={styles.dailySection}>
             <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Days</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={{ paddingVertical: 2 }}
-              style={{ marginHorizontal: -4 }}
-            >
-              <View style={[styles.daysRow, { paddingHorizontal: 4 }]}>
-                {DAYS_OF_WEEK.map((day) => (
-                  <TouchableOpacity
-                    key={day.value}
-                    style={[
-                      styles.dayButtonCompact,
-                      repeatDays.includes(day.value) && styles.dayButtonCompactSelected,
-                      { minWidth: 40 * scaleFactor, width: 40 * scaleFactor, height: 40 * scaleFactor }
-                    ]}
-                    onPress={() => toggleDay(day.value)}
-                    testID={`weekday-${day.value}`}
-                  >
-                    <Text style={[
-                      styles.dayButtonCompactText,
-                      repeatDays.includes(day.value) && styles.dayButtonCompactTextSelected,
-                      { fontSize: 14 * scaleFactor }
-                    ]}>
-                      {day.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
+            <View style={[styles.daysRow, { marginHorizontal: 0, paddingHorizontal: 0 }]}>
+              {DAYS_OF_WEEK.map((day) => (
+                <TouchableOpacity
+                  key={day.value}
+                  style={[
+                    styles.dayButtonCompact,
+                    repeatDays.includes(day.value) && styles.dayButtonCompactSelected,
+                    { height: 40 * scaleFactor } // Fixed height, width is flex: 1
+                  ]}
+                  onPress={() => toggleDay(day.value)}
+                  testID={`weekday-${day.value}`}
+                >
+                  <Text style={[
+                    styles.dayButtonCompactText,
+                    repeatDays.includes(day.value) && styles.dayButtonCompactTextSelected,
+                    { fontSize: 14 * scaleFactor }
+                  ]}>
+                    {day.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       )}
@@ -1171,8 +1164,10 @@ const styles = StyleSheet.create({
   },
   daysRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
     alignItems: 'stretch',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   everyRow: {
     flexDirection: 'row',
@@ -1301,7 +1296,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 40,
+    minWidth: 0, // Allow shrinking
   },
   dayButtonCompactSelected: {
     backgroundColor: '#1E3A8A',
