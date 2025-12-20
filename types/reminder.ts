@@ -1,48 +1,54 @@
-export type Priority = 'high' | 'medium' | 'low';
-
-export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'every' | 'custom';
+export type RepeatType = 'none' | 'daily' | 'monthly' | 'yearly' | 'every' | 'weekly' | 'custom';
 
 export type EveryUnit = 'minutes' | 'hours' | 'days';
 
-export interface Reminder {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  date: string;
-  priority: Priority;
-  isActive: boolean;
-  isPaused?: boolean;
-  repeatType: RepeatType;
-  repeatDays?: number[];
-  customDates?: string[];
-  monthlyDay?: number;
-  everyInterval?: { value: number; unit: EveryUnit };
-  isCompleted: boolean;
-  isExpired?: boolean;
-  isDeleted?: boolean;
-  snoozeUntil?: string;
-  pauseUntilDate?: string;
-  createdAt: string;
-  lastTriggeredAt?: string;
-  nextReminderDate?: string;
-  notificationId?: string;
-  ringerSound?: string;
-  
-  // Until feature fields
-  untilType?: 'none' | 'endsAt' | 'count';
-  untilDate?: string;
-  untilTime?: string;
-  untilIsAM?: boolean;
-  untilCount?: number;
-  occurrenceCount?: number;
-  // Internal flags to prevent infinite loops
-  snoozeClearing?: boolean;
-  notificationUpdating?: boolean;
-  wasSnoozed?: boolean;
-}
+export type Priority = 'high' | 'medium' | 'low';
+
+export type UntilType = 'none' | 'endsAt' | 'count';
 
 export interface SnoozeOption {
   label: string;
   minutes: number;
+}
+
+export interface Reminder {
+  id: string;
+  title: string;
+  priority: Priority;
+  date: string;
+  time: string;
+  repeatType: RepeatType;
+  repeatDays?: number[];
+  monthlyDay?: number;
+  everyInterval?: {
+    value: number;
+    unit: EveryUnit;
+  };
+  untilType?: UntilType;
+  untilDate?: string;
+  untilTime?: string;
+  untilCount?: number;
+  nextReminderDate?: string;
+  isCompleted?: boolean;
+  isDeleted?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastTriggeredAt?: string;
+  occurrenceCount?: number;
+  snoozeUntil?: string;
+  
+  // Extended fields
+  description?: string;
+  isActive?: boolean;
+  isExpired?: boolean;
+  isPaused?: boolean;
+  pauseUntilDate?: string;
+  wasSnoozed?: boolean;
+  notificationId?: string;
+  untilIsAM?: boolean;
+  ringerSound?: string;
+  
+  // Transient fields
+  snoozeClearing?: boolean;
+  notificationUpdating?: boolean;
 }

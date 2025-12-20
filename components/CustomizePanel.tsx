@@ -300,10 +300,11 @@ export default function CustomizePanel({
       </View>
 
       {(repeatType === 'none' || repeatType === 'every') && (
-        <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
-            <View style={styles.menuWrapper}>
+        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 8 * scaleFactor }]}>
+          <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 8 * scaleFactor }]}>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
+            <View style={styles.menuWrapper}
+              >
               <DropdownAnchor
                 ref={dateAnchorRef}
                 label={`${formattedSelectedDate} • ${displayTime}`}
@@ -312,48 +313,31 @@ export default function CustomizePanel({
                 onToggle={() => setDropdownOpen(!dropdownOpen)}
                 onMeasure={(coords) => coords && handleDropdownOpen(coords)}
               />
+
             </View>
           </View>
 
           {repeatType === 'every' && (
-            <>
-              <View style={[styles.dailySection, styles.dailyTimeRow]}>
-                <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Repeats every</Text>
-                <View style={styles.menuWrapper}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TextInput
-                      style={styles.everyInput}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      defaultValue={String((everyValue ?? 1))}
-                      onChangeText={(txt) => {
-                        const num = parseInt(txt.replace(/\D/g, '') || '0', 10);
-                        onEveryChange?.(Math.min(99, Math.max(1, num)), everyUnit ?? 'hours');
-                      }}
-                      testID="every-value-input"
-                    />
-                    <UnitDropdownButton
-                      ref={unitAnchorRef}
-                      unit={everyUnit ?? 'hours'}
-                      onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
-                      onOpenDropdown={handleUnitDropdownOpen}
-                    />
-                  </View>
-                </View>
-              </View>
-              <View style={[styles.dailySection, styles.dailyTimeRow]}>
-                <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
-                <View style={styles.menuWrapper}>
-                  <UntilTypeButton
-                    ref={untilAnchorRef}
-                    untilType={(untilType ?? 'none') as UntilType}
-                    getLabel={getUntilLabel}
-                    valueLabel={untilValueLabel}
-                    onOpenDropdown={handleUntilDropdownOpen}
-                  />
-                </View>
-              </View>
-            </>
+            <View style={styles.everyRow}>
+              <Text style={styles.everyText}>Repeats every</Text>
+              <TextInput
+                style={styles.everyInput}
+                keyboardType="number-pad"
+                maxLength={2}
+                defaultValue={String((everyValue ?? 1))}
+                onChangeText={(txt) => {
+                  const num = parseInt(txt.replace(/\D/g, '') || '0', 10);
+                  onEveryChange?.(Math.min(99, Math.max(1, num)), everyUnit ?? 'hours');
+                }}
+                testID="every-value-input"
+              />
+              <UnitDropdownButton
+                ref={unitAnchorRef}
+                unit={everyUnit ?? 'hours'}
+                onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
+                onOpenDropdown={handleUnitDropdownOpen}
+              />
+            </View>
           )}
         </View>
       )}
@@ -415,9 +399,9 @@ export default function CustomizePanel({
       )}
 
       {repeatType === 'monthly' && (
-        <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
+        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
+          <View style={styles.topRow}>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 testID="monthly-open-calendar"
@@ -432,25 +416,13 @@ export default function CustomizePanel({
               </TouchableOpacity>
             </View>
           </View>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
-            <View style={styles.menuWrapper}>
-              <UntilTypeButton
-                ref={untilAnchorRef}
-                untilType={(untilType ?? 'none') as UntilType}
-                getLabel={getUntilLabel}
-                valueLabel={untilValueLabel}
-                onOpenDropdown={handleUntilDropdownOpen}
-              />
-            </View>
-          </View>
         </View>
       )}
 
       {repeatType === 'yearly' && (
-        <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
+        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
+          <View style={styles.topRow}>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
             <View style={styles.menuWrapper}>
               <TouchableOpacity
                 testID="yearly-open-calendar"
@@ -463,8 +435,13 @@ export default function CustomizePanel({
               </TouchableOpacity>
             </View>
           </View>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
+        </View>
+      )}
+
+      {repeatType !== 'none' && repeatType !== 'daily' && (
+        <View style={[styles.dateSelectionContainer, { marginTop: 0, marginBottom: 12 * scaleFactor }]}>
+          <View style={styles.topRow}>
+            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
             <View style={styles.menuWrapper}>
               <UntilTypeButton
                 ref={untilAnchorRef}
@@ -1070,6 +1047,23 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 0,
     height: 0,
+  },
+  dateSelectionContainer: {
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    position: 'relative',
+    zIndex: 30,
+    overflow: 'visible',
+  },
+  topRowLabel: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '600',
   },
   menuWrapper: {
     position: 'relative',
