@@ -1,5 +1,5 @@
 import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native';
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { createNotificationConfig } from '../hooks/notification-service';
 import { calculateNextReminderDate } from './reminder-utils';
@@ -53,7 +53,6 @@ export async function checkAndTriggerPendingNotifications() {
     }
 
     // --- NEW: Sync native state (snooze/completed) ---
-    const { NativeModules } = require('react-native');
     const { AlarmModule } = NativeModules;
     
     if (AlarmModule) {
