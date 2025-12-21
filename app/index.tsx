@@ -1801,7 +1801,7 @@ function CreateReminderPopup({
       setIsLandscape(isLand);
 
       const paddingVertical = 48;
-      const target = 480;
+      const target = 430;
       const computed = Math.min(target, Math.max(340, winH - paddingVertical));
       setPopupHeight(computed);
       
