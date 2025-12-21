@@ -1293,7 +1293,7 @@ export default function HomeScreen() {
               <Clock size={64} color={Material3Colors.light.outline} />
               <Text style={styles.emptyTitle}>No Active Reminders</Text>
               <Text style={styles.emptyDescription}>
-                Tap the Create Alarm button to create your first reminder
+                Tap (+) button to create a reminder
               </Text>
             </>
           ) : activeTab === 'completed' ? (
