@@ -4,6 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
 import { calculateNextReminderDate } from '@/services/reminder-utils';
@@ -15,6 +16,7 @@ import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel, { CalendarModal } from '@/components/CustomizePanel';
 import { showToast } from '@/utils/toast';
 import SwipeableRow from '@/components/SwipeableRow';
+import OnboardingFlow from '@/components/OnboardingFlow';
 
 // Icon components (declared after all imports to satisfy import/first)
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -30,10 +32,13 @@ const X = (props: any) => <Feather name="x" {...props} />;
 const Square = (props: any) => <Feather name="square" {...props} />;
 const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
+const HelpCircle = (props: any) => <Feather name="help-circle" {...props} />;
 const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+const ONBOARDING_STORAGE_KEY = 'dominder_onboarding_completed';
 
 const debouncedUpdate = (callback: () => void, delay: number = 50) => {
   if (updateTimeoutId) {
@@ -89,6 +94,7 @@ export default function HomeScreen() {
   const permanentlyDeleteReminder = usePermanentlyDeleteReminder();
   const restoreReminder = useRestoreReminder();
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
   const contentScrollRef = useRef<FlashList<any>>(null);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
@@ -165,6 +171,37 @@ export default function HomeScreen() {
 
   const scrollToTab = useCallback((tab: 'active' | 'completed' | 'deleted') => {
     setActiveTab(tab);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (!alive) return;
+        if (stored !== 'true') {
+          setShowOnboarding(true);
+        }
+      } catch {
+        if (!alive) return;
+        setShowOnboarding(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const completeOnboarding = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
+    } catch {}
+    setShowOnboarding(false);
+  }, []);
+
+  const openOnboardingPreview = useCallback(() => {
+    setShowCreatePopup(false);
+    setShowOnboarding(true);
   }, []);
 
 
@@ -1142,12 +1179,14 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>DoMinder</Text>
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => router.push('/settings' as any)}
-        >
-          <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
+            <HelpCircle size={20} color={Material3Colors.light.onSurfaceVariant} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings' as any)}>
+            <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Metro/Windows Phone 8 Style Tabs */}
@@ -1272,7 +1311,7 @@ export default function HomeScreen() {
         estimatedItemSize={120}
         keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!showCreatePopup}
+        scrollEnabled={!showCreatePopup && !showOnboarding}
         ItemSeparatorComponent={() => null}
         contentContainerStyle={{
           paddingBottom: 100,
@@ -1696,6 +1735,7 @@ export default function HomeScreen() {
       hideYear={false}
       title="Pause Until"
     />
+    <OnboardingFlow visible={showOnboarding} onSkip={completeOnboarding} onComplete={completeOnboarding} />
     </>
   );
 }
@@ -3383,6 +3423,11 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: Material3Colors.light.onSurface,
     letterSpacing: 0,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   settingsButton: {
     width: 40,
