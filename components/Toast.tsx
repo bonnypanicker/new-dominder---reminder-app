@@ -23,6 +23,16 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
   const translateY = useSharedValue(-100);
   const [isReady, setIsReady] = useState(false);
 
+  const hideToast = React.useCallback(() => {
+    console.log('[Toast] hide');
+    opacity.value = withTiming(0, { duration: 200 });
+    translateY.value = withTiming(-100, { duration: 200 }, () => {
+      if (onHide) {
+        runOnJS(onHide)();
+      }
+    });
+  }, [onHide, opacity, translateY]);
+
   useEffect(() => {
     if (visible) {
       console.log('[Toast] show');
@@ -50,17 +60,7 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
     } else {
       setIsReady(false);
     }
-  }, [visible, duration]);
-
-  const hideToast = () => {
-    console.log('[Toast] hide');
-    opacity.value = withTiming(0, { duration: 200 });
-    translateY.value = withTiming(-100, { duration: 200 }, () => {
-      if (onHide) {
-        runOnJS(onHide)();
-      }
-    });
-  };
+  }, [visible, duration, hideToast, opacity, translateY]);
 
   const backgroundColor = type === 'error' 
     ? Material3Colors.light.errorContainer

@@ -2073,7 +2073,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
         setContainerOffset({ x, y, width, height });
       });
     } catch {}
-  }, [visible, containerRef?.current]);
+  }, [visible, containerRef]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
@@ -2141,7 +2141,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     }
 
     return () => { cancelled = true; };
-  }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor, hideTomorrow]);
+  }, [visible, anchorRef, containerRef, containerX, containerY, containerW, anchor, hideTomorrow]);
 
   const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
   // Force align near right border of the container (easy way)
@@ -2255,7 +2255,7 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
         setContainerOffset({ x, y, width, height });
       });
     } catch {}
-  }, [visible]);
+  }, [visible, containerRef]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
@@ -2323,7 +2323,7 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
     }
 
     return () => { cancelled = true; };
-  }, [visible, anchorRef, containerRef, anchor, containerOffset]);
+  }, [visible, anchorRef, containerRef, anchor, containerOffset, containerX, containerY, containerW]);
 
   const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
   const left = computedPos?.left ?? (anchor && typeof anchor.x === 'number' && typeof anchor.width === 'number' ? Math.max(8, Math.min((anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2), containerW - dropdownWidth - 8)) : 8);
@@ -2412,7 +2412,7 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
         setContainerOffset({ x, y, width, height });
       });
     } catch {}
-  }, [visible]);
+  }, [visible, containerRef]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
@@ -2470,7 +2470,7 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
     }
 
     return () => { cancelled = true; };
-  }, [visible, anchorRef?.current, containerRef?.current, containerX, containerY, containerW, anchor]);
+  }, [visible, anchorRef, containerRef, containerX, containerY, containerW, anchor]);
 
   const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
   const left = Math.max(8, containerW - dropdownWidth - (Platform.OS === 'android' ? 24 : 8));
