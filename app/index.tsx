@@ -1180,9 +1180,11 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>DoMinder</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
-            <HelpCircle size={20} color={Material3Colors.light.onSurfaceVariant} />
-          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+            <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
+              <HelpCircle size={20} color={Material3Colors.light.onSurfaceVariant} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings' as any)}>
             <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
           </TouchableOpacity>
