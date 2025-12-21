@@ -38,6 +38,7 @@ interface CustomizePanelProps {
   onDropdownStateChange?: (hasOpenDropdown: boolean) => void;
   // Scale factor for responsive sizing on small screens
   scaleFactor?: number;
+  isLandscape?: boolean;
 }
 
 export default function CustomizePanel({
@@ -63,6 +64,7 @@ export default function CustomizePanel({
   onOpenUntilTime,
   onDropdownStateChange,
   scaleFactor = 1,
+  isLandscape = false,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const dateAnchorRef = useRef<View>(null);
@@ -372,14 +374,19 @@ export default function CustomizePanel({
           </View>
           <View style={styles.dailySection}>
             <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Days</Text>
-            <View style={[styles.daysRow, { marginHorizontal: 0, paddingHorizontal: 0 }]}>
+            <View style={[
+              styles.daysRow, 
+              { marginHorizontal: 0, paddingHorizontal: 0 },
+              isLandscape && { justifyContent: 'center' }
+            ]}>
               {DAYS_OF_WEEK.map((day) => (
                 <TouchableOpacity
                   key={day.value}
                   style={[
                     styles.dayButtonCompact,
                     repeatDays.includes(day.value) && styles.dayButtonCompactSelected,
-                    { height: 40 * scaleFactor } // Fixed height, width is flex: 1
+                    { height: 40 * scaleFactor }, // Fixed height
+                    isLandscape && { flex: 0, width: 40 * scaleFactor, marginHorizontal: 2 } // Fixed width in landscape to prevent stretching
                   ]}
                   onPress={() => toggleDay(day.value)}
                   testID={`weekday-${day.value}`}

@@ -1795,27 +1795,33 @@ function CreateReminderPopup({
       // Use screen height so the keyboard doesn't shrink the popup and push buttons up
       const winH = Dimensions.get('screen').height;
       const winW = Dimensions.get('screen').width;
-      setIsLandscape(winW > winH);
+      const isLand = winW > winH;
+      setIsLandscape(isLand);
 
       const paddingVertical = 48;
       const target = 420;
       const computed = Math.min(target, Math.max(340, winH - paddingVertical));
       setPopupHeight(computed);
       
-      // Calculate scale factor for small screens
-      // Base height threshold: 850px to trigger scaling sooner on modern phones
-      // Scale down everything proportionally on smaller screens to prevent scrolling
-      const baseHeight = 850;
-      const baseWidth = 400;
-      
-      const heightScale = winH < baseHeight ? winH / baseHeight : 1;
-      const widthScale = winW < baseWidth ? winW / baseWidth : 1;
-      
-      // Use the smaller of the two scales to ensure fit
-      const scale = Math.min(heightScale, widthScale, 1);
-      
-      // Allow scaling down to 0.6 to prevent scrolling
-      setScaleFactor(Math.max(0.6, scale));
+      if (isLand) {
+        // In landscape, don't scale down to fit height, allow scrolling
+        setScaleFactor(1);
+      } else {
+        // Calculate scale factor for small screens
+        // Base height threshold: 850px to trigger scaling sooner on modern phones
+        // Scale down everything proportionally on smaller screens to prevent scrolling
+        const baseHeight = 850;
+        const baseWidth = 400;
+        
+        const heightScale = winH < baseHeight ? winH / baseHeight : 1;
+        const widthScale = winW < baseWidth ? winW / baseWidth : 1;
+        
+        // Use the smaller of the two scales to ensure fit
+        const scale = Math.min(heightScale, widthScale, 1);
+        
+        // Allow scaling down to 0.6 to prevent scrolling
+        setScaleFactor(Math.max(0.6, scale));
+      }
     };
     updateHeight();
     const sub = Dimensions.addEventListener('change', updateHeight);
@@ -1934,6 +1940,7 @@ function CreateReminderPopup({
           <ScrollView 
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 4, flexGrow: isLandscape ? 1 : 0 }}
+            style={{ flexShrink: 1 }}
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="always"
             scrollEnabled={true}
@@ -2011,6 +2018,7 @@ function CreateReminderPopup({
                   onOpenUntilTime={onOpenUntilTime}
                   onDropdownStateChange={() => {}}
                   scaleFactor={scaleFactor}
+                  isLandscape={isLandscape}
                 />
               </View>
               
