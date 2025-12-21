@@ -517,6 +517,7 @@ export async function scheduleNotification(input: {
     isCompleted: input.isCompleted,
     isExpired: input.isExpired ?? false,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   await scheduleReminderByModel(reminder);
   return `rem-${reminder.id}`;

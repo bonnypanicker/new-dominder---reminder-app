@@ -1192,6 +1192,7 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        <View style={styles.metroTabDivider} />
       </View>
 
       {isSelectionMode && (
@@ -1566,6 +1567,7 @@ export default function HomeScreen() {
           const newReminder: Reminder = {
             id: Date.now().toString(),
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             title: title.trim(),
             description: '',
             time: finalTime,
@@ -1799,7 +1801,7 @@ function CreateReminderPopup({
       setIsLandscape(isLand);
 
       const paddingVertical = 48;
-      const target = 420;
+      const target = 480;
       const computed = Math.min(target, Math.max(340, winH - paddingVertical));
       setPopupHeight(computed);
       
@@ -1990,7 +1992,7 @@ function CreateReminderPopup({
                 />
               </View>
               
-              <View style={scaledStyles.customizeContent}> 
+              <View style={[scaledStyles.customizeContent, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}> 
                 <CustomizePanel
                   repeatType={repeatType}
                   repeatDays={repeatDays}
@@ -3457,6 +3459,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: -3,
     opacity: 1,
+  },
+  metroTabDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Material3Colors.light.outlineVariant,
+    opacity: 0.7,
   },
 
 
