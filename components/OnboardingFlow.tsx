@@ -126,8 +126,8 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     () => [
       {
         key: 'fast',
-        title: 'Super Fast Reminder Setup',
-        body: 'Set reminders in seconds with our intuitive time selector - faster than typing!',
+        title: 'Quick-Set Reminders',
+        body: 'Experience a smarter way to schedule reminders.',
         render: () => (
           <Image
             source={require('../assets/images/undraw_completed-tasks_1j9z.png')}
@@ -139,7 +139,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       {
         key: 'modes',
         title: 'Smart Notification Modes',
-        body: 'Choose how you want to be notified for different situations',
+        body: 'Standard Mode – Regular notification alerts\nSilent Mode – Gentle notifications without sound\nRinger Mode – Full-screen reminder with loud alert so you can’t miss it',
         render: () => (
           <NotificationModesIllustration
             accent={colors.primary}
@@ -152,7 +152,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       {
         key: 'flex',
         title: 'Flexible Reminder Management',
-        body: 'Pause reminders or set smart repeats for complete control',
+        body: 'Pause reminders or set smart repeats for complete control.\n\nLong-press pause button in the daily reminders to pause until a selected date. Your reminders will auto-resume afterwards.\n\nMultiple repeat types: Daily, Monthly, Yearly, Every.\nSet repeating reminders with number of occurrences.',
         render: () => (
           <FlexManagementIllustration
             accent={colors.primary}
@@ -161,7 +161,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
             onSurface={colors.onSurface}
           />
         ),
-      },
+      }
     ],
     [colors.onSurface, colors.outlineVariant, colors.primary, colors.surfaceVariant]
   );
@@ -240,7 +240,38 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
               <View key={p.key} style={[styles.panel, { width: winW }]}>
                 <View style={styles.illustrationWrap}>{p.render()}</View>
                 <Text style={[styles.title, { color: colors.onSurface }]}>{p.title}</Text>
-                <Text style={[styles.body, { color: colors.onSurfaceVariant }]}>{p.body}</Text>
+                {p.key === 'modes' ? (
+                  <View style={{ width: '100%', maxWidth: 340 }}>
+                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Standard Mode</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Silent Mode</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Gentle notifications without sound</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row' }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Ringer Mode</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can’t miss it</Text>
+                    </View>
+                  </View>
+                ) : p.key === 'flex' ? (
+                  <View style={{ width: '100%', maxWidth: 340 }}>
+                    <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>
+                      Pause reminders or set smart repeats for complete control.
+                    </Text>
+                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Long-press pause button to pause until a selected date. Auto-resumes afterwards.</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row' }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Multiple repeat types: Daily, Monthly, Yearly, Every. Set recurring reminders with ease.</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={[styles.body, { color: colors.onSurfaceVariant }]}>{p.body}</Text>
+                )}
               </View>
             ))}
           </Animated.View>
@@ -319,19 +350,20 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 290,
-    marginBottom: 18,
+    minHeight: 240,
+    marginBottom: 10,
+    flexShrink: 1,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   body: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 23,
+    lineHeight: 21,
     opacity: 0.9,
     maxWidth: 340,
   },
