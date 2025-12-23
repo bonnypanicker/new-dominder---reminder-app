@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Animated, BackHandler, FlatList, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, ViewToken } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/theme-provider';
@@ -120,7 +120,19 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
   const insets = useSafeAreaInsets();
   const { width: winW } = useWindowDimensions();
   const [index, setIndex] = useState(0);
-  const translateX = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<FlatList>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  // Handle Back Button on Android
+  useEffect(() => {
+    if (!visible) return;
+    const onBackPress = () => {
+      BackHandler.exitApp();
+      return true;
+    };
+    BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+  }, [visible]);
 
   const panels = useMemo(
     () => [
@@ -139,7 +151,6 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       {
         key: 'modes',
         title: 'Smart Notification Modes',
-        body: 'Standard Mode – Regular notification alerts\nSilent Mode – Gentle notifications without sound\nRinger Mode – Full-screen reminder with loud alert so you can’t miss it',
         render: () => (
           <NotificationModesIllustration
             accent={colors.primary}
@@ -152,7 +163,6 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       {
         key: 'flex',
         title: 'Flexible Reminder Management',
-        body: 'Pause reminders or set smart repeats for complete control.\n\nLong-press pause button in the daily reminders to pause until a selected date. Your reminders will auto-resume afterwards.\n\nMultiple repeat types: Daily, Monthly, Yearly, Every.\nSet repeating reminders with number of occurrences.',
         render: () => (
           <FlexManagementIllustration
             accent={colors.primary}
@@ -166,26 +176,14 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     [colors.onSurface, colors.outlineVariant, colors.primary, colors.surfaceVariant]
   );
 
-  useEffect(() => {
-    if (!visible) return;
-    setIndex(0);
-    translateX.setValue(0);
-  }, [visible, translateX]);
-
-  useEffect(() => {
-    Animated.timing(translateX, {
-      toValue: -index * winW,
-      duration: 380,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [index, translateX, winW]);
-
   const isLast = index === panels.length - 1;
 
   const handleNext = () => {
-    if (isLast) return;
-    setIndex((v) => Math.min(panels.length - 1, v + 1));
+    if (isLast) {
+      onComplete();
+    } else {
+      flatListRef.current?.scrollToIndex({ index: index + 1, animated: true });
+    }
   };
 
   const handleSkip = () => {
@@ -196,9 +194,59 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     onComplete();
   };
 
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+      setIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+
+  const renderItem = ({ item: p }: { item: any }) => (
+    <View key={p.key} style={[styles.panel, { width: winW }]}>
+      <View style={styles.illustrationWrap}>{p.render()}</View>
+      <Text style={[styles.title, { color: colors.onSurface }]}>{p.title}</Text>
+      
+      {p.key === 'modes' ? (
+        <View style={{ width: '100%', maxWidth: 340, marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Standard Mode</Text>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
+          </View>
+          <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Silent Mode</Text>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Gentle notifications without sound</Text>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Ringer Mode</Text>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can’t miss it</Text>
+          </View>
+        </View>
+      ) : p.key === 'flex' ? (
+        <View style={{ width: '100%', maxWidth: 340, marginTop: 10 }}>
+          <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 16 }]}>
+            Pause reminders or set smart repeats for complete control.
+          </Text>
+          <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Long-press pause button to pause until a selected date. Auto-resumes afterwards.</Text>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
+            <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Multiple repeat types: Daily, Monthly, Yearly, Every. Set recurring reminders with ease.</Text>
+          </View>
+        </View>
+      ) : (
+        <Text style={[styles.body, { color: colors.onSurfaceVariant }]}>{p.body}</Text>
+      )}
+    </View>
+  );
+
   return (
-    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
-      <View style={[styles.backdrop, { backgroundColor: `${colors.background}F2` }]}>
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={() => {}}>
+      <View style={[styles.backdrop, { backgroundColor: colors.background }]}>
         <View style={[styles.shell, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.navRow}>
             <TouchableOpacity
@@ -227,54 +275,26 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
 
             <TouchableOpacity
               onPress={handleNext}
-              disabled={isLast}
               style={[styles.navBtn, { minWidth: 48, minHeight: 48, opacity: isLast ? 0 : 1 }]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              disabled={isLast}
             >
               <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
             </TouchableOpacity>
           </View>
 
-          <Animated.View style={[styles.track, { width: winW * panels.length, transform: [{ translateX }] }]}>
-            {panels.map((p) => (
-              <View key={p.key} style={[styles.panel, { width: winW }]}>
-                <View style={styles.illustrationWrap}>{p.render()}</View>
-                <Text style={[styles.title, { color: colors.onSurface }]}>{p.title}</Text>
-                {p.key === 'modes' ? (
-                  <View style={{ width: '100%', maxWidth: 340 }}>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Standard Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Silent Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Gentle notifications without sound</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row' }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Ringer Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can’t miss it</Text>
-                    </View>
-                  </View>
-                ) : p.key === 'flex' ? (
-                  <View style={{ width: '100%', maxWidth: 340 }}>
-                    <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>
-                      Pause reminders or set smart repeats for complete control.
-                    </Text>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Long-press pause button to pause until a selected date. Auto-resumes afterwards.</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row' }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Multiple repeat types: Daily, Monthly, Yearly, Every. Set recurring reminders with ease.</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={[styles.body, { color: colors.onSurfaceVariant }]}>{p.body}</Text>
-                )}
-              </View>
-            ))}
-          </Animated.View>
+          <FlatList
+            ref={flatListRef}
+            data={panels}
+            renderItem={renderItem}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            keyExtractor={(item) => item.key}
+            style={{ flex: 1 }}
+          />
 
           <View style={styles.bottom}>
             {isLast ? (
