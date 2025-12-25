@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, BackHandler, NativeModules } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/theme-provider';
@@ -141,11 +141,10 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
         title: 'Smart Notification Modes',
         body: 'Standard Mode – Regular notification alerts\nSilent Mode – Gentle notifications without sound\nRinger Mode – Full-screen reminder with loud alert so you can’t miss it',
         render: () => (
-          <NotificationModesIllustration
-            accent={colors.primary}
-            surfaceVariant={colors.surfaceVariant}
-            outline={colors.outlineVariant}
-            onSurface={colors.onSurface}
+          <Image
+            source={require('../assets/images/modes_A3.png')}
+            style={{ width: 300, height: 180 }}
+            resizeMode="contain"
           />
         ),
       },
@@ -172,6 +171,66 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     translateX.setValue(0);
   }, [visible, translateX]);
 
+  // Back button handler to minimize app
+  useEffect(() => {
+    if (!visible) return;
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Minimize the app instead of closing onboarding
+      if (Platform.OS === 'android') {
+        NativeModules.AlarmModule?.minimize();
+      }
+      return true; // Prevent default back behavior
+    });
+
+    return () => backHandler.remove();
+  }, [visible]);
+
+  // Pan responder for swipe gestures
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Activate pan responder if horizontal swipe is detected
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
+      },
+      onPanResponderGrant: () => {
+        // Stop any ongoing animation
+        translateX.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Update position based on gesture
+        const newValue = -index * winW + gestureState.dx;
+        translateX.setValue(newValue);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const threshold = winW * 0.25; // 25% of screen width
+        const velocity = gestureState.vx;
+
+        // Determine direction based on velocity or distance
+        let newIndex = index;
+
+        if (velocity < -0.5 || (velocity <= 0 && gestureState.dx < -threshold)) {
+          // Swipe left - go to next panel
+          newIndex = Math.min(panels.length - 1, index + 1);
+        } else if (velocity > 0.5 || (velocity >= 0 && gestureState.dx > threshold)) {
+          // Swipe right - go to previous panel
+          newIndex = Math.max(0, index - 1);
+        }
+
+        setIndex(newIndex);
+
+        // Animate to the target position
+        Animated.spring(translateX, {
+          toValue: -newIndex * winW,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start();
+      },
+    })
+  ).current;
+
+  // Animate when index changes programmatically (via Next/Skip buttons)
   useEffect(() => {
     Animated.timing(translateX, {
       toValue: -index * winW,
@@ -235,13 +294,16 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
             </TouchableOpacity>
           </View>
 
-          <Animated.View style={[styles.track, { width: winW * panels.length, transform: [{ translateX }] }]}>
+          <Animated.View
+            style={[styles.track, { width: winW * panels.length, transform: [{ translateX }] }]}
+            {...panResponder.panHandlers}
+          >
             {panels.map((p) => (
               <View key={p.key} style={[styles.panel, { width: winW }]}>
                 <View style={styles.illustrationWrap}>{p.render()}</View>
                 <Text style={[styles.title, { color: colors.onSurface }]}>{p.title}</Text>
                 {p.key === 'modes' ? (
-                  <View style={{ width: '100%', maxWidth: 340 }}>
+                  <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 8 }}>
                     <View style={{ flexDirection: 'row', marginBottom: 6 }}>
                       <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Standard Mode</Text>
                       <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
@@ -252,11 +314,11 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                     </View>
                     <View style={{ flexDirection: 'row' }}>
                       <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Ringer Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can’t miss it</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can't miss it</Text>
                     </View>
                   </View>
                 ) : p.key === 'flex' ? (
-                  <View style={{ width: '100%', maxWidth: 340 }}>
+                  <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 8 }}>
                     <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>
                       Pause reminders or set smart repeats for complete control.
                     </Text>
@@ -270,7 +332,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                     </View>
                   </View>
                 ) : (
-                  <Text style={[styles.body, { color: colors.onSurfaceVariant }]}>{p.body}</Text>
+                  <Text style={[styles.body, { color: colors.onSurfaceVariant, paddingHorizontal: 8 }]}>{p.body}</Text>
                 )}
               </View>
             ))}
@@ -307,13 +369,13 @@ const styles = StyleSheet.create({
   },
   shell: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   navBtn: {
     paddingHorizontal: 12,
@@ -343,40 +405,45 @@ const styles = StyleSheet.create({
   panel: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 18,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   illustrationWrap: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 180,
-    marginBottom: 10,
+    minHeight: 160,
+    maxHeight: 240,
+    marginBottom: 16,
     flexShrink: 1,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '500',
+    fontSize: 22,
+    fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingHorizontal: 8,
   },
   body: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 20,
     opacity: 0.9,
     maxWidth: 340,
   },
   bottom: {
-    paddingTop: 12,
+    paddingTop: 16,
+    paddingBottom: 8,
     alignItems: 'center',
   },
   getStarted: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
     borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 220,
+    minWidth: 200,
   },
   getStartedText: {
     fontSize: 16,

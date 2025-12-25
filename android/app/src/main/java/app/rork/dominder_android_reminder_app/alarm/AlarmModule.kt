@@ -310,4 +310,26 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.reject("ERROR", e.message, e)
         }
     }
+
+    @ReactMethod
+    fun finishAffinity() {
+        try {
+            val activity = reactContext.currentActivity
+            activity?.finishAffinity()
+            DebugLogger.log("AlarmModule: finishAffinity called")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error in finishAffinity: ${e.message}")
+        }
+    }
+
+    @ReactMethod
+    fun minimize() {
+        try {
+            val activity = reactContext.currentActivity
+            activity?.moveTaskToBack(true)
+            DebugLogger.log("AlarmModule: App minimized")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error minimizing app: ${e.message}")
+        }
+    }
 }

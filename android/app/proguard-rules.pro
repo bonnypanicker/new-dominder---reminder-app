@@ -16,4 +16,11 @@
 # @generated begin expo-build-properties - expo prebuild (DO NOT MODIFY)
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.shopify.reactnative.flash_list.** { *; }
+-keep class com.facebook.react.uimanager.** { *; }
+-keep class com.facebook.react.views.** { *; }
+-keep class com.th3rdwave.safeareacontext.** { *; }
+-keep class com.swmansion.rnscreens.** { *; }
+-keep class com.horcrux.svg.** { *; }
+-keep class expo.modules.** { *; }
+-keep class com.swmansion.gesturehandler.** { *; }
 # @generated end expo-build-properties

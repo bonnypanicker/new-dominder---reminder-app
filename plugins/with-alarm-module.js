@@ -209,10 +209,10 @@ const activityAlarmXml = `<?xml version="1.0" encoding="utf-8"?>
 // 2. UPDATED: Kotlin files array
 // =================================
 const files = [
-  // NEW: AlarmActionBridge.kt
-  {
-    path: 'alarm/AlarmActionBridge.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    // NEW: AlarmActionBridge.kt
+    {
+        path: 'alarm/AlarmActionBridge.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -397,11 +397,11 @@ class AlarmActionBridge : BroadcastReceiver() {
         }
     }
 }`
-  },
-  // NEW: AlarmRingtoneService.kt
-  {
-    path: 'alarm/AlarmRingtoneService.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    // NEW: AlarmRingtoneService.kt
+    {
+        path: 'alarm/AlarmRingtoneService.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.*
 import android.content.Context
@@ -713,11 +713,11 @@ class AlarmRingtoneService : Service() {
         return null
     }
 }`
-  },
-  // UPDATED: AlarmActivity.kt
-  {
-    path: 'alarm/AlarmActivity.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    // UPDATED: AlarmActivity.kt
+    {
+        path: 'alarm/AlarmActivity.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
@@ -1000,11 +1000,11 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 }`
-  },
-  // --- Other files are preserved as they were ---
-  {
-    path: 'alarm/AlarmReceiver.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    // --- Other files are preserved as they were ---
+    {
+        path: 'alarm/AlarmReceiver.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -1104,10 +1104,10 @@ class AlarmReceiver : BroadcastReceiver() {
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
     }
 }`
-  },
-  {
-    path: 'alarm/RingtonePickerActivity.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    {
+        path: 'alarm/RingtonePickerActivity.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.Activity
 import android.content.Context
@@ -1529,10 +1529,10 @@ class RingtonePickerActivity : AppCompatActivity() {
         return fileName
     }
 }`
-  },
-  {
-    path: 'alarm/MissedAlarmReceiver.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    {
+        path: 'alarm/MissedAlarmReceiver.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -1591,10 +1591,10 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
         }
     }
 }`
-  },
-  {
-    path: 'alarm/AlarmPackage.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    {
+        path: 'alarm/AlarmPackage.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
@@ -1614,10 +1614,10 @@ class AlarmPackage : ReactPackage {
         return emptyList()
     }
 }`
-  },
-  {
-    path: 'RescheduleAlarmsService.kt',
-    content: `package app.rork.dominder_android_reminder_app
+    },
+    {
+        path: 'RescheduleAlarmsService.kt',
+        content: `package app.rork.dominder_android_reminder_app
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -1689,10 +1689,10 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
         }
     }
 }`
-  },
-  {
-    path: 'MainApplication.kt',
-    content: `package app.rork.dominder_android_reminder_app
+    },
+    {
+        path: 'MainApplication.kt',
+        content: `package app.rork.dominder_android_reminder_app
 
 import android.app.Application
 import android.content.Intent
@@ -1751,10 +1751,10 @@ class MainApplication : Application(), ReactApplication {
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
   }
 }`
-  },
-  {
-    path: 'MainActivity.kt',
-    content: `package app.rork.dominder_android_reminder_app
+    },
+    {
+        path: 'MainActivity.kt',
+        content: `package app.rork.dominder_android_reminder_app
 
 import android.content.Intent
 import android.os.Bundle
@@ -1794,10 +1794,10 @@ class MainActivity : ReactActivity() {
     )
   }
 }`
-  },
-  {
-    path: 'DebugLogger.kt',
-    content: `package app.rork.dominder_android_reminder_app
+    },
+    {
+        path: 'DebugLogger.kt',
+        content: `package app.rork.dominder_android_reminder_app
 
 import android.util.Log
 
@@ -1815,10 +1815,10 @@ object DebugLogger {
         }
     }
 }`
-  },
-  {
-    path: 'RescheduleAlarmsWorker.kt',
-    content: `package app.rork.dominder_android_reminder_app
+    },
+    {
+        path: 'RescheduleAlarmsWorker.kt',
+        content: `package app.rork.dominder_android_reminder_app
 
 import android.content.Context
 import android.content.Intent
@@ -1845,10 +1845,10 @@ class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) :
         return Result.success()
     }
 }`
-  },
-  {
-    path: 'BootReceiver.kt',
-    content: `package app.rork.dominder_android_reminder_app
+    },
+    {
+        path: 'BootReceiver.kt',
+        content: `package app.rork.dominder_android_reminder_app
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -1864,10 +1864,10 @@ class BootReceiver : BroadcastReceiver() {
         }
     }
 }`
-  },
-  {
-    path: 'alarm/AlarmModule.kt',
-    content: `package app.rork.dominder_android_reminder_app.alarm
+    },
+    {
+        path: 'alarm/AlarmModule.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.Activity
 import android.app.AlarmManager
@@ -2179,244 +2179,266 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.reject("ERROR", e.message, e)
         }
     }
+
+    @ReactMethod
+    fun finishAffinity() {
+        try {
+            val activity = reactContext.currentActivity
+            activity?.finishAffinity()
+            DebugLogger.log("AlarmModule: finishAffinity called")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error in finishAffinity: \${e.message}")
+        }
+    }
+
+    @ReactMethod
+    fun minimize() {
+        try {
+            val activity = reactContext.currentActivity
+            activity?.moveTaskToBack(true)
+            DebugLogger.log("AlarmModule: App minimized")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error minimizing app: \${e.message}")
+        }
+    }
 }`
-  }
+    }
 ];
 
 // ==================================================
 // 3. NEW: withResourceFiles function
 // ==================================================
 const withResourceFiles = (config) => {
-  return withDangerousMod(config, [
-    'android',
-    async (config) => {
-      const projectRoot = config.modRequest.projectRoot;
-      const layoutDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'layout');
-      
-      if (!fs.existsSync(layoutDir)) {
-        fs.mkdirSync(layoutDir, { recursive: true });
-      }
-      
-      fs.writeFileSync(path.join(layoutDir, 'activity_alarm.xml'), activityAlarmXml);
+    return withDangerousMod(config, [
+        'android',
+        async (config) => {
+            const projectRoot = config.modRequest.projectRoot;
+            const layoutDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'layout');
 
-      // Copy smaill_icon_nw.png into res/drawable (no compression)
-      try {
-        const drawableDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'drawable');
-        if (!fs.existsSync(drawableDir)) {
-          fs.mkdirSync(drawableDir, { recursive: true });
-        }
-        const sourceIcon = path.join(projectRoot, 'smalo_coon.png');
-        const targetIcon = path.join(drawableDir, 'small_icon_noti.png');
-        if (fs.existsSync(sourceIcon)) {
-          fs.copyFileSync(sourceIcon, targetIcon);
-          console.log('✅ Copied smalo_coon.png to res/drawable as small_icon_noti.png');
-        } else {
-          console.warn('⚠️ smalo_coon.png not found at project root; skipping copy.');
-        }
-      } catch (e) {
-        console.warn('⚠️ Could not copy smaill_icon_nw.png:', e);
-      }
-      
-      return config;
-    },
-  ]);
+            if (!fs.existsSync(layoutDir)) {
+                fs.mkdirSync(layoutDir, { recursive: true });
+            }
+
+            fs.writeFileSync(path.join(layoutDir, 'activity_alarm.xml'), activityAlarmXml);
+
+            // Copy smaill_icon_nw.png into res/drawable (no compression)
+            try {
+                const drawableDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'drawable');
+                if (!fs.existsSync(drawableDir)) {
+                    fs.mkdirSync(drawableDir, { recursive: true });
+                }
+                const sourceIcon = path.join(projectRoot, 'smalo_coon.png');
+                const targetIcon = path.join(drawableDir, 'small_icon_noti.png');
+                if (fs.existsSync(sourceIcon)) {
+                    fs.copyFileSync(sourceIcon, targetIcon);
+                    console.log('✅ Copied smalo_coon.png to res/drawable as small_icon_noti.png');
+                } else {
+                    console.warn('⚠️ smalo_coon.png not found at project root; skipping copy.');
+                }
+            } catch (e) {
+                console.warn('⚠️ Could not copy smaill_icon_nw.png:', e);
+            }
+
+            return config;
+        },
+    ]);
 };
 
 const withKotlinFiles = (config) => {
-  return withDangerousMod(config, [
-    'android',
-    async (config) => {
-      const projectRoot = config.modRequest.projectRoot;
-      const javaRoot = path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'app', 'rork', 'dominder_android_reminder_app');
+    return withDangerousMod(config, [
+        'android',
+        async (config) => {
+            const projectRoot = config.modRequest.projectRoot;
+            const javaRoot = path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'app', 'rork', 'dominder_android_reminder_app');
 
-      files.forEach(file => {
-        const filePath = path.join(javaRoot, file.path);
-        const dir = path.dirname(filePath);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(filePath, file.content);
-      });
+            files.forEach(file => {
+                const filePath = path.join(javaRoot, file.path);
+                const dir = path.dirname(filePath);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+                fs.writeFileSync(filePath, file.content);
+            });
 
-      return config;
-    },
-  ]);
+            return config;
+        },
+    ]);
 };
 
 // ==================================================
 // 4. UPDATED: withAlarmManifest function
 // ==================================================
 const withAlarmManifest = (config) => {
-  return withAndroidManifest(config, async (config) => {
-    const manifest = config.modResults.manifest;
+    return withAndroidManifest(config, async (config) => {
+        const manifest = config.modResults.manifest;
 
-    if (!manifest["uses-permission"]) manifest["uses-permission"] = [];
-    const requiredPermissions = [
-      'android.permission.WAKE_LOCK',
-      'android.permission.USE_FULL_SCREEN_INTENT',
-      'android.permission.SCHEDULE_EXACT_ALARM',
-      'android.permission.POST_NOTIFICATIONS',
-      // FIX: VIBRATE permission is needed for the custom vibration pattern.
-      'android.permission.VIBRATE',
-      // Required for foreground service
-      'android.permission.FOREGROUND_SERVICE',
-      // Required for dataSync foreground service type (Android 14+)
-      'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
-      // Required for mediaPlayback foreground service type (Android 14+)
-      'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK'
-    ];
-    requiredPermissions.forEach(permission => {
-      if (!manifest["uses-permission"].some(p => p.$['android:name'] === permission)) {
-        manifest["uses-permission"].push({ $: { 'android:name': permission } });
-      }
-    });
+        if (!manifest["uses-permission"]) manifest["uses-permission"] = [];
+        const requiredPermissions = [
+            'android.permission.WAKE_LOCK',
+            'android.permission.USE_FULL_SCREEN_INTENT',
+            'android.permission.SCHEDULE_EXACT_ALARM',
+            'android.permission.POST_NOTIFICATIONS',
+            // FIX: VIBRATE permission is needed for the custom vibration pattern.
+            'android.permission.VIBRATE',
+            // Required for foreground service
+            'android.permission.FOREGROUND_SERVICE',
+            // Required for dataSync foreground service type (Android 14+)
+            'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
+            // Required for mediaPlayback foreground service type (Android 14+)
+            'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK'
+        ];
+        requiredPermissions.forEach(permission => {
+            if (!manifest["uses-permission"].some(p => p.$['android:name'] === permission)) {
+                manifest["uses-permission"].push({ $: { 'android:name': permission } });
+            }
+        });
 
-    const application = manifest.application[0];
+        const application = manifest.application[0];
 
-    if (!application.activity) application.activity = [];
-    const activities = application.activity.filter(a => 
-        a.$['android:name'] !== '.alarm.AlarmActivity' && 
-        a.$['android:name'] !== '.alarm.RingtonePickerActivity'
-    );
-    activities.push({
-      $: {
-        'android:name': '.alarm.AlarmActivity',
-        'android:showWhenLocked': 'true',
-        'android:turnScreenOn': 'true',
-        'android:excludeFromRecents': 'true',
-        'android:exported': 'true', // Must be true to be started by system
-        'android:launchMode': 'singleTask',
-        'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
-      },
-    });
-    // Add RingtonePickerActivity with custom seamless theme
-    activities.push({
-      $: {
-        'android:name': '.alarm.RingtonePickerActivity',
-        'android:exported': 'false',
-        'android:theme': '@style/Theme.RingtonePicker'
-      },
-    });
-    application.activity = activities;
+        if (!application.activity) application.activity = [];
+        const activities = application.activity.filter(a =>
+            a.$['android:name'] !== '.alarm.AlarmActivity' &&
+            a.$['android:name'] !== '.alarm.RingtonePickerActivity'
+        );
+        activities.push({
+            $: {
+                'android:name': '.alarm.AlarmActivity',
+                'android:showWhenLocked': 'true',
+                'android:turnScreenOn': 'true',
+                'android:excludeFromRecents': 'true',
+                'android:exported': 'true', // Must be true to be started by system
+                'android:launchMode': 'singleTask',
+                'android:theme': '@style/Theme.Material3.DayNight.NoActionBar'
+            },
+        });
+        // Add RingtonePickerActivity with custom seamless theme
+        activities.push({
+            $: {
+                'android:name': '.alarm.RingtonePickerActivity',
+                'android:exported': 'false',
+                'android:theme': '@style/Theme.RingtonePicker'
+            },
+        });
+        application.activity = activities;
 
-    if (!application.receiver) application.receiver = [];
-    const receivers = application.receiver.filter(r => 
-        r.$['android:name'] !== '.alarm.AlarmReceiver' && 
-        r.$['android:name'] !== '.BootReceiver' &&
-        r.$['android:name'] !== '.alarm.AlarmActionBridge' // Filter out old one if present
-    );
-    
-    // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
-    // which is crucial for Android 12+ compatibility.
-    receivers.push({
-      $: { 'android:name': '.alarm.AlarmReceiver', 'android:exported': 'false' },
-      'intent-filter': [{
-        action: [
-          { $: { 'android:name': 'app.rork.dominder.ALARM_FIRED' } }
-        ]
-      }]
-    });
+        if (!application.receiver) application.receiver = [];
+        const receivers = application.receiver.filter(r =>
+            r.$['android:name'] !== '.alarm.AlarmReceiver' &&
+            r.$['android:name'] !== '.BootReceiver' &&
+            r.$['android:name'] !== '.alarm.AlarmActionBridge' // Filter out old one if present
+        );
 
-    receivers.push({
-      $: { 'android:name': '.BootReceiver', 'android:exported': 'true', 'android:enabled': 'true' },
-      'intent-filter': [{
-        action: [
-          { $: { 'android:name': 'android.intent.action.BOOT_COMPLETED' } },
-          { $: { 'android:name': 'android.intent.action.QUICKBOOT_POWERON' } }
-        ]
-      }]
-    });
-    
-    // NEW: Register AlarmActionBridge
-    // FIX: Change 'android:exported' from a boolean to a string 'false' for consistency
-    // with other manifest entries.
-    receivers.push({
-        $: { 'android:name': '.alarm.AlarmActionBridge', 'android:exported': 'false' },
-        'intent-filter': [{
-            action: [
-                { $: { 'android:name': 'app.rork.dominder.ALARM_DONE' } },
-                { $: { 'android:name': 'app.rork.dominder.ALARM_SNOOZE' } },
-                { $: { 'android:name': 'com.dominder.MISSED_ALARM' } }
-            ]
-        }]
-    });
-    application.receiver = receivers;
+        // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
+        // which is crucial for Android 12+ compatibility.
+        receivers.push({
+            $: { 'android:name': '.alarm.AlarmReceiver', 'android:exported': 'false' },
+            'intent-filter': [{
+                action: [
+                    { $: { 'android:name': 'app.rork.dominder.ALARM_FIRED' } }
+                ]
+            }]
+        });
 
-    if (!application.service) application.service = [];
-    const services = application.service.filter(s => 
-        s.$['android:name'] !== '.RescheduleAlarmsService' && 
-        s.$['android:name'] !== '.alarm.AlarmRingtoneService'
-    );
-    services.push({
-      $: { 
-        'android:name': '.RescheduleAlarmsService',
-        'android:exported': 'false',
-        'android:foregroundServiceType': 'dataSync'
-      },
-    });
-    services.push({
-      $: { 
-        'android:name': '.alarm.AlarmRingtoneService',
-        'android:exported': 'false',
-        'android:foregroundServiceType': 'mediaPlayback'
-      },
-    });
-    application.service = services;
+        receivers.push({
+            $: { 'android:name': '.BootReceiver', 'android:exported': 'true', 'android:enabled': 'true' },
+            'intent-filter': [{
+                action: [
+                    { $: { 'android:name': 'android.intent.action.BOOT_COMPLETED' } },
+                    { $: { 'android:name': 'android.intent.action.QUICKBOOT_POWERON' } }
+                ]
+            }]
+        });
 
-    return config;
-  });
+        // NEW: Register AlarmActionBridge
+        // FIX: Change 'android:exported' from a boolean to a string 'false' for consistency
+        // with other manifest entries.
+        receivers.push({
+            $: { 'android:name': '.alarm.AlarmActionBridge', 'android:exported': 'false' },
+            'intent-filter': [{
+                action: [
+                    { $: { 'android:name': 'app.rork.dominder.ALARM_DONE' } },
+                    { $: { 'android:name': 'app.rork.dominder.ALARM_SNOOZE' } },
+                    { $: { 'android:name': 'com.dominder.MISSED_ALARM' } }
+                ]
+            }]
+        });
+        application.receiver = receivers;
+
+        if (!application.service) application.service = [];
+        const services = application.service.filter(s =>
+            s.$['android:name'] !== '.RescheduleAlarmsService' &&
+            s.$['android:name'] !== '.alarm.AlarmRingtoneService'
+        );
+        services.push({
+            $: {
+                'android:name': '.RescheduleAlarmsService',
+                'android:exported': 'false',
+                'android:foregroundServiceType': 'dataSync'
+            },
+        });
+        services.push({
+            $: {
+                'android:name': '.alarm.AlarmRingtoneService',
+                'android:exported': 'false',
+                'android:foregroundServiceType': 'mediaPlayback'
+            },
+        });
+        application.service = services;
+
+        return config;
+    });
 };
 
 const withAppGradle = (config) => {
-  return withAppBuildGradle(config, (config) => {
-    if (config.modResults.language === 'groovy') {
-      let buildGradle = config.modResults.contents;
-      if (!buildGradle.includes('kotlinOptions')) {
-        buildGradle = buildGradle.replace(
-          /(\n\s*android\s*{\s*)/, 
-          `$1    kotlinOptions {
+    return withAppBuildGradle(config, (config) => {
+        if (config.modResults.language === 'groovy') {
+            let buildGradle = config.modResults.contents;
+            if (!buildGradle.includes('kotlinOptions')) {
+                buildGradle = buildGradle.replace(
+                    /(\n\s*android\s*{\s*)/,
+                    `$1    kotlinOptions {
         jvmTarget = "17"
     }
 `
-        );
-      }
-      if (!buildGradle.includes('compileOptions')) {
-        buildGradle = buildGradle.replace(
-          /(\n\s*android\s*{\s*)/, 
-          `$1    compileOptions {
+                );
+            }
+            if (!buildGradle.includes('compileOptions')) {
+                buildGradle = buildGradle.replace(
+                    /(\n\s*android\s*{\s*)/,
+                    `$1    compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 `
-        );
-      }
-      // Ensure Material Components library for Material 3 widgets
-      if (!buildGradle.includes('com.google.android.material:material')) {
-        if (/dependencies\s*{/.test(buildGradle)) {
-          buildGradle = buildGradle.replace(
-            /dependencies\s*{/,
-            `dependencies {\n    implementation 'com.google.android.material:material:1.11.0'`
-          );
-        } else {
-          buildGradle += `\n\ndependencies {\n    implementation 'com.google.android.material:material:1.11.0'\n}\n`;
-        }
-      }
+                );
+            }
+            // Ensure Material Components library for Material 3 widgets
+            if (!buildGradle.includes('com.google.android.material:material')) {
+                if (/dependencies\s*{/.test(buildGradle)) {
+                    buildGradle = buildGradle.replace(
+                        /dependencies\s*{/,
+                        `dependencies {\n    implementation 'com.google.android.material:material:1.11.0'`
+                    );
+                } else {
+                    buildGradle += `\n\ndependencies {\n    implementation 'com.google.android.material:material:1.11.0'\n}\n`;
+                }
+            }
 
-      // Ensure WorkManager library
-      if (!buildGradle.includes('androidx.work:work-runtime-ktx')) {
-        if (/dependencies\s*{/.test(buildGradle)) {
-          buildGradle = buildGradle.replace(
-            /dependencies\s*{/,
-            `dependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'`
-          );
-        } else {
-          buildGradle += `\n\ndependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n}\n`;
+            // Ensure WorkManager library
+            if (!buildGradle.includes('androidx.work:work-runtime-ktx')) {
+                if (/dependencies\s*{/.test(buildGradle)) {
+                    buildGradle = buildGradle.replace(
+                        /dependencies\s*{/,
+                        `dependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'`
+                    );
+                } else {
+                    buildGradle += `\n\ndependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n}\n`;
+                }
+            }
+            config.modResults.contents = buildGradle;
         }
-      }
-      config.modResults.contents = buildGradle;
-    }
-    return config;
-  });
+        return config;
+    });
 };
 
 // ==================================================
@@ -2424,7 +2446,7 @@ const withAppGradle = (config) => {
 // ==================================================
 module.exports = (config) => withPlugins(config, [
     withResourceFiles, // Added first
-    withKotlinFiles, 
+    withKotlinFiles,
     withAlarmManifest,
     withAppGradle
 ]);
