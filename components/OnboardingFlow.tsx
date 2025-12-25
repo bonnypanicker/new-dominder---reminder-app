@@ -176,41 +176,6 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
       <View style={[styles.backdrop, { backgroundColor: colors.background }]}>
         <View style={[styles.shell, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.navRow}>
-            <TouchableOpacity
-              onPress={handleSkip}
-              style={[styles.navBtn, { minWidth: 48, minHeight: 48 }]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={[styles.navText, { color: colors.onSurfaceVariant }]}>Skip</Text>
-            </TouchableOpacity>
-
-            <View style={styles.dots}>
-              {panels.map((p, i) => (
-                <View
-                  key={p.key}
-                  style={[
-                    styles.dot,
-                    {
-                      backgroundColor: i === index ? colors.primary : colors.outlineVariant,
-                      opacity: i === index ? 1 : 0.35,
-                      transform: [{ scale: i === index ? 1.1 : 1 }],
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-
-            <TouchableOpacity
-              onPress={handleNext}
-              disabled={isLast}
-              style={[styles.navBtn, { minWidth: 48, minHeight: 48, opacity: isLast ? 0 : 1 }]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
-            </TouchableOpacity>
-          </View>
-
           <Animated.View
             style={[styles.track, { width: winW * panels.length, transform: [{ translateX }] }]}
             {...panResponder.panHandlers}
@@ -249,7 +214,23 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
             ))}
           </Animated.View>
 
-          <View style={styles.bottom}>
+          <View style={styles.bottomSection}>
+            <View style={styles.dots}>
+              {panels.map((p, i) => (
+                <View
+                  key={p.key}
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor: i === index ? colors.primary : colors.outlineVariant,
+                      opacity: i === index ? 1 : 0.35,
+                      transform: [{ scale: i === index ? 1.1 : 1 }],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
             {isLast ? (
               <Pressable
                 onPress={handleComplete}
@@ -258,14 +239,29 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                   {
                     backgroundColor: colors.primary,
                     opacity: pressed ? 0.92 : 1,
-                    minHeight: 48,
                   },
                 ]}
               >
                 <Text style={[styles.getStartedText, { color: colors.onPrimary }]}>Get Started</Text>
               </Pressable>
             ) : (
-              <View style={{ height: 48 }} />
+              <View style={styles.navigationRow}>
+                <TouchableOpacity
+                  onPress={handleSkip}
+                  style={styles.navBtn}
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
+                  <Text style={[styles.navText, { color: colors.onSurfaceVariant }]}>Skip</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleNext}
+                  style={styles.navBtn}
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
+                  <Text style={[styles.navText, { color: colors.primary }]}>Next</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         </View>
@@ -281,33 +277,6 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     paddingHorizontal: 16,
-  },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  navBtn: {
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 999,
-  },
-  navText: {
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  dots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 8,
   },
   track: {
     flexDirection: 'row',
@@ -326,7 +295,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 160,
     maxHeight: 240,
-    marginBottom: 16,
+    marginBottom: 24,
     flexShrink: 1,
   },
   title: {
@@ -343,18 +312,52 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     maxWidth: 340,
   },
-  bottom: {
-    paddingTop: 16,
-    paddingBottom: 8,
-    alignItems: 'center',
+  bottomSection: {
+    minHeight: 120,
+    justifyContent: 'flex-end',
+    paddingBottom: 24,
   },
-  getStarted: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 999,
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 32,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 8,
+  },
+  navigationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    height: 50,
+  },
+  navBtn: {
+    paddingHorizontal: 8,
+    minWidth: 60,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 200,
+    borderRadius: 8,
+  },
+  navText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  getStarted: {
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginHorizontal: 'auto',
+    maxWidth: 320,
+    alignSelf: 'center',
   },
   getStartedText: {
     fontSize: 16,
