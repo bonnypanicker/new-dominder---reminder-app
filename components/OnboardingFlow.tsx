@@ -81,10 +81,10 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     return () => backHandler.remove();
   }, [visible]);
 
-  // Track if we're currently animating from a gesture
-  const isGestureAnimating = useRef(false);
+  // Track the source of the last interaction to determine animation style
+  const lastInteraction = useRef<'gesture' | 'programmatic'>('programmatic');
 
-  // Pan responder for swipe gestures - using useMemo to avoid stale closures
+  // Pan responder for swipe gestures
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -95,7 +95,6 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
         },
         onPanResponderGrant: () => {
           // Stop any ongoing animation
-          isGestureAnimating.current = true;
           translateX.stopAnimation();
         },
         onPanResponderMove: (_, gestureState) => {
@@ -118,21 +117,22 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
             newIndex = Math.max(0, index - 1);
           }
 
-          // Animate to the target position
-          Animated.spring(translateX, {
-            toValue: -newIndex * winW,
-            friction: 8,
-            tension: 40,
-            useNativeDriver: Platform.OS !== 'web',
-          }).start(() => {
-            isGestureAnimating.current = false;
-          });
-
-          setIndex(newIndex);
+          if (newIndex !== index) {
+            // Index changed: Delegating animation to useEffect
+            lastInteraction.current = 'gesture';
+            setIndex(newIndex);
+          } else {
+            // Index didn't change: Manually snap back
+            Animated.spring(translateX, {
+              toValue: -index * winW,
+              friction: 8,
+              tension: 40,
+              useNativeDriver: Platform.OS !== 'web',
+            }).start();
+          }
         },
         onPanResponderTerminate: () => {
-          // Gesture was interrupted - reset to current index
-          isGestureAnimating.current = false;
+          // Snap back on interruption
           Animated.spring(translateX, {
             toValue: -index * winW,
             friction: 8,
@@ -144,27 +144,40 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     [index, winW, panels.length, translateX]
   );
 
-  // Animate when index changes programmatically (via Next/Skip buttons)
-  // but NOT when gesture is animating
+  // Unified animation handler driven by index changes
   useEffect(() => {
-    if (isGestureAnimating.current) return;
+    const toValue = -index * winW;
 
-    Animated.timing(translateX, {
-      toValue: -index * winW,
-      duration: 380,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
+    if (lastInteraction.current === 'gesture') {
+      Animated.spring(translateX, {
+        toValue,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    } else {
+      Animated.timing(translateX, {
+        toValue,
+        duration: 380,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    }
+
+    // Reset interaction type default
+    lastInteraction.current = 'programmatic';
   }, [index, translateX, winW]);
 
   const isLast = index === panels.length - 1;
 
   const handleNext = () => {
     if (isLast) return;
+    lastInteraction.current = 'programmatic';
     setIndex((v) => Math.min(panels.length - 1, v + 1));
   };
 
   const handleSkip = () => {
+    lastInteraction.current = 'programmatic';
     onSkip();
   };
 
