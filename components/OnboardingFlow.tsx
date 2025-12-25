@@ -222,38 +222,22 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                 {p.key === 'modes' ? (
                   <View style={{ width: '100%', alignItems: 'center' }}>
                     <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 12 }}>
-                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 110, textAlign: 'left' }]}>Standard Mode</Text>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 110, textAlign: 'left' }]}>Silent Mode</Text>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Gentle notifications without sound</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row' }}>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 110, textAlign: 'left' }]}>Ringer Mode</Text>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can't miss it</Text>
-                      </View>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, textAlign: 'left', lineHeight: 22 }]}>
+                        <Text style={{ fontWeight: '700' }}>Standard Mode</Text> – Regular notification alerts{'\n\n'}
+                        <Text style={{ fontWeight: '700' }}>Silent Mode</Text> – Gentle notifications without sound{'\n\n'}
+                        <Text style={{ fontWeight: '700' }}>Ringer Mode</Text> – Full-screen reminder with loud alert so you can't miss it
+                      </Text>
                     </View>
                   </View>
                 ) : p.key === 'flex' ? (
                   <View style={{ width: '100%', alignItems: 'center' }}>
                     <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 12 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 12 }]}>
-                        Pause, repeat, and manage reminders exactly the way you need.
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, textAlign: 'left', lineHeight: 22 }]}>
+                        Pause, repeat, and manage reminders exactly the way you need.{'\n\n'}
+                        <Text style={{ fontWeight: '700' }}>Pause</Text> – Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.{'\n\n'}
+                        <Text style={{ fontWeight: '700' }}>Repeat</Text> – Daily, Monthly, Yearly, or custom recurring schedules.{'\n\n'}
+                        <Text style={{ fontWeight: '700' }}>Occurrence</Text> – Optional setting to repeat reminders by count instead of an end date/time.
                       </Text>
-                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 100, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 100, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Daily, Monthly, Yearly, or custom recurring schedules.</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row' }}>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 100, textAlign: 'left', fontSize: 13 }]}>Occurrence</Text>
-                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Optional setting to repeat reminders by count instead of an end date/time.</Text>
-                      </View>
                     </View>
                   </View>
                 ) : (
