@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, BackHandler, NativeModules } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, BackHandler } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/theme-provider';
@@ -69,67 +69,86 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     translateX.setValue(0);
   }, [visible, translateX]);
 
-  // Back button handler to minimize app
+  // Back button handler - prevent back navigation during onboarding
   useEffect(() => {
     if (!visible) return;
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      // Minimize the app instead of closing onboarding
-      if (Platform.OS === 'android') {
-        NativeModules.AlarmModule?.minimize();
-      }
+      // Do nothing - just prevent default back behavior during onboarding
       return true; // Prevent default back behavior
     });
 
     return () => backHandler.remove();
   }, [visible]);
 
-  // Pan responder for swipe gestures
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Activate pan responder if horizontal swipe is detected
-        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
-      },
-      onPanResponderGrant: () => {
-        // Stop any ongoing animation
-        translateX.stopAnimation();
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // Update position based on gesture
-        const newValue = -index * winW + gestureState.dx;
-        translateX.setValue(newValue);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const threshold = winW * 0.25; // 25% of screen width
-        const velocity = gestureState.vx;
+  // Track if we're currently animating from a gesture
+  const isGestureAnimating = useRef(false);
 
-        // Determine direction based on velocity or distance
-        let newIndex = index;
+  // Pan responder for swipe gestures - using useMemo to avoid stale closures
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          // Activate pan responder if horizontal swipe is detected
+          return Math.abs(gestureState.dx) > 5 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        },
+        onPanResponderGrant: () => {
+          // Stop any ongoing animation
+          isGestureAnimating.current = true;
+          translateX.stopAnimation();
+        },
+        onPanResponderMove: (_, gestureState) => {
+          // Update position based on gesture
+          const newValue = -index * winW + gestureState.dx;
+          translateX.setValue(newValue);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const threshold = winW * 0.25; // 25% of screen width
+          const velocity = gestureState.vx;
 
-        if (velocity < -0.5 || (velocity <= 0 && gestureState.dx < -threshold)) {
-          // Swipe left - go to next panel
-          newIndex = Math.min(panels.length - 1, index + 1);
-        } else if (velocity > 0.5 || (velocity >= 0 && gestureState.dx > threshold)) {
-          // Swipe right - go to previous panel
-          newIndex = Math.max(0, index - 1);
-        }
+          // Determine direction based on velocity or distance
+          let newIndex = index;
 
-        setIndex(newIndex);
+          if (velocity < -0.5 || (velocity <= 0 && gestureState.dx < -threshold)) {
+            // Swipe left - go to next panel
+            newIndex = Math.min(panels.length - 1, index + 1);
+          } else if (velocity > 0.5 || (velocity >= 0 && gestureState.dx > threshold)) {
+            // Swipe right - go to previous panel
+            newIndex = Math.max(0, index - 1);
+          }
 
-        // Animate to the target position
-        Animated.spring(translateX, {
-          toValue: -newIndex * winW,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: Platform.OS !== 'web',
-        }).start();
-      },
-    })
-  ).current;
+          // Animate to the target position
+          Animated.spring(translateX, {
+            toValue: -newIndex * winW,
+            friction: 8,
+            tension: 40,
+            useNativeDriver: Platform.OS !== 'web',
+          }).start(() => {
+            isGestureAnimating.current = false;
+          });
+
+          setIndex(newIndex);
+        },
+        onPanResponderTerminate: () => {
+          // Gesture was interrupted - reset to current index
+          isGestureAnimating.current = false;
+          Animated.spring(translateX, {
+            toValue: -index * winW,
+            friction: 8,
+            tension: 40,
+            useNativeDriver: Platform.OS !== 'web',
+          }).start();
+        },
+      }),
+    [index, winW, panels.length, translateX]
+  );
 
   // Animate when index changes programmatically (via Next/Skip buttons)
+  // but NOT when gesture is animating
   useEffect(() => {
+    if (isGestureAnimating.current) return;
+
     Animated.timing(translateX, {
       toValue: -index * winW,
       duration: 380,
@@ -201,40 +220,46 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                 <View style={styles.illustrationWrap}>{p.render()}</View>
                 <Text style={[styles.title, { color: colors.onSurface }]}>{p.title}</Text>
                 {p.key === 'modes' ? (
-                  <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 8 }}>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Standard Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Silent Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Gentle notifications without sound</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row' }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left' }]}>Ringer Mode</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can't miss it</Text>
+                  <View style={{ width: '100%', alignItems: 'center' }}>
+                    <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 12 }}>
+                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 110, textAlign: 'left' }]}>Standard Mode</Text>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Regular notification alerts</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 110, textAlign: 'left' }]}>Silent Mode</Text>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Gentle notifications without sound</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row' }}>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 110, textAlign: 'left' }]}>Ringer Mode</Text>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left' }]}>– Full-screen reminder with loud alert so you can't miss it</Text>
+                      </View>
                     </View>
                   </View>
                 ) : p.key === 'flex' ? (
-                  <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 8 }}>
-                    <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>
-                      Pause, repeat, and manage reminders exactly the way you need.
-                    </Text>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Daily, Monthly, Yearly, or custom recurring schedules.</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row' }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Occurrence</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Optional setting to repeat reminders by count instead of an end date/time.</Text>
+                  <View style={{ width: '100%', alignItems: 'center' }}>
+                    <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 12 }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 12 }]}>
+                        Pause, repeat, and manage reminders exactly the way you need.
+                      </Text>
+                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 100, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 100, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Daily, Monthly, Yearly, or custom recurring schedules.</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row' }}>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 100, textAlign: 'left', fontSize: 13 }]}>Occurrence</Text>
+                        <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Optional setting to repeat reminders by count instead of an end date/time.</Text>
+                      </View>
                     </View>
                   </View>
                 ) : (
-                  <Text style={[styles.body, { color: colors.onSurfaceVariant, paddingHorizontal: 8 }]}>{p.body}</Text>
+                  <View style={{ width: '100%', alignItems: 'center', paddingHorizontal: 12 }}>
+                    <Text style={[styles.body, { color: colors.onSurfaceVariant }]}>{p.body}</Text>
+                  </View>
                 )}
               </View>
             ))}
