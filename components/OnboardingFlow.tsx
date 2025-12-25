@@ -10,110 +10,9 @@ type OnboardingFlowProps = {
   onComplete: () => void;
 };
 
-const FeatureDialIllustration = ({ accent, surfaceVariant, outline }: { accent: string; surfaceVariant: string; outline: string }) => {
-  const ticks = useMemo(() => Array.from({ length: 12 }, (_, i) => i), []);
-  const size = 240;
-  const radius = size / 2;
-  const tickRadius = radius - 10;
-  const tickW = 3;
-  const tickH = 10;
-  const handLen = radius - 42;
 
-  return (
-    <View style={[styles.illustrationBase, { width: size, height: size, borderColor: outline, backgroundColor: surfaceVariant }]}>
-      {ticks.map((i) => {
-        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-        const x = radius + Math.cos(a) * tickRadius - tickW / 2;
-        const y = radius + Math.sin(a) * tickRadius - tickH / 2;
-        return (
-          <View
-            key={i}
-            style={[
-              styles.tick,
-              {
-                left: x,
-                top: y,
-                width: tickW,
-                height: tickH,
-                backgroundColor: i % 3 === 0 ? accent : outline,
-                opacity: i % 3 === 0 ? 0.9 : 0.35,
-              },
-            ]}
-          />
-        );
-      })}
-      <View style={[styles.dialInner, { borderColor: outline, backgroundColor: surfaceVariant }]} />
-      <View style={[styles.hand, { backgroundColor: accent, height: handLen, top: radius - handLen, left: radius - 1, transform: [{ rotate: '-25deg' }] }]} />
-      <View style={[styles.dialCenter, { backgroundColor: accent }]} />
-      <View style={[styles.dialBadge, { borderColor: outline, backgroundColor: surfaceVariant }]}>
-        <Feather name="clock" size={18} color={accent} />
-        <Text style={[styles.dialBadgeText, { color: accent }]}>07:30</Text>
-      </View>
-    </View>
-  );
-};
 
-const NotificationModesIllustration = ({ accent, surfaceVariant, outline, onSurface }: { accent: string; surfaceVariant: string; outline: string; onSurface: string }) => {
-  const modes = useMemo(
-    () => [
-      { key: 'standard', label: 'Standard', icon: 'bell' as const },
-      { key: 'silent', label: 'Silent', icon: 'moon' as const },
-      { key: 'ringer', label: 'Ringer', icon: 'volume-2' as const },
-    ],
-    []
-  );
 
-  return (
-    <View style={{ width: '100%', alignItems: 'center' }}>
-      <View style={[styles.modeRow, { backgroundColor: surfaceVariant, borderColor: outline }]}>
-        {modes.map((m, idx) => (
-          <View
-            key={m.key}
-            style={[
-              styles.modeCard,
-              {
-                borderColor: outline,
-                backgroundColor: idx === 0 ? `${accent}22` : surfaceVariant,
-              },
-            ]}
-          >
-            <Feather name={m.icon} size={18} color={idx === 0 ? accent : onSurface} />
-            <Text style={[styles.modeText, { color: onSurface }]}>{m.label}</Text>
-          </View>
-        ))}
-      </View>
-      <View style={[styles.modeHint, { borderColor: outline, backgroundColor: surfaceVariant }]}>
-        <Feather name="check" size={16} color={accent} />
-        <Text style={[styles.modeHintText, { color: onSurface }]}>Pick per reminder</Text>
-      </View>
-    </View>
-  );
-};
-
-const FlexManagementIllustration = ({ accent, surfaceVariant, outline, onSurface }: { accent: string; surfaceVariant: string; outline: string; onSurface: string }) => {
-  return (
-    <View style={{ width: '100%', alignItems: 'center' }}>
-      <View style={[styles.mgmtCard, { borderColor: outline, backgroundColor: surfaceVariant }]}>
-        <View style={[styles.mgmtIconWrap, { backgroundColor: `${accent}22` }]}>
-          <Feather name="pause-circle" size={22} color={accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.mgmtTitle, { color: onSurface }]}>Pause</Text>
-          <Text style={[styles.mgmtSub, { color: onSurface, opacity: 0.7 }]}>Temporarily stop alerts</Text>
-        </View>
-      </View>
-      <View style={[styles.mgmtCard, { borderColor: outline, backgroundColor: surfaceVariant }]}>
-        <View style={[styles.mgmtIconWrap, { backgroundColor: `${accent}22` }]}>
-          <Feather name="repeat" size={22} color={accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.mgmtTitle, { color: onSurface }]}>Repeat</Text>
-          <Text style={[styles.mgmtSub, { color: onSurface, opacity: 0.7 }]}>Smart recurring reminders</Text>
-        </View>
-      </View>
-    </View>
-  );
-};
 
 export default function OnboardingFlow({ visible, onSkip, onComplete }: OnboardingFlowProps) {
   const { colors } = useTheme();
@@ -151,13 +50,12 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       {
         key: 'flex',
         title: 'Flexible Reminder Management',
-        body: 'Pause reminders or set smart repeats for complete control.\n\nLong-press pause button in the daily reminders to pause until a selected date. Your reminders will auto-resume afterwards.\n\nMultiple repeat types: Daily, Monthly, Yearly, Every.\nSet repeating reminders with number of occurrences.',
+        body: 'Pause, repeat, and manage reminders exactly the way you need.\n\nPause – Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.\n\nRepeat – Daily, Monthly, Yearly, or custom recurring schedules.\n\nOccurrence – Optional setting to repeat reminders by count instead of an end date/time.',
         render: () => (
-          <FlexManagementIllustration
-            accent={colors.primary}
-            surfaceVariant={colors.surfaceVariant}
-            outline={colors.outlineVariant}
-            onSurface={colors.onSurface}
+          <Image
+            source={require('../assets/images/flexible_management_v2.png')}
+            style={{ width: 300, height: 300 }}
+            resizeMode="contain"
           />
         ),
       }
@@ -256,8 +154,8 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
-      <View style={[styles.backdrop, { backgroundColor: `${colors.background}F2` }]}>
+    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
+      <View style={[styles.backdrop, { backgroundColor: colors.background }]}>
         <View style={[styles.shell, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.navRow}>
             <TouchableOpacity
@@ -320,15 +218,19 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                 ) : p.key === 'flex' ? (
                   <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 8 }}>
                     <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>
-                      Pause reminders or set smart repeats for complete control.
+                      Pause, repeat, and manage reminders exactly the way you need.
                     </Text>
                     <View style={{ flexDirection: 'row', marginBottom: 6 }}>
                       <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Pause</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Long-press pause button to pause until a selected date. Auto-resumes afterwards.</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Daily, Monthly, Yearly, or custom recurring schedules.</Text>
                     </View>
                     <View style={{ flexDirection: 'row' }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Repeat</Text>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Multiple repeat types: Daily, Monthly, Yearly, Every. Set recurring reminders with ease.</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, fontWeight: '700', width: 120, textAlign: 'left', fontSize: 13 }]}>Occurrence</Text>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, flex: 1, textAlign: 'left', fontSize: 13 }]}>– Optional setting to repeat reminders by count instead of an end date/time.</Text>
                     </View>
                   </View>
                 ) : (
@@ -449,113 +351,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
-  },
-  illustrationBase: {
-    borderWidth: 1,
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dialInner: {
-    position: 'absolute',
-    width: 190,
-    height: 190,
-    borderRadius: 999,
-    borderWidth: 1,
-    opacity: 0.7,
-  },
-  hand: {
-    position: 'absolute',
-    width: 2,
-    borderRadius: 2,
-  },
-  dialCenter: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 10,
-  },
-  tick: {
-    position: 'absolute',
-    borderRadius: 2,
-  },
-  dialBadge: {
-    position: 'absolute',
-    bottom: -18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  dialBadgeText: {
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  modeRow: {
-    width: '100%',
-    maxWidth: 360,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 12,
-    gap: 10,
-  },
-  modeCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    gap: 8,
-  },
-  modeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modeHint: {
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  modeHintText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  mgmtCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  mgmtIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mgmtTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  mgmtSub: {
-    fontSize: 13,
-    marginTop: 2,
   },
 });
 
