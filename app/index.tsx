@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated, LayoutChangeEvent } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -96,6 +96,40 @@ export default function HomeScreen() {
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
+  
+  // Tab animation state
+  const [tabLayouts, setTabLayouts] = useState<Record<string, {x: number, width: number}>>({});
+  const indicatorX = useRef(new Animated.Value(0)).current;
+  const indicatorWidth = useRef(new Animated.Value(0)).current;
+
+  const handleTabLayout = useCallback((tab: string, event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    setTabLayouts(prev => {
+      if (prev[tab]?.x === x && prev[tab]?.width === width) return prev;
+      return { ...prev, [tab]: { x, width } };
+    });
+  }, []);
+
+  useEffect(() => {
+    const layout = tabLayouts[activeTab];
+    if (layout) {
+      Animated.parallel([
+        Animated.spring(indicatorX, {
+          toValue: layout.x,
+          useNativeDriver: false,
+          friction: 8,
+          tension: 50,
+        }),
+        Animated.spring(indicatorWidth, {
+          toValue: layout.width,
+          useNativeDriver: false,
+          friction: 8,
+          tension: 50,
+        }),
+      ]).start();
+    }
+  }, [activeTab, tabLayouts]);
+
   const contentScrollRef = useRef<FlashList<any>>(null);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
   // Toast state removed - now using native Android toast
@@ -1198,6 +1232,7 @@ export default function HomeScreen() {
             style={styles.metroTab}
             onPress={() => scrollToTab('active')}
             activeOpacity={0.7}
+            onLayout={(e) => handleTabLayout('active', e)}
           >
             <Text style={[styles.metroTabText, activeTab === 'active' && styles.metroTabTextActive]}>
               active reminders
@@ -1211,6 +1246,7 @@ export default function HomeScreen() {
             style={styles.metroTab}
             onPress={() => scrollToTab('completed')}
             activeOpacity={0.7}
+            onLayout={(e) => handleTabLayout('completed', e)}
           >
             <Text style={[styles.metroTabText, activeTab === 'completed' && styles.metroTabTextActive]}>
               completed
@@ -1224,6 +1260,7 @@ export default function HomeScreen() {
             style={styles.metroTab}
             onPress={() => scrollToTab('deleted')}
             activeOpacity={0.7}
+            onLayout={(e) => handleTabLayout('deleted', e)}
           >
             <Text style={[styles.metroTabText, activeTab === 'deleted' && styles.metroTabTextActive]}>
               deleted
@@ -1232,6 +1269,19 @@ export default function HomeScreen() {
               {deletedReminders.length}
             </Text>
           </TouchableOpacity>
+
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: indicatorX,
+              width: indicatorWidth,
+              height: 3,
+              backgroundColor: Material3Colors.light.primary,
+              borderTopLeftRadius: 3,
+              borderTopRightRadius: 3,
+            }}
+          />
         </View>
         <View style={styles.metroTabDivider} />
       </View>

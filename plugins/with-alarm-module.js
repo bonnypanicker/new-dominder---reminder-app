@@ -738,6 +738,8 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
 import java.text.SimpleDateFormat
@@ -757,15 +759,12 @@ class AlarmActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
 
-        // --- Set status bar color to match dark background ---
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = android.graphics.Color.parseColor("#1A1A1A")
-            
-            // Make status bar icons light colored for dark background
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                window.decorView.systemUiVisibility = 0 // Clear light status bar flag for dark theme
-            }
-        }
+        // --- Edge-to-Edge & Status Bar (Android 15+ compatible) ---
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        // For dark theme (dark background), we want light icons (so isAppearanceLightStatusBars = false)
+        windowInsetsController.isAppearanceLightStatusBars = false 
+        window.statusBarColor = android.graphics.Color.TRANSPARENT // Let layout draw behind
 
         // --- Wake Lock and Screen On Logic (preserved) ---
         acquireWakeLock()
@@ -1122,6 +1121,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
 
@@ -1135,20 +1136,10 @@ class RingtonePickerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Make status bar seamless/transparent - no separation line
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = android.graphics.Color.TRANSPARENT
-            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                window.decorView.systemUiVisibility = (
-                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                )
-            }
-        }
+        // Make status bar seamless/transparent - Android 15+ compatible
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true // Dark icons for light background
         
         // Get status bar height for proper padding
         val statusBarHeight = getStatusBarHeight()
@@ -1758,6 +1749,7 @@ class MainApplication : Application(), ReactApplication {
 
 import android.content.Intent
 import android.os.Bundle
+import androidx.core.view.WindowCompat
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultReactActivityDelegate
@@ -1771,6 +1763,8 @@ class MainActivity : ReactActivity() {
   override fun getMainComponentName(): String = "main"
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    // Enable edge-to-edge
+    WindowCompat.setDecorFitsSystemWindows(window, false)
     super.onCreate(null)
   }
 

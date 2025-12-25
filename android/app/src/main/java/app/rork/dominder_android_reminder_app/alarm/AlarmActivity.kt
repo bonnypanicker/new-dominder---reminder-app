@@ -19,6 +19,8 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
 import java.text.SimpleDateFormat
@@ -38,15 +40,12 @@ class AlarmActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
 
-        // --- Set status bar color to match dark background ---
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = android.graphics.Color.parseColor("#1A1A1A")
-            
-            // Make status bar icons light colored for dark background
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                window.decorView.systemUiVisibility = 0 // Clear light status bar flag for dark theme
-            }
-        }
+        // --- Edge-to-Edge & Status Bar (Android 15+ compatible) ---
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        // For dark theme (dark background), we want light icons (so isAppearanceLightStatusBars = false)
+        windowInsetsController.isAppearanceLightStatusBars = false 
+        window.statusBarColor = android.graphics.Color.TRANSPARENT // Let layout draw behind
 
         // --- Wake Lock and Screen On Logic (preserved) ---
         acquireWakeLock()
