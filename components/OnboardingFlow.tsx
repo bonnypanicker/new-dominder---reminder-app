@@ -20,6 +20,8 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
   const { width: winW } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
+  // Track the source of the last interaction to determine animation style
+  const lastInteraction = useRef<'gesture' | 'programmatic'>('programmatic');
 
   const panels = useMemo(
     () => [
@@ -69,20 +71,25 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     translateX.setValue(0);
   }, [visible, translateX]);
 
-  // Back button handler - prevent back navigation during onboarding
+  // Back button handler - Standard behavior: Back -> Prev Slide, or Exit on first slide
   useEffect(() => {
     if (!visible) return;
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      // Do nothing - just prevent default back behavior during onboarding
-      return true; // Prevent default back behavior
+      if (index > 0) {
+        // Go back to previous slide
+        lastInteraction.current = 'programmatic';
+        setIndex((i) => i - 1);
+        return true; // Handled
+      }
+      // If on first slide, return false to let default behavior happen (minimize/exit)
+      return false;
     });
 
     return () => backHandler.remove();
-  }, [visible]);
+  }, [visible, index]);
 
-  // Track the source of the last interaction to determine animation style
-  const lastInteraction = useRef<'gesture' | 'programmatic'>('programmatic');
+
 
   // Pan responder for swipe gestures
   const panResponder = useMemo(
@@ -186,7 +193,21 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent={false}
+      statusBarTranslucent
+      onRequestClose={() => {
+        // Required for Android hardware back button
+        // Logic is handled by the BackHandler listener above
+        if (index === 0) {
+          // We can explicitly minimize or just let it close if we wanted
+          // But returning false in BackHandler usually suffices.
+          // This is just a safety fallback.
+        }
+      }}
+    >
       <View style={[styles.backdrop, { backgroundColor: colors.background }]}>
         <View style={[styles.shell, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
           <Animated.View
