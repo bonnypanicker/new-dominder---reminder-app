@@ -53,30 +53,30 @@ const debouncedUpdate = (callback: () => void, delay: number = 50) => {
 const calculateDefaultTime = () => {
   const now = new Date();
   const currentMinutes = now.getMinutes();
-  
+
   // Round up to next multiple of 10 (minimum 10 if less than 10)
   let roundedMinutes = currentMinutes <= 10 ? 10 : Math.ceil(currentMinutes / 10) * 10;
-  
+
   // Add 10 to the result
   roundedMinutes += 10;
-  
+
   // Handle minute overflow
   let finalHours = now.getHours();
   let finalMinutes = roundedMinutes;
-  
+
   if (finalMinutes >= 60) {
     finalHours += Math.floor(finalMinutes / 60);
     finalMinutes = finalMinutes % 60;
   }
-  
+
   // Handle hour overflow (24-hour format)
   if (finalHours >= 24) {
     finalHours = finalHours % 24;
   }
-  
+
   const hour12 = finalHours % 12 === 0 ? 12 : finalHours % 12;
   const isAM = finalHours < 12;
-  
+
   return {
     time: `${hour12.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`,
     isAM
@@ -96,9 +96,9 @@ export default function HomeScreen() {
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
-  
+
   // Tab animation state
-  const [tabLayouts, setTabLayouts] = useState<Record<string, {x: number, width: number}>>({});
+  const [tabLayouts, setTabLayouts] = useState<Record<string, { x: number, width: number }>>({});
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorWidth = useRef(new Animated.Value(0)).current;
 
@@ -229,7 +229,7 @@ export default function HomeScreen() {
   const completeOnboarding = useCallback(async () => {
     try {
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
-    } catch {}
+    } catch { }
     setShowOnboarding(false);
   }, []);
 
@@ -276,7 +276,7 @@ export default function HomeScreen() {
       return dateB - dateA; // Most recently completed first
     });
   }, [reminders]);
-  
+
   const deletedReminders = React.useMemo(() => {
     const deleted = reminders.filter(r => r.isDeleted);
     // Sort by creation date (most recently created first)
@@ -311,7 +311,7 @@ export default function HomeScreen() {
     } else {
       // For repeating reminders, calculate next reminder date and keep active
       const nextDate = calculateNextReminderDate(reminder);
-      
+
       // If no next date and reminder has an end condition, it has ended - mark as completed
       const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
       if (!nextDate && hasEndCondition) {
@@ -321,6 +321,19 @@ export default function HomeScreen() {
           lastTriggeredAt: new Date().toISOString(),
         });
       } else {
+        // Create a history item for this completed occurrence
+        addReminder.mutate({
+          ...reminder,
+          id: `${reminder.id}_${Date.now()}_hist`,
+          isCompleted: true,
+          isActive: false,
+          repeatType: 'none',
+          nextReminderDate: undefined,
+          notificationId: undefined,
+          lastTriggeredAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        });
+
         // Continue with next occurrence
         updateReminder.mutate({
           ...reminder,
@@ -330,7 +343,7 @@ export default function HomeScreen() {
         });
       }
     }
-  }, [updateReminder]);
+  }, [updateReminder, addReminder]);
 
   // Complete all occurrences (used for swipe action)
   const completeAllOccurrences = useCallback((reminder: Reminder) => {
@@ -343,7 +356,7 @@ export default function HomeScreen() {
 
   const pauseReminder = useCallback((reminder: Reminder) => {
     // When resuming (isPaused is currently true), clear pauseUntilDate
-    const updates = reminder.isPaused 
+    const updates = reminder.isPaused
       ? { isPaused: false, pauseUntilDate: undefined }
       : { isPaused: true };
     updateReminder.mutate({ ...reminder, ...updates });
@@ -351,14 +364,14 @@ export default function HomeScreen() {
 
   const handlePauseUntilDate = useCallback((date: string) => {
     if (!pauseUntilReminder) return;
-    
+
     // Validate against end date if exists
     if (pauseUntilReminder.untilType === 'endsAt' && pauseUntilReminder.untilDate) {
       const selectedDate = new Date(date);
       const endDate = new Date(pauseUntilReminder.untilDate);
       selectedDate.setHours(0, 0, 0, 0);
       endDate.setHours(0, 0, 0, 0);
-      
+
       if (selectedDate > endDate) {
         showToast('Pause date cannot be after the end date');
         setPauseUntilCalendarVisible(false);
@@ -366,14 +379,14 @@ export default function HomeScreen() {
         return;
       }
     }
-    
+
     // Set pause until date and mark as paused
-    updateReminder.mutate({ 
-      ...pauseUntilReminder, 
+    updateReminder.mutate({
+      ...pauseUntilReminder,
       isPaused: true,
-      pauseUntilDate: date 
+      pauseUntilDate: date
     });
-    
+
     setPauseUntilCalendarVisible(false);
     setPauseUntilReminder(null);
   }, [pauseUntilReminder, updateReminder]);
@@ -385,41 +398,43 @@ export default function HomeScreen() {
     const [hours, minutes] = reminder.time.split(':').map(Number);
     const reminderDateTime = new Date(year, month - 1, day);
     reminderDateTime.setHours(hours, minutes, 0, 0);
-    
+
     // For 'once' reminders, check if the time has passed
     if (reminder.repeatType === 'none') {
       if (reminderDateTime <= now) {
         Alert.alert(
-          'Past Time', 
+          'Past Time',
           'This reminder\'s time has already passed. It cannot be reassigned to active reminders.',
           [{ text: 'OK' }]
         );
         return;
       }
     }
-    
+
     // For daily reminders, check if today's time has passed
     if (reminder.repeatType === 'daily') {
       const todayTime = new Date();
       todayTime.setHours(hours, minutes, 0, 0);
-      
+
       if (todayTime <= now) {
         Alert.alert(
-          'Note', 
+          'Note',
           'The time has already passed for today. This reminder will be active starting tomorrow.',
-          [{ text: 'OK', onPress: () => {
-            updateReminder.mutate({
-              ...reminder,
-              isCompleted: false,
-              isActive: true,
-              isPaused: false,
-            });
-          }}]
+          [{
+            text: 'OK', onPress: () => {
+              updateReminder.mutate({
+                ...reminder,
+                isCompleted: false,
+                isActive: true,
+                isPaused: false,
+              });
+            }
+          }]
         );
         return;
       }
     }
-    
+
     // For other repeat types or if time hasn't passed, reassign normally
     updateReminder.mutate({
       ...reminder,
@@ -549,8 +564,8 @@ export default function HomeScreen() {
     const ids = scope === 'active'
       ? new Set(activeReminders.map(r => r.id))
       : scope === 'completed'
-      ? new Set(completedReminders.map(r => r.id))
-      : new Set(deletedReminders.map(r => r.id));
+        ? new Set(completedReminders.map(r => r.id))
+        : new Set(deletedReminders.map(r => r.id));
 
     const allSelected = ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
 
@@ -587,7 +602,7 @@ export default function HomeScreen() {
         };
       }
     });
-    
+
     bulkUpdateReminders.mutate(updates);
     exitSelectionMode();
   }, [reminders, selectedReminders, bulkUpdateReminders, exitSelectionMode]);
@@ -606,7 +621,7 @@ export default function HomeScreen() {
         id: reminder.id,
         updates: { isPaused: true }
       }));
-    
+
     if (updates.length > 0) {
       bulkUpdateReminders.mutate(updates);
     }
@@ -622,8 +637,8 @@ export default function HomeScreen() {
 
   const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
@@ -651,13 +666,13 @@ export default function HomeScreen() {
   }, []);
 
 
-  const ReminderCard = memo(({ 
-    reminder, 
-    listType, 
-    isSelected, 
-    isSelectionMode: selectionMode 
-  }: { 
-    reminder: Reminder; 
+  const ReminderCard = memo(({
+    reminder,
+    listType,
+    isSelected,
+    isSelectionMode: selectionMode
+  }: {
+    reminder: Reminder;
     listType: 'active' | 'completed' | 'deleted';
     isSelected: boolean;
     isSelectionMode: boolean;
@@ -674,33 +689,33 @@ export default function HomeScreen() {
         const unit = count === 1 ? 'occurrence' : 'occurrences';
         return `Ends after ${count} ${unit}`;
       }
-          if (type === 'endsAt' && reminder.untilDate) {
-            try {
-              const [y, m, d] = reminder.untilDate.split('-').map(Number);
-              const dt = new Date(y, (m || 1) - 1, d || 1);
-              const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-              const showTime = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
-              if (showTime) {
-                const timeStr = formatTime(reminder.untilTime ?? reminder.time);
-                return `Ends on ${dateStr} at ${timeStr}`;
-              }
-              return `Ends on ${dateStr}`;
-            } catch {
-              return null;
-            }
+      if (type === 'endsAt' && reminder.untilDate) {
+        try {
+          const [y, m, d] = reminder.untilDate.split('-').map(Number);
+          const dt = new Date(y, (m || 1) - 1, d || 1);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const showTime = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
+          if (showTime) {
+            const timeStr = formatTime(reminder.untilTime ?? reminder.time);
+            return `Ends on ${dateStr} at ${timeStr}`;
           }
+          return `Ends on ${dateStr}`;
+        } catch {
+          return null;
+        }
+      }
       return null;
     })();
 
 
-    
+
     const isDeleted = listType === 'deleted';
     const isCompletedOrDeleted = listType === 'completed' || listType === 'deleted';
-    
+
     // Minimized single-line layout for completed and deleted
     if (isCompletedOrDeleted) {
       return (
-        <SwipeableRow 
+        <SwipeableRow
           reminder={reminder}
           swipeableRefs={swipeableRefs}
           simultaneousHandlers={contentScrollRef}
@@ -772,7 +787,7 @@ export default function HomeScreen() {
                   </Text>
                 )}
               </View>
-              
+
               <View style={styles.reminderRight}>
                 <TouchableOpacity
                   style={isDeleted ? styles.restoreButton : styles.reassignButton}
@@ -794,10 +809,10 @@ export default function HomeScreen() {
         </SwipeableRow>
       );
     }
-    
+
     // Full layout for active reminders
     return (
-      <SwipeableRow 
+      <SwipeableRow
         reminder={reminder}
         swipeableRefs={swipeableRefs}
         simultaneousHandlers={contentScrollRef}
@@ -806,16 +821,16 @@ export default function HomeScreen() {
         isSelectionMode={selectionMode}
       >
         <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => handleCardPress(reminder)}
-            onLongPress={() => handleLongPress(reminder.id, listType)}
-            delayLongPress={200}
-            style={[
-              styles.reminderCard,
-              isSelected && styles.selectedCard
-            ]}
-            testID={`reminder-card-${reminder.id}`}
-          >
+          activeOpacity={0.85}
+          onPress={() => handleCardPress(reminder)}
+          onLongPress={() => handleLongPress(reminder.id, listType)}
+          delayLongPress={200}
+          style={[
+            styles.reminderCard,
+            isSelected && styles.selectedCard
+          ]}
+          testID={`reminder-card-${reminder.id}`}
+        >
           <View style={styles.reminderContent}>
             <View style={styles.reminderLeft}>
               {selectionMode && (
@@ -852,7 +867,7 @@ export default function HomeScreen() {
                   )}
 
                 </View>
-                
+
                 <View style={styles.reminderDetails}>
                   {/* For Once reminders - show date and time with clock icon like Monthly/Yearly */}
                   {reminder.repeatType === 'none' && !reminder.isCompleted && (
@@ -862,8 +877,8 @@ export default function HomeScreen() {
                         {(() => {
                           const [year, month, day] = reminder.date.split('-').map(Number);
                           const date = new Date(year, month - 1, day);
-                          const dateStr = date.toLocaleDateString('en-US', { 
-                            month: 'short', 
+                          const dateStr = date.toLocaleDateString('en-US', {
+                            month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           });
@@ -891,7 +906,7 @@ export default function HomeScreen() {
                       <View style={styles.dailyDaysContainer}>
                         {[0, 1, 2, 3, 4, 5, 6].map((day) => {
                           const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-                          const selectedDays = (reminder.repeatDays && reminder.repeatDays.length > 0) ? reminder.repeatDays : [0,1,2,3,4,5,6];
+                          const selectedDays = (reminder.repeatDays && reminder.repeatDays.length > 0) ? reminder.repeatDays : [0, 1, 2, 3, 4, 5, 6];
                           const dayActive = selectedDays.includes(day);
                           return (
                             <View
@@ -927,7 +942,7 @@ export default function HomeScreen() {
                             return calc ?? null;
                           };
                           const nextDate = getNextDate();
-                          
+
                           // If no next date and has end condition, the reminder has ended - show last occurrence
                           if (!nextDate && hasEndCondition) {
                             // Get last occurrence date
@@ -939,19 +954,19 @@ export default function HomeScreen() {
                               const [hours, minutes] = reminder.time.split(':').map(Number);
                               return new Date(year, month - 1, day, hours, minutes);
                             })();
-                            const dateStr = lastDate.toLocaleDateString('en-US', { 
-                              month: 'short', 
+                            const dateStr = lastDate.toLocaleDateString('en-US', {
+                              month: 'short',
                               day: 'numeric',
                               year: 'numeric'
                             });
                             const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
                             return `Ended: ${dateStr} at ${timeStr}`;
                           }
-                          
+
                           if (!nextDate) return 'Calculating...';
-                          
-                          const dateStr = nextDate.toLocaleDateString('en-US', { 
-                            month: 'short', 
+
+                          const dateStr = nextDate.toLocaleDateString('en-US', {
+                            month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           });
@@ -977,7 +992,7 @@ export default function HomeScreen() {
                       })()}
                     </Text>
                   )}
-                  
+
                   {/* Show repeat badge at bottom for Once, Monthly, Yearly, Every, Daily */}
                   {(reminder.repeatType === 'none' || reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every' || reminder.repeatType === 'daily') && (
                     <View style={styles.repeatBadgeContainer}>
@@ -1007,21 +1022,21 @@ export default function HomeScreen() {
                       )}
                     </View>
                   )}
-                  
+
                   {/* Show snooze until time if snoozed */}
                   {reminder.snoozeUntil && (
                     <Text style={styles.snoozeUntilText}>
                       Snoozed until: {formatDate(reminder.snoozeUntil)} at {formatTime(new Date(reminder.snoozeUntil).toTimeString().slice(0, 5))}
                     </Text>
                   )}
-                  
+
                   {/* Show pause until date for Daily reminders with pauseUntilDate */}
                   {reminder.repeatType === 'daily' && reminder.pauseUntilDate && (
                     <Text style={styles.snoozeUntilText}>
                       Paused until {formatDate(reminder.pauseUntilDate)}
                     </Text>
                   )}
-                  
+
                   {/* Show next reminder date for Weekly and Custom reminders (not for completed or daily) */}
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && !reminder.snoozeUntil && !reminder.isCompleted && (
                     <Text style={styles.nextReminderText}>
@@ -1033,7 +1048,7 @@ export default function HomeScreen() {
                           return calc ?? null;
                         };
                         const nextDate = getNextDate();
-                        
+
                         // If no next date and has end condition, the reminder has ended - show last occurrence
                         if (!nextDate && hasEndCondition) {
                           const lastDate = (() => {
@@ -1046,7 +1061,7 @@ export default function HomeScreen() {
                           })();
                           return `Ended: ${formatDate(lastDate.toISOString())}`;
                         }
-                        
+
                         if (!nextDate) return 'Next: Calculating...';
 
                         return `Next: ${formatDate(nextDate.toISOString())}`;
@@ -1054,11 +1069,11 @@ export default function HomeScreen() {
                     </Text>
                   )}
                 </View>
-                
+
                 {/* Removed expired badge - no longer using expired tab */}
               </View>
             </View>
-            
+
             {/* Action buttons */}
             {isActive && !isDeleted && (
               <View style={styles.reminderRight}>
@@ -1101,7 +1116,7 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                   )
                 )}
-                
+
                 <TouchableOpacity
                   style={styles.doneButton}
                   onPress={(e) => {
@@ -1114,7 +1129,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             )}
-            
+
             {/* Restore button for deleted items */}
             {isDeleted && (
               <View style={styles.reminderRight}>
@@ -1130,7 +1145,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             )}
-            
+
             {/* Reassign button for completed items */}
             {!isActive && !isDeleted && (
               <View style={styles.reminderRight}>
@@ -1154,39 +1169,39 @@ export default function HomeScreen() {
     // ID change always means different card
     if (prevProps.reminder.id !== nextProps.reminder.id) return false;
     if (prevProps.listType !== nextProps.listType) return false;
-    
+
     // Check external state dependencies
     if (prevProps.isSelected !== nextProps.isSelected) return false;
     if (prevProps.isSelectionMode !== nextProps.isSelectionMode) return false;
-    
+
     const prev = prevProps.reminder;
     const next = nextProps.reminder;
-    
+
     // Check ALL fields that affect visual rendering to prevent flickering
-    const areDaysEqual = prev.repeatDays?.length === next.repeatDays?.length && 
-                         (prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i]) ?? true);
+    const areDaysEqual = prev.repeatDays?.length === next.repeatDays?.length &&
+      (prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i]) ?? true);
     const isEveryIntervalEqual = prev.everyInterval?.value === next.everyInterval?.value &&
-                                  prev.everyInterval?.unit === next.everyInterval?.unit;
-    
+      prev.everyInterval?.unit === next.everyInterval?.unit;
+
     return prev.title === next.title &&
-           prev.time === next.time &&
-           prev.date === next.date &&
-           prev.priority === next.priority &&
-           prev.isActive === next.isActive &&
-           prev.isPaused === next.isPaused &&
-           prev.isCompleted === next.isCompleted &&
-           prev.isExpired === next.isExpired &&
-           prev.repeatType === next.repeatType &&
-           prev.nextReminderDate === next.nextReminderDate &&
-           prev.snoozeUntil === next.snoozeUntil &&
-           prev.lastTriggeredAt === next.lastTriggeredAt &&
-           prev.untilType === next.untilType &&
-           prev.untilDate === next.untilDate &&
-           prev.untilCount === next.untilCount &&
-           areDaysEqual &&
-           isEveryIntervalEqual;
+      prev.time === next.time &&
+      prev.date === next.date &&
+      prev.priority === next.priority &&
+      prev.isActive === next.isActive &&
+      prev.isPaused === next.isPaused &&
+      prev.isCompleted === next.isCompleted &&
+      prev.isExpired === next.isExpired &&
+      prev.repeatType === next.repeatType &&
+      prev.nextReminderDate === next.nextReminderDate &&
+      prev.snoozeUntil === next.snoozeUntil &&
+      prev.lastTriggeredAt === next.lastTriggeredAt &&
+      prev.untilType === next.untilType &&
+      prev.untilDate === next.untilDate &&
+      prev.untilCount === next.untilCount &&
+      areDaysEqual &&
+      isEveryIntervalEqual;
   });
-  
+
   ReminderCard.displayName = 'ReminderCard';
 
   useEffect(() => {
@@ -1209,585 +1224,585 @@ export default function HomeScreen() {
 
   return (
     <>
-    <KeyboardAvoidingView style={{ flex: 1 }} enabled={false}>
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.title}>DoMinder</Text>
-        <View style={styles.headerActions}>
-          {Platform.OS === 'web' && (
-            <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
-              <HelpCircle size={20} color={Material3Colors.light.onSurfaceVariant} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings' as any)}>
-            <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Metro/Windows Phone 8 Style Tabs */}
-      <View style={styles.metroTabContainer}>
-        <View style={styles.metroTabContent}>
-          <TouchableOpacity 
-            style={styles.metroTab}
-            onPress={() => scrollToTab('active')}
-            activeOpacity={0.7}
-            onLayout={(e) => handleTabLayout('active', e)}
-          >
-            <Text style={[styles.metroTabText, activeTab === 'active' && styles.metroTabTextActive]}>
-              active reminders
-            </Text>
-            <Text style={[styles.metroTabCount, activeTab === 'active' && styles.metroTabCountActive]}>
-              {activeReminders.length}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.metroTab}
-            onPress={() => scrollToTab('completed')}
-            activeOpacity={0.7}
-            onLayout={(e) => handleTabLayout('completed', e)}
-          >
-            <Text style={[styles.metroTabText, activeTab === 'completed' && styles.metroTabTextActive]}>
-              completed
-            </Text>
-            <Text style={[styles.metroTabCount, activeTab === 'completed' && styles.metroTabCountActive]}>
-              {completedReminders.length}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.metroTab}
-            onPress={() => scrollToTab('deleted')}
-            activeOpacity={0.7}
-            onLayout={(e) => handleTabLayout('deleted', e)}
-          >
-            <Text style={[styles.metroTabText, activeTab === 'deleted' && styles.metroTabTextActive]}>
-              deleted
-            </Text>
-            <Text style={[styles.metroTabCount, activeTab === 'deleted' && styles.metroTabCountActive]}>
-              {deletedReminders.length}
-            </Text>
-          </TouchableOpacity>
-
-          <Animated.View
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: indicatorX,
-              width: indicatorWidth,
-              height: 3,
-              backgroundColor: Material3Colors.light.primary,
-              borderTopLeftRadius: 3,
-              borderTopRightRadius: 3,
-            }}
-          />
-        </View>
-        <View style={styles.metroTabDivider} />
-      </View>
-
-      {isSelectionMode && (
-        <View style={styles.selectionBar}>
-          <TouchableOpacity
-            style={styles.closeSelectionButton}
-            onPress={exitSelectionMode}
-          >
-            <X size={20} color={Material3Colors.light.onSurface} />
-          </TouchableOpacity>
-          <Text style={styles.selectionCount}>
-            {selectedReminders.size} selected
-          </Text>
-          <View style={styles.selectionActions}>
-            {(() => {
-              const scope: 'active' | 'completed' | 'deleted' = selectionTab ?? activeTab;
-              return (
-                <>
-                  {scope === 'active' && (
-                    <TouchableOpacity
-                      style={styles.selectionActionButton}
-                      onPress={markAllAsDone}
-                      disabled={selectedReminders.size === 0}
-                      testID="bulk-done"
-                    >
-                      <CheckCircle size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.primary} />
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.selectionActionButton}
-                    onPress={deleteAll}
-                    disabled={selectedReminders.size === 0}
-                    testID="bulk-delete"
-                  >
-                    <Trash2 size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.error} />
-                  </TouchableOpacity>
-
-                  {scope === 'active' && (
-                    <TouchableOpacity
-                      style={styles.selectionActionButton}
-                      onPress={pauseAll}
-                      disabled={selectedReminders.size === 0}
-                      testID="bulk-pause"
-                    >
-                      <PauseCircle size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.onSurfaceVariant} />
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.selectionActionButton}
-                    onPress={selectAll}
-                    testID="bulk-select-all"
-                  >
-                    <CheckSquare size={16} color={Material3Colors.light.primary} />
-                  </TouchableOpacity>
-                </>
-              );
-            })()}
+      <KeyboardAvoidingView style={{ flex: 1 }} enabled={false}>
+        <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+            <Text style={styles.title}>DoMinder</Text>
+            <View style={styles.headerActions}>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
+                  <HelpCircle size={20} color={Material3Colors.light.onSurfaceVariant} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings' as any)}>
+                <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
 
-      {/* Main Content */}
-      <FlashList
-        ref={contentScrollRef}
-        data={currentList}
-        renderItem={({ item }) => (
-          <ReminderCard 
-            reminder={item} 
-            listType={activeTab}
-            isSelected={selectedReminders.has(item.id)}
-            isSelectionMode={isSelectionMode}
-          />
-        )}
-        extraData={selectionTimestamp}
-        estimatedItemSize={120}
-        keyExtractor={(item) => item.id.toString()}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!showCreatePopup && !showOnboarding}
-        ItemSeparatorComponent={() => null}
-        contentContainerStyle={{
-          paddingBottom: 100,
-          paddingTop: 4,
-          paddingHorizontal: 0,
-        }}
-        drawDistance={Platform.OS === 'android' ? 500 : 250}
-        removeClippedSubviews={false}
-        overrideItemLayout={(layout, item) => {
-          if (Platform.OS === 'android') {
-            layout.size = layout.size || 120;
-          }
-        }}
-        ListEmptyComponent={
-        <View style={styles.emptyState}>
-          {activeTab === 'active' ? (
-            <>
-              <Clock size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Active Reminders</Text>
-              <Text style={styles.emptyDescription}>
-                Tap (+) button to create a reminder
+          {/* Metro/Windows Phone 8 Style Tabs */}
+          <View style={styles.metroTabContainer}>
+            <View style={styles.metroTabContent}>
+              <TouchableOpacity
+                style={styles.metroTab}
+                onPress={() => scrollToTab('active')}
+                activeOpacity={0.7}
+                onLayout={(e) => handleTabLayout('active', e)}
+              >
+                <Text style={[styles.metroTabText, activeTab === 'active' && styles.metroTabTextActive]}>
+                  active reminders
+                </Text>
+                <Text style={[styles.metroTabCount, activeTab === 'active' && styles.metroTabCountActive]}>
+                  {activeReminders.length}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.metroTab}
+                onPress={() => scrollToTab('completed')}
+                activeOpacity={0.7}
+                onLayout={(e) => handleTabLayout('completed', e)}
+              >
+                <Text style={[styles.metroTabText, activeTab === 'completed' && styles.metroTabTextActive]}>
+                  completed
+                </Text>
+                <Text style={[styles.metroTabCount, activeTab === 'completed' && styles.metroTabCountActive]}>
+                  {completedReminders.length}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.metroTab}
+                onPress={() => scrollToTab('deleted')}
+                activeOpacity={0.7}
+                onLayout={(e) => handleTabLayout('deleted', e)}
+              >
+                <Text style={[styles.metroTabText, activeTab === 'deleted' && styles.metroTabTextActive]}>
+                  deleted
+                </Text>
+                <Text style={[styles.metroTabCount, activeTab === 'deleted' && styles.metroTabCountActive]}>
+                  {deletedReminders.length}
+                </Text>
+              </TouchableOpacity>
+
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: indicatorX,
+                  width: indicatorWidth,
+                  height: 3,
+                  backgroundColor: Material3Colors.light.primary,
+                  borderTopLeftRadius: 3,
+                  borderTopRightRadius: 3,
+                }}
+              />
+            </View>
+            <View style={styles.metroTabDivider} />
+          </View>
+
+          {isSelectionMode && (
+            <View style={styles.selectionBar}>
+              <TouchableOpacity
+                style={styles.closeSelectionButton}
+                onPress={exitSelectionMode}
+              >
+                <X size={20} color={Material3Colors.light.onSurface} />
+              </TouchableOpacity>
+              <Text style={styles.selectionCount}>
+                {selectedReminders.size} selected
               </Text>
-            </>
-          ) : activeTab === 'completed' ? (
-            <>
-              <CheckCircle size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Completed Reminders</Text>
-              <Text style={styles.emptyDescription}>
-                Completed reminders will appear here
-              </Text>
-            </>
-          ) : (
-            <>
-              <Trash2 size={64} color={Material3Colors.light.outline} />
-              <Text style={styles.emptyTitle}>No Deleted Reminders</Text>
-              <Text style={styles.emptyDescription}>
-                Deleted reminders will appear here
-              </Text>
-            </>
+              <View style={styles.selectionActions}>
+                {(() => {
+                  const scope: 'active' | 'completed' | 'deleted' = selectionTab ?? activeTab;
+                  return (
+                    <>
+                      {scope === 'active' && (
+                        <TouchableOpacity
+                          style={styles.selectionActionButton}
+                          onPress={markAllAsDone}
+                          disabled={selectedReminders.size === 0}
+                          testID="bulk-done"
+                        >
+                          <CheckCircle size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.primary} />
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.selectionActionButton}
+                        onPress={deleteAll}
+                        disabled={selectedReminders.size === 0}
+                        testID="bulk-delete"
+                      >
+                        <Trash2 size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.error} />
+                      </TouchableOpacity>
+
+                      {scope === 'active' && (
+                        <TouchableOpacity
+                          style={styles.selectionActionButton}
+                          onPress={pauseAll}
+                          disabled={selectedReminders.size === 0}
+                          testID="bulk-pause"
+                        >
+                          <PauseCircle size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.onSurfaceVariant} />
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.selectionActionButton}
+                        onPress={selectAll}
+                        testID="bulk-select-all"
+                      >
+                        <CheckSquare size={16} color={Material3Colors.light.primary} />
+                      </TouchableOpacity>
+                    </>
+                  );
+                })()}
+              </View>
+            </View>
           )}
-        </View>
-      }
-      bounces={true}
-      bouncesZoom={false}
-      alwaysBounceVertical={true}
-      overScrollMode="always"
-    />
-      
-      <CreateReminderPopup
-        visible={showCreatePopup}
-        onClose={() => setShowCreatePopup(false)}
-        title={title}
-        onTitleChange={setTitle}
-        selectedTime={selectedTime}
-        isAM={isAM}
-        untilTime={untilTime}
-        untilIsAM={untilIsAM}
-        priority={priority}
-        onPriorityChange={setPriority}
-        repeatType={repeatType}
-        onRepeatTypeChange={setRepeatType}
-        repeatDays={repeatDays}
-        onRepeatDaysChange={setRepeatDays}
-        everyValue={everyValue}
-        everyUnit={everyUnit}
-        onEveryChange={(value, unit) => {
-          setEveryValue(value);
-          setEveryUnit(unit);
-        }}
-        onTimeSelect={() => { setTimeSelectorContext('start'); setShowTimeSelector(true); }}
-        onTimeChange={(time, ampm) => {
-          setSelectedTime(time);
-          setIsAM(ampm);
-        }}
-        onUntilTimeChange={(time, ampm) => {
-          setUntilTime(time);
-          setUntilIsAM(ampm);
-        }}
-        showTimeSelector={showTimeSelector}
-        onCloseTimeSelector={() => setShowTimeSelector(false)}
-        timeSelectorContext={timeSelectorContext}
-        // Until props
-        untilType={untilType}
-        untilDate={untilDate}
-        untilCount={untilCount}
-        onUntilTypeChange={(type) => {
-          setUntilType(type);
-          // Set a default until date when switching to endsAt without one
-          if (type === 'endsAt' && !untilDate) {
-            const d = new Date();
-            d.setMonth(d.getMonth() + 1);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            setUntilDate(`${yyyy}-${mm}-${dd}`);
-          }
-        }}
-        onUntilDateChange={setUntilDate}
-        onUntilCountChange={(count) => setUntilCount(Math.min(999, Math.max(1, count)))}
-        onOpenUntilTime={() => { setTimeSelectorContext('until'); setShowTimeSelector(true); }}
-        onConfirm={() => {
-          if (!title.trim()) {
-            showToast('Please enter your reminder');
-            return;
-          }
 
-          // Validate until date constraints
-          if (repeatType !== 'none' && untilType === 'endsAt' && untilDate) {
-            try {
-              const startDateTime = new Date(selectedDate);
-              startDateTime.setHours(0, 0, 0, 0);
-              const endDateTime = new Date(untilDate);
-              endDateTime.setHours(0, 0, 0, 0);
-              if (endDateTime < startDateTime) {
-                showToast('End date cannot be before start date');
+          {/* Main Content */}
+          <FlashList
+            ref={contentScrollRef}
+            data={currentList}
+            renderItem={({ item }) => (
+              <ReminderCard
+                reminder={item}
+                listType={activeTab}
+                isSelected={selectedReminders.has(item.id)}
+                isSelectionMode={isSelectionMode}
+              />
+            )}
+            extraData={selectionTimestamp}
+            estimatedItemSize={120}
+            keyExtractor={(item) => item.id.toString()}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={!showCreatePopup && !showOnboarding}
+            ItemSeparatorComponent={() => null}
+            contentContainerStyle={{
+              paddingBottom: 100,
+              paddingTop: 4,
+              paddingHorizontal: 0,
+            }}
+            drawDistance={Platform.OS === 'android' ? 500 : 250}
+            removeClippedSubviews={false}
+            overrideItemLayout={(layout, item) => {
+              if (Platform.OS === 'android') {
+                layout.size = layout.size || 120;
+              }
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                {activeTab === 'active' ? (
+                  <>
+                    <Clock size={64} color={Material3Colors.light.outline} />
+                    <Text style={styles.emptyTitle}>No Active Reminders</Text>
+                    <Text style={styles.emptyDescription}>
+                      Tap (+) button to create a reminder
+                    </Text>
+                  </>
+                ) : activeTab === 'completed' ? (
+                  <>
+                    <CheckCircle size={64} color={Material3Colors.light.outline} />
+                    <Text style={styles.emptyTitle}>No Completed Reminders</Text>
+                    <Text style={styles.emptyDescription}>
+                      Completed reminders will appear here
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={64} color={Material3Colors.light.outline} />
+                    <Text style={styles.emptyTitle}>No Deleted Reminders</Text>
+                    <Text style={styles.emptyDescription}>
+                      Deleted reminders will appear here
+                    </Text>
+                  </>
+                )}
+              </View>
+            }
+            bounces={true}
+            bouncesZoom={false}
+            alwaysBounceVertical={true}
+            overScrollMode="always"
+          />
+
+          <CreateReminderPopup
+            visible={showCreatePopup}
+            onClose={() => setShowCreatePopup(false)}
+            title={title}
+            onTitleChange={setTitle}
+            selectedTime={selectedTime}
+            isAM={isAM}
+            untilTime={untilTime}
+            untilIsAM={untilIsAM}
+            priority={priority}
+            onPriorityChange={setPriority}
+            repeatType={repeatType}
+            onRepeatTypeChange={setRepeatType}
+            repeatDays={repeatDays}
+            onRepeatDaysChange={setRepeatDays}
+            everyValue={everyValue}
+            everyUnit={everyUnit}
+            onEveryChange={(value, unit) => {
+              setEveryValue(value);
+              setEveryUnit(unit);
+            }}
+            onTimeSelect={() => { setTimeSelectorContext('start'); setShowTimeSelector(true); }}
+            onTimeChange={(time, ampm) => {
+              setSelectedTime(time);
+              setIsAM(ampm);
+            }}
+            onUntilTimeChange={(time, ampm) => {
+              setUntilTime(time);
+              setUntilIsAM(ampm);
+            }}
+            showTimeSelector={showTimeSelector}
+            onCloseTimeSelector={() => setShowTimeSelector(false)}
+            timeSelectorContext={timeSelectorContext}
+            // Until props
+            untilType={untilType}
+            untilDate={untilDate}
+            untilCount={untilCount}
+            onUntilTypeChange={(type) => {
+              setUntilType(type);
+              // Set a default until date when switching to endsAt without one
+              if (type === 'endsAt' && !untilDate) {
+                const d = new Date();
+                d.setMonth(d.getMonth() + 1);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                setUntilDate(`${yyyy}-${mm}-${dd}`);
+              }
+            }}
+            onUntilDateChange={setUntilDate}
+            onUntilCountChange={(count) => setUntilCount(Math.min(999, Math.max(1, count)))}
+            onOpenUntilTime={() => { setTimeSelectorContext('until'); setShowTimeSelector(true); }}
+            onConfirm={() => {
+              if (!title.trim()) {
+                showToast('Please enter your reminder');
                 return;
               }
-            } catch (_) {
-              // If parsing fails, let existing flows handle errors
-            }
-          }
 
-          const [timeHours, timeMinutes] = selectedTime.split(':').map(Number);
-          let finalHours = timeHours;
-          if (!isAM && timeHours !== 12) {
-            finalHours = timeHours + 12;
-          } else if (isAM && timeHours === 12) {
-            finalHours = 0;
-          }
-          const finalTime = `${finalHours.toString().padStart(2, '0')}:${timeMinutes.toString().padStart(2, '0')}`;
+              // Validate until date constraints
+              if (repeatType !== 'none' && untilType === 'endsAt' && untilDate) {
+                try {
+                  const startDateTime = new Date(selectedDate);
+                  startDateTime.setHours(0, 0, 0, 0);
+                  const endDateTime = new Date(untilDate);
+                  endDateTime.setHours(0, 0, 0, 0);
+                  if (endDateTime < startDateTime) {
+                    showToast('End date cannot be before start date');
+                    return;
+                  }
+                } catch (_) {
+                  // If parsing fails, let existing flows handle errors
+                }
+              }
 
-          // If endsAt with minutes/hours, validate end time after start time
-          if (repeatType !== 'none' && untilType === 'endsAt' && untilDate) {
-            const [uHours, uMinutes] = (untilTime || `${timeHours}:${timeMinutes}`).split(':').map(Number);
-            let finalUHours = uHours;
-            if (!untilIsAM && uHours !== 12) {
-              finalUHours = uHours + 12;
-            } else if (untilIsAM && uHours === 12) {
-              finalUHours = 0;
-            }
-            const startDateTimeFull = new Date(selectedDate);
-            const endDateTimeFull = new Date(untilDate);
-            startDateTimeFull.setHours(finalHours, timeMinutes, 0, 0);
-            endDateTimeFull.setHours(finalUHours, uMinutes, 0, 0);
-            const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
-            if (withTime && endDateTimeFull <= startDateTimeFull) {
-              showToast('End time must be after start time');
-              return;
-            }
+              const [timeHours, timeMinutes] = selectedTime.split(':').map(Number);
+              let finalHours = timeHours;
+              if (!isAM && timeHours !== 12) {
+                finalHours = timeHours + 12;
+              } else if (isAM && timeHours === 12) {
+                finalHours = 0;
+              }
+              const finalTime = `${finalHours.toString().padStart(2, '0')}:${timeMinutes.toString().padStart(2, '0')}`;
 
-            // Additional validation: ensure the end window is at least one full interval
-            if (repeatType === 'every' && untilType === 'endsAt') {
-              if (everyUnit === 'minutes' || everyUnit === 'hours') {
-                const intervalMs = everyUnit === 'minutes'
-                  ? everyValue * 60 * 1000
-                  : everyValue * 60 * 60 * 1000;
-                const diffMs = endDateTimeFull.getTime() - startDateTimeFull.getTime();
-                if (diffMs < intervalMs) {
-                  showToast(`End date/time must be at least ${everyValue} ${everyUnit} after start for 'Every' repeats`);
+              // If endsAt with minutes/hours, validate end time after start time
+              if (repeatType !== 'none' && untilType === 'endsAt' && untilDate) {
+                const [uHours, uMinutes] = (untilTime || `${timeHours}:${timeMinutes}`).split(':').map(Number);
+                let finalUHours = uHours;
+                if (!untilIsAM && uHours !== 12) {
+                  finalUHours = uHours + 12;
+                } else if (untilIsAM && uHours === 12) {
+                  finalUHours = 0;
+                }
+                const startDateTimeFull = new Date(selectedDate);
+                const endDateTimeFull = new Date(untilDate);
+                startDateTimeFull.setHours(finalHours, timeMinutes, 0, 0);
+                endDateTimeFull.setHours(finalUHours, uMinutes, 0, 0);
+                const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
+                if (withTime && endDateTimeFull <= startDateTimeFull) {
+                  showToast('End time must be after start time');
                   return;
                 }
-              } else if (everyUnit === 'days') {
-                const startDay = new Date(selectedDate);
-                const endDay = new Date(untilDate);
-                startDay.setHours(0, 0, 0, 0);
-                endDay.setHours(0, 0, 0, 0);
-                const diffDays = Math.floor((endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000));
-                if (diffDays < everyValue) {
-                  showToast(`End date must be at least ${everyValue} day(s) after start for 'Every' repeats`);
+
+                // Additional validation: ensure the end window is at least one full interval
+                if (repeatType === 'every' && untilType === 'endsAt') {
+                  if (everyUnit === 'minutes' || everyUnit === 'hours') {
+                    const intervalMs = everyUnit === 'minutes'
+                      ? everyValue * 60 * 1000
+                      : everyValue * 60 * 60 * 1000;
+                    const diffMs = endDateTimeFull.getTime() - startDateTimeFull.getTime();
+                    if (diffMs < intervalMs) {
+                      showToast(`End date/time must be at least ${everyValue} ${everyUnit} after start for 'Every' repeats`);
+                      return;
+                    }
+                  } else if (everyUnit === 'days') {
+                    const startDay = new Date(selectedDate);
+                    const endDay = new Date(untilDate);
+                    startDay.setHours(0, 0, 0, 0);
+                    endDay.setHours(0, 0, 0, 0);
+                    const diffDays = Math.floor((endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000));
+                    if (diffDays < everyValue) {
+                      showToast(`End date must be at least ${everyValue} day(s) after start for 'Every' repeats`);
+                      return;
+                    }
+                  }
+                }
+              }
+
+              // Check for past time validation for 'once' reminders (both new and editing)
+              if (repeatType === 'none') {
+                const now = new Date();
+                const [year, month, day] = selectedDate.split('-').map(Number);
+                const selectedDateTime = new Date(year, month - 1, day);
+                selectedDateTime.setHours(finalHours, timeMinutes, 0, 0);
+
+                const isToday = now.getFullYear() === selectedDateTime.getFullYear() &&
+                  now.getMonth() === selectedDateTime.getMonth() &&
+                  now.getDate() === selectedDateTime.getDate();
+
+                if (selectedDateTime <= now || (isToday && selectedDateTime <= now)) {
+                  showToast('Please select a future time');
                   return;
                 }
               }
-            }
-          }
 
-          // Check for past time validation for 'once' reminders (both new and editing)
-          if (repeatType === 'none') {
-            const now = new Date();
-            const [year, month, day] = selectedDate.split('-').map(Number);
-            const selectedDateTime = new Date(year, month - 1, day);
-            selectedDateTime.setHours(finalHours, timeMinutes, 0, 0);
-            
-            const isToday = now.getFullYear() === selectedDateTime.getFullYear() &&
-                          now.getMonth() === selectedDateTime.getMonth() &&
-                          now.getDate() === selectedDateTime.getDate();
-            
-            if (selectedDateTime <= now || (isToday && selectedDateTime <= now)) {
-              showToast('Please select a future time');
-              return;
-            }
-          }
+              if (editingReminder) {
+                // Check if editing a completed reminder and time has passed
+                if (editingReminder.isCompleted) {
+                  const now = new Date();
+                  const [year, month, day] = selectedDate.split('-').map(Number);
+                  const selectedDateTime = new Date(year, month - 1, day);
+                  selectedDateTime.setHours(finalHours, timeMinutes, 0, 0);
 
-          if (editingReminder) {
-            // Check if editing a completed reminder and time has passed
-            if (editingReminder.isCompleted) {
-              const now = new Date();
-              const [year, month, day] = selectedDate.split('-').map(Number);
-              const selectedDateTime = new Date(year, month - 1, day);
-              selectedDateTime.setHours(finalHours, timeMinutes, 0, 0);
-              
-              // For daily reminders, check if today's time has passed
-              if (repeatType === 'daily') {
-                const todayTime = new Date();
-                todayTime.setHours(finalHours, timeMinutes, 0, 0);
-                
-                if (todayTime <= now) {
-                  Alert.alert(
-                    'Past Time Selected', 
-                    'The selected time has already passed for today. This reminder will be active starting tomorrow.',
-                    [{ text: 'OK' }]
-                  );
+                  // For daily reminders, check if today's time has passed
+                  if (repeatType === 'daily') {
+                    const todayTime = new Date();
+                    todayTime.setHours(finalHours, timeMinutes, 0, 0);
+
+                    if (todayTime <= now) {
+                      Alert.alert(
+                        'Past Time Selected',
+                        'The selected time has already passed for today. This reminder will be active starting tomorrow.',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }
                 }
+
+                const updated: Reminder = {
+                  ...editingReminder,
+                  title: title.trim(),
+                  time: finalTime,
+                  date: selectedDate,
+                  priority,
+                  repeatType,
+                  repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
+                  monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
+                  everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
+                  // Until fields
+                  untilType: repeatType === 'none' ? undefined : untilType,
+                  untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
+                  untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
+                  untilTime: (repeatType !== 'none' && untilType === 'endsAt' && untilDate)
+                    ? (() => {
+                      const [uHours, uMinutes] = untilTime.split(':').map(Number);
+                      let finalUHours = uHours;
+                      if (!untilIsAM && uHours !== 12) finalUHours = uHours + 12;
+                      else if (untilIsAM && uHours === 12) finalUHours = 0;
+                      return `${finalUHours.toString().padStart(2, '0')}:${uMinutes.toString().padStart(2, '0')}`;
+                    })()
+                    : undefined,
+                  untilIsAM: (repeatType !== 'none' && untilType === 'endsAt' && untilDate) ? untilIsAM : undefined,
+                  // Preserve occurrence count when editing
+                  occurrenceCount: repeatType === 'none' ? undefined : (editingReminder.occurrenceCount ?? 0),
+                  ringerSound: undefined,
+                  isCompleted: false,
+                  isActive: true,
+                  isPaused: false,
+                  isExpired: false,
+                  snoozeUntil: undefined, // Clear snooze when rescheduling
+                  nextReminderDate: undefined, // Clear cached next date to force recalculation
+                  notificationId: undefined, // Clear notification ID to force rescheduling
+                };
+                updateReminder.mutate(updated, {
+                  onSuccess: () => {
+                    setShowCreatePopup(false);
+
+                    // Auto-scroll to show the updated reminder
+                    // For edited reminders, scroll to top since they might have moved position
+                    setTimeout(() => {
+                      if (activeTab === 'active') {
+                        contentScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+                      }
+                    }, 200); // Small delay to ensure the list has updated
+
+                    setEditingReminder(null);
+                    setTitle('');
+                    // Map settings priority to reminder priority
+                    const defaultPriority = settings?.defaultPriority ?? 'standard';
+                    const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' :
+                      defaultPriority === 'silent' ? 'low' : 'high';
+                    setPriority(mappedPriority);
+                    setRepeatType(settings?.defaultReminderMode ?? 'none');
+                    setRepeatDays([]);
+                    setEveryValue(1);
+                    setEveryUnit('hours');
+
+                    const defaultTime = calculateDefaultTime();
+                    setSelectedTime(defaultTime.time);
+                    setIsAM(defaultTime.isAM);
+                    const d = new Date();
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+                  },
+                  onError: (error) => {
+                    Alert.alert('Error', 'Failed to update reminder');
+                    console.error('Error updating reminder:', error);
+                  },
+                });
+                return;
               }
-            }
-            
-            const updated: Reminder = {
-              ...editingReminder,
-              title: title.trim(),
-              time: finalTime,
-              date: selectedDate,
-              priority,
-              repeatType,
-              repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
-              monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
-              everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
-              // Until fields
-              untilType: repeatType === 'none' ? undefined : untilType,
-              untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
-              untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
-              untilTime: (repeatType !== 'none' && untilType === 'endsAt' && untilDate)
-                ? (() => {
+
+              const newReminder: Reminder = {
+                id: Date.now().toString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                title: title.trim(),
+                description: '',
+                time: finalTime,
+                date: selectedDate,
+                priority,
+                isActive: true,
+                isPaused: false,
+                repeatType,
+                repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
+                monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
+                everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
+                // Until fields
+                untilType: repeatType === 'none' ? undefined : untilType,
+                untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
+                untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
+                untilTime: (repeatType !== 'none' && untilType === 'endsAt' && untilDate)
+                  ? (() => {
                     const [uHours, uMinutes] = untilTime.split(':').map(Number);
                     let finalUHours = uHours;
                     if (!untilIsAM && uHours !== 12) finalUHours = uHours + 12;
                     else if (untilIsAM && uHours === 12) finalUHours = 0;
                     return `${finalUHours.toString().padStart(2, '0')}:${uMinutes.toString().padStart(2, '0')}`;
                   })()
-                : undefined,
-              untilIsAM: (repeatType !== 'none' && untilType === 'endsAt' && untilDate) ? untilIsAM : undefined,
-              // Preserve occurrence count when editing
-              occurrenceCount: repeatType === 'none' ? undefined : (editingReminder.occurrenceCount ?? 0),
-              ringerSound: undefined,
-              isCompleted: false,
-              isActive: true,
-              isPaused: false,
-              isExpired: false,
-              snoozeUntil: undefined, // Clear snooze when rescheduling
-              nextReminderDate: undefined, // Clear cached next date to force recalculation
-              notificationId: undefined, // Clear notification ID to force rescheduling
-            };
-            updateReminder.mutate(updated, {
-              onSuccess: () => {
-                setShowCreatePopup(false);
-                
-                // Auto-scroll to show the updated reminder
-                // For edited reminders, scroll to top since they might have moved position
-                setTimeout(() => {
-                  if (activeTab === 'active') {
-                    contentScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
-                  }
-                }, 200); // Small delay to ensure the list has updated
-                
-                setEditingReminder(null);
-                setTitle('');
-                // Map settings priority to reminder priority
-                const defaultPriority = settings?.defaultPriority ?? 'standard';
-                const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : 
-                                                defaultPriority === 'silent' ? 'low' : 'high';
-                setPriority(mappedPriority);
-                setRepeatType(settings?.defaultReminderMode ?? 'none');
-                setRepeatDays([]);
-                setEveryValue(1);
-                setEveryUnit('hours');
+                  : undefined,
+                untilIsAM: (repeatType !== 'none' && untilType === 'endsAt' && untilDate) ? untilIsAM : undefined,
+                occurrenceCount: 0,
+                ringerSound: undefined,
+                isCompleted: false,
+                isExpired: false,
+              };
 
-                const defaultTime = calculateDefaultTime();
-                setSelectedTime(defaultTime.time);
-                setIsAM(defaultTime.isAM);
-                const d = new Date();
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                setSelectedDate(`${yyyy}-${mm}-${dd}`);
-              },
-              onError: (error) => {
-                Alert.alert('Error', 'Failed to update reminder');
-                console.error('Error updating reminder:', error);
-              },
-            });
-            return;
-          }
+              addReminder.mutate(newReminder, {
+                onSuccess: () => {
+                  // Close popup immediately
+                  setShowCreatePopup(false);
 
-          const newReminder: Reminder = {
-            id: Date.now().toString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            title: title.trim(),
-            description: '',
-            time: finalTime,
-            date: selectedDate,
-            priority,
-            isActive: true,
-            isPaused: false,
-            repeatType,
-            repeatDays: (repeatType === 'weekly' || repeatType === 'custom' || repeatType === 'daily') ? repeatDays : undefined,
-            monthlyDay: repeatType === 'monthly' ? Number(selectedDate.split('-')[2] ?? '1') : undefined,
-            everyInterval: repeatType === 'every' ? { value: everyValue, unit: everyUnit } : undefined,
-            // Until fields
-            untilType: repeatType === 'none' ? undefined : untilType,
-            untilDate: repeatType === 'none' ? undefined : (untilType === 'endsAt' ? untilDate : undefined),
-            untilCount: repeatType === 'none' ? undefined : (untilType === 'count' ? untilCount : undefined),
-            untilTime: (repeatType !== 'none' && untilType === 'endsAt' && untilDate)
-              ? (() => {
-                  const [uHours, uMinutes] = untilTime.split(':').map(Number);
-                  let finalUHours = uHours;
-                  if (!untilIsAM && uHours !== 12) finalUHours = uHours + 12;
-                  else if (untilIsAM && uHours === 12) finalUHours = 0;
-                  return `${finalUHours.toString().padStart(2, '0')}:${uMinutes.toString().padStart(2, '0')}`;
-                })()
-              : undefined,
-            untilIsAM: (repeatType !== 'none' && untilType === 'endsAt' && untilDate) ? untilIsAM : undefined,
-            occurrenceCount: 0,
-            ringerSound: undefined,
-            isCompleted: false,
-            isExpired: false,
-          };
+                  // Scroll to top to show newly added reminder
+                  setTimeout(() => {
+                    if (activeTab === 'active' && contentScrollRef.current) {
+                      contentScrollRef.current.scrollToOffset({ offset: 0, animated: true });
+                    }
+                  }, 100);
 
-          addReminder.mutate(newReminder, {
-            onSuccess: () => {
-              // Close popup immediately
-              setShowCreatePopup(false);
-              
-              // Scroll to top to show newly added reminder
-              setTimeout(() => {
-                if (activeTab === 'active' && contentScrollRef.current) {
-                  contentScrollRef.current.scrollToOffset({ offset: 0, animated: true });
-                }
-              }, 100);
-              
-              // Reset form after animation starts
-              setTimeout(() => {
-                setEditingReminder(null);
-                setTitle('');
-                const defaultPriority = settings?.defaultPriority ?? 'standard';
-                const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : 
-                                                defaultPriority === 'silent' ? 'low' : 'high';
-                setPriority(mappedPriority);
-                setRepeatType(settings?.defaultReminderMode ?? 'none');
-                setRepeatDays([]);
-                setEveryValue(1);
-                setEveryUnit('hours');
-                // Reset Until fields
-                setUntilType('none');
-                setUntilDate('');
-                setUntilCount(1);
-                const defaultTime = calculateDefaultTime();
-                setSelectedTime(defaultTime.time);
-                setIsAM(defaultTime.isAM);
-                const d = new Date();
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                setSelectedDate(`${yyyy}-${mm}-${dd}`);
-              }, 150);
-            },
-            onError: (error) => {
-              Alert.alert('Error', 'Failed to create reminder');
-              console.error('Error creating reminder:', error);
-            },
-          });
+                  // Reset form after animation starts
+                  setTimeout(() => {
+                    setEditingReminder(null);
+                    setTitle('');
+                    const defaultPriority = settings?.defaultPriority ?? 'standard';
+                    const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' :
+                      defaultPriority === 'silent' ? 'low' : 'high';
+                    setPriority(mappedPriority);
+                    setRepeatType(settings?.defaultReminderMode ?? 'none');
+                    setRepeatDays([]);
+                    setEveryValue(1);
+                    setEveryUnit('hours');
+                    // Reset Until fields
+                    setUntilType('none');
+                    setUntilDate('');
+                    setUntilCount(1);
+                    const defaultTime = calculateDefaultTime();
+                    setSelectedTime(defaultTime.time);
+                    setIsAM(defaultTime.isAM);
+                    const d = new Date();
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+                  }, 150);
+                },
+                onError: (error) => {
+                  Alert.alert('Error', 'Failed to create reminder');
+                  console.error('Error creating reminder:', error);
+                },
+              });
+            }}
+            isLoading={addReminder.isPending || updateReminder.isPending}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            mode={editingReminder ? 'edit' : 'create'}
+          />
+
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+
+      {!isSelectionMode && (
+        <View style={styles.bottomContainer}>
+          <TouchableOpacity
+            style={styles.createAlarmButton}
+            onPress={() => {
+              setEditingReminder(null);
+              setTitle('');
+              const defaultPriority = settings?.defaultPriority ?? 'standard';
+              const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
+              setPriority(mappedPriority);
+              setRepeatType(settings?.defaultReminderMode ?? 'none');
+              setRepeatDays([]);
+              setEveryValue(1);
+              setEveryUnit('hours');
+              const defaultTime = calculateDefaultTime();
+              setSelectedTime(defaultTime.time);
+              setIsAM(defaultTime.isAM);
+              const now = new Date();
+              const yyyy = now.getFullYear();
+              const mm = String(now.getMonth() + 1).padStart(2, '0');
+              const dd = String(now.getDate()).padStart(2, '0');
+              setSelectedDate(`${yyyy}-${mm}-${dd}`);
+              setShowCreatePopup(true);
+            }}
+            testID="fab-create-reminder"
+          >
+            <Plus size={32} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Calendar modal for pause-until-date selection */}
+      <CalendarModal
+        visible={pauseUntilCalendarVisible}
+        onClose={() => {
+          setPauseUntilCalendarVisible(false);
+          setPauseUntilReminder(null);
         }}
-        isLoading={addReminder.isPending || updateReminder.isPending}
         selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
-        mode={editingReminder ? 'edit' : 'create'}
+        onSelectDate={handlePauseUntilDate}
+        disablePast={true}
+        hideYear={false}
+        title="Pause Until"
       />
-
-    </SafeAreaView>
-    </KeyboardAvoidingView>
-    
-    {!isSelectionMode && (
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={styles.createAlarmButton}
-          onPress={() => {
-            setEditingReminder(null);
-            setTitle('');
-            const defaultPriority = settings?.defaultPriority ?? 'standard';
-            const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
-            setPriority(mappedPriority);
-            setRepeatType(settings?.defaultReminderMode ?? 'none');
-            setRepeatDays([]);
-            setEveryValue(1);
-            setEveryUnit('hours');
-            const defaultTime = calculateDefaultTime();
-            setSelectedTime(defaultTime.time);
-            setIsAM(defaultTime.isAM);
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            setSelectedDate(`${yyyy}-${mm}-${dd}`);
-            setShowCreatePopup(true);
-          }}
-          testID="fab-create-reminder"
-        >
-          <Plus size={32} color="white" />
-        </TouchableOpacity>
-      </View>
-    )}
-    
-    {/* Calendar modal for pause-until-date selection */}
-    <CalendarModal
-      visible={pauseUntilCalendarVisible}
-      onClose={() => {
-        setPauseUntilCalendarVisible(false);
-        setPauseUntilReminder(null);
-      }}
-      selectedDate={selectedDate}
-      onSelectDate={handlePauseUntilDate}
-      disablePast={true}
-      hideYear={false}
-      title="Pause Until"
-    />
-    <OnboardingFlow visible={showOnboarding} onSkip={completeOnboarding} onComplete={completeOnboarding} />
+      <OnboardingFlow visible={showOnboarding} onSkip={completeOnboarding} onComplete={completeOnboarding} />
     </>
   );
 }
@@ -1896,7 +1911,7 @@ function CreateReminderPopup({
       const target = 430;
       const computed = Math.min(target, Math.max(340, winH - paddingVertical));
       setPopupHeight(computed);
-      
+
       if (isLand) {
         // In landscape, don't scale down to fit height, allow scrolling
         setScaleFactor(1);
@@ -1906,13 +1921,13 @@ function CreateReminderPopup({
         // Scale down everything proportionally on smaller screens to prevent scrolling
         const baseHeight = 850;
         const baseWidth = 400;
-        
+
         const heightScale = winH < baseHeight ? winH / baseHeight : 1;
         const widthScale = winW < baseWidth ? winW / baseWidth : 1;
-        
+
         // Use the smaller of the two scales to ensure fit
         const scale = Math.min(heightScale, widthScale, 1);
-        
+
         // Allow scaling down to 0.6 to prevent scrolling
         setScaleFactor(Math.max(0.6, scale));
       }
@@ -2009,11 +2024,11 @@ function CreateReminderPopup({
       presentationStyle="overFullScreen"
       statusBarTranslucent
     >
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <Pressable 
+        <Pressable
           style={createPopupStyles.overlay}
           onPress={() => {
             RNKeyboard.dismiss();
@@ -2023,131 +2038,131 @@ function CreateReminderPopup({
           <Pressable
             onPress={(e) => e.stopPropagation()}
             style={[
-              scaledStyles.popup, 
-              { 
+              scaledStyles.popup,
+              {
                 opacity: isReady ? 1 : 0,
                 maxHeight: '85%',
                 minHeight: isLandscape ? undefined : popupHeight
               }
             ]}
           >
-          <ScrollView 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 4, flexGrow: isLandscape ? 1 : 0 }}
-            style={{ flexShrink: 1 }}
-            keyboardDismissMode="none"
-            keyboardShouldPersistTaps="always"
-            scrollEnabled={true}
-          >
-            <Pressable 
-              style={{ flex: 1 }}
-              onPress={() => {
-                // Close any open dropdowns when tapping blank space
-                if ((window as any).__closeCustomizePanelDropdowns) {
-                  (window as any).__closeCustomizePanelDropdowns();
-                }
-              }}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 4, flexGrow: isLandscape ? 1 : 0 }}
+              style={{ flexShrink: 1 }}
+              keyboardDismissMode="none"
+              keyboardShouldPersistTaps="always"
+              scrollEnabled={true}
             >
-              <View 
-                style={createPopupStyles.mainContent}
-                onStartShouldSetResponder={() => true}
-                onResponderRelease={() => {
-                  // Close dropdowns when tapping in this area
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => {
+                  // Close any open dropdowns when tapping blank space
                   if ((window as any).__closeCustomizePanelDropdowns) {
                     (window as any).__closeCustomizePanelDropdowns();
                   }
                 }}
               >
-              <Pressable onPress={(e) => e.stopPropagation()}>
-              <View style={scaledStyles.section}>
-                <TextInput
-                  ref={titleInputRef}
-                  style={scaledStyles.titleInput}
-                  placeholder="Enter reminder"
-                  placeholderTextColor="#9CA3AF"
-                  value={title}
-                  onChangeText={onTitleChange}
-                  onFocus={() => {
-                    // Close any open dropdowns when focusing title input
+                <View
+                  style={createPopupStyles.mainContent}
+                  onStartShouldSetResponder={() => true}
+                  onResponderRelease={() => {
+                    // Close dropdowns when tapping in this area
                     if ((window as any).__closeCustomizePanelDropdowns) {
                       (window as any).__closeCustomizePanelDropdowns();
                     }
                   }}
-                  onSubmitEditing={() => {
-                    RNKeyboard.dismiss();
-                    titleInputRef.current?.blur();
-                  }}
-                  returnKeyType="done"
-                  blurOnSubmit={true}
-                  maxLength={100}
-                  testID="title-input"
-                />
-              </View>
-              
-              <View style={[scaledStyles.customizeContent, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}> 
-                <CustomizePanel
-                  repeatType={repeatType}
-                  repeatDays={repeatDays}
-                  onRepeatTypeChange={onRepeatTypeChange}
-                  onRepeatDaysChange={onRepeatDaysChange}
-                  selectedDate={selectedDate}
-                  onDateChange={(date) => {
-                    onDateChange(date);
-                    // Don't dismiss keyboard on date change - only when opening time picker
-                  }}
-                  onOpenTime={() => { onTimeSelect(); }}
-                  displayTime={`${formatTime(selectedTime, isAM)}`}
-                  everyValue={everyValue}
-                  everyUnit={everyUnit}
-                  onEveryChange={onEveryChange}
-                  // Until props
-                  untilTime={untilTime}
-                  untilIsAM={untilIsAM}
-                  untilType={untilType}
-                  untilDate={untilDate}
-                  untilCount={untilCount}
-                  onUntilTypeChange={onUntilTypeChange}
-                  onUntilDateChange={onUntilDateChange}
-                  onUntilCountChange={onUntilCountChange}
-                  onOpenUntilTime={onOpenUntilTime}
-                  onDropdownStateChange={() => {}}
-                  scaleFactor={scaleFactor}
-                  isLandscape={isLandscape}
-                />
-              </View>
-              
-              <View style={scaledStyles.section}>
-                <PrioritySelector 
-                  priority={priority} 
-                  onPriorityChange={onPriorityChange}
-                />
-              </View>
+                >
+                  <Pressable onPress={(e) => e.stopPropagation()}>
+                    <View style={scaledStyles.section}>
+                      <TextInput
+                        ref={titleInputRef}
+                        style={scaledStyles.titleInput}
+                        placeholder="Enter reminder"
+                        placeholderTextColor="#9CA3AF"
+                        value={title}
+                        onChangeText={onTitleChange}
+                        onFocus={() => {
+                          // Close any open dropdowns when focusing title input
+                          if ((window as any).__closeCustomizePanelDropdowns) {
+                            (window as any).__closeCustomizePanelDropdowns();
+                          }
+                        }}
+                        onSubmitEditing={() => {
+                          RNKeyboard.dismiss();
+                          titleInputRef.current?.blur();
+                        }}
+                        returnKeyType="done"
+                        blurOnSubmit={true}
+                        maxLength={100}
+                        testID="title-input"
+                      />
+                    </View>
+
+                    <View style={[scaledStyles.customizeContent, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
+                      <CustomizePanel
+                        repeatType={repeatType}
+                        repeatDays={repeatDays}
+                        onRepeatTypeChange={onRepeatTypeChange}
+                        onRepeatDaysChange={onRepeatDaysChange}
+                        selectedDate={selectedDate}
+                        onDateChange={(date) => {
+                          onDateChange(date);
+                          // Don't dismiss keyboard on date change - only when opening time picker
+                        }}
+                        onOpenTime={() => { onTimeSelect(); }}
+                        displayTime={`${formatTime(selectedTime, isAM)}`}
+                        everyValue={everyValue}
+                        everyUnit={everyUnit}
+                        onEveryChange={onEveryChange}
+                        // Until props
+                        untilTime={untilTime}
+                        untilIsAM={untilIsAM}
+                        untilType={untilType}
+                        untilDate={untilDate}
+                        untilCount={untilCount}
+                        onUntilTypeChange={onUntilTypeChange}
+                        onUntilDateChange={onUntilDateChange}
+                        onUntilCountChange={onUntilCountChange}
+                        onOpenUntilTime={onOpenUntilTime}
+                        onDropdownStateChange={() => { }}
+                        scaleFactor={scaleFactor}
+                        isLandscape={isLandscape}
+                      />
+                    </View>
+
+                    <View style={scaledStyles.section}>
+                      <PrioritySelector
+                        priority={priority}
+                        onPriorityChange={onPriorityChange}
+                      />
+                    </View>
+                  </Pressable>
+                </View>
               </Pressable>
-              </View>
-            </Pressable>
-          </ScrollView>
-          
-          <View 
-            style={scaledStyles.buttonContainer}
-          >
-            <TouchableOpacity style={scaledStyles.cancelButton} onPress={onClose} testID="cancel-create">
-              <Text style={scaledStyles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[scaledStyles.createButton, isLoading && createPopupStyles.createButtonDisabled]} 
-              onPress={onConfirm}
-              disabled={isLoading}
-              testID="confirm-create"
+            </ScrollView>
+
+            <View
+              style={scaledStyles.buttonContainer}
             >
-              <Text style={scaledStyles.createButtonText}>
-                {isLoading ? (mode === 'edit' ? 'Rescheduling...' : 'Creating...') : (mode === 'edit' ? 'Reschedule' : 'Create')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity style={scaledStyles.cancelButton} onPress={onClose} testID="cancel-create">
+                <Text style={scaledStyles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[scaledStyles.createButton, isLoading && createPopupStyles.createButtonDisabled]}
+                onPress={onConfirm}
+                disabled={isLoading}
+                testID="confirm-create"
+              >
+                <Text style={scaledStyles.createButtonText}>
+                  {isLoading ? (mode === 'edit' ? 'Rescheduling...' : 'Creating...') : (mode === 'edit' ? 'Reschedule' : 'Create')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
       </KeyboardAvoidingView>
-      
+
       <TimeSelector
         visible={showTimeSelector}
         selectedTime={timeSelectorContext === 'until' ? untilTime : selectedTime}
@@ -2161,7 +2176,7 @@ function CreateReminderPopup({
         repeatType={repeatType}
         onPastTimeError={(msg) => showToast(msg ?? 'Please select a future time')}
       />
-      
+
 
     </Modal>
   );
@@ -2331,7 +2346,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       setCurrentHour(hour12);
       setCurrentMinute(Number.isFinite(m) ? m : 0);
       setCurrentAMPM(isAM);
-      
+
       // Set initial rotation based on selected time
       const hourStep = 360 / 12;
       const initialRotation = ((hour12 === 12 ? 0 : hour12) * hourStep) % 360;
@@ -2341,31 +2356,31 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       console.log('sync selectedTime to dial failed', e);
     }
   }, [visible, selectedTime, isAM]); // Keep dependencies for initial sync
-  
+
   // Separate effect to handle rotation ONLY when actively switching sections
   useEffect(() => {
     if (!visible || isDragging.current) return; // Don't update if dragging
-    
+
     const hourStep = 360 / 12;
     const minuteStep = 360 / 60;
     const targetRotation = activeSection === 'hour'
       ? (((currentHour === 12 ? 0 : currentHour) * hourStep) % 360)
       : ((currentMinute * minuteStep) % 360);
-    
+
     // Only update if rotation actually changed
     if (Math.abs(rotationRef.current - targetRotation) > 0.1) {
       setRotation(targetRotation);
       rotationRef.current = targetRotation;
     }
   }, [visible, activeSection]); // Remove currentHour and currentMinute to prevent jitter
-  
+
   // Opacity control to prevent flashing
   useEffect(() => {
     if (!visible) {
       setIsReady(false);
       return;
     }
-    
+
     // Use requestAnimationFrame to ensure the modal is rendered before showing
     requestAnimationFrame(() => {
       // Add platform-specific delay for Android
@@ -2375,12 +2390,12 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       }, delay);
     });
   }, [visible]);
-  
+
   const [rotation, setRotation] = useState<number>(0);
   const [showManualEntry, setShowManualEntry] = useState<boolean>(false);
   const [manualTimeInput, setManualTimeInput] = useState<string>('');
   const [discSize, setDiscSize] = useState<number>(220);
-  
+
   const discRef = useRef<View>(null);
   const lastAngle = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
@@ -2395,7 +2410,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const autoSwitchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppedByFriction = useRef<boolean>(false);
   const lastValueUpdate = useRef<number>(0);
-  
+
   const HOUR_SENSITIVITY = 1.0;
   const MINUTE_SENSITIVITY = 1.0;
   const DEADBAND_DEG = 0.5; // Reduced for smoother tracking
@@ -2405,7 +2420,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
   const SNAP_THRESHOLD = 0.08; // Below this velocity, snap to nearest value
   const SNAP_DURATION = 200; // Duration of snap animation in ms
   const VALUE_UPDATE_THROTTLE = 100; // Throttle value updates during drag
-  
+
   useEffect(() => {
     return () => {
       if (decayAnimation.current) {
@@ -2422,7 +2437,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       }
     };
   }, []);
-  
+
   const measureCenter = () => {
     try {
       (discRef.current as any)?.measureInWindow?.((x: number, y: number, w: number, h: number) => {
@@ -2451,7 +2466,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     while (diff < -180) diff += 360;
     return diff;
   };
-  
+
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -2466,7 +2481,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       // This prevents jump on first move
       const currentDeg = rotationRef.current;
       lastAngle.current = currentDeg; // CHANGE: Use current rotation instead of touch position
-      
+
       // Stop any ongoing animations
       if (decayAnimation.current) {
         clearInterval(decayAnimation.current);
@@ -2484,10 +2499,10 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     onPanResponderMove: (evt, gestureState) => {
       if (!isDragging.current) return;
       const currentTime = Date.now();
-      
+
       // Use absolute finger position to compute angle
       const degrees = getAngleFromEvent(evt);
-      
+
       // SKIP first move to establish proper baseline
       if (isFirstMove.current) {
         isFirstMove.current = false;
@@ -2495,10 +2510,10 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         lastMoveTime.current = currentTime;
         return; // Skip this move, no rotation applied
       }
-      
+
       let delta = angleDelta(lastAngle.current, degrees);
       if (Math.abs(delta) < DEADBAND_DEG) return;
-      
+
       const timeDelta = currentTime - lastMoveTime.current;
       if (timeDelta > 0 && timeDelta < 100) { // Ignore if time gap is too large (finger lift)
         const newVelocity = delta / timeDelta;
@@ -2509,20 +2524,20 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         velocity.current = 0;
       }
       lastMoveTime.current = currentTime;
-      
+
       delta *= activeSection === 'hour' ? HOUR_SENSITIVITY : MINUTE_SENSITIVITY;
       lastAngle.current = degrees;
-      
+
       // Apply delta to current rotation to avoid jumping to touch
       rotationRef.current = (rotationRef.current + delta + 360) % 360;
       const r = rotationRef.current % 360;
       setRotation(r);
-      
+
       // Throttle value updates to avoid re-renders during drag
       const now = Date.now();
       if (now - lastValueUpdate.current > VALUE_UPDATE_THROTTLE) {
         lastValueUpdate.current = now;
-        
+
         // Calculate new value without triggering immediate state update
         if (activeSection === 'hour') {
           const hourStep = 360 / 12;
@@ -2542,7 +2557,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     },
     onPanResponderRelease: () => {
       isDragging.current = false;
-      
+
       // Snap to nearest value if velocity is very low (likely a finger slip)
       if (Math.abs(velocity.current) < SNAP_THRESHOLD) {
         // Snap to nearest position
@@ -2550,27 +2565,27 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         if (activeSection === 'hour') {
           const hourStep = 360 / 12;
           const snappedRotation = Math.round(r / hourStep) * hourStep;
-          
+
           // Update rotation immediately
           rotationRef.current = snappedRotation;
           setRotation(snappedRotation);
           const hourIndex = Math.round(snappedRotation / hourStep) % 12;
           const newHour = hourIndex === 0 ? 12 : hourIndex;
           setCurrentHour(newHour);
-          
+
           // Auto-switch to minutes after a short delay
           if (autoSwitchTimeout.current) {
-              clearTimeout(autoSwitchTimeout.current);
-            }
-            autoSwitchTimeout.current = setTimeout(() => {
-              setActiveSection('minute');
-              // Rotation will be handled by the activeSection effect
-              autoSwitchTimeout.current = null;
-            }, 300);
+            clearTimeout(autoSwitchTimeout.current);
+          }
+          autoSwitchTimeout.current = setTimeout(() => {
+            setActiveSection('minute');
+            // Rotation will be handled by the activeSection effect
+            autoSwitchTimeout.current = null;
+          }, 300);
         } else {
           const minuteStep = 360 / 60;
           const snappedRotation = Math.round(r / minuteStep) * minuteStep;
-          
+
           // Update rotation immediately
           rotationRef.current = snappedRotation;
           setRotation(snappedRotation);
@@ -2580,17 +2595,17 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         velocity.current = 0;
         return;
       }
-      
+
       // Only apply momentum if velocity is above threshold
       if (Math.abs(velocity.current) > VELOCITY_THRESHOLD) {
         const startDecay = () => {
           if (decayAnimation.current) {
             clearInterval(decayAnimation.current);
           }
-          
+
           let currentVelocity = velocity.current * 20;
           let frameCount = 0;
-          
+
           decayAnimation.current = setInterval(() => {
             if (Math.abs(currentVelocity) < MIN_DECAY_VELOCITY) {
               if (decayAnimation.current) {
@@ -2598,7 +2613,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 decayAnimation.current = null;
               }
               stoppedByFriction.current = true;
-              
+
               // Final value update
               const r = rotationRef.current % 360;
               if (activeSection === 'hour') {
@@ -2613,11 +2628,11 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
               }
               return;
             }
-            
+
             rotationRef.current = (rotationRef.current + currentVelocity + 360) % 360;
             const r = rotationRef.current % 360;
             setRotation(r);
-            
+
             // Only update values every 6 frames (approximately every 100ms) to reduce jitter
             frameCount++;
             if (frameCount % 6 === 0) {
@@ -2632,11 +2647,11 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 if (minuteIndex !== currentMinute) setCurrentMinute(minuteIndex);
               }
             }
-            
+
             currentVelocity *= DECAY_FRICTION;
           }, 16);
         };
-        
+
         startDecay();
       } else {
         if (activeSection === 'hour' && !stoppedByFriction.current) {
@@ -2650,7 +2665,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
           }, 300);
         }
       }
-      
+
       velocity.current = 0;
     },
     onPanResponderTerminate: () => {
@@ -2667,14 +2682,14 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       stoppedByFriction.current = false;
     },
   });
-  
+
   const handleSectionPress = (section: 'hour' | 'minute') => {
     if (autoSwitchTimeout.current) {
       clearTimeout(autoSwitchTimeout.current);
       autoSwitchTimeout.current = null;
     }
     stoppedByFriction.current = false;
-    
+
     // Cancel any ongoing animations
     if (snapAnimation.current) {
       clearTimeout(snapAnimation.current);
@@ -2684,9 +2699,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       clearInterval(decayAnimation.current);
       decayAnimation.current = null;
     }
-    
+
     setActiveSection(section);
-    
+
     // Use setTimeout to ensure state has updated before setting rotation
     setTimeout(() => {
       if (section === 'hour') {
@@ -2703,7 +2718,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       }
     }, 0);
   };
-  
+
   const handleConfirm = () => {
     // If manual entry is active, apply the manually entered time first
     if (showManualEntry && manualTimeInput.trim() !== '') {
@@ -2711,7 +2726,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       if (timeRegex.test(manualTimeInput)) {
         const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
         let hour12 = inputHour;
-        
+
         // Convert 24-hour to 12-hour format
         if (inputHour === 0) {
           hour12 = 12;
@@ -2722,13 +2737,13 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         } else {
           hour12 = inputHour;
         }
-        
+
         // Apply the manually entered time with current AM/PM selection
         setCurrentHour(hour12);
         setCurrentMinute(inputMinute);
         setShowManualEntry(false);
         setManualTimeInput('');
-        
+
         // Use the manually entered values with current AM/PM state for confirmation
         const timeString = `${hour12.toString().padStart(2, '0')}:${inputMinute.toString().padStart(2, '0')}`;
         onTimeChange(timeString, currentAMPM);
@@ -2739,50 +2754,50 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
         return;
       }
     }
-    
+
     // Only validate past time for 'once' reminders and daily reminders on today
     if (selectedDate && (repeatType === 'none' || repeatType === undefined)) {
       const now = new Date();
       const [year, month, day] = selectedDate.split('-').map(Number);
       const selectedDateTime = new Date(year, month - 1, day);
-      
+
       let hour24 = currentHour;
       if (!currentAMPM && currentHour !== 12) {
         hour24 = currentHour + 12;
       } else if (currentAMPM && currentHour === 12) {
         hour24 = 0;
       }
-      
+
       selectedDateTime.setHours(hour24, currentMinute, 0, 0);
-      
+
       const isToday = now.getFullYear() === selectedDateTime.getFullYear() &&
-                      now.getMonth() === selectedDateTime.getMonth() &&
-                      now.getDate() === selectedDateTime.getDate();
-      
+        now.getMonth() === selectedDateTime.getMonth() &&
+        now.getDate() === selectedDateTime.getDate();
+
       if (isToday && selectedDateTime <= now) {
         onPastTimeError?.("Please select a future time");
         return;
       }
     }
-    
+
     const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
     onTimeChange(timeString, currentAMPM);
     onClose();
   };
-  
+
   const renderTickMarks = () => {
     const ticks: React.ReactElement[] = [];
     const tickCount = activeSection === 'hour' ? 12 : 60;
     const tickStep = 360 / tickCount;
     const innerPadding = 14;
     const radius = Math.max(0, discSize / 2 - innerPadding);
-    
+
     for (let i = 0; i < tickCount; i++) {
       const angle = i * tickStep;
       const isMainTick = activeSection === 'hour' ? true : i % 5 === 0;
       const tickLength = isMainTick ? 12 : 6;
       const tickWidth = isMainTick ? 2 : 1;
-      
+
       ticks.push(
         <View
           key={i}
@@ -2805,9 +2820,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     }
     return ticks;
   };
-  
+
   if (!visible) return null;
-  
+
   return (
     <Modal
       visible={visible}
@@ -2818,9 +2833,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
       statusBarTranslucent
       onShow={() => setIsReady(true)}
     >
-      <TouchableOpacity 
-        style={timeSelectorStyles.overlay} 
-        activeOpacity={1} 
+      <TouchableOpacity
+        style={timeSelectorStyles.overlay}
+        activeOpacity={1}
         onPress={() => {
           if (showManualEntry) {
             // If manual entry is active, confirm the time if valid
@@ -2828,7 +2843,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
             if (timeRegex.test(manualTimeInput)) {
               const [inputHour, inputMinute] = manualTimeInput.split(':').map(Number);
               let hour12 = inputHour;
-              
+
               // Convert 24-hour to 12-hour format
               if (inputHour === 0) {
                 hour12 = 12;
@@ -2839,7 +2854,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
               } else {
                 hour12 = inputHour;
               }
-              
+
               // Use current AM/PM state instead of auto-determining
               setCurrentHour(hour12);
               setCurrentMinute(inputMinute);
@@ -2855,9 +2870,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
           }
         }}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
-            timeSelectorStyles.container, 
+            timeSelectorStyles.container,
             isLandscape && timeSelectorStyles.containerLandscape,
             {
               opacity: isReady ? 1 : 0,
@@ -2865,8 +2880,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 elevation: isReady ? 10 : 0
               })
             }
-          ]} 
-          activeOpacity={1} 
+          ]}
+          activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
           {isLandscape ? (
@@ -2874,7 +2889,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
               <View style={timeSelectorStyles.sidePanel}>
                 <View style={timeSelectorStyles.timeDisplay}>
                   {showManualEntry ? (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={timeSelectorStyles.manualEntryContainer}
                       activeOpacity={1}
                       onPress={() => {
@@ -3007,8 +3022,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 </View>
 
                 <View style={timeSelectorStyles.buttonContainer}>
-                  <TouchableOpacity 
-                    style={timeSelectorStyles.keyboardButton} 
+                  <TouchableOpacity
+                    style={timeSelectorStyles.keyboardButton}
                     onPress={() => {
                       setShowManualEntry(true);
                       setManualTimeInput('');
@@ -3053,7 +3068,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
             <>
               <View style={timeSelectorStyles.timeDisplay}>
                 {showManualEntry ? (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={timeSelectorStyles.manualEntryContainer}
                     activeOpacity={1}
                     onPress={() => {
@@ -3205,8 +3220,8 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
               </View>
 
               <View style={timeSelectorStyles.buttonContainer}>
-                <TouchableOpacity 
-                  style={timeSelectorStyles.keyboardButton} 
+                <TouchableOpacity
+                  style={timeSelectorStyles.keyboardButton}
                   onPress={() => {
                     setShowManualEntry(true);
                     setManualTimeInput('');
