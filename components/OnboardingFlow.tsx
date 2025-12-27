@@ -208,6 +208,9 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                 {p.key === 'modes' ? (
                   <View style={{ width: '100%', alignItems: 'center' }}>
                     <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 12 }}>
+                      <Text style={[styles.body, { color: colors.onSurfaceVariant, marginBottom: 20 }]}>
+                        Tailor your notification experience. Select the perfect alert level for your reminders to ensure you stay focused without missing a beat.
+                      </Text>
                       <View style={{ gap: 12, marginTop: 8 }}>
                         <View style={{ backgroundColor: colors.surfaceVariant + '40', borderRadius: 12, padding: 16 }}>
                           <Text style={{ color: colors.onSurface, fontWeight: '700', fontSize: 15, marginBottom: 4 }}>Standard Mode</Text>
