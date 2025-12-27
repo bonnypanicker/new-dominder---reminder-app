@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, BackHandler } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, NativeModules } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/theme-provider';
@@ -71,25 +71,8 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     translateX.setValue(0);
   }, [visible, translateX]);
 
-  // Back button handler - Standard behavior: Back -> Prev Slide, or Exit on first slide
-  useEffect(() => {
-    if (!visible) return;
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (index > 0) {
-        // Go back to previous slide
-        lastInteraction.current = 'programmatic';
-        setIndex((i) => i - 1);
-        return true; // Handled
-      }
-      // If on first slide, return false to let default behavior happen (minimize/exit)
-      return false;
-    });
-
-    return () => backHandler.remove();
-  }, [visible, index]);
-
-
+  // Back button handler is handled via Modal's onRequestClose for effective Android interception
+  // We do not use BackHandler.addEventListener here because the Modal swallows the event.
 
   // Pan responder for swipe gestures
   const panResponder = useMemo(
@@ -199,12 +182,16 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       transparent={false}
       statusBarTranslucent
       onRequestClose={() => {
-        // Required for Android hardware back button
-        // Logic is handled by the BackHandler listener above
-        if (index === 0) {
-          // We can explicitly minimize or just let it close if we wanted
-          // But returning false in BackHandler usually suffices.
-          // This is just a safety fallback.
+        // Handle Android hardware back button
+        if (index > 0) {
+          // Go back to previous slide
+          lastInteraction.current = 'programmatic';
+          setIndex((i) => i - 1);
+        } else {
+          // Minimize the app on first slide (standard Android behavior)
+          if (Platform.OS === 'android') {
+            NativeModules.AlarmModule?.minimize();
+          }
         }
       }}
     >
