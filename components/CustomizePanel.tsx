@@ -1008,7 +1008,6 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
               width: dropdownWidth,
               opacity: isPositioned ? 1 : 0,
               ...(Platform.OS === 'android' && {
-                elevation: 24,
                 transform: [{ translateX: 0 }],
               }),
             },
@@ -1266,11 +1265,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 24,
     overflow: 'hidden',
     paddingVertical: 4,
     zIndex: 999999,
@@ -1343,9 +1337,9 @@ const styles = StyleSheet.create({
   inlineDropdownContent: {
     position: 'absolute',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    borderRadius: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'visible',
@@ -1354,11 +1348,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     backgroundColor: 'transparent',
-    minHeight: 44,
+    minHeight: 32,
   },
   inlineDropdownItemLeft: {
     flexDirection: 'row',
@@ -1382,20 +1376,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 24,
     overflow: 'hidden',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   inlineUnitDropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 4,
-    marginVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginHorizontal: 2,
+    marginVertical: 1,
+    borderRadius: 6,
   },
   inlineUnitDropdownItemSelected: {
     backgroundColor: '#FFFFFF',
@@ -2174,7 +2163,6 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
             opacity: isPositioned ? 1 : 0,
             ...Platform.select({
               android: {
-                elevation: 24,
                 // Force GPU rendering for smoother animations
                 transform: [{ translateX: 0 }],
               },
@@ -2356,7 +2344,6 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
           },
           // Android-specific styling for smoother animations
           Platform.OS === 'android' && {
-            elevation: 24,
             transform: [{ translateX: 0 }],
           },
         ]}
@@ -2494,7 +2481,7 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
             zIndex: 999999,
             opacity: isPositioned ? 1 : 0,
             ...Platform.select({
-              android: { elevation: 24, transform: [{ translateX: 0 }] },
+              android: { transform: [{ translateX: 0 }] },
             }),
           },
         ]}
@@ -2715,11 +2702,6 @@ const dropdownModalStyles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 8,
-    shadowColor: Material3Colors.light.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 20,
-    elevation: 24,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     zIndex: 999999,
