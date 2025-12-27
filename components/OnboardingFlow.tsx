@@ -208,11 +208,20 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                 {p.key === 'modes' ? (
                   <View style={{ width: '100%', alignItems: 'center' }}>
                     <View style={{ width: '100%', maxWidth: 340, paddingHorizontal: 12 }}>
-                      <Text style={[styles.body, { color: colors.onSurfaceVariant, textAlign: 'left', lineHeight: 22 }]}>
-                        <Text style={{ fontWeight: '700' }}>Standard Mode</Text> – Regular notification alerts{'\n\n'}
-                        <Text style={{ fontWeight: '700' }}>Silent Mode</Text> – Gentle notifications without sound{'\n\n'}
-                        <Text style={{ fontWeight: '700' }}>Ringer Mode</Text> – Full-screen reminder with loud alert so you can't miss it
-                      </Text>
+                      <View style={{ gap: 12, marginTop: 8 }}>
+                        <View style={{ backgroundColor: colors.surfaceVariant + '40', borderRadius: 12, padding: 16 }}>
+                          <Text style={{ color: colors.onSurface, fontWeight: '700', fontSize: 15, marginBottom: 4 }}>Standard Mode</Text>
+                          <Text style={{ color: colors.onSurfaceVariant, fontSize: 13, lineHeight: 18 }}>Regular notification alerts</Text>
+                        </View>
+                        <View style={{ backgroundColor: colors.surfaceVariant + '40', borderRadius: 12, padding: 16 }}>
+                          <Text style={{ color: colors.onSurface, fontWeight: '700', fontSize: 15, marginBottom: 4 }}>Silent Mode</Text>
+                          <Text style={{ color: colors.onSurfaceVariant, fontSize: 13, lineHeight: 18 }}>Gentle notifications without sound</Text>
+                        </View>
+                        <View style={{ backgroundColor: colors.surfaceVariant + '40', borderRadius: 12, padding: 16 }}>
+                          <Text style={{ color: colors.onSurface, fontWeight: '700', fontSize: 15, marginBottom: 4 }}>Ringer Mode</Text>
+                          <Text style={{ color: colors.onSurfaceVariant, fontSize: 13, lineHeight: 18 }}>Full-screen reminder with loud alert so you can't miss it</Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
                 ) : p.key === 'flex' ? (
