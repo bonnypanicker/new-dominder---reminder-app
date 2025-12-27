@@ -805,7 +805,7 @@ class AlarmActivity : AppCompatActivity() {
         timeoutRunnable = Runnable {
             DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
             
-            // Send missed alarm broadcast
+            // Send missed alarm broadcast for JS (if alive)
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
@@ -814,7 +814,11 @@ class AlarmActivity : AppCompatActivity() {
             sendBroadcast(missedIntent)
             DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
             
-            // Cancel notification on timeout to prevent it from lingering
+            // NEW: Post Native "Missed Reminder" Notification immediately
+            // This ensures the user sees it even if the app process is dead
+            postMissedNotification(reminderId, title)
+
+            // Cancel the ACTIVE ringing notification to stop the fullscreen/ongoing state
             cancelNotification()
             
             // Finish the activity
@@ -946,7 +950,44 @@ class AlarmActivity : AppCompatActivity() {
         DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
     }
 
+    private fun postMissedNotification(id: String?, title: String?) {
+        if (id == null) return
+        
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelId = "alarm_channel_v2"
+            
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                 putExtra("reminderId", id)
+            }
+            val pIntent = if (launchIntent != null) {
+                android.app.PendingIntent.getActivity(
+                    this, 
+                    id.hashCode() + 10, 
+                    launchIntent, 
+                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            } else null
 
+            val notif = androidx.core.app.NotificationCompat.Builder(this, channelId)
+                .setContentTitle("Missed Reminder")
+                .setContentText(title ?: "Reminder")
+                .setSmallIcon(R.drawable.small_icon_noti)
+                .setColor(0xFF6750A4.toInt())
+                .setAutoCancel(true)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            
+            if (pIntent != null) {
+                notif.setContentIntent(pIntent)
+            }
+
+            notificationManager.notify(id.hashCode() + 999, notif.build())
+            DebugLogger.log("AlarmActivity: Posted missed notification natively")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActivity: Failed to post missed notification: \${e.message}")
+        }
+    }
 
     /**
      * Properly finish the alarm activity without bringing the main app to foreground
