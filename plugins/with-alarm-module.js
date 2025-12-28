@@ -1105,6 +1105,14 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        // CRITICAL: Check if reminder is paused before firing
+        val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+        val isPaused = prefs.getBoolean("paused_\$reminderId", false)
+        if (isPaused) {
+            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
+            return
+        }
+
         // Start AlarmRingtoneService for high priority reminders
         if (priority == "high") {
             DebugLogger.log("AlarmReceiver: Starting AlarmRingtoneService for high priority")
@@ -2112,6 +2120,26 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             pendingIntent.cancel()
             promise?.resolve(true)
         } catch (e: Exception) {
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun setReminderPaused(reminderId: String, isPaused: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                if (isPaused) {
+                    putBoolean("paused_\$reminderId", true)
+                } else {
+                    remove("paused_\$reminderId")
+                }
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Set reminder \$reminderId paused=\$isPaused")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error setting reminder paused: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }

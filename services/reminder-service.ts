@@ -1,10 +1,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter, NativeModules, Platform } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { notificationService } from '@/hooks/notification-service';
 
 const STORAGE_KEY = 'dominder_reminders';
+
+// Get AlarmModule for native pause state sync
+const AlarmModule = Platform.OS === 'android' ? NativeModules.AlarmModule : null;
 
 // Mutex to prevent concurrent AsyncStorage writes
 let updateQueue = Promise.resolve();
@@ -54,6 +57,20 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
   return serializeAsyncStorageWrite(async () => {
     const reminders = await getReminders();
     const originalReminder = reminders.find(r => r.id === updatedReminder.id);
+
+    // Sync pause state to native SharedPreferences for AlarmReceiver to check
+    // This ensures native alarms respect pause state even if they fire before JS cancels them
+    if (AlarmModule?.setReminderPaused) {
+      const pauseStateChanged = originalReminder?.isPaused !== updatedReminder.isPaused;
+      if (pauseStateChanged || updatedReminder.isPaused) {
+        try {
+          await AlarmModule.setReminderPaused(updatedReminder.id, !!updatedReminder.isPaused);
+          console.log(`[ReminderService] Synced pause state to native: ${updatedReminder.id} isPaused=${updatedReminder.isPaused}`);
+        } catch (e) {
+          console.warn('[ReminderService] Failed to sync pause state to native:', e);
+        }
+      }
+    }
 
     // Cancel notifications if:
     // 1. Reminder is marked as completed
