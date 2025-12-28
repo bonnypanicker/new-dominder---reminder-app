@@ -108,7 +108,6 @@ class AlarmActivity : AppCompatActivity() {
         
         handler.postDelayed(timeoutRunnable!!, TIMEOUT_DURATION)
         DebugLogger.log("AlarmActivity: 5-minute timeout scheduled")
-    }
 
         // --- Ringtone Service Already Playing ---
         DebugLogger.log("AlarmActivity: Ringtone service should already be playing")
@@ -230,10 +229,6 @@ class AlarmActivity : AppCompatActivity() {
             )
         }
         DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
-    }
-
-
-
     }
 
     private fun postMissedNotification(id: String?, title: String?) {

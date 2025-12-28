@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, NativeModules } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, PanResponder, NativeModules, BackHandler } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/theme-provider';
@@ -71,8 +71,36 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
     translateX.setValue(0);
   }, [visible, translateX]);
 
-  // Back button handler is handled via Modal's onRequestClose for effective Android interception
-  // We do not use BackHandler.addEventListener here because the Modal swallows the event.
+  // Handle Android back button/gesture using BackHandler for better compatibility
+  // with predictive back gestures (android:enableOnBackInvokedCallback="true")
+  const handleBackPress = useCallback(() => {
+    if (!visible) return false;
+    
+    if (index > 0) {
+      // Go back to previous slide
+      lastInteraction.current = 'programmatic';
+      setIndex((i) => i - 1);
+      return true; // Prevent default back behavior
+    } else {
+      // On first slide, minimize the app (standard Android behavior)
+      if (Platform.OS === 'android') {
+        NativeModules.AlarmModule?.minimize();
+        return true; // Prevent default back behavior (we handled it)
+      }
+      return false;
+    }
+  }, [visible, index]);
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'android') return;
+
+    // Add BackHandler listener with high priority
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [visible, handleBackPress]);
 
   // Pan responder for swipe gestures
   const panResponder = useMemo(
@@ -181,19 +209,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
       animationType="fade"
       transparent={false}
       statusBarTranslucent
-      onRequestClose={() => {
-        // Handle Android hardware back button
-        if (index > 0) {
-          // Go back to previous slide
-          lastInteraction.current = 'programmatic';
-          setIndex((i) => i - 1);
-        } else {
-          // Minimize the app on first slide (standard Android behavior)
-          if (Platform.OS === 'android') {
-            NativeModules.AlarmModule?.minimize();
-          }
-        }
-      }}
+      onRequestClose={handleBackPress}
     >
       <View style={[styles.backdrop, { backgroundColor: colors.background }]}>
         <View style={[styles.shell, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
