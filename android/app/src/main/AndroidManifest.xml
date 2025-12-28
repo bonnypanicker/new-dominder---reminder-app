@@ -56,5 +56,10 @@
         <action android:name="com.dominder.MISSED_ALARM"/>
       </intent-filter>
     </receiver>
+    <receiver android:name=".alarm.MissedAlarmDeleteReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="com.dominder.DELETE_MISSED_ALARM"/>
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

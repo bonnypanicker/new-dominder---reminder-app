@@ -86,8 +86,12 @@ class AlarmActivity : AppCompatActivity() {
         timeoutRunnable = Runnable {
             DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
             
-            // Send missed alarm broadcast for JS (if alive)
+            // Stop the ringtone service first
+            AlarmRingtoneService.stopAlarmRingtone(this)
+            
+            // Send missed alarm broadcast for JS (if alive) - with package for Android 14+ compatibility
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
+                setPackage(packageName)
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("time", timeFormat.format(Date()))
@@ -95,7 +99,7 @@ class AlarmActivity : AppCompatActivity() {
             sendBroadcast(missedIntent)
             DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
             
-            // NEW: Post Native "Missed Reminder" Notification immediately
+            // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
             postMissedNotification(reminderId, title)
 
@@ -236,35 +240,65 @@ class AlarmActivity : AppCompatActivity() {
         
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val channelId = "alarm_channel_v2"
             
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                 putExtra("reminderId", id)
+            // Create a dedicated channel for missed alarms
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    "missed_alarm_channel",
+                    "Missed Ringer Alarms",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications for missed ringer reminders"
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                notificationManager.createNotificationChannel(channel)
             }
-            val pIntent = if (launchIntent != null) {
-                android.app.PendingIntent.getActivity(
+            
+            // Create delete action intent
+            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
+                action = "com.dominder.DELETE_MISSED_ALARM"
+                putExtra("reminderId", id)
+                putExtra("notificationId", id.hashCode() + 999)
+            }
+            val deletePendingIntent = PendingIntent.getBroadcast(
+                this,
+                id.hashCode() + 500,
+                deleteIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            
+            // Create content intent to open app
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("reminderId", id)
+            }
+            val contentPendingIntent = if (launchIntent != null) {
+                PendingIntent.getActivity(
                     this, 
                     id.hashCode() + 10, 
                     launchIntent, 
-                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             } else null
 
-            val notif = androidx.core.app.NotificationCompat.Builder(this, channelId)
-                .setContentTitle("Missed Reminder")
+            val notifBuilder = androidx.core.app.NotificationCompat.Builder(this, "missed_alarm_channel")
+                .setContentTitle("You missed a Ringer reminder")
                 .setContentText(title ?: "Reminder")
                 .setSmallIcon(R.drawable.small_icon_noti)
-                .setColor(0xFF6750A4.toInt())
-                .setAutoCancel(true)
+                .setColor(0xFFF44336.toInt()) // Red color for missed
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
+                .setOngoing(true) // Non-swipable
+                .setAutoCancel(false)
+                .addAction(0, "Delete", deletePendingIntent)
             
-            if (pIntent != null) {
-                notif.setContentIntent(pIntent)
+            if (contentPendingIntent != null) {
+                notifBuilder.setContentIntent(contentPendingIntent)
             }
 
-            notificationManager.notify(id.hashCode() + 999, notif.build())
-            DebugLogger.log("AlarmActivity: Posted missed notification natively")
+            notificationManager.notify(id.hashCode() + 999, notifBuilder.build())
+            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with delete button")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Failed to post missed notification: ${e.message}")
         }

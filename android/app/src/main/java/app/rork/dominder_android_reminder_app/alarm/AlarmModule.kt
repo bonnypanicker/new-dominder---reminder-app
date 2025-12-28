@@ -206,6 +206,40 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getDeletedAlarms(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            val deleted = Arguments.createMap()
+            
+            prefs.all.forEach { (key, value) ->
+                if (key.startsWith("deleted_")) {
+                    val reminderId = key.removePrefix("deleted_")
+                    deleted.putString(reminderId, value.toString())
+                }
+            }
+            
+            DebugLogger.log("AlarmModule: Retrieved ${deleted.toHashMap().size} deleted alarms")
+            promise.resolve(deleted)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting deleted alarms: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearDeletedAlarm(reminderId: String, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().remove("deleted_${reminderId}").apply()
+            DebugLogger.log("AlarmModule: Cleared deleted alarm ${reminderId}")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing deleted alarm: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun openRingtonePicker(promise: Promise) {
         try {
             val activity = reactContext.currentActivity

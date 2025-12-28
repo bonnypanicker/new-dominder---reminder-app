@@ -1,10 +1,15 @@
 import { DeviceEventEmitter, NativeModules, Platform, NativeEventEmitter } from 'react-native';
 import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native';
+import { deleteReminder } from './reminder-service';
 
 interface MissedAlarmData {
   reminderId: string;
   title: string;
   time: string;
+}
+
+interface MissedAlarmDeletedData {
+  reminderId: string;
 }
 
 class MissedAlarmService {
@@ -18,12 +23,19 @@ class MissedAlarmService {
     console.log('[MissedAlarmService] Initializing...');
 
     // Listen for missed alarm broadcasts from native code
-    const subscription = DeviceEventEmitter.addListener(
+    const missedSubscription = DeviceEventEmitter.addListener(
       'onMissedAlarm',
       this.handleMissedAlarm.bind(this)
     );
+    this.listeners.set('missedAlarm', missedSubscription);
 
-    this.listeners.set('missedAlarm', subscription);
+    // Listen for delete action from native missed notification
+    const deleteSubscription = DeviceEventEmitter.addListener(
+      'onMissedAlarmDeleted',
+      this.handleMissedAlarmDeleted.bind(this)
+    );
+    this.listeners.set('missedAlarmDeleted', deleteSubscription);
+
     console.log('[MissedAlarmService] Initialized successfully');
   }
 
@@ -42,6 +54,27 @@ class MissedAlarmService {
       await this.showMissedNotification(data);
     } catch (error) {
       console.error('[MissedAlarmService] Error showing missed notification:', error);
+    }
+  }
+
+  private async handleMissedAlarmDeleted(data: MissedAlarmDeletedData) {
+    console.log('[MissedAlarmService] Received missed alarm delete:', data);
+    
+    try {
+      const { reminderId } = data;
+      
+      // Cancel any notifee notification for this reminder
+      try {
+        await notifee.cancelNotification(`missed-${reminderId}`);
+      } catch (e) {
+        // Ignore if not found
+      }
+      
+      // Move reminder to deleted
+      await deleteReminder(reminderId);
+      console.log('[MissedAlarmService] Reminder moved to deleted:', reminderId);
+    } catch (error) {
+      console.error('[MissedAlarmService] Error handling delete:', error);
     }
   }
 

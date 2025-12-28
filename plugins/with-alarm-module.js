@@ -805,8 +805,12 @@ class AlarmActivity : AppCompatActivity() {
         timeoutRunnable = Runnable {
             DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
             
-            // Send missed alarm broadcast for JS (if alive)
+            // Stop the ringtone service first
+            AlarmRingtoneService.stopAlarmRingtone(this)
+            
+            // Send missed alarm broadcast for JS (if alive) - with package for Android 14+ compatibility
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
+                setPackage(packageName)
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("time", timeFormat.format(Date()))
@@ -814,7 +818,7 @@ class AlarmActivity : AppCompatActivity() {
             sendBroadcast(missedIntent)
             DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
             
-            // NEW: Post Native "Missed Reminder" Notification immediately
+            // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
             postMissedNotification(reminderId, title)
 
@@ -955,35 +959,65 @@ class AlarmActivity : AppCompatActivity() {
         
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val channelId = "alarm_channel_v2"
             
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                 putExtra("reminderId", id)
+            // Create a dedicated channel for missed alarms
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    "missed_alarm_channel",
+                    "Missed Ringer Alarms",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications for missed ringer reminders"
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                notificationManager.createNotificationChannel(channel)
             }
-            val pIntent = if (launchIntent != null) {
-                android.app.PendingIntent.getActivity(
+            
+            // Create delete action intent
+            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
+                action = "com.dominder.DELETE_MISSED_ALARM"
+                putExtra("reminderId", id)
+                putExtra("notificationId", id.hashCode() + 999)
+            }
+            val deletePendingIntent = PendingIntent.getBroadcast(
+                this,
+                id.hashCode() + 500,
+                deleteIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            
+            // Create content intent to open app
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("reminderId", id)
+            }
+            val contentPendingIntent = if (launchIntent != null) {
+                PendingIntent.getActivity(
                     this, 
                     id.hashCode() + 10, 
                     launchIntent, 
-                    android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             } else null
 
-            val notif = androidx.core.app.NotificationCompat.Builder(this, channelId)
-                .setContentTitle("Missed Reminder")
+            val notifBuilder = androidx.core.app.NotificationCompat.Builder(this, "missed_alarm_channel")
+                .setContentTitle("You missed a Ringer reminder")
                 .setContentText(title ?: "Reminder")
                 .setSmallIcon(R.drawable.small_icon_noti)
-                .setColor(0xFF6750A4.toInt())
-                .setAutoCancel(true)
+                .setColor(0xFFF44336.toInt()) // Red color for missed
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
+                .setOngoing(true) // Non-swipable
+                .setAutoCancel(false)
+                .addAction(0, "Delete", deletePendingIntent)
             
-            if (pIntent != null) {
-                notif.setContentIntent(pIntent)
+            if (contentPendingIntent != null) {
+                notifBuilder.setContentIntent(contentPendingIntent)
             }
 
-            notificationManager.notify(id.hashCode() + 999, notif.build())
-            DebugLogger.log("AlarmActivity: Posted missed notification natively")
+            notificationManager.notify(id.hashCode() + 999, notifBuilder.build())
+            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with delete button")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Failed to post missed notification: \${e.message}")
         }
@@ -1625,6 +1659,76 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
 }`
     },
     {
+        path: 'alarm/MissedAlarmDeleteReceiver.kt',
+        content: `package app.rork.dominder_android_reminder_app.alarm
+
+import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import app.rork.dominder_android_reminder_app.DebugLogger
+import com.facebook.react.ReactApplication
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.modules.core.DeviceEventManagerModule
+import org.json.JSONObject
+
+class MissedAlarmDeleteReceiver : BroadcastReceiver() {
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != "com.dominder.DELETE_MISSED_ALARM") return
+        
+        val reminderId = intent.getStringExtra("reminderId") ?: return
+        val notificationId = intent.getIntExtra("notificationId", 0)
+        
+        DebugLogger.log("MissedAlarmDeleteReceiver: Delete action for reminder \$reminderId")
+        
+        // Cancel the notification
+        if (notificationId != 0) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(notificationId)
+            DebugLogger.log("MissedAlarmDeleteReceiver: Cancelled notification \$notificationId")
+        }
+        
+        // Mark reminder as deleted in SharedPreferences for JS to pick up
+        try {
+            val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("deleted_\${reminderId}", System.currentTimeMillis().toString())
+                apply()
+            }
+            DebugLogger.log("MissedAlarmDeleteReceiver: Saved deletion to SharedPreferences")
+        } catch (e: Exception) {
+            DebugLogger.log("MissedAlarmDeleteReceiver: Error saving to SharedPreferences: \${e.message}")
+        }
+        
+        // Try to emit event to React Native if app is running
+        try {
+            val app = context.applicationContext
+            if (app is ReactApplication) {
+                val reactInstanceManager = app.reactNativeHost.reactInstanceManager
+                val reactContext = reactInstanceManager.currentReactContext
+                
+                if (reactContext != null) {
+                    val params = Arguments.createMap().apply {
+                        putString("reminderId", reminderId)
+                    }
+                    
+                    reactContext
+                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                        .emit("onMissedAlarmDeleted", params)
+                        
+                    DebugLogger.log("MissedAlarmDeleteReceiver: Emitted onMissedAlarmDeleted event")
+                } else {
+                    DebugLogger.log("MissedAlarmDeleteReceiver: ReactContext is null, deletion saved to SharedPreferences")
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("MissedAlarmDeleteReceiver: Error emitting event: \${e.message}")
+        }
+    }
+}`
+    },
+    {
         path: 'alarm/AlarmPackage.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
@@ -2110,6 +2214,40 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getDeletedAlarms(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            val deleted = Arguments.createMap()
+            
+            prefs.all.forEach { (key, value) ->
+                if (key.startsWith("deleted_")) {
+                    val reminderId = key.removePrefix("deleted_")
+                    deleted.putString(reminderId, value.toString())
+                }
+            }
+            
+            DebugLogger.log("AlarmModule: Retrieved \${deleted.toHashMap().size} deleted alarms")
+            promise.resolve(deleted)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting deleted alarms: \${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearDeletedAlarm(reminderId: String, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().remove("deleted_\${reminderId}").apply()
+            DebugLogger.log("AlarmModule: Cleared deleted alarm \${reminderId}")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing deleted alarm: \${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun openRingtonePicker(promise: Promise) {
         try {
             val activity = reactContext.currentActivity
@@ -2360,7 +2498,8 @@ const withAlarmManifest = (config) => {
         const receivers = application.receiver.filter(r =>
             r.$['android:name'] !== '.alarm.AlarmReceiver' &&
             r.$['android:name'] !== '.BootReceiver' &&
-            r.$['android:name'] !== '.alarm.AlarmActionBridge' // Filter out old one if present
+            r.$['android:name'] !== '.alarm.AlarmActionBridge' &&
+            r.$['android:name'] !== '.alarm.MissedAlarmDeleteReceiver' // Filter out old one if present
         );
 
         // FIX: Add intent-filter to AlarmReceiver to reliably receive 'ALARM_FIRED' broadcasts,
@@ -2394,6 +2533,16 @@ const withAlarmManifest = (config) => {
                     { $: { 'android:name': 'app.rork.dominder.ALARM_DONE' } },
                     { $: { 'android:name': 'app.rork.dominder.ALARM_SNOOZE' } },
                     { $: { 'android:name': 'com.dominder.MISSED_ALARM' } }
+                ]
+            }]
+        });
+
+        // NEW: Register MissedAlarmDeleteReceiver for handling delete action from missed notification
+        receivers.push({
+            $: { 'android:name': '.alarm.MissedAlarmDeleteReceiver', 'android:exported': 'false' },
+            'intent-filter': [{
+                action: [
+                    { $: { 'android:name': 'com.dominder.DELETE_MISSED_ALARM' } }
                 ]
             }]
         });

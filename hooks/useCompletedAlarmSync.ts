@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { AppState, NativeModules, Platform } from 'react-native';
 import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
+import { deleteReminder } from '@/services/reminder-service';
 
 const { AlarmModule } = NativeModules;
 
 /**
- * Hook to sync alarm actions (done/snooze) that were performed while
+ * Hook to sync alarm actions (done/snooze/delete) that were performed while
  * React Native context was unavailable (e.g., phone locked, app killed).
  * 
  * Polls SharedPreferences when app becomes active and processes any
@@ -95,6 +96,41 @@ export function useCompletedAlarmSync() {
           console.log('[AlarmSync] ✓ Successfully processed snooze for:', reminderId);
         } catch (error) {
           console.error('[AlarmSync] Error processing snoozed alarm:', reminderId, error);
+        }
+      }
+
+      // Process deleted alarms (from missed notification delete action)
+      if (AlarmModule.getDeletedAlarms) {
+        const deletedAlarms = await AlarmModule.getDeletedAlarms();
+        const deletedEntries = Object.entries(deletedAlarms || {});
+        
+        console.log('[AlarmSync] Found deleted alarms:', deletedEntries.length);
+        
+        for (const [reminderId, timestamp] of deletedEntries) {
+          const key = `deleted_${reminderId}`;
+          
+          // Avoid processing the same alarm twice
+          if (processedRef.current.has(key)) {
+            console.log('[AlarmSync] Already processed deletion for:', reminderId);
+            continue;
+          }
+
+          console.log('[AlarmSync] Processing deleted alarm:', reminderId, 'at', timestamp);
+          
+          try {
+            // Move reminder to deleted
+            await deleteReminder(reminderId);
+            
+            // Clear from SharedPreferences
+            await AlarmModule.clearDeletedAlarm(reminderId);
+            
+            // Mark as processed
+            processedRef.current.add(key);
+            
+            console.log('[AlarmSync] ✓ Successfully processed deletion for:', reminderId);
+          } catch (error) {
+            console.error('[AlarmSync] Error processing deleted alarm:', reminderId, error);
+          }
         }
       }
       
