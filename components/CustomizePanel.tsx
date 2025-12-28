@@ -2084,11 +2084,12 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     const fallbackFromAnchorRect = () => {
       if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
           typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
-      const preferredTop = (anchor.y - containerY) + anchor.height + 8;
+      // Position directly below anchor with 4px gap
+      const preferredTop = (anchor.y - containerY) + anchor.height + 4;
       // Align dropdown's right edge with anchor's right edge
       const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
-      const top = Math.max(8, preferredTop);
-      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      const top = Math.max(4, preferredTop);
+      const left = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
       if (!cancelled) {
         setComputedPos({ top, left });
         // Use requestAnimationFrame and small delay for Android
@@ -2105,11 +2106,12 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
         (anchorRef.current as any).measureLayout(
           containerRef.current,
           (left: number, top: number, width: number, height: number) => {
-            const preferredTop = top + height + 8;
+            // Position directly below anchor with 4px gap
+            const preferredTop = top + height + 4;
             // Align dropdown's right edge with anchor's right edge
             const preferredLeft = left + width - dropdownWidth;
-            const topBounded = Math.max(8, preferredTop);
-            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            const topBounded = Math.max(4, preferredTop);
+            const leftBounded = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
             if (!cancelled) {
               setComputedPos({ top: topBounded, left: leftBounded });
               // Use requestAnimationFrame and small delay for Android
@@ -2132,9 +2134,8 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
     return () => { cancelled = true; };
   }, [visible, anchorRef, containerRef, containerX, containerY, containerW, anchor, hideTomorrow]);
 
-  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
-  // Force align near right border of the container (easy way)
-  const left = Math.max(8, containerW - dropdownWidth - (Platform.OS === 'android' ? 24 : 8));
+  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(4, (anchor.y - containerY) + anchor.height + 4) : 4);
+  const left = computedPos?.left ?? (anchor && typeof anchor.x === 'number' && typeof anchor.width === 'number' ? Math.max(4, Math.min((anchor.x - containerX) + anchor.width - dropdownWidth, containerW - dropdownWidth - 4)) : containerW - dropdownWidth - 4);
 
   // Early return after all hooks have been called
   if (!visible || (!anchorRef && !anchor)) return null;
@@ -2261,10 +2262,12 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
     const fallbackFromAnchorRect = () => {
       if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
           typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
-      const preferredTop = (anchor.y - containerY) + anchor.height + 8;
-      const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
-      const top = Math.max(8, preferredTop);
-      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      // Position directly below anchor with 4px gap
+      const preferredTop = (anchor.y - containerY) + anchor.height + 4;
+      // Align dropdown's right edge with anchor's right edge
+      const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
+      const top = Math.max(4, preferredTop);
+      const left = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
       if (!cancelled) {
         setComputedPos({ top, left });
         
@@ -2284,10 +2287,12 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
         (anchorRef.current as any).measureLayout(
           containerRef.current,
           (left: number, top: number, width: number, height: number) => {
-            const preferredTop = top + height + 8;
-            const preferredLeft = left + (width / 2) - (dropdownWidth / 2);
-            const topBounded = Math.max(8, preferredTop);
-            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            // Position directly below anchor with 4px gap
+            const preferredTop = top + height + 4;
+            // Align dropdown's right edge with anchor's right edge
+            const preferredLeft = left + width - dropdownWidth;
+            const topBounded = Math.max(4, preferredTop);
+            const leftBounded = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
             if (!cancelled) {
               setComputedPos({ top: topBounded, left: leftBounded });
               
@@ -2313,8 +2318,8 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
     return () => { cancelled = true; };
   }, [visible, anchorRef, containerRef, anchor, containerOffset, containerX, containerY, containerW]);
 
-  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
-  const left = computedPos?.left ?? (anchor && typeof anchor.x === 'number' && typeof anchor.width === 'number' ? Math.max(8, Math.min((anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2), containerW - dropdownWidth - 8)) : 8);
+  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(4, (anchor.y - containerY) + anchor.height + 4) : 4);
+  const left = computedPos?.left ?? (anchor && typeof anchor.x === 'number' && typeof anchor.width === 'number' ? Math.max(4, Math.min((anchor.x - containerX) + anchor.width - dropdownWidth, containerW - dropdownWidth - 4)) : containerW - dropdownWidth - 4);
 
   // Early return after all hooks have been called
   if (!visible || !anchor) return null;
@@ -2415,10 +2420,12 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
     const fallbackFromAnchorRect = () => {
       if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
           typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
-      const preferredTop = (anchor.y - containerY) + anchor.height + 8;
-      const preferredLeft = (anchor.x - containerX) + (anchor.width / 2) - (dropdownWidth / 2);
-      const top = Math.max(8, preferredTop);
-      const left = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+      // Position directly below anchor with 4px gap
+      const preferredTop = (anchor.y - containerY) + anchor.height + 4;
+      // Align dropdown's right edge with anchor's right edge
+      const preferredLeft = (anchor.x - containerX) + anchor.width - dropdownWidth;
+      const top = Math.max(4, preferredTop);
+      const left = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
       if (!cancelled) {
         setComputedPos({ top, left });
         requestAnimationFrame(() => {
@@ -2434,10 +2441,12 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
         (anchorRef.current as any).measureLayout(
           containerRef.current,
           (left: number, top: number, width: number, height: number) => {
-            const preferredTop = top + height + 8;
-            const preferredLeft = left + (width / 2) - (dropdownWidth / 2);
-            const topBounded = Math.max(8, preferredTop);
-            const leftBounded = Math.max(8, Math.min(preferredLeft, containerW - dropdownWidth - 8));
+            // Position directly below anchor with 4px gap
+            const preferredTop = top + height + 4;
+            // Align dropdown's right edge with anchor's right edge
+            const preferredLeft = left + width - dropdownWidth;
+            const topBounded = Math.max(4, preferredTop);
+            const leftBounded = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
             if (!cancelled) {
               setComputedPos({ top: topBounded, left: leftBounded });
               requestAnimationFrame(() => {
@@ -2459,8 +2468,8 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
     return () => { cancelled = true; };
   }, [visible, anchorRef, containerRef, containerX, containerY, containerW, anchor]);
 
-  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(8, (anchor.y - containerY) + anchor.height + 8) : 8);
-  const left = Math.max(8, containerW - dropdownWidth - (Platform.OS === 'android' ? 24 : 8));
+  const top = computedPos?.top ?? (anchor && typeof anchor.y === 'number' && typeof anchor.height === 'number' ? Math.max(4, (anchor.y - containerY) + anchor.height + 4) : 4);
+  const left = computedPos?.left ?? (anchor && typeof anchor.x === 'number' && typeof anchor.width === 'number' ? Math.max(4, Math.min((anchor.x - containerX) + anchor.width - dropdownWidth, containerW - dropdownWidth - 4)) : containerW - dropdownWidth - 4);
 
   if (!visible || (!anchorRef && !anchor)) return null;
 
