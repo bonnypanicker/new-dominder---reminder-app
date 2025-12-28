@@ -108,6 +108,26 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun setReminderPaused(reminderId: String, isPaused: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                if (isPaused) {
+                    putBoolean("paused_$reminderId", true)
+                } else {
+                    remove("paused_$reminderId")
+                }
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Set reminder $reminderId paused=$isPaused")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error setting reminder paused: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)

@@ -23,6 +23,14 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        // CRITICAL: Check if reminder is paused before firing
+        val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+        val isPaused = prefs.getBoolean("paused_$reminderId", false)
+        if (isPaused) {
+            DebugLogger.log("AlarmReceiver: Reminder $reminderId is PAUSED - skipping alarm")
+            return
+        }
+
         // Start AlarmRingtoneService for high priority reminders
         if (priority == "high") {
             DebugLogger.log("AlarmReceiver: Starting AlarmRingtoneService for high priority")
