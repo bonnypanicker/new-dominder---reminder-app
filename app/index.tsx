@@ -665,31 +665,6 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
-  // Smart date formatting: Today, Yesterday, Tomorrow, or actual date
-  const formatSmartDate = useCallback((dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const reminderDate = new Date(year, month - 1, day);
-    const now = new Date();
-    
-    // Reset time to start of day for comparison
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const reminderStart = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-    
-    if (reminderStart.getTime() === todayStart.getTime()) {
-      return 'Today';
-    } else if (reminderStart.getTime() === yesterdayStart.getTime()) {
-      return 'Yesterday';
-    } else if (reminderStart.getTime() === tomorrowStart.getTime()) {
-      return 'Tomorrow';
-    } else {
-      return reminderDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-  }, []);
-
 
   const ReminderCard = memo(({
     reminder,
@@ -782,18 +757,29 @@ export default function HomeScreen() {
                 <Text style={styles.reminderTimeCompact}>
                   {formatTime(reminder.time)}
                 </Text>
-                {/* Show date for all reminders - use smart formatting for daily */}
+                {/* Show date for all reminders - use next occurrence for daily */}
                 <>
                   <Text style={styles.compactSeparator}>•</Text>
                   <Text style={styles.reminderDateCompact} numberOfLines={1}>
-                    {reminder.repeatType === 'daily' 
-                      ? formatSmartDate(reminder.date)
-                      : (() => {
-                          const [year, month, day] = reminder.date.split('-').map(Number);
-                          const date = new Date(year, month - 1, day);
-                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        })()
-                    }
+                    {(() => {
+                      if (reminder.repeatType === 'daily') {
+                        // For daily reminders, show next occurrence date
+                        const getNextDate = () => {
+                          if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                          const calc = calculateNextReminderDate(reminder);
+                          return calc ?? null;
+                        };
+                        const nextDate = getNextDate();
+                        if (nextDate) {
+                          return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }
+                      }
+                      // For other reminders, show the stored date
+                      const [year, month, day] = reminder.date.split('-').map(Number);
+                      const date = new Date(year, month - 1, day);
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    })()}
                   </Text>
                 </>
                 <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
@@ -920,11 +906,50 @@ export default function HomeScreen() {
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && endsLabel && (
                     <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
                   )}
-                  {reminder.repeatType === 'daily' && (
+                  {reminder.repeatType === 'daily' && !reminder.isCompleted && (
                     <>
-                      <View style={styles.dailyTimeContainer}>
-                        <Clock size={14} color={Material3Colors.light.onSurfaceVariant} />
-                        <Text style={styles.reminderTime}>{formatSmartDate(reminder.date)} at {formatTime(reminder.time)}</Text>
+                      <View style={styles.nextOccurrenceContainer}>
+                        <Clock size={14} color={Material3Colors.light.primary} />
+                        <Text style={styles.reminderNextOccurrenceLarge}>
+                          {(() => {
+                            const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
+                            const getNextDate = () => {
+                              if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                              if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                              const calc = calculateNextReminderDate(reminder);
+                              return calc ?? null;
+                            };
+                            const nextDate = getNextDate();
+
+                            // If no next date and has end condition, the reminder has ended
+                            if (!nextDate && hasEndCondition) {
+                              const lastDate = (() => {
+                                if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
+                                if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                                const [year, month, day] = reminder.date.split('-').map(Number);
+                                const [hours, minutes] = reminder.time.split(':').map(Number);
+                                return new Date(year, month - 1, day, hours, minutes);
+                              })();
+                              const dateStr = lastDate.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              });
+                              const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
+                              return `Ended: ${dateStr} at ${timeStr}`;
+                            }
+
+                            if (!nextDate) return 'Calculating...';
+
+                            const dateStr = nextDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                            const timeStr = formatTime(nextDate.toTimeString().slice(0, 5));
+                            return `${dateStr} at ${timeStr}`;
+                          })()}
+                        </Text>
                       </View>
                       {endsLabel && (
                         <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
