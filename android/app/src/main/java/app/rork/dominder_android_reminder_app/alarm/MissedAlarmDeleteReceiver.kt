@@ -8,7 +8,6 @@ import app.rork.dominder_android_reminder_app.DebugLogger
 import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.modules.core.DeviceEventManagerModule
-import org.json.JSONObject
 
 class MissedAlarmDeleteReceiver : BroadcastReceiver() {
 
