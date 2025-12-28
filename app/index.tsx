@@ -2073,7 +2073,13 @@ function CreateReminderPopup({
                     }
                   }}
                 >
-                  <Pressable onPress={(e) => e.stopPropagation()}>
+                  <Pressable onPress={(e) => {
+                    e.stopPropagation();
+                    // Also close dropdowns when tapping inside this area
+                    if ((window as any).__closeCustomizePanelDropdowns) {
+                      (window as any).__closeCustomizePanelDropdowns();
+                    }
+                  }}>
                     <View style={scaledStyles.section}>
                       <TextInput
                         ref={titleInputRef}

@@ -1328,10 +1328,10 @@ const styles = StyleSheet.create({
   // Inline dropdown styles
   inlineDropdownOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: -1000,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
     backgroundColor: 'transparent',
   },
   inlineDropdownContent: {
