@@ -2,7 +2,6 @@ import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native'
 import { Platform, NativeModules } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { createNotificationConfig } from '../hooks/notification-service';
-import { calculateNextReminderDate } from './reminder-utils';
 
 /**
  * Service to check and trigger pending/missed notifications on app startup
@@ -52,107 +51,16 @@ export async function checkAndTriggerPendingNotifications() {
       return;
     }
 
-    // --- NEW: Sync native state (snooze/completed) ---
-    const { AlarmModule } = NativeModules;
-    
-    if (AlarmModule) {
-        try {
-            const completedAlarmsMap = await AlarmModule.getCompletedAlarms();
-            const snoozedAlarmsMap = await AlarmModule.getSnoozedAlarms();
-            
-            // Only log if we actually have something to sync
-            const completedCount = Object.keys(completedAlarmsMap || {}).length;
-            const snoozedCount = Object.keys(snoozedAlarmsMap || {}).length;
-            
-            if (completedCount > 0 || snoozedCount > 0) {
-                console.log(`[StartupCheck] Syncing native state: ${completedCount} completed, ${snoozedCount} snoozed`);
-
-                let stateChanged = false;
-
-                // Apply native state changes
-                allReminders = allReminders.map((reminder: Reminder) => {
-                    // Check if completed natively
-                    if (completedAlarmsMap && completedAlarmsMap[reminder.id]) {
-                         console.log(`[StartupCheck] Syncing: Marking ${reminder.id} as completed from native state`);
-                         stateChanged = true;
-                         // Clear native state
-                         AlarmModule.clearCompletedAlarm(reminder.id);
-
-                         if (reminder.repeatType === 'none') {
-                             return { ...reminder, isCompleted: true, isActive: false };
-                         } else {
-                             // Handle repeating reminder
-                             const occurrenceCount = (reminder.occurrenceCount ?? 0) + 1;
-                             const calcContext = { ...reminder, occurrenceCount };
-                             const nextDate = calculateNextReminderDate(calcContext, new Date());
-                             
-                             if (nextDate) {
-                                 const yyyy = nextDate.getFullYear();
-                                 const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
-                                 const dd = String(nextDate.getDate()).padStart(2, '0');
-                                 const dateStr = `${yyyy}-${mm}-${dd}`;
-                                 
-                                 const hh = String(nextDate.getHours()).padStart(2, '0');
-                                 const min = String(nextDate.getMinutes()).padStart(2, '0');
-                                 const timeStr = `${hh}:${min}`;
-                                 
-                                 console.log(`[StartupCheck] Syncing: Rescheduling repeating reminder ${reminder.id} to ${dateStr} ${timeStr}`);
-                                 
-                                 return {
-                                     ...reminder,
-                                     date: dateStr,
-                                     time: timeStr,
-                                     nextReminderDate: nextDate.toISOString(),
-                                     occurrenceCount,
-                                     isCompleted: false,
-                                     isActive: true,
-                                     snoozeUntil: undefined,
-                                     wasSnoozed: undefined,
-                                     lastTriggeredAt: new Date().toISOString()
-                                 };
-                             } else {
-                                 // Series ended
-                                 console.log(`[StartupCheck] Syncing: Repeating reminder ${reminder.id} series ended`);
-                                 return {
-                                     ...reminder,
-                                     isCompleted: true,
-                                     isActive: false,
-                                     occurrenceCount,
-                                     lastTriggeredAt: new Date().toISOString()
-                                 };
-                             }
-                         }
-                    }
-                    
-                    // Check if snoozed natively
-                    if (snoozedAlarmsMap && snoozedAlarmsMap[reminder.id]) {
-                         const snoozeData = snoozedAlarmsMap[reminder.id].split(':');
-                         if (snoozeData.length === 2) {
-                             const snoozeTime = parseInt(snoozeData[0]);
-                             const snoozeMinutes = parseInt(snoozeData[1]);
-                             const newSnoozeUntil = new Date(snoozeTime + snoozeMinutes * 60 * 1000).toISOString();
-                             
-                             console.log(`[StartupCheck] Syncing: Snoozing ${reminder.id} until ${newSnoozeUntil} from native state`);
-                             stateChanged = true;
-                             // Clear native state
-                             AlarmModule.clearSnoozedAlarm(reminder.id);
-                             return { ...reminder, snoozeUntil: newSnoozeUntil };
-                         }
-                    }
-                    return reminder;
-                });
-
-                // Save updated state back to storage if needed
-                if (stateChanged) {
-                     await reminderService.saveReminders(allReminders);
-                     console.log('[StartupCheck] Persisted synced state to storage');
-                }
-            }
-        } catch (e) {
-            console.error('[StartupCheck] Error syncing native state:', e);
-        }
-    }
-    // --- END NEW LOGIC ---
+    // --- REMOVED: Native state sync (completed/snoozed) ---
+    // This logic has been REMOVED because useCompletedAlarmSync hook handles this.
+    // Having both systems process the same completed alarms causes race conditions
+    // where the alarm gets scheduled to different times (e.g., 15:48 vs 15:50).
+    // 
+    // The AlarmSync hook is the single source of truth for processing native
+    // alarm completions and snoozes. StartupCheck should only handle:
+    // 1. Triggering overdue notifications (missed while app was killed)
+    // 2. Rescheduling future alarms (AlarmManager cleared on force stop)
+    // --- END REMOVED ---
 
     // Get currently displayed notifications to avoid duplicates
     const displayedNotifications = await notifee.getDisplayedNotifications();
