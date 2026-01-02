@@ -167,11 +167,15 @@ class AlarmRingtoneService : Service() {
         }
     }
     
+    private var originalAlarmVolume: Int = -1
+    private var audioManager: AudioManager? = null
+    
     private fun startRingtone() {
         try {
-            // Get saved ringtone URI from SharedPreferences
+            // Get saved ringtone URI and volume from SharedPreferences
             val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
+            val volumePercent = prefs.getInt("ringer_volume", 100)
             
             val ringtoneUri = if (savedUriString != null) {
                 DebugLogger.log("AlarmRingtoneService: Using saved ringtone: $savedUriString")
@@ -182,6 +186,18 @@ class AlarmRingtoneService : Service() {
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             }
             
+            // Get AudioManager and set alarm volume to override silent/low volume
+            audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val maxVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: 7
+            originalAlarmVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: -1
+            
+            // Calculate target volume from percentage
+            val targetVolume = (maxVolume * volumePercent / 100).coerceAtLeast(1)
+            
+            // Set alarm stream volume (bypasses silent mode for STREAM_ALARM)
+            audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
+            DebugLogger.log("AlarmRingtoneService: Set alarm volume to $targetVolume/$maxVolume ($volumePercent%)")
+            
             // Use MediaPlayer for full song playback with looping
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(applicationContext, ringtoneUri)
@@ -191,6 +207,7 @@ class AlarmRingtoneService : Service() {
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_ALARM)
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
                             .build()
                     )
                 } else {
@@ -278,6 +295,14 @@ class AlarmRingtoneService : Service() {
                 DebugLogger.log("AlarmRingtoneService: MediaPlayer stopped and released")
             }
             mediaPlayer = null
+            
+            // Restore original alarm volume
+            if (originalAlarmVolume >= 0 && audioManager != null) {
+                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, originalAlarmVolume, 0)
+                DebugLogger.log("AlarmRingtoneService: Restored original alarm volume to $originalAlarmVolume")
+            }
+            originalAlarmVolume = -1
+            audioManager = null
             
             // Stop vibration
             vibrator?.cancel()

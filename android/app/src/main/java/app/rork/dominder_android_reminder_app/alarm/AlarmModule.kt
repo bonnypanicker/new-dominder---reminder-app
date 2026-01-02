@@ -128,15 +128,16 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 100, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             prefs.edit().apply {
                 putBoolean("ringer_sound_enabled", soundEnabled)
                 putBoolean("ringer_vibration_enabled", vibrationEnabled)
+                putInt("ringer_volume", ringerVolume)
                 apply()
             }
-            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled")
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled, volume: $ringerVolume%")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving notification settings: ${e.message}")
