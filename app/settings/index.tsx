@@ -176,7 +176,6 @@ export default function SettingsScreen() {
                   <Text style={styles.volumeLabel}>Ringer Volume</Text>
                   <Text style={styles.volumeValue}>{settings.ringerVolume}%</Text>
                 </View>
-                <Text style={styles.volumeHint}>Overrides system volume for ringer alarms</Text>
                 <Slider
                   style={styles.volumeSlider}
                   minimumValue={10}
@@ -611,16 +610,10 @@ const styles = StyleSheet.create({
     minWidth: 45,
     textAlign: 'right',
   },
-  volumeHint: {
-    fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
-    marginLeft: 32,
-    marginTop: 4,
-    marginBottom: 8,
-  },
   volumeSlider: {
     width: '100%',
     height: 40,
+    marginTop: 8,
   },
 });
 
