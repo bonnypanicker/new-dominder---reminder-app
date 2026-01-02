@@ -17,7 +17,6 @@ import CustomizePanel, { CalendarModal } from '@/components/CustomizePanel';
 import { showToast } from '@/utils/toast';
 import SwipeableRow from '@/components/SwipeableRow';
 import OnboardingFlow from '@/components/OnboardingFlow';
-import { ReminderCard } from '@/components/ReminderCard';
 
 // Icon components (declared after all imports to satisfy import/first)
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -667,25 +666,594 @@ export default function HomeScreen() {
   }, []);
 
 
-  // Memoized renderItem for FlashList - stable callbacks passed to external ReminderCard
-  const renderReminderItem = useCallback(({ item }: { item: Reminder }) => (
-    <ReminderCard
-      reminder={item}
-      listType={activeTab}
-      isSelected={selectedReminders.has(item.id)}
-      isSelectionMode={isSelectionMode}
-      onCardPress={handleCardPress}
-      onLongPress={handleLongPress}
-      onDelete={handleDelete}
-      onPermanentDelete={handlePermanentDelete}
-      onComplete={completeAllOccurrences}
-      onPause={pauseReminder}
-      onRestore={handleRestore}
-      onReassign={reassignReminder}
-      swipeableRefs={swipeableRefs}
-      simultaneousHandlers={contentScrollRef}
-    />
-  ), [activeTab, selectedReminders, isSelectionMode, handleCardPress, handleLongPress, handleDelete, handlePermanentDelete, completeAllOccurrences, pauseReminder, handleRestore, reassignReminder]);
+  const ReminderCard = memo(({
+    reminder,
+    listType,
+    isSelected,
+    isSelectionMode: selectionMode
+  }: {
+    reminder: Reminder;
+    listType: 'active' | 'completed' | 'deleted';
+    isSelected: boolean;
+    isSelectionMode: boolean;
+  }) => {
+    const isActive = !reminder.isCompleted && !reminder.isExpired;
+    const isExpired = reminder.isExpired;
+    // Build formatted "Ends" label (Until)
+    const endsLabel: string | null = (() => {
+      if (!reminder.repeatType || reminder.repeatType === 'none') return null;
+      const type = reminder.untilType ?? 'none';
+      if (type === 'none') return null;
+      if (type === 'count') {
+        const count = reminder.untilCount ?? 0;
+        const unit = count === 1 ? 'occurrence' : 'occurrences';
+        return `Ends after ${count} ${unit}`;
+      }
+      if (type === 'endsAt' && reminder.untilDate) {
+        try {
+          const [y, m, d] = reminder.untilDate.split('-').map(Number);
+          const dt = new Date(y, (m || 1) - 1, d || 1);
+          const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const showTime = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
+          if (showTime) {
+            const timeStr = formatTime(reminder.untilTime ?? reminder.time);
+            return `Ends on ${dateStr} at ${timeStr}`;
+          }
+          return `Ends on ${dateStr}`;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    })();
+
+
+
+    const isDeleted = listType === 'deleted';
+    const isCompletedOrDeleted = listType === 'completed' || listType === 'deleted';
+
+    // Minimized single-line layout for completed and deleted
+    if (isCompletedOrDeleted) {
+      return (
+        <SwipeableRow
+          reminder={reminder}
+          swipeableRefs={swipeableRefs}
+          simultaneousHandlers={contentScrollRef}
+          onSwipeRight={!selectionMode ? () => handlePermanentDelete(reminder) : undefined}
+          onSwipeLeft={!selectionMode ? () => handlePermanentDelete(reminder) : undefined}
+          isSelectionMode={selectionMode}
+          leftActionType="delete"
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleCardPress(reminder)}
+            onLongPress={() => handleLongPress(reminder.id, listType)}
+            delayLongPress={200}
+            style={[
+              styles.reminderCardCompact,
+              isSelected && styles.selectedCard
+            ]}
+            testID={`reminder-card-${reminder.id}`}
+          >
+            <View style={styles.reminderContentCompact}>
+              <View style={styles.reminderLeftCompact}>
+                {selectionMode && (
+                  <TouchableOpacity
+                    style={styles.selectionCheckbox}
+                    onPress={() => handleCardPress(reminder)}
+                  >
+                    {isSelected ? (
+                      <CheckSquare size={20} color={Material3Colors.light.primary} />
+                    ) : (
+                      <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+                <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
+                  {reminder.title}
+                </Text>
+                <Text style={styles.compactSeparator}>•</Text>
+                <Text style={styles.reminderTimeCompact}>
+                  {formatTime(reminder.time)}
+                </Text>
+                {/* Show date for all reminders - use next occurrence for daily */}
+                <>
+                  <Text style={styles.compactSeparator}>•</Text>
+                  <Text style={styles.reminderDateCompact} numberOfLines={1}>
+                    {(() => {
+                      if (reminder.repeatType === 'daily') {
+                        // For daily reminders, show next occurrence date
+                        const getNextDate = () => {
+                          if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                          const calc = calculateNextReminderDate(reminder);
+                          return calc ?? null;
+                        };
+                        const nextDate = getNextDate();
+                        if (nextDate) {
+                          return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }
+                      }
+                      // For other reminders, show the stored date
+                      const [year, month, day] = reminder.date.split('-').map(Number);
+                      const date = new Date(year, month - 1, day);
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    })()}
+                  </Text>
+                </>
+                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                  <Text style={styles.repeatBadgeTextCompact}>
+                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                  </Text>
+                </View>
+                {/* Show compact duration for Every reminders */}
+                {reminder.repeatType === 'every' && reminder.everyInterval && (
+                  <Text style={styles.everyDurationCompact}>
+                    {(() => {
+                      const value = reminder.everyInterval.value;
+                      const unit = reminder.everyInterval.unit;
+                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
+                      return `${value}${unitShort}`;
+                    })()}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.reminderRight}>
+                <TouchableOpacity
+                  style={isDeleted ? styles.restoreButton : styles.reassignButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (isDeleted) {
+                      handleRestore(reminder);
+                    } else {
+                      reassignReminder(reminder);
+                    }
+                  }}
+                  testID={isDeleted ? `restore-button-${reminder.id}` : `reassign-button-${reminder.id}`}
+                >
+                  <RotateCcw size={18} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </SwipeableRow>
+      );
+    }
+
+    // Full layout for active reminders
+    return (
+      <SwipeableRow
+        reminder={reminder}
+        swipeableRefs={swipeableRefs}
+        simultaneousHandlers={contentScrollRef}
+        onSwipeRight={!selectionMode ? (isDeleted ? () => handlePermanentDelete(reminder) : () => handleDelete(reminder)) : undefined}
+        onSwipeLeft={!selectionMode && !isDeleted ? (isActive ? () => completeAllOccurrences(reminder) : undefined) : (isDeleted ? () => handlePermanentDelete(reminder) : undefined)}
+        isSelectionMode={selectionMode}
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => handleCardPress(reminder)}
+          onLongPress={() => handleLongPress(reminder.id, listType)}
+          delayLongPress={200}
+          style={[
+            styles.reminderCard,
+            isSelected && styles.selectedCard
+          ]}
+          testID={`reminder-card-${reminder.id}`}
+        >
+          <View style={styles.reminderContent}>
+            <View style={styles.reminderLeft}>
+              {selectionMode && (
+                <TouchableOpacity
+                  style={styles.selectionCheckbox}
+                  onPress={() => handleCardPress(reminder)}
+                >
+                  {isSelected ? (
+                    <CheckSquare size={20} color={Material3Colors.light.primary} />
+                  ) : (
+                    <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                  )}
+                </TouchableOpacity>
+              )}
+              <View style={[styles.priorityBar, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+              <View style={styles.reminderInfo}>
+                <Text style={styles.reminderTitle}>{reminder.title}</Text>
+                <View style={styles.reminderMeta}>
+                  {/* Only show clock icon and fixed time for Weekly and Custom */}
+                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && (
+                    <>
+                      <Clock size={14} color={Material3Colors.light.onSurfaceVariant} />
+                      <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
+                      <Text style={styles.metaSeparator}>•</Text>
+                    </>
+                  )}
+                  {/* For Once, Monthly, Yearly, Every, Daily - move badge to bottom */}
+                  {(reminder.repeatType !== 'none' && reminder.repeatType !== 'monthly' && reminder.repeatType !== 'yearly' && reminder.repeatType !== 'every' && reminder.repeatType !== 'daily') && (
+                    <View style={styles.repeatBadge}>
+                      <Text style={styles.repeatBadgeText}>
+                        {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                      </Text>
+                    </View>
+                  )}
+
+                </View>
+
+                <View style={styles.reminderDetails}>
+                  {/* For Once reminders - show date and time with clock icon like Monthly/Yearly */}
+                  {reminder.repeatType === 'none' && !reminder.isCompleted && (
+                    <View style={styles.nextOccurrenceContainer}>
+                      <Clock size={14} color={Material3Colors.light.primary} />
+                      <Text style={styles.reminderNextOccurrenceLarge}>
+                        {(() => {
+                          const [year, month, day] = reminder.date.split('-').map(Number);
+                          const date = new Date(year, month - 1, day);
+                          const dateStr = date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          });
+                          const timeStr = formatTime(reminder.time);
+                          return `${dateStr} at ${timeStr}`;
+                        })()}
+                      </Text>
+                    </View>
+                  )}
+                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && reminder.repeatDays && reminder.repeatDays.length > 0 && (
+                    <Text style={styles.reminderDays}>{formatDays(reminder.repeatDays)}</Text>
+                  )}
+                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && endsLabel && (
+                    <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                  )}
+                  {reminder.repeatType === 'daily' && !reminder.isCompleted && (
+                    <>
+                      <View style={styles.nextOccurrenceContainer}>
+                        <Clock size={14} color={Material3Colors.light.primary} />
+                        <Text style={styles.reminderNextOccurrenceLarge}>
+                          {(() => {
+                            const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
+                            const getNextDate = () => {
+                              if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                              if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                              const calc = calculateNextReminderDate(reminder);
+                              return calc ?? null;
+                            };
+                            const nextDate = getNextDate();
+
+                            // If no next date and has end condition, the reminder has ended
+                            if (!nextDate && hasEndCondition) {
+                              const lastDate = (() => {
+                                if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
+                                if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                                const [year, month, day] = reminder.date.split('-').map(Number);
+                                const [hours, minutes] = reminder.time.split(':').map(Number);
+                                return new Date(year, month - 1, day, hours, minutes);
+                              })();
+                              const dateStr = lastDate.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              });
+                              const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
+                              return `Ended: ${dateStr} at ${timeStr}`;
+                            }
+
+                            if (!nextDate) return 'Calculating...';
+
+                            const dateStr = nextDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                            const timeStr = formatTime(nextDate.toTimeString().slice(0, 5));
+                            return `${dateStr} at ${timeStr}`;
+                          })()}
+                        </Text>
+                      </View>
+                      {endsLabel && (
+                        <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                      )}
+                      <View style={styles.dailyDaysContainer}>
+                        {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                          const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+                          const selectedDays = (reminder.repeatDays && reminder.repeatDays.length > 0) ? reminder.repeatDays : [0, 1, 2, 3, 4, 5, 6];
+                          const dayActive = selectedDays.includes(day);
+                          return (
+                            <View
+                              key={day}
+                              style={[
+                                styles.dailyDayDisc,
+                                dayActive && styles.dailyDayDiscActive
+                              ]}
+                            >
+                              <Text style={[
+                                styles.dailyDayText,
+                                dayActive && styles.dailyDayTextActive
+                              ]}>
+                                {dayLetters[day]}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+                  {/* For Monthly, Yearly, and Every - show next occurrence with clock icon */}
+                  {(reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every') && !reminder.isCompleted && (
+                    <View style={styles.nextOccurrenceContainer}>
+                      <Clock size={14} color={Material3Colors.light.primary} />
+                      <Text style={styles.reminderNextOccurrenceLarge}>
+                        {(() => {
+                          const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
+                          const getNextDate = () => {
+                            if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                            if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                            const calc = calculateNextReminderDate(reminder);
+                            return calc ?? null;
+                          };
+                          const nextDate = getNextDate();
+
+                          // If no next date and has end condition, the reminder has ended - show last occurrence
+                          if (!nextDate && hasEndCondition) {
+                            // Get last occurrence date
+                            const lastDate = (() => {
+                              if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
+                              if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                              // Fall back to original date/time
+                              const [year, month, day] = reminder.date.split('-').map(Number);
+                              const [hours, minutes] = reminder.time.split(':').map(Number);
+                              return new Date(year, month - 1, day, hours, minutes);
+                            })();
+                            const dateStr = lastDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                            const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
+                            return `Ended: ${dateStr} at ${timeStr}`;
+                          }
+
+                          if (!nextDate) return 'Calculating...';
+
+                          const dateStr = nextDate.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          });
+                          const timeStr = formatTime(nextDate.toTimeString().slice(0, 5));
+                          return `${dateStr} at ${timeStr}`;
+                        })()}
+                      </Text>
+                    </View>
+                  )}
+                  {(reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly') && endsLabel && (
+                    <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
+                  )}
+
+                  {/* Show explicit repeat frequency text and Ends in one line for Every reminders */}
+                  {reminder.repeatType === 'every' && !reminder.isCompleted && (
+                    <Text style={styles.reminderNextOccurrence}>
+                      {(() => {
+                        const value = reminder.everyInterval?.value ?? 1;
+                        const unit = reminder.everyInterval?.unit ?? 'hours';
+                        const unitLabel = value === 1 ? unit.replace(/s$/, '') : unit;
+                        const repeatText = `Repeats every ${value} ${unitLabel}`;
+                        return endsLabel ? `${repeatText} • ${endsLabel}` : repeatText;
+                      })()}
+                    </Text>
+                  )}
+
+                  {/* Show repeat badge at bottom for Once, Monthly, Yearly, Every, Daily */}
+                  {(reminder.repeatType === 'none' || reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every' || reminder.repeatType === 'daily') && (
+                    <View style={styles.repeatBadgeContainer}>
+                      {/* 1. Frequency badge */}
+                      <View style={[styles.repeatBadge, styles.repeatBadgeBottom]}>
+                        <Text style={styles.repeatBadgeText}>
+                          {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                        </Text>
+                      </View>
+                      {/* 2. Snoozed badge (for all types) */}
+                      {reminder.snoozeUntil && isActive && !reminder.isCompleted && (
+                        <View style={styles.snoozedBadgeInline}>
+                          <Clock size={10} color={Material3Colors.light.tertiary} />
+                          <Text style={styles.snoozedTextInline}>Snoozed</Text>
+                        </View>
+                      )}
+                      {/* 3. Paused badge (moved here from outside) */}
+                      {reminder.isPaused && isActive && !reminder.isCompleted && (
+                        <View style={styles.pausedBadgeInline}>
+                          <PauseCircle size={10} color={Material3Colors.light.tertiary} />
+                          <Text style={styles.pausedTextInline}>Paused</Text>
+                        </View>
+                      )}
+                      {/* 4. Repeating icon (for repeating types only) */}
+                      {(reminder.repeatType === 'daily' || reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every') && (
+                        <Repeat size={12} color={Material3Colors.light.primary} style={{ alignSelf: 'center' }} />
+                      )}
+                    </View>
+                  )}
+
+                  {/* Show snooze until time if snoozed */}
+                  {reminder.snoozeUntil && (
+                    <Text style={styles.snoozeUntilText}>
+                      Snoozed until: {formatDate(reminder.snoozeUntil)} at {formatTime(new Date(reminder.snoozeUntil).toTimeString().slice(0, 5))}
+                    </Text>
+                  )}
+
+                  {/* Show pause until date for Daily reminders with pauseUntilDate */}
+                  {reminder.repeatType === 'daily' && reminder.pauseUntilDate && (
+                    <Text style={styles.snoozeUntilText}>
+                      Paused until {formatDate(reminder.pauseUntilDate)}
+                    </Text>
+                  )}
+
+                  {/* Show next reminder date for Weekly and Custom reminders (not for completed or daily) */}
+                  {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && !reminder.snoozeUntil && !reminder.isCompleted && (
+                    <Text style={styles.nextReminderText}>
+                      {(() => {
+                        const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
+                        const getNextDate = () => {
+                          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                          const calc = calculateNextReminderDate(reminder);
+                          return calc ?? null;
+                        };
+                        const nextDate = getNextDate();
+
+                        // If no next date and has end condition, the reminder has ended - show last occurrence
+                        if (!nextDate && hasEndCondition) {
+                          const lastDate = (() => {
+                            if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
+                            if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                            // Fall back to original date/time
+                            const [year, month, day] = reminder.date.split('-').map(Number);
+                            const [hours, minutes] = reminder.time.split(':').map(Number);
+                            return new Date(year, month - 1, day, hours, minutes);
+                          })();
+                          return `Ended: ${formatDate(lastDate.toISOString())}`;
+                        }
+
+                        if (!nextDate) return 'Next: Calculating...';
+
+                        return `Next: ${formatDate(nextDate.toISOString())}`;
+                      })()}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Removed expired badge - no longer using expired tab */}
+              </View>
+            </View>
+
+            {/* Action buttons */}
+            {isActive && !isDeleted && (
+              <View style={styles.reminderRight}>
+                {reminder.repeatType !== 'none' && (
+                  reminder.isPaused ? (
+                    <TouchableOpacity
+                      style={styles.resumeButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        pauseReminder(reminder);
+                      }}
+                      testID={`resume-button-${reminder.id}`}
+                    >
+                      <PlayCircle size={20} color={Material3Colors.light.primary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.pauseButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        // Pause the reminder
+                        pauseReminder(reminder);
+                        // For Daily reminders, show toast to guide users to long press feature
+                        if (reminder.repeatType === 'daily') {
+                          showToast('Long press to pause until');
+                        }
+                      }}
+                      onLongPress={(e) => {
+                        e.stopPropagation();
+                        // Only show calendar for Daily reminders
+                        if (reminder.repeatType === 'daily') {
+                          setPauseUntilReminder(reminder);
+                          setPauseUntilCalendarVisible(true);
+                        }
+                      }}
+                      delayLongPress={300}
+                      testID={`pause-button-${reminder.id}`}
+                    >
+                      <PauseCircle size={20} color="#E57373" />
+                    </TouchableOpacity>
+                  )
+                )}
+
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    completeReminder(reminder);
+                  }}
+                  testID={`done-button-${reminder.id}`}
+                >
+                  <CheckCircle size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Restore button for deleted items */}
+            {isDeleted && (
+              <View style={styles.reminderRight}>
+                <TouchableOpacity
+                  style={styles.restoreButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRestore(reminder);
+                  }}
+                  testID={`restore-button-${reminder.id}`}
+                >
+                  <RotateCcw size={20} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Reassign button for completed items */}
+            {!isActive && !isDeleted && (
+              <View style={styles.reminderRight}>
+                <TouchableOpacity
+                  style={styles.reassignButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    reassignReminder(reminder);
+                  }}
+                  testID={`reassign-button-${reminder.id}`}
+                >
+                  <RotateCcw size={20} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </SwipeableRow>
+    );
+  }, (prevProps, nextProps) => {
+    // ID change always means different card
+    if (prevProps.reminder.id !== nextProps.reminder.id) return false;
+    if (prevProps.listType !== nextProps.listType) return false;
+
+    // Check external state dependencies
+    if (prevProps.isSelected !== nextProps.isSelected) return false;
+    if (prevProps.isSelectionMode !== nextProps.isSelectionMode) return false;
+
+    const prev = prevProps.reminder;
+    const next = nextProps.reminder;
+
+    // Check ALL fields that affect visual rendering to prevent flickering
+    const areDaysEqual = prev.repeatDays?.length === next.repeatDays?.length &&
+      (prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i]) ?? true);
+    const isEveryIntervalEqual = prev.everyInterval?.value === next.everyInterval?.value &&
+      prev.everyInterval?.unit === next.everyInterval?.unit;
+
+    return prev.title === next.title &&
+      prev.time === next.time &&
+      prev.date === next.date &&
+      prev.priority === next.priority &&
+      prev.isActive === next.isActive &&
+      prev.isPaused === next.isPaused &&
+      prev.isCompleted === next.isCompleted &&
+      prev.isExpired === next.isExpired &&
+      prev.repeatType === next.repeatType &&
+      prev.nextReminderDate === next.nextReminderDate &&
+      prev.snoozeUntil === next.snoozeUntil &&
+      prev.lastTriggeredAt === next.lastTriggeredAt &&
+      prev.untilType === next.untilType &&
+      prev.untilDate === next.untilDate &&
+      prev.untilCount === next.untilCount &&
+      areDaysEqual &&
+      isEveryIntervalEqual;
+  });
+
+  ReminderCard.displayName = 'ReminderCard';
 
   useEffect(() => {
     // Reset selection when switching tabs to prevent cross-tab actions
@@ -849,18 +1417,32 @@ export default function HomeScreen() {
           <FlashList
             ref={contentScrollRef}
             data={currentList}
-            renderItem={renderReminderItem}
+            renderItem={({ item }) => (
+              <ReminderCard
+                reminder={item}
+                listType={activeTab}
+                isSelected={selectedReminders.has(item.id)}
+                isSelectionMode={isSelectionMode}
+              />
+            )}
             extraData={selectionTimestamp}
-            estimatedItemSize={activeTab === 'active' ? 140 : 56}
-            keyExtractor={(item) => item.id}
+            estimatedItemSize={120}
+            keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             scrollEnabled={!showCreatePopup && !showOnboarding}
+            ItemSeparatorComponent={() => null}
             contentContainerStyle={{
               paddingBottom: 100,
               paddingTop: 4,
               paddingHorizontal: 0,
             }}
-            drawDistance={Platform.OS === 'android' ? 300 : 200}
+            drawDistance={Platform.OS === 'android' ? 500 : 250}
+            removeClippedSubviews={false}
+            overrideItemLayout={(layout, item) => {
+              if (Platform.OS === 'android') {
+                layout.size = layout.size || 120;
+              }
+            }}
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 {activeTab === 'active' ? (
