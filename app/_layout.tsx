@@ -320,7 +320,8 @@ function AppContent() {
           if (AlarmModule?.saveNotificationSettings) {
             await AlarmModule.saveNotificationSettings(
               settings.soundEnabled ?? true,
-              settings.vibrationEnabled ?? true
+              settings.vibrationEnabled ?? true,
+              settings.ringerVolume ?? 100
             );
             console.log('[RootLayout] Initialized notification settings in native');
           }

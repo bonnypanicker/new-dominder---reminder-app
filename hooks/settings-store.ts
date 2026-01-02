@@ -14,6 +14,7 @@ export interface AppSettings {
   sortMode: 'creation' | 'upcoming';
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
+  ringerVolume: number; // 0-100 percentage
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
+  ringerVolume: 100, // Default to max volume
 };
 
 export const useSettings = () => {
@@ -75,7 +77,7 @@ export const useUpdateSettings = () => {
           }
         }
 
-        if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean') {
+        if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean' || typeof variables.ringerVolume === 'number') {
           // Save to native SharedPreferences for AlarmRingtoneService to read
           const { NativeModules } = require('react-native');
           const { AlarmModule } = NativeModules;
@@ -83,7 +85,8 @@ export const useUpdateSettings = () => {
             try {
               await AlarmModule.saveNotificationSettings(
                 data.soundEnabled,
-                data.vibrationEnabled
+                data.vibrationEnabled,
+                data.ringerVolume
               );
             } catch (e) {
               console.log('Failed to save notification settings to native:', e);

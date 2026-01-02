@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
+import Slider from '@react-native-community/slider';
 
 const { AlarmModule } = NativeModules;
 
@@ -166,6 +167,28 @@ export default function SettingsScreen() {
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
+
+              <View style={styles.toggleDivider} />
+
+              <View style={styles.volumeItem}>
+                <View style={styles.volumeHeader}>
+                  <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
+                  <Text style={styles.volumeLabel}>Ringer Volume</Text>
+                  <Text style={styles.volumeValue}>{settings.ringerVolume}%</Text>
+                </View>
+                <Text style={styles.volumeHint}>Overrides system volume for ringer alarms</Text>
+                <Slider
+                  style={styles.volumeSlider}
+                  minimumValue={10}
+                  maximumValue={100}
+                  step={10}
+                  value={settings.ringerVolume}
+                  onSlidingComplete={(value) => updateSettings.mutate({ ringerVolume: value })}
+                  minimumTrackTintColor={Material3Colors.light.primary}
+                  maximumTrackTintColor={Material3Colors.light.surfaceVariant}
+                  thumbTintColor={Material3Colors.light.primary}
+                />
+              </View>
             </View>
 
             {Platform.OS === 'android' && (
@@ -567,5 +590,37 @@ const styles = StyleSheet.create({
     color: Material3Colors.light.onSurfaceVariant,
     fontStyle: 'italic',
   },
+  volumeItem: {
+    padding: 12,
+  },
+  volumeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  volumeLabel: {
+    flex: 1,
+    fontSize: 15,
+    marginLeft: 12,
+    color: Material3Colors.light.onSurface,
+    fontWeight: '500',
+  },
+  volumeValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Material3Colors.light.primary,
+    minWidth: 45,
+    textAlign: 'right',
+  },
+  volumeHint: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    marginLeft: 32,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  volumeSlider: {
+    width: '100%',
+    height: 40,
+  },
 });
-
+
