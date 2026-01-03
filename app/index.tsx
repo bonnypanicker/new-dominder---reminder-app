@@ -279,7 +279,7 @@ export default function HomeScreen() {
         return dateA.getTime() - dateB.getTime();
       });
     }
-    
+
     return sortedActive.map(r => ({
       id: r.id,
       mainReminder: r,
@@ -291,7 +291,7 @@ export default function HomeScreen() {
   const completedReminders = React.useMemo(() => {
     const groups: Record<string, ReminderGroup> = {};
     const completed = reminders.filter(r => r.isCompleted && !r.isDeleted);
-    
+
     completed.forEach(r => {
       const groupId = r.parentId || r.id;
       if (!groups[groupId]) {
@@ -310,12 +310,12 @@ export default function HomeScreen() {
       // Find main reminder (could be active or completed or deleted)
       const main = reminders.find(r => r.id === groupId);
       group.mainReminder = main;
-      
+
       // Identify if this is a group (has parentId linkage)
       if (group.occurrences.some(o => !!o.parentId)) {
         group.isGroup = true;
       }
-      
+
       // Sort occurrences by completion time (newest first)
       group.occurrences.sort((a, b) => {
         const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
@@ -323,13 +323,13 @@ export default function HomeScreen() {
         return dateB - dateA;
       });
     });
-    
+
     return Object.values(groups).sort((a, b) => {
       const getGroupDate = (g: ReminderGroup) => {
         // Use most recent occurrence
         if (g.occurrences.length > 0) {
-           const o = g.occurrences[0];
-           return o.lastTriggeredAt ? new Date(o.lastTriggeredAt).getTime() : new Date(o.createdAt).getTime();
+          const o = g.occurrences[0];
+          return o.lastTriggeredAt ? new Date(o.lastTriggeredAt).getTime() : new Date(o.createdAt).getTime();
         }
         return 0;
       };
@@ -342,7 +342,7 @@ export default function HomeScreen() {
     const sorted = deleted.sort((a, b) => {
       const createdA = new Date(a.createdAt).getTime();
       const createdB = new Date(b.createdAt).getTime();
-      return createdB - createdA; 
+      return createdB - createdA;
     });
     return sorted.map(r => ({
       id: r.id,
@@ -389,7 +389,9 @@ export default function HomeScreen() {
         // Create a history item for this completed occurrence
         addReminder.mutate({
           ...reminder,
+
           id: `${reminder.id}_${Date.now()}_hist`,
+          parentId: reminder.parentId || reminder.id,
           isCompleted: true,
           isActive: false,
           repeatType: 'none',
@@ -633,12 +635,12 @@ export default function HomeScreen() {
 
     const ids = new Set<string>();
     targetList.forEach(group => {
-       if (scope === 'active' || scope === 'deleted') {
-          if (group.mainReminder) ids.add(group.mainReminder.id);
-       } else {
-          // For completed, select all occurrences
-          group.occurrences.forEach(o => ids.add(o.id));
-       }
+      if (scope === 'active' || scope === 'deleted') {
+        if (group.mainReminder) ids.add(group.mainReminder.id);
+      } else {
+        // For completed, select all occurrences
+        group.occurrences.forEach(o => ids.add(o.id));
+      }
     });
 
     const allSelected = ids.size > 0 && ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
@@ -752,10 +754,10 @@ export default function HomeScreen() {
     isSelectionMode: boolean;
   }) => {
     const [expanded, setExpanded] = useState(false);
-    
+
     // Use mainReminder for title/info if available, otherwise first occurrence
     const displayReminder = group.mainReminder || group.occurrences[0];
-    
+
     if (!displayReminder) return null;
 
     // Determine status icon
@@ -770,8 +772,8 @@ export default function HomeScreen() {
 
     return (
       <View style={styles.groupedCardContainer}>
-        <TouchableOpacity 
-          style={styles.groupedCardHeader} 
+        <TouchableOpacity
+          style={styles.groupedCardHeader}
           onPress={() => setExpanded(!expanded)}
           activeOpacity={0.7}
         >
@@ -788,7 +790,7 @@ export default function HomeScreen() {
             <ChevronDown size={20} color={Material3Colors.light.onSurfaceVariant} />
           )}
         </TouchableOpacity>
-        
+
         {expanded && (
           <View style={styles.groupedCardBody}>
             {group.occurrences.map(reminder => (
@@ -1568,10 +1570,10 @@ export default function HomeScreen() {
                   />
                 );
               }
-              
+
               const reminder = item.mainReminder || item.occurrences[0];
               if (!reminder) return null;
-              
+
               return (
                 <ReminderCard
                   reminder={reminder}
@@ -2553,13 +2555,13 @@ const createPopupStyles = StyleSheet.create({
     borderTopColor: Material3Colors.light.outlineVariant,
     paddingLeft: 16,
     paddingBottom: 8,
-    backgroundColor: '#FAFAFA', 
+    backgroundColor: '#FAFAFA',
   },
 });
-  createButtonText: {
-    fontSize: 14,
+createButtonText: {
+  fontSize: 14,
     fontWeight: '500',
-    color: '#FFFFFF',
+      color: '#FFFFFF',
   },
 });
 

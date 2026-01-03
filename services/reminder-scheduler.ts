@@ -95,6 +95,26 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         await updateReminder(completed as any);
       } else {
         // Not final: just clear snooze state and keep active. Do not reschedule here.
+
+        // Create a history item for this completed occurrence so it appears in Completed tab
+        // mirroring the behavior of Ringer reminders
+        const historyItem = {
+          ...calcContext,
+          id: `${reminderId}_${Date.now()}_hist`,
+          parentId: reminderId,
+          isCompleted: true,
+          isActive: false,
+          repeatType: 'none',
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          lastTriggeredAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          nextReminderDate: undefined,
+          notificationId: undefined
+        };
+        await addReminder(historyItem as any);
+        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence (Standard/Silent)`);
+
         const updated = {
           ...calcContext,
           snoozeUntil: undefined,
