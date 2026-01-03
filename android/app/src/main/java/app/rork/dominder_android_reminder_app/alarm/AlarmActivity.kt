@@ -184,6 +184,10 @@ class AlarmActivity : AppCompatActivity() {
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
+            putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
+            putExtra("unit", getIntent().getStringExtra("unit"))
+            putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
+            putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}")
@@ -321,16 +325,9 @@ class AlarmActivity : AppCompatActivity() {
             // Method 2: Finish this activity
             finish()
             
-            // Method 3: As a final cleanup, exit this process after a delay
-            // This ensures the alarm activity process is completely cleaned up
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                try {
-                    // Only kill this specific activity's process, not the main app
-                    Process.killProcess(Process.myPid())
-                } catch (e: Exception) {
-                    DebugLogger.log("AlarmActivity: Error killing process: ${e.message}")
-                }
-            }, 500)
+            // Method 3: REMOVED process killing to allow JS to handle rescheduling
+            // The activity is already finished, so we just let the process live
+            DebugLogger.log("AlarmActivity: Keeping process alive for JS events")
             
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {

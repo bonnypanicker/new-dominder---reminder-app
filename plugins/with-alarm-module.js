@@ -237,10 +237,24 @@ class AlarmActionBridge : BroadcastReceiver() {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}")
+                
+                val interval = intent.getDoubleExtra("interval", 0.0)
+                val unit = intent.getStringExtra("unit")
+                val endDate = intent.getDoubleExtra("endDate", 0.0)
+                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
+                val title = intent.getStringExtra("title") ?: "Reminder"
+                val priority = intent.getStringExtra("priority") ?: "medium"
+
                 if (reminderId != null) {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
                     emitEventToReactNative(context, "alarmDone", reminderId, 0)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
+                    
+                    // Native Rescheduling Fallback
+                    if (interval > 0 && unit != null) {
+                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule (interval=\${interval} \${unit})")
+                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime)
+                    }
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
@@ -278,6 +292,82 @@ class AlarmActionBridge : BroadcastReceiver() {
             else -> {
                 DebugLogger.log("AlarmActionBridge: Unknown action received: \${action}")
             }
+        }
+    }
+    
+    private fun calculateNextTime(baseTime: Long, interval: Double, unit: String): Long {
+        val multiplier = when (unit.lowercase()) {
+            "minutes", "minute" -> 60 * 1000L
+            "hours", "hour" -> 60 * 60 * 1000L
+            "days", "day" -> 24 * 60 * 60 * 1000L
+            "weeks", "week" -> 7 * 24 * 60 * 60 * 1000L
+            else -> 0L
+        }
+        return baseTime + (interval * multiplier).toLong()
+    }
+
+    private fun scheduleNextAlarm(context: Context, reminderId: String, title: String, priority: String, interval: Double, unit: String, endDate: Double, lastTriggerTime: Double) {
+        try {
+            val now = System.currentTimeMillis()
+            
+            // Use lastTriggerTime as base to prevent slip. If invalid (0), fallback to now.
+            var baseTime = if (lastTriggerTime > 0) lastTriggerTime.toLong() else now
+            
+            var nextTime = calculateNextTime(baseTime, interval, unit)
+            
+            // If nextTime is already in the past (e.g. user delayed action, or device was off),
+            // catch up by adding intervals until we are in the future.
+            // This maintains the cadence (e.g. 12:00, 12:02, 12:04) even if processed at 12:03.
+            while (nextTime <= now) {
+                DebugLogger.log("AlarmActionBridge: nextTime \${nextTime} is in past (now=\${now}), adding interval to catch up")
+                nextTime = calculateNextTime(nextTime, interval, unit)
+            }
+            
+            // If endDate is set and nextTime is past it, don't schedule
+            if (endDate > 0 && nextTime > endDate) {
+                DebugLogger.log("AlarmActionBridge: Next alarm time \${nextTime} is past end date \${endDate}, skipping")
+                return
+            }
+            
+            DebugLogger.log("AlarmActionBridge: Scheduling next recurring alarm for \${nextTime}")
+            
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = "app.rork.dominder.ALARM_FIRED"
+                putExtra("reminderId", reminderId)
+                putExtra("title", title)
+                putExtra("priority", priority)
+                // Pass recurrence info for next time
+                putExtra("interval", interval)
+                putExtra("unit", unit)
+                putExtra("endDate", endDate)
+                putExtra("triggerTime", nextTime.toDouble()) // Update triggerTime for next loop
+            }
+            
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                reminderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                 if (!alarmManager.canScheduleExactAlarms()) {
+                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm for recurrence")
+                     return
+                 }
+            }
+
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                nextTime,
+                pendingIntent
+            )
+            DebugLogger.log("AlarmActionBridge: Recurring alarm scheduled successfully")
+
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActionBridge: Error scheduling recurring alarm: \${e.message}")
         }
     }
     
@@ -928,6 +1018,10 @@ class AlarmActivity : AppCompatActivity() {
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
+            putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
+            putExtra("unit", getIntent().getStringExtra("unit"))
+            putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
+            putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
@@ -1065,16 +1159,9 @@ class AlarmActivity : AppCompatActivity() {
             // Method 2: Finish this activity
             finish()
             
-            // Method 3: As a final cleanup, exit this process after a delay
-            // This ensures the alarm activity process is completely cleaned up
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                try {
-                    // Only kill this specific activity's process, not the main app
-                    Process.killProcess(Process.myPid())
-                } catch (e: Exception) {
-                    DebugLogger.log("AlarmActivity: Error killing process: \${e.message}")
-                }
-            }, 500)
+            // Method 3: REMOVED process killing to allow JS to handle rescheduling
+            // The activity is already finished, so we just let the process live
+            DebugLogger.log("AlarmActivity: Keeping process alive for JS events")
             
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {
@@ -1124,6 +1211,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
+        val interval = intent.getDoubleExtra("interval", 0.0)
+        val unit = intent.getStringExtra("unit")
+        val endDate = intent.getDoubleExtra("endDate", 0.0)
+        val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -1168,6 +1259,10 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
+            putExtra("interval", interval)
+            putExtra("unit", unit)
+            putExtra("endDate", endDate)
+            putExtra("triggerTime", triggerTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -1183,6 +1278,10 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
+            putExtra("interval", interval)
+            putExtra("unit", unit)
+            putExtra("endDate", endDate)
+            putExtra("triggerTime", triggerTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
@@ -2085,7 +2184,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, interval: Double = 0.0, unit: String? = null, endDate: Double = 0.0, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -2102,6 +2201,9 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority ?: "medium")
+                putExtra("interval", interval)
+                putExtra("unit", unit)
+                putExtra("endDate", endDate)
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
