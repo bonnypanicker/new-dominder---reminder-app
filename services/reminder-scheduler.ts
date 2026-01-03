@@ -116,6 +116,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         const historyItem = {
           ...calcContext,
           id: `${reminderId}_${Date.now()}_hist`,
+          parentId: reminderId,
           isCompleted: true,
           isActive: false,
           repeatType: 'none', // Completed items shouldn't repeat

@@ -12,6 +12,14 @@ import { CHANNEL_IDS } from '@/services/channels';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
+
+type ReminderGroup = {
+  id: string;
+  mainReminder?: Reminder;
+  occurrences: Reminder[];
+  isGroup: boolean;
+};
+
 import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel, { CalendarModal } from '@/components/CustomizePanel';
 import { showToast } from '@/utils/toast';
@@ -34,6 +42,10 @@ const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
 const HelpCircle = (props: any) => <Feather name="help-circle" {...props} />;
 const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
+const ChevronDown = (props: any) => <Feather name="chevron-down" {...props} />;
+const ChevronUp = (props: any) => <Feather name="chevron-up" {...props} />;
+const Activity = (props: any) => <Feather name="activity" {...props} />;
+
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -248,43 +260,96 @@ export default function HomeScreen() {
     const sortMode = settings?.sortMode ?? 'creation';
     const active = reminders.filter(r => r.isActive && !r.isCompleted && !r.isExpired && !r.isDeleted);
 
+    let sortedActive: Reminder[];
     if (sortMode === 'creation') {
-      return active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      sortedActive = active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else {
+      sortedActive = active.sort((a, b) => {
+        const getNextDate = (reminder: Reminder) => {
+          if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+          const calculated = calculateNextReminderDate(reminder);
+          if (calculated) return calculated;
+          const [year, month, day] = reminder.date.split('-').map(Number);
+          const [hours, minutes] = reminder.time.split(':').map(Number);
+          return new Date(year, month - 1, day, hours, minutes);
+        };
+        const dateA = getNextDate(a);
+        const dateB = getNextDate(b);
+        return dateA.getTime() - dateB.getTime();
+      });
     }
-
-    return active.sort((a, b) => {
-      const getNextDate = (reminder: Reminder) => {
-        if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
-        if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-        const calculated = calculateNextReminderDate(reminder);
-        if (calculated) return calculated;
-        const [year, month, day] = reminder.date.split('-').map(Number);
-        const [hours, minutes] = reminder.time.split(':').map(Number);
-        return new Date(year, month - 1, day, hours, minutes);
-      };
-      const dateA = getNextDate(a);
-      const dateB = getNextDate(b);
-      return dateA.getTime() - dateB.getTime();
-    });
+    
+    return sortedActive.map(r => ({
+      id: r.id,
+      mainReminder: r,
+      occurrences: [],
+      isGroup: false
+    } as ReminderGroup));
   }, [reminders, settings?.sortMode]);
+
   const completedReminders = React.useMemo(() => {
+    const groups: Record<string, ReminderGroup> = {};
     const completed = reminders.filter(r => r.isCompleted && !r.isDeleted);
-    // Sort by when they were completed (using lastTriggeredAt or createdAt as fallback)
-    return completed.sort((a, b) => {
-      const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
-      const dateB = b.lastTriggeredAt ? new Date(b.lastTriggeredAt).getTime() : new Date(b.createdAt).getTime();
-      return dateB - dateA; // Most recently completed first
+    
+    completed.forEach(r => {
+      const groupId = r.parentId || r.id;
+      if (!groups[groupId]) {
+        groups[groupId] = {
+          id: groupId,
+          occurrences: [],
+          isGroup: false,
+          mainReminder: undefined
+        };
+      }
+      groups[groupId].occurrences.push(r);
+    });
+
+    Object.keys(groups).forEach(groupId => {
+      const group = groups[groupId];
+      // Find main reminder (could be active or completed or deleted)
+      const main = reminders.find(r => r.id === groupId);
+      group.mainReminder = main;
+      
+      // Identify if this is a group (has parentId linkage)
+      if (group.occurrences.some(o => !!o.parentId)) {
+        group.isGroup = true;
+      }
+      
+      // Sort occurrences by completion time (newest first)
+      group.occurrences.sort((a, b) => {
+        const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
+        const dateB = b.lastTriggeredAt ? new Date(b.lastTriggeredAt).getTime() : new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+    });
+    
+    return Object.values(groups).sort((a, b) => {
+      const getGroupDate = (g: ReminderGroup) => {
+        // Use most recent occurrence
+        if (g.occurrences.length > 0) {
+           const o = g.occurrences[0];
+           return o.lastTriggeredAt ? new Date(o.lastTriggeredAt).getTime() : new Date(o.createdAt).getTime();
+        }
+        return 0;
+      };
+      return getGroupDate(b) - getGroupDate(a);
     });
   }, [reminders]);
 
   const deletedReminders = React.useMemo(() => {
     const deleted = reminders.filter(r => r.isDeleted);
-    // Sort by creation date (most recently created first)
-    return deleted.sort((a, b) => {
+    const sorted = deleted.sort((a, b) => {
       const createdA = new Date(a.createdAt).getTime();
       const createdB = new Date(b.createdAt).getTime();
-      return createdB - createdA; // Most recently created first
+      return createdB - createdA; 
     });
+    return sorted.map(r => ({
+      id: r.id,
+      mainReminder: r,
+      occurrences: [],
+      isGroup: false
+    } as ReminderGroup));
   }, [reminders]);
 
   // Use useMemo to derive current list without causing re-renders
@@ -561,13 +626,22 @@ export default function HomeScreen() {
 
   const selectAll = useCallback(() => {
     const scope = selectionTab ?? activeTab;
-    const ids = scope === 'active'
-      ? new Set(activeReminders.map(r => r.id))
-      : scope === 'completed'
-        ? new Set(completedReminders.map(r => r.id))
-        : new Set(deletedReminders.map(r => r.id));
+    let targetList: ReminderGroup[] = [];
+    if (scope === 'active') targetList = activeReminders;
+    else if (scope === 'completed') targetList = completedReminders;
+    else targetList = deletedReminders;
 
-    const allSelected = ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
+    const ids = new Set<string>();
+    targetList.forEach(group => {
+       if (scope === 'active' || scope === 'deleted') {
+          if (group.mainReminder) ids.add(group.mainReminder.id);
+       } else {
+          // For completed, select all occurrences
+          group.occurrences.forEach(o => ids.add(o.id));
+       }
+    });
+
+    const allSelected = ids.size > 0 && ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
 
     if (allSelected) {
       isSelectionModeRef.current = false;
@@ -665,6 +739,72 @@ export default function HomeScreen() {
     return days.sort((a, b) => a - b).map(day => dayNames[day]).join(', ');
   }, []);
 
+
+  const GroupedReminderCard = memo(({
+    group,
+    listType,
+    isSelected,
+    isSelectionMode
+  }: {
+    group: ReminderGroup;
+    listType: 'active' | 'completed' | 'deleted';
+    isSelected: boolean;
+    isSelectionMode: boolean;
+  }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    // Use mainReminder for title/info if available, otherwise first occurrence
+    const displayReminder = group.mainReminder || group.occurrences[0];
+    
+    if (!displayReminder) return null;
+
+    // Determine status icon
+    const StatusIcon = () => {
+      // If main reminder exists and is active, it's processing/ongoing
+      if (group.mainReminder && group.mainReminder.isActive && !group.mainReminder.isCompleted && !group.mainReminder.isDeleted) {
+        return <Activity size={20} color={Material3Colors.light.primary} />;
+      }
+      // Otherwise it's completed or deleted
+      return <CheckCircle size={20} color={Material3Colors.light.primary} />;
+    };
+
+    return (
+      <View style={styles.groupedCardContainer}>
+        <TouchableOpacity 
+          style={styles.groupedCardHeader} 
+          onPress={() => setExpanded(!expanded)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.groupedHeaderLeft}>
+            <StatusIcon />
+            <Text style={styles.groupedHeaderTitle} numberOfLines={1}>{displayReminder.title}</Text>
+            <View style={styles.groupedCountBadge}>
+              <Text style={styles.groupedCountText}>{group.occurrences.length}</Text>
+            </View>
+          </View>
+          {expanded ? (
+            <ChevronUp size={20} color={Material3Colors.light.onSurfaceVariant} />
+          ) : (
+            <ChevronDown size={20} color={Material3Colors.light.onSurfaceVariant} />
+          )}
+        </TouchableOpacity>
+        
+        {expanded && (
+          <View style={styles.groupedCardBody}>
+            {group.occurrences.map(reminder => (
+              <ReminderCard
+                key={reminder.id}
+                reminder={reminder}
+                listType={listType}
+                isSelected={selectedReminders.has(reminder.id)}
+                isSelectionMode={isSelectionMode}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  });
 
   const ReminderCard = memo(({
     reminder,
@@ -1417,14 +1557,30 @@ export default function HomeScreen() {
           <FlashList
             ref={contentScrollRef}
             data={currentList}
-            renderItem={({ item }) => (
-              <ReminderCard
-                reminder={item}
-                listType={activeTab}
-                isSelected={selectedReminders.has(item.id)}
-                isSelectionMode={isSelectionMode}
-              />
-            )}
+            renderItem={({ item }: { item: ReminderGroup }) => {
+              if (item.isGroup) {
+                return (
+                  <GroupedReminderCard
+                    group={item}
+                    listType={activeTab}
+                    isSelected={false} // Selection handled within occurrences
+                    isSelectionMode={isSelectionMode}
+                  />
+                );
+              }
+              
+              const reminder = item.mainReminder || item.occurrences[0];
+              if (!reminder) return null;
+              
+              return (
+                <ReminderCard
+                  reminder={reminder}
+                  listType={activeTab}
+                  isSelected={selectedReminders.has(reminder.id)}
+                  isSelectionMode={isSelectionMode}
+                />
+              );
+            }}
             extraData={selectionTimestamp}
             estimatedItemSize={120}
             keyExtractor={(item) => item.id.toString()}
@@ -2345,6 +2501,61 @@ const createPopupStyles = StyleSheet.create({
     fontWeight: '500',
     color: Material3Colors.light.primary,
   },
+  groupedCardContainer: {
+    marginBottom: 8,
+    borderRadius: 16,
+    backgroundColor: Material3Colors.light.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+    overflow: 'hidden',
+  },
+  groupedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: Material3Colors.light.surface,
+  },
+  groupedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  groupedHeaderTitle: {
+    fontSize: 16,
+    fontFamily: 'Rookery-Regular',
+    color: Material3Colors.light.onSurface,
+    flex: 1,
+  },
+  groupedCountBadge: {
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  groupedCountText: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontFamily: 'Rookery-Medium',
+  },
+  groupedCardBody: {
+    borderTopWidth: 1,
+    borderTopColor: Material3Colors.light.outlineVariant,
+    paddingLeft: 16,
+    paddingBottom: 8,
+    backgroundColor: '#FAFAFA', 
+  },
+});
   createButtonText: {
     fontSize: 14,
     fontWeight: '500',

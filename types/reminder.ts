@@ -45,6 +45,7 @@ export interface Reminder {
   pauseUntilDate?: string;
   wasSnoozed?: boolean;
   notificationId?: string;
+  parentId?: string;
   untilIsAM?: boolean;
   ringerSound?: string;
   
