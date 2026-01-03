@@ -310,13 +310,7 @@ export default function HomeScreen() {
       });
     } else {
       // For repeating reminders, calculate next reminder date and keep active
-      // IMPORTANT: When manually completing (pressing Done on card), we need to calculate
-      // the next occurrence from NOW, not from nextReminderDate. This prevents skipping
-      // occurrences when user presses Done before the alarm fires.
-      // 
-      // Create a copy without nextReminderDate so calculateNextReminderDate uses fromDate (now)
-      const reminderForCalc = { ...reminder, nextReminderDate: undefined };
-      const nextDate = calculateNextReminderDate(reminderForCalc);
+      const nextDate = calculateNextReminderDate(reminder);
 
       // If no next date and reminder has an end condition, it has ended - mark as completed
       const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
