@@ -792,14 +792,8 @@ export default function HomeScreen() {
   }, []);
 
   const formatRepeatType = useCallback((repeatType: RepeatType, everyInterval?: { value: number; unit: EveryUnit }) => {
-    if (repeatType === 'every' && everyInterval) {
-      // Shorten units for badge: hours -> h, minutes -> m, days -> d
-      const unitShort = everyInterval.unit === 'minutes' ? 'm' :
-        everyInterval.unit === 'hours' ? 'h' :
-          everyInterval.unit === 'days' ? 'd' : '';
-      return `${everyInterval.value}${unitShort}`;
-    }
-
+    // For 'every' type, just return "Every" for the badge
+    // The interval details (1m, 2h, 1d) will be shown as separate text
     switch (repeatType) {
       case 'none': return 'Once';
       case 'daily': return 'Daily';
@@ -807,9 +801,18 @@ export default function HomeScreen() {
       case 'monthly': return 'Monthly';
       case 'yearly': return 'Yearly';
       case 'custom': return 'Custom';
-      case 'every': return 'Every'; // Fallback if no interval
+      case 'every': return 'Every';
       default: return 'Once';
     }
+  }, []);
+
+  const formatEveryInterval = useCallback((everyInterval?: { value: number; unit: EveryUnit }) => {
+    if (!everyInterval) return '';
+    // Format as "1m", "2h", "1d" for display after the "Every" badge
+    const unitShort = everyInterval.unit === 'minutes' ? 'm' :
+      everyInterval.unit === 'hours' ? 'h' :
+        everyInterval.unit === 'days' ? 'd' : '';
+    return `${everyInterval.value}${unitShort}`;
   }, []);
 
   const formatDays = useCallback((days: number[]) => {
@@ -921,11 +924,18 @@ export default function HomeScreen() {
 
                 {/* Badges */}
                 {(displayReminder.repeatType !== 'none') && (
-                  <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                    <Text style={styles.repeatBadgeTextCompact}>
-                      {formatRepeatType(displayReminder.repeatType, displayReminder.everyInterval)}
-                    </Text>
-                  </View>
+                  <>
+                    <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                      <Text style={styles.repeatBadgeTextCompact}>
+                        {formatRepeatType(displayReminder.repeatType, displayReminder.everyInterval)}
+                      </Text>
+                    </View>
+                    {displayReminder.repeatType === 'every' && displayReminder.everyInterval && (
+                      <Text style={styles.reminderDateCompact}>
+                        {formatEveryInterval(displayReminder.everyInterval)}
+                      </Text>
+                    )}
+                  </>
                 )}
 
               </View>
@@ -1083,14 +1093,20 @@ export default function HomeScreen() {
                 </Text>
               </>
 
-              {/* Badges - Now shows complete info like "1h", "2d" for every type */}
+              {/* Badges - Show "Every" badge with interval text after it */}
               {!isSubReminder && (
-                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                  <Text style={styles.repeatBadgeTextCompact}>
-                    {reminder.repeatType === 'every' ? 'Every ' : ''}
-                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
-                  </Text>
-                </View>
+                <>
+                  <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                    <Text style={styles.repeatBadgeTextCompact}>
+                      {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                    </Text>
+                  </View>
+                  {reminder.repeatType === 'every' && reminder.everyInterval && (
+                    <Text style={styles.reminderDateCompact}>
+                      {formatEveryInterval(reminder.everyInterval)}
+                    </Text>
+                  )}
+                </>
               )}
             </View>
 
@@ -1364,6 +1380,12 @@ export default function HomeScreen() {
                           {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
                         </Text>
                       </View>
+                      {/* 1b. For Every type, show interval text after badge */}
+                      {reminder.repeatType === 'every' && reminder.everyInterval && (
+                        <Text style={[styles.reminderNextOccurrence, { marginLeft: 4 }]}>
+                          {formatEveryInterval(reminder.everyInterval)}
+                        </Text>
+                      )}
                       {/* 2. Snoozed badge (for all types) */}
                       {reminder.snoozeUntil && isActive && !reminder.isCompleted && (
                         <View style={styles.snoozedBadgeInline}>
