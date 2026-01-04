@@ -250,6 +250,7 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
           data: {
             reminderId: reminder.id,
             type: 'missed',
+            repeatType: reminder.repeatType || 'none',
           },
           android: {
             channelId,
@@ -269,7 +270,7 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
             autoCancel: false,
             ongoing: true, // Non-swipable
             actions: [
-              { title: 'Delete', pressAction: { id: 'delete_missed' } },
+              { title: 'Dismiss', pressAction: { id: 'dismiss_missed' } },
             ],
           },
         });
