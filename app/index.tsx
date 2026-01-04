@@ -371,8 +371,15 @@ export default function HomeScreen() {
       const main = reminders.find(r => r.id === groupId);
       group.mainReminder = main;
 
-      // Identify if this is a group (has parentId linkage)
-      if (group.occurrences.some(o => !!o.parentId)) {
+      // Identify if this is a group:
+      // 1. Has parentId linkage (history items from repeating reminders)
+      // 2. OR the main reminder is a repeating type (so counter button shows even with 1 occurrence)
+      // 3. OR any occurrence is a repeating type
+      const hasParentIdLinkage = group.occurrences.some(o => !!o.parentId);
+      const mainIsRepeating = main && main.repeatType && main.repeatType !== 'none';
+      const anyOccurrenceIsRepeating = group.occurrences.some(o => o.repeatType && o.repeatType !== 'none');
+      
+      if (hasParentIdLinkage || mainIsRepeating || anyOccurrenceIsRepeating) {
         group.isGroup = true;
       }
 

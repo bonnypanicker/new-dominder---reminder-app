@@ -179,13 +179,12 @@ function AppContent() {
           if (reminder.repeatType !== 'none') {
             console.log(`[RootLayout] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId} (foreground)`);
 
-            // Increment occurrence count on delivery (but do not exceed untilCount)
+            // Increment occurrence count on delivery
             const occurred = reminder.occurrenceCount ?? 0;
-            const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
-            const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount as number)
-              ? occurred
-              : occurred + 1;
+            const nextOccurCount = occurred + 1;
             const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
+            
+            console.log(`[RootLayout] Occurrence count: ${occurred} -> ${nextOccurCount}, untilType: ${reminder.untilType}, untilCount: ${reminder.untilCount}`);
 
             const reminderUtils = require('../services/reminder-utils');
             const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
@@ -213,20 +212,41 @@ function AppContent() {
               console.log(`[RootLayout] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()} (foreground)`);
             } else {
               // No next occurrence (likely due to Until constraints).
-              // Do NOT mark completed yet to avoid cancelling the just-delivered notification.
-              // Persist occurrenceCount and lastTriggeredAt; leave notification visible for user action.
+              // This is the FINAL occurrence - mark as completed after user action.
+              // But we need to persist the incremented count now.
+              console.log(`[RootLayout] Final occurrence reached for ${reminderId} (foreground); count=${nextOccurCount}`);
+              
+              // Create a history item for this final occurrence
+              const historyItem = {
+                ...reminder,
+                id: `${reminderId}_${Date.now()}_hist`,
+                parentId: reminderId,
+                isCompleted: true,
+                isActive: false,
+                repeatType: 'none',
+                snoozeUntil: undefined,
+                wasSnoozed: undefined,
+                lastTriggeredAt: reminder.nextReminderDate || new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                nextReminderDate: undefined,
+                notificationId: undefined
+              };
+              await reminderService.addReminder(historyItem);
+              console.log(`[RootLayout] Created history item for final occurrence: ${historyItem.id}`);
+              
+              // Mark the main reminder as completed
               const finalOccurrenceState = {
                 ...forCalc,
                 nextReminderDate: undefined,
                 lastTriggeredAt: new Date().toISOString(),
                 snoozeUntil: undefined,
                 wasSnoozed: undefined,
-                isActive: true,
-                isCompleted: false,
+                isActive: false,
+                isCompleted: true,
                 isPaused: false,
               };
               await reminderService.updateReminder(finalOccurrenceState);
-              console.log(`[RootLayout] Final occurrence reached for ${reminderId} (foreground); left notification visible (no further scheduling)`);
+              console.log(`[RootLayout] Marked reminder ${reminderId} as completed (final occurrence)`);
             }
           }
           return;
