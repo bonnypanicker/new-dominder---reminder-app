@@ -96,6 +96,8 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       } else {
         // Create a history item for this completed occurrence so it appears in Completed tab
         // mirroring the behavior of Ringer reminders
+        // Use the scheduled time (nextReminderDate) for the history, not current time
+        const scheduledTime = reminder.nextReminderDate || new Date().toISOString();
         const historyItem = {
           ...calcContext,
           id: `${reminderId}_${Date.now()}_hist`,
@@ -105,13 +107,13 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           repeatType: 'none',
           snoozeUntil: undefined,
           wasSnoozed: undefined,
-          lastTriggeredAt: new Date().toISOString(),
+          lastTriggeredAt: scheduledTime, // Use scheduled time, not current time
           createdAt: new Date().toISOString(),
           nextReminderDate: undefined,
           notificationId: undefined
         };
         await addReminder(historyItem as any);
-        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence (Standard/Silent)`);
+        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence (Standard/Silent) at ${scheduledTime}`);
 
         const updated = {
           ...calcContext,
@@ -124,6 +126,10 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         await updateReminder(updated as any);
       }
     } else {
+      // IMPORTANT: For native alarm "Done", capture the CURRENT nextReminderDate BEFORE calculating next
+      // This is the time the alarm was scheduled for (the completed occurrence time)
+      const completedOccurrenceTime = reminder.nextReminderDate || new Date().toISOString();
+      
       const nextDate = calculateNextReminderDate(calcContext as any, new Date());
 
       if (nextDate) {
@@ -131,8 +137,9 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
         // Create a history item for this completed occurrence
         // This ensures the user sees it in their "Completed" list
+        // Use the CAPTURED scheduled time (before we update nextReminderDate)
         const historyItem = {
-          ...calcContext,
+          ...reminder, // Use original reminder, not calcContext (which has incremented count)
           id: `${reminderId}_${Date.now()}_hist`,
           parentId: reminderId,
           isCompleted: true,
@@ -140,7 +147,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           repeatType: 'none', // Completed items shouldn't repeat
           snoozeUntil: undefined,
           wasSnoozed: undefined,
-          lastTriggeredAt: new Date().toISOString(),
+          lastTriggeredAt: completedOccurrenceTime, // Use the captured scheduled time
           createdAt: new Date().toISOString(),
           // Clear future scheduling fields on the history item
           nextReminderDate: undefined,
@@ -149,7 +156,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
         // Save the history item asynchronously
         await addReminder(historyItem as any);
-        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence`);
+        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence at ${completedOccurrenceTime}`);
 
         const updated = {
           ...calcContext,
