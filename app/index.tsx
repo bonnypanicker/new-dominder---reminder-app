@@ -73,8 +73,7 @@ const HistoryModal = ({
                     <Text style={styles.historyDate}>{dateLabel}</Text>
                   </View>
                   <View style={styles.historyBadge}>
-                    {/* Currently we treat all as Done, but if we had missed status we could toggle color */}
-                    <Text style={styles.historyBadgeText}>Done</Text>
+                    <CheckCircle size={20} color="#4CAF50" />
                   </View>
                 </View>
               );
@@ -848,8 +847,24 @@ export default function HomeScreen() {
       ? (!group.mainReminder.isActive || group.mainReminder.isCompleted)
       : true; // If no main reminder (orphaned occurrences), treat as done.
 
-    const buttonColor = isSeriesCompleted ? '#4CAF50' : Material3Colors.light.surfaceVariant;
-    const buttonTextColor = isSeriesCompleted ? '#FFFFFF' : Material3Colors.light.onSurfaceVariant;
+    // For completed series, use ring style (border only)
+    // For active series, use filled background
+    const buttonStyle = isSeriesCompleted 
+      ? { 
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderColor: '#4CAF50',
+          elevation: 1,
+          shadowColor: '#4CAF50',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.15,
+          shadowRadius: 1
+        }
+      : { 
+          backgroundColor: Material3Colors.light.surfaceVariant,
+          borderWidth: 0
+        };
+    const buttonTextColor = isSeriesCompleted ? '#4CAF50' : Material3Colors.light.onSurfaceVariant;
 
 
     const handleGroupSwipeRight = useCallback(() => {
@@ -943,7 +958,7 @@ export default function HomeScreen() {
               <View style={styles.reminderRight}>
                 {/* Count Button */}
                 <TouchableOpacity
-                  style={[styles.groupedCountBadge, { backgroundColor: buttonColor }]}
+                  style={[styles.groupedCountBadge, buttonStyle]}
                   onPress={(e) => {
                     e.stopPropagation();
                     setHistoryVisible(true);
