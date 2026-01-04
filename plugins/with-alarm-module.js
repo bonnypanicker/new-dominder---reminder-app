@@ -280,13 +280,26 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
             "com.dominder.MISSED_ALARM" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                val title = intent.getStringExtra("title")
+                val title = intent.getStringExtra("title") ?: "Reminder"
                 val time = intent.getStringExtra("time")
                 
-                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: \${reminderId}")
+                // Get recurrence info from SharedPreferences or intent
+                val interval = intent.getDoubleExtra("interval", 0.0)
+                val unit = intent.getStringExtra("unit")
+                val endDate = intent.getDoubleExtra("endDate", 0.0)
+                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
+                val priority = intent.getStringExtra("priority") ?: "medium"
+                
+                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: \${reminderId}, interval: \${interval} \${unit}")
                 
                 if (reminderId != null) {
                     emitMissedAlarmToReactNative(context, reminderId, title, time)
+                    
+                    // Native Rescheduling Fallback for missed alarms with recurrence
+                    if (interval > 0 && unit != null) {
+                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule for missed alarm (interval=\${interval} \${unit})")
+                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime)
+                    }
                 }
             }
             else -> {
@@ -926,14 +939,20 @@ class AlarmActivity : AppCompatActivity() {
             AlarmRingtoneService.stopAlarmRingtone(this)
             
             // Send missed alarm broadcast for JS (if alive) - with package for Android 14+ compatibility
+            // Include recurrence info for native rescheduling fallback
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
                 setPackage(packageName)
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("time", timeFormat.format(Date()))
+                putExtra("priority", priority)
+                putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
+                putExtra("unit", getIntent().getStringExtra("unit"))
+                putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
+                putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
             }
             sendBroadcast(missedIntent)
-            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
+            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent with recurrence info")
             
             // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
@@ -965,6 +984,9 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
+        // Get title from the original intent
+        val title = getIntent().getStringExtra("title") ?: "Reminder"
+        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -978,16 +1000,16 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast
-        val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+        val snoozeIntent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
-            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
+            putExtra("title", title)
             putExtra("priority", priority)
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
-        sendBroadcast(intent)
+        sendBroadcast(snoozeIntent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -1002,6 +1024,9 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
+        // Get title from the original intent
+        val title = getIntent().getStringExtra("title") ?: "Reminder"
+        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -1015,12 +1040,10 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast as fallback for when app is running
-        val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
+        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
-
             putExtra("title", title)
-
             putExtra("priority", priority)
             putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
             putExtra("unit", getIntent().getStringExtra("unit"))
@@ -1028,8 +1051,8 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
-        sendBroadcast(intent)
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with title: \${title}")
+        sendBroadcast(doneIntent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -2210,6 +2233,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("interval", interval)
                 putExtra("unit", unit)
                 putExtra("endDate", endDate)
+                putExtra("triggerTime", triggerTime) // Pass triggerTime for native reschedule
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -2219,7 +2243,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime with interval=\$interval \$unit")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,

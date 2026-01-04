@@ -35,6 +35,13 @@ export function useCompletedAlarmSync() {
         // Avoid processing the same alarm twice in one session
         if (processedRef.current.has(key)) {
           console.log('[AlarmSync] Already processed completion for:', reminderId);
+          // Still clear from SharedPreferences to prevent buildup
+          try {
+            await AlarmModule.clearCompletedAlarm(reminderId);
+            console.log('[AlarmSync] Cleared already-processed alarm from SharedPreferences:', reminderId);
+          } catch (e) {
+            console.error('[AlarmSync] Error clearing already-processed alarm:', e);
+          }
           continue;
         }
 
@@ -68,6 +75,13 @@ export function useCompletedAlarmSync() {
         // Avoid processing the same alarm twice
         if (processedRef.current.has(key)) {
           console.log('[AlarmSync] Already processed snooze for:', reminderId);
+          // Still clear from SharedPreferences to prevent buildup
+          try {
+            await AlarmModule.clearSnoozedAlarm(reminderId);
+            console.log('[AlarmSync] Cleared already-processed snooze from SharedPreferences:', reminderId);
+          } catch (e) {
+            console.error('[AlarmSync] Error clearing already-processed snooze:', e);
+          }
           continue;
         }
 
@@ -112,6 +126,13 @@ export function useCompletedAlarmSync() {
           // Avoid processing the same alarm twice
           if (processedRef.current.has(key)) {
             console.log('[AlarmSync] Already processed deletion for:', reminderId);
+            // Still clear from SharedPreferences to prevent buildup
+            try {
+              await AlarmModule.clearDeletedAlarm(reminderId);
+              console.log('[AlarmSync] Cleared already-processed deletion from SharedPreferences:', reminderId);
+            } catch (e) {
+              console.error('[AlarmSync] Error clearing already-processed deletion:', e);
+            }
             continue;
           }
 

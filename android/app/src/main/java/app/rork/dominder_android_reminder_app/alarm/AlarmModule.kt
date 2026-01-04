@@ -63,6 +63,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("interval", interval)
                 putExtra("unit", unit)
                 putExtra("endDate", endDate)
+                putExtra("triggerTime", triggerTime) // Pass triggerTime for native reschedule
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -72,7 +73,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime with interval=$interval $unit")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -131,7 +132,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 100, promise: Promise? = null) {
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 40, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             prefs.edit().apply {

@@ -66,13 +66,26 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
             "com.dominder.MISSED_ALARM" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                val title = intent.getStringExtra("title")
+                val title = intent.getStringExtra("title") ?: "Reminder"
                 val time = intent.getStringExtra("time")
                 
-                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}")
+                // Get recurrence info from SharedPreferences or intent
+                val interval = intent.getDoubleExtra("interval", 0.0)
+                val unit = intent.getStringExtra("unit")
+                val endDate = intent.getDoubleExtra("endDate", 0.0)
+                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
+                val priority = intent.getStringExtra("priority") ?: "medium"
+                
+                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}, interval: ${interval} ${unit}")
                 
                 if (reminderId != null) {
                     emitMissedAlarmToReactNative(context, reminderId, title, time)
+                    
+                    // Native Rescheduling Fallback for missed alarms with recurrence
+                    if (interval > 0 && unit != null) {
+                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule for missed alarm (interval=${interval} ${unit})")
+                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime)
+                    }
                 }
             }
             else -> {
