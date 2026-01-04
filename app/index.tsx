@@ -2503,65 +2503,11 @@ const createPopupStyles = StyleSheet.create({
     fontWeight: '500',
     color: Material3Colors.light.primary,
   },
-  groupedCardContainer: {
-    marginBottom: 8,
-    borderRadius: 16,
-    backgroundColor: Material3Colors.light.surface,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-    overflow: 'hidden',
-  },
-  groupedCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: Material3Colors.light.surface,
-  },
-  groupedHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  groupedHeaderTitle: {
-    fontSize: 16,
-    fontFamily: 'Rookery-Regular',
-    color: Material3Colors.light.onSurface,
-    flex: 1,
-  },
-  groupedCountBadge: {
-    backgroundColor: Material3Colors.light.surfaceVariant,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  groupedCountText: {
-    fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
-    fontFamily: 'Rookery-Medium',
-  },
-  groupedCardBody: {
-    borderTopWidth: 1,
-    borderTopColor: Material3Colors.light.outlineVariant,
-    paddingLeft: 16,
-    paddingBottom: 8,
-    backgroundColor: '#FAFAFA',
-  },
-});
-createButtonText: {
-  fontSize: 14,
+
+  createButtonText: {
+    fontSize: 14,
     fontWeight: '500',
-      color: '#FFFFFF',
+    color: '#FFFFFF',
   },
 });
 
@@ -4299,5 +4245,59 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
     flexShrink: 0,
+  },
+  groupedCardContainer: {
+    marginBottom: 8,
+    borderRadius: 16,
+    backgroundColor: Material3Colors.light.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+    overflow: 'hidden',
+  },
+  groupedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: Material3Colors.light.surface,
+  },
+  groupedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  groupedHeaderTitle: {
+    fontSize: 16,
+    fontFamily: 'Rookery-Regular',
+    color: Material3Colors.light.onSurface,
+    flex: 1,
+  },
+  groupedCountBadge: {
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  groupedCountText: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontFamily: 'Rookery-Medium',
+  },
+  groupedCardBody: {
+    borderTopWidth: 1,
+    borderTopColor: Material3Colors.light.outlineVariant,
+    paddingLeft: 16,
+    paddingBottom: 8,
+    backgroundColor: '#FAFAFA',
   },
 });
