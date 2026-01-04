@@ -770,26 +770,125 @@ export default function HomeScreen() {
       return <CheckCircle size={20} color={Material3Colors.light.primary} />;
     };
 
+    const handleGroupSwipeRight = useCallback(() => {
+      // Delete all occurrences in the group
+      const ids = group.occurrences.map(r => r.id);
+      bulkDeleteReminders.mutate(ids);
+    }, [group.occurrences, bulkDeleteReminders]);
+
     return (
       <View style={styles.groupedCardContainer}>
-        <TouchableOpacity
-          style={styles.groupedCardHeader}
-          onPress={() => setExpanded(!expanded)}
-          activeOpacity={0.7}
+        <SwipeableRow
+          reminder={displayReminder}
+          swipeableRefs={swipeableRefs}
+          simultaneousHandlers={contentScrollRef}
+          onSwipeRight={!isSelectionMode ? handleGroupSwipeRight : undefined}
+          onSwipeLeft={!isSelectionMode ? handleGroupSwipeRight : undefined} // Swipe left also deletes for completed
+          isSelectionMode={isSelectionMode}
+          leftActionType="delete"
         >
-          <View style={styles.groupedHeaderLeft}>
-            <StatusIcon />
-            <Text style={styles.groupedHeaderTitle} numberOfLines={1}>{displayReminder.title}</Text>
-            <View style={styles.groupedCountBadge}>
-              <Text style={styles.groupedCountText}>{group.occurrences.length}</Text>
+          <TouchableOpacity
+            style={[
+              styles.reminderCardCompact,
+              styles.groupedCardHeader, // Keep some specific spacing/borders if needed
+              isSelected && styles.selectedCard
+            ]}
+            onPress={() => setExpanded(!expanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.reminderContentCompact}>
+              <View style={styles.reminderLeftCompact}>
+                {isSelectionMode && (
+                  <TouchableOpacity style={styles.selectionCheckbox} onPress={() => {/* selection logic */ }}>
+                    {isSelected ? <CheckSquare size={20} color={Material3Colors.light.primary} /> : <Square size={20} color={Material3Colors.light.onSurfaceVariant} />}
+                  </TouchableOpacity>
+                )}
+
+                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[displayReminder.priority] }]} />
+
+                {/* Status/Process Icon */}
+                <View style={{ marginRight: 8, justifyContent: 'center' }}>
+                  <StatusIcon />
+                </View>
+
+                {/* Title */}
+                <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
+                  {displayReminder.title}
+                </Text>
+
+                <Text style={styles.compactSeparator}>•</Text>
+                {/* Time */}
+                <Text style={styles.reminderTimeCompact}>
+                  {formatTime(displayReminder.time)}
+                </Text>
+
+                <Text style={styles.compactSeparator}>•</Text>
+
+                {/* Date */}
+                <Text style={styles.reminderDateCompact} numberOfLines={1}>
+                  {(() => {
+                      if (displayReminder.repeatType === 'daily') {
+                        const getNextDate = () => {
+                          if (displayReminder.snoozeUntil) return new Date(displayReminder.snoozeUntil);
+                          if (displayReminder.nextReminderDate) return new Date(displayReminder.nextReminderDate);
+                          // For daily, if we don't have next date, calc it.
+                          // But for PARENT display, we might want generic "Daily"? 
+                          // User requested "Date/Time". 
+                          // If it's a parent, showing next occurrence is standard.
+                          // However, calculateNextReminderDate needs imported/available.
+                          // It is available in scope.
+                          const calc = calculateNextReminderDate(displayReminder);
+                          return calc ?? null;
+                        };
+                        const nextDate = getNextDate();
+                        if (nextDate) {
+                          return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }
+                      }
+                      const [year, month, day] = displayReminder.date.split('-').map(Number);
+                      const date = new Date(year, month - 1, day);
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  })()}
+                </Text>
+
+                {/* Badges */}
+                {(displayReminder.repeatType !== 'none') && (
+                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                  <Text style={styles.repeatBadgeTextCompact}>
+                    {formatRepeatType(displayReminder.repeatType, displayReminder.everyInterval)}
+                  </Text>
+                </View>
+                )}
+
+                {/* Every Duration */}
+                {displayReminder.repeatType === 'every' && displayReminder.everyInterval && (
+                  <Text style={styles.everyDurationCompact}>
+                    {(() => {
+                      const value = displayReminder.everyInterval.value;
+                      const unit = displayReminder.everyInterval.unit;
+                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
+                      return `${value}${unitShort}`;
+                    })()}
+                  </Text>
+                )}
+
+                {/* Count Badge */}
+                <View style={[styles.groupedCountBadge, { marginLeft: 8 }]}>
+                  <Text style={styles.groupedCountText}>{group.occurrences.length}</Text>
+                </View>
+              </View>
+
+              <View style={styles.reminderRight}>
+                {/* Chevron Toggle */}
+                {expanded ? (
+                  <ChevronUp size={20} color={Material3Colors.light.onSurfaceVariant} />
+                ) : (
+                  <ChevronDown size={20} color={Material3Colors.light.onSurfaceVariant} />
+                )}
+              </View>
             </View>
-          </View>
-          {expanded ? (
-            <ChevronUp size={20} color={Material3Colors.light.onSurfaceVariant} />
-          ) : (
-            <ChevronDown size={20} color={Material3Colors.light.onSurfaceVariant} />
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </SwipeableRow>
 
         {expanded && (
           <View style={styles.groupedCardBody}>
@@ -800,6 +899,7 @@ export default function HomeScreen() {
                 listType={listType}
                 isSelected={selectedReminders.has(reminder.id)}
                 isSelectionMode={isSelectionMode}
+                isSubReminder={true}
               />
             ))}
           </View>
@@ -812,12 +912,14 @@ export default function HomeScreen() {
     reminder,
     listType,
     isSelected,
-    isSelectionMode: selectionMode
+    isSelectionMode: selectionMode,
+    isSubReminder = false
   }: {
     reminder: Reminder;
     listType: 'active' | 'completed' | 'deleted';
     isSelected: boolean;
     isSelectionMode: boolean;
+    isSubReminder?: boolean;
   }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
@@ -856,6 +958,134 @@ export default function HomeScreen() {
 
     // Minimized single-line layout for completed and deleted
     if (isCompletedOrDeleted) {
+      // For sub-reminders, we simply render the card content without SwipeableRow
+      // For top-level completed items (non-grouped or parent), we use SwipeableRow
+      // But sub-reminders are children of GroupedReminderCard which handles the grouping.
+      // Wait, isSubReminder=true means it's inside the expanded view.
+
+      const CompactCardContent = () => (
+        <TouchableOpacity
+          activeOpacity={isSubReminder ? 1 : 0.85} // Sub-reminders non-interactive? Or just not swipeable.
+          onPress={isSubReminder ? undefined : () => handleCardPress(reminder)} // Sub-reminders usually strictly read-only or selection?
+          onLongPress={isSubReminder ? undefined : () => handleLongPress(reminder.id, listType)}
+          delayLongPress={200}
+          style={[
+            styles.reminderCardCompact,
+            isSelected && styles.selectedCard,
+            isSubReminder && { marginLeft: 16, borderLeftWidth: 0 } // Indent sub-reminders, maybe remove priority bar?
+          ]}
+          testID={`reminder-card-${reminder.id}`}
+        >
+          <View style={styles.reminderContentCompact}>
+            <View style={styles.reminderLeftCompact}>
+              {selectionMode && !isSubReminder && (
+                <TouchableOpacity
+                  style={styles.selectionCheckbox}
+                  onPress={() => handleCardPress(reminder)}
+                >
+                  {isSelected ? (
+                    <CheckSquare size={20} color={Material3Colors.light.primary} />
+                  ) : (
+                    <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                  )}
+                </TouchableOpacity>
+              )}
+              {/* Priority Bar - Maintain for all */}
+              <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+
+              <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
+                {reminder.title}
+              </Text>
+              <Text style={styles.compactSeparator}>•</Text>
+
+              {/* Time Display */}
+              <Text style={styles.reminderTimeCompact}>
+                {isSubReminder && reminder.lastTriggeredAt
+                  ? formatTime(new Date(reminder.lastTriggeredAt).toTimeString().slice(0, 5))
+                  : formatTime(reminder.time)
+                }
+              </Text>
+
+              {/* Date Display */}
+              <>
+                <Text style={styles.compactSeparator}>•</Text>
+                <Text style={styles.reminderDateCompact} numberOfLines={1}>
+                  {(() => {
+                    if (isSubReminder && reminder.lastTriggeredAt) {
+                      const trigDate = new Date(reminder.lastTriggeredAt);
+                      const now = new Date();
+                      if (trigDate.toDateString() === now.toDateString()) {
+                        return "Today";
+                      }
+                      return trigDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }
+                    if (reminder.repeatType === 'daily') {
+                      // For daily reminders, show next occurrence date
+                      const getNextDate = () => {
+                        if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                        if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                        const calc = calculateNextReminderDate(reminder);
+                        return calc ?? null;
+                      };
+                      const nextDate = getNextDate();
+                      if (nextDate) {
+                        return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      }
+                    }
+                    // For other reminders, show the stored date
+                    const [year, month, day] = reminder.date.split('-').map(Number);
+                    const date = new Date(year, month - 1, day);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  })()}
+                </Text>
+              </>
+
+              {/* Badges - Hide for sub-reminders per request */}
+              {!isSubReminder && (
+                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                  <Text style={styles.repeatBadgeTextCompact}>
+                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Every Duration - Hide for sub-reminders */}
+              {!isSubReminder && reminder.repeatType === 'every' && reminder.everyInterval && (
+                <Text style={styles.everyDurationCompact}>
+                  {(() => {
+                    const value = reminder.everyInterval.value;
+                    const unit = reminder.everyInterval.unit;
+                    const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
+                    return `${value}${unitShort}`;
+                  })()}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.reminderRight}>
+              {/* Restore Button - REMOVED for Completed items per request */}
+              {isDeleted && (
+                <TouchableOpacity
+                  style={styles.restoreButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRestore(reminder);
+                  }}
+                  testID={`restore-button-${reminder.id}`}
+                >
+                  <RotateCcw size={18} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+
+      if (isSubReminder) {
+        // No SwipeableRow for sub-reminders
+        return <CompactCardContent />;
+      }
+
       return (
         <SwipeableRow
           reminder={reminder}
@@ -866,100 +1096,7 @@ export default function HomeScreen() {
           isSelectionMode={selectionMode}
           leftActionType="delete"
         >
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => handleCardPress(reminder)}
-            onLongPress={() => handleLongPress(reminder.id, listType)}
-            delayLongPress={200}
-            style={[
-              styles.reminderCardCompact,
-              isSelected && styles.selectedCard
-            ]}
-            testID={`reminder-card-${reminder.id}`}
-          >
-            <View style={styles.reminderContentCompact}>
-              <View style={styles.reminderLeftCompact}>
-                {selectionMode && (
-                  <TouchableOpacity
-                    style={styles.selectionCheckbox}
-                    onPress={() => handleCardPress(reminder)}
-                  >
-                    {isSelected ? (
-                      <CheckSquare size={20} color={Material3Colors.light.primary} />
-                    ) : (
-                      <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
-                    )}
-                  </TouchableOpacity>
-                )}
-                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
-                <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
-                  {reminder.title}
-                </Text>
-                <Text style={styles.compactSeparator}>•</Text>
-                <Text style={styles.reminderTimeCompact}>
-                  {formatTime(reminder.time)}
-                </Text>
-                {/* Show date for all reminders - use next occurrence for daily */}
-                <>
-                  <Text style={styles.compactSeparator}>•</Text>
-                  <Text style={styles.reminderDateCompact} numberOfLines={1}>
-                    {(() => {
-                      if (reminder.repeatType === 'daily') {
-                        // For daily reminders, show next occurrence date
-                        const getNextDate = () => {
-                          if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
-                          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-                          const calc = calculateNextReminderDate(reminder);
-                          return calc ?? null;
-                        };
-                        const nextDate = getNextDate();
-                        if (nextDate) {
-                          return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        }
-                      }
-                      // For other reminders, show the stored date
-                      const [year, month, day] = reminder.date.split('-').map(Number);
-                      const date = new Date(year, month - 1, day);
-                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    })()}
-                  </Text>
-                </>
-                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                  <Text style={styles.repeatBadgeTextCompact}>
-                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
-                  </Text>
-                </View>
-                {/* Show compact duration for Every reminders */}
-                {reminder.repeatType === 'every' && reminder.everyInterval && (
-                  <Text style={styles.everyDurationCompact}>
-                    {(() => {
-                      const value = reminder.everyInterval.value;
-                      const unit = reminder.everyInterval.unit;
-                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
-                      return `${value}${unitShort}`;
-                    })()}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.reminderRight}>
-                <TouchableOpacity
-                  style={isDeleted ? styles.restoreButton : styles.reassignButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    if (isDeleted) {
-                      handleRestore(reminder);
-                    } else {
-                      reassignReminder(reminder);
-                    }
-                  }}
-                  testID={isDeleted ? `restore-button-${reminder.id}` : `reassign-button-${reminder.id}`}
-                >
-                  <RotateCcw size={18} color={Material3Colors.light.primary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
+          <CompactCardContent />
         </SwipeableRow>
       );
     }
