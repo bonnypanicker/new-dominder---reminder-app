@@ -461,12 +461,16 @@ export default function HomeScreen() {
           createdAt: new Date().toISOString()
         });
 
-        // Continue with next occurrence
+        // Continue with next occurrence - DO NOT mark the original reminder as completed
+        // Just update its scheduling
         updateReminder.mutate({
           ...reminder,
           nextReminderDate: nextDate?.toISOString(),
           lastTriggeredAt: new Date().toISOString(),
           snoozeUntil: undefined, // Clear any snooze
+          // Ensure it stays active
+          isActive: true,
+          isCompleted: false
         });
       }
     }
@@ -781,6 +785,14 @@ export default function HomeScreen() {
   }, []);
 
   const formatRepeatType = useCallback((repeatType: RepeatType, everyInterval?: { value: number; unit: EveryUnit }) => {
+    if (repeatType === 'every' && everyInterval) {
+      // Shorten units for badge: hours -> h, minutes -> m, days -> d
+      const unitShort = everyInterval.unit === 'minutes' ? 'm' :
+        everyInterval.unit === 'hours' ? 'h' :
+          everyInterval.unit === 'days' ? 'd' : '';
+      return `${everyInterval.value}${unitShort}`;
+    }
+
     switch (repeatType) {
       case 'none': return 'Once';
       case 'daily': return 'Daily';
@@ -788,8 +800,7 @@ export default function HomeScreen() {
       case 'monthly': return 'Monthly';
       case 'yearly': return 'Yearly';
       case 'custom': return 'Custom';
-      case 'every':
-        return 'Every';
+      case 'every': return 'Every'; // Fallback if no interval
       default: return 'Once';
     }
   }, []);
@@ -1065,25 +1076,14 @@ export default function HomeScreen() {
                 </Text>
               </>
 
-              {/* Badges - Hide for sub-reminders per request */}
+              {/* Badges - Now shows complete info like "1h", "2d" for every type */}
               {!isSubReminder && (
                 <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
                   <Text style={styles.repeatBadgeTextCompact}>
+                    {reminder.repeatType === 'every' ? 'Every ' : ''}
                     {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
                   </Text>
                 </View>
-              )}
-
-              {/* Every Duration - Hide for sub-reminders */}
-              {!isSubReminder && reminder.repeatType === 'every' && reminder.everyInterval && (
-                <Text style={styles.everyDurationCompact}>
-                  {(() => {
-                    const value = reminder.everyInterval.value;
-                    const unit = reminder.everyInterval.unit;
-                    const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
-                    return `${value}${unitShort}`;
-                  })()}
-                </Text>
               )}
             </View>
 
@@ -4409,38 +4409,34 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   groupedCardContainer: {
-    marginBottom: 8,
-    borderRadius: 8, // Reduced from 16 to match standard card slightly better or just preference
-    backgroundColor: Material3Colors.light.surface,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 0, // Removed extra elevation to avoid double shadow with the inner card
-      },
-    }),
-    overflow: 'visible', // Changed to visible for SwipeableRow
+    // Spacing - Uniform 2px vertical margin to match standard cards which have marginVertical: 2
+    marginVertical: 2,
+    marginHorizontal: 0, // Container is typically transparent, internal card has margin
+    borderRadius: 8,
+    backgroundColor: 'transparent', // The container itself is transparent layout wrapper
+    overflow: 'visible',
   },
   groupedCardHeader: {
-    // Removed padding/margin overrides to make it look exactly like a standard compact card
-    // The standard ReminderCardCompact styles will apply
+    // This styles the actual Touchable card inside SwipeableRow
+    // It inherits reminderCardCompact styles, so we keep this empty or for specific overrides
   },
   groupedCountBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 14, // Perfect circle
     alignItems: 'center',
     justifyContent: 'center',
+    // Add subtle shadow to look like a button
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
   },
   groupedCountText: {
     fontSize: 12,
     fontFamily: 'Rookery-Medium',
-    fontWeight: '600',
+    fontWeight: '700', // Bolder text
   },
   // Modal Styles
   modalOverlay: {
