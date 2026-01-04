@@ -109,7 +109,9 @@ class AlarmReceiver : BroadcastReceiver() {
             // FIX: Add content intent for notification tap handling.
             .setContentIntent(contentPendingIntent)
             // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
-            .setAutoCancel(true)
+            .setOngoing(true)
+
+            .setAutoCancel(false)
             // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .build()

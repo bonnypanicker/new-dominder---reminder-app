@@ -184,6 +184,10 @@ class AlarmActivity : AppCompatActivity() {
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
+
+            putExtra("title", title)
+
+            putExtra("priority", priority)
             putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
             putExtra("unit", getIntent().getStringExtra("unit"))
             putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
