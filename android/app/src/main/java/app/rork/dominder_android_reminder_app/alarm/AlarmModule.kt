@@ -265,6 +265,40 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getDismissedAlarms(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            val dismissed = Arguments.createMap()
+            
+            prefs.all.forEach { (key, value) ->
+                if (key.startsWith("dismissed_")) {
+                    val reminderId = key.removePrefix("dismissed_")
+                    dismissed.putString(reminderId, value.toString())
+                }
+            }
+            
+            DebugLogger.log("AlarmModule: Retrieved ${dismissed.toHashMap().size} dismissed alarms")
+            promise.resolve(dismissed)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting dismissed alarms: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearDismissedAlarm(reminderId: String, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().remove("dismissed_${reminderId}").apply()
+            DebugLogger.log("AlarmModule: Cleared dismissed alarm ${reminderId}")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing dismissed alarm: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun openRingtonePicker(promise: Promise) {
         try {
             val activity = reactContext.currentActivity

@@ -109,7 +109,8 @@ class AlarmActivity : AppCompatActivity() {
             
             // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
-            postMissedNotification(reminderId, title)
+            val interval = getIntent().getDoubleExtra("interval", 0.0)
+            postMissedNotification(reminderId, title, interval)
 
             // Cancel the ACTIVE ringing notification to stop the fullscreen/ongoing state
             cancelNotification()
@@ -255,8 +256,10 @@ class AlarmActivity : AppCompatActivity() {
         DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
     }
 
-    private fun postMissedNotification(id: String?, title: String?) {
+    private fun postMissedNotification(id: String?, title: String?, interval: Double) {
         if (id == null) return
+        
+        val isRepeating = interval > 0
         
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -275,16 +278,17 @@ class AlarmActivity : AppCompatActivity() {
                 notificationManager.createNotificationChannel(channel)
             }
             
-            // Create delete action intent
-            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
-                action = "com.dominder.DELETE_MISSED_ALARM"
+            // Create dismiss action intent
+            val dismissIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
+                action = "com.dominder.DISMISS_MISSED_ALARM"
                 putExtra("reminderId", id)
                 putExtra("notificationId", id.hashCode() + 999)
+                putExtra("isRepeating", isRepeating)
             }
-            val deletePendingIntent = PendingIntent.getBroadcast(
+            val dismissPendingIntent = PendingIntent.getBroadcast(
                 this,
                 id.hashCode() + 500,
-                deleteIntent,
+                dismissIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
@@ -311,14 +315,14 @@ class AlarmActivity : AppCompatActivity() {
                 .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
                 .setOngoing(true) // Non-swipable
                 .setAutoCancel(false)
-                .addAction(0, "Delete", deletePendingIntent)
+                .addAction(0, "Dismiss", dismissPendingIntent)
             
             if (contentPendingIntent != null) {
                 notifBuilder.setContentIntent(contentPendingIntent)
             }
 
             notificationManager.notify(id.hashCode() + 999, notifBuilder.build())
-            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with delete button")
+            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with dismiss button (isRepeating: ${isRepeating})")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Failed to post missed notification: ${e.message}")
         }
