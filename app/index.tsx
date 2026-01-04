@@ -26,6 +26,66 @@ import { showToast } from '@/utils/toast';
 import SwipeableRow from '@/components/SwipeableRow';
 import OnboardingFlow from '@/components/OnboardingFlow';
 
+/**
+ * History Modal for completed occurrences
+ */
+const HistoryModal = ({
+  visible,
+  onClose,
+  group
+}: {
+  visible: boolean;
+  onClose: () => void;
+  group: ReminderGroup;
+}) => {
+  if (!group) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <View style={styles.historyModalContainer}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.historyTitle}>Completed History</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <X size={20} color={Material3Colors.light.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.historyList}>
+            {group.occurrences.map((occ) => {
+              const timeLabel = occ.lastTriggeredAt
+                ? new Date(occ.lastTriggeredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                : new Date(occ.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+              const dateLabel = occ.lastTriggeredAt
+                ? new Date(occ.lastTriggeredAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+                : new Date(occ.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+              return (
+                <View key={occ.id} style={styles.historyItem}>
+                  <View style={styles.historyItemLeft}>
+                    <Text style={styles.historyTime}>{timeLabel}</Text>
+                    <Text style={styles.historyDate}>{dateLabel}</Text>
+                  </View>
+                  <View style={styles.historyBadge}>
+                    {/* Currently we treat all as Done, but if we had missed status we could toggle color */}
+                    <Text style={styles.historyBadgeText}>Done</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+};
+
 // Icon components (declared after all imports to satisfy import/first)
 const Plus = (props: any) => <Feather name="plus" {...props} />;
 const Clock = (props: any) => <Feather name="clock" {...props} />;
@@ -753,22 +813,23 @@ export default function HomeScreen() {
     isSelected: boolean;
     isSelectionMode: boolean;
   }) => {
-    const [expanded, setExpanded] = useState(false);
+    const [historyVisible, setHistoryVisible] = useState(false);
 
     // Use mainReminder for title/info if available, otherwise first occurrence
     const displayReminder = group.mainReminder || group.occurrences[0];
 
     if (!displayReminder) return null;
 
-    // Determine status icon
-    const StatusIcon = () => {
-      // If main reminder exists and is active, it's processing/ongoing
-      if (group.mainReminder && group.mainReminder.isActive && !group.mainReminder.isCompleted && !group.mainReminder.isDeleted) {
-        return <Activity size={20} color={Material3Colors.light.primary} />;
-      }
-      // Otherwise it's completed or deleted
-      return <CheckCircle size={20} color={Material3Colors.light.primary} />;
-    };
+    // Check if the "series" is fully done/inactive.
+    // If mainReminder exists and is NOT active, then the whole thing is "Done".
+    // Or if repeatType is none, it's a one-off, so it's done.
+    const isSeriesCompleted = group.mainReminder
+      ? (!group.mainReminder.isActive || group.mainReminder.isCompleted)
+      : true; // If no main reminder (orphaned occurrences), treat as done.
+
+    const buttonColor = isSeriesCompleted ? '#4CAF50' : Material3Colors.light.surfaceVariant;
+    const buttonTextColor = isSeriesCompleted ? '#FFFFFF' : Material3Colors.light.onSurfaceVariant;
+
 
     const handleGroupSwipeRight = useCallback(() => {
       // Delete all occurrences in the group
@@ -776,8 +837,19 @@ export default function HomeScreen() {
       bulkDeleteReminders.mutate(ids);
     }, [group.occurrences, bulkDeleteReminders]);
 
+    const onCardPress = useCallback(() => {
+      // If completed, open edit window to allow rescheduling/re-creating
+      // We pass the displayReminder which has the config
+      openEdit(displayReminder);
+    }, [displayReminder, openEdit]);
+
     return (
       <View style={styles.groupedCardContainer}>
+        <HistoryModal
+          visible={historyVisible}
+          onClose={() => setHistoryVisible(false)}
+          group={group}
+        />
         <SwipeableRow
           reminder={displayReminder}
           swipeableRefs={swipeableRefs}
@@ -790,26 +862,25 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={[
               styles.reminderCardCompact,
-              styles.groupedCardHeader, // Keep some specific spacing/borders if needed
+              styles.groupedCardHeader,
               isSelected && styles.selectedCard
             ]}
-            onPress={() => setExpanded(!expanded)}
+            onPress={isSelectionMode ? undefined : onCardPress}
             activeOpacity={0.7}
           >
             <View style={styles.reminderContentCompact}>
               <View style={styles.reminderLeftCompact}>
                 {isSelectionMode && (
-                  <TouchableOpacity style={styles.selectionCheckbox} onPress={() => {/* selection logic */ }}>
+                  <TouchableOpacity style={styles.selectionCheckbox} onPress={() => {/* selection logic handled by parent touchable in selection mode? No, needs explicit handler if touchable is blocking */ }}>
+                    {/* Actually, in selection mode, the parent TouchableOpacity could handle selection toggle if we passed that handler, 
+                         but existing logic uses a specific checkbox area or relies on long press. 
+                         Let's keep consistent with ReminderCard logic. 
+                      */}
                     {isSelected ? <CheckSquare size={20} color={Material3Colors.light.primary} /> : <Square size={20} color={Material3Colors.light.onSurfaceVariant} />}
                   </TouchableOpacity>
                 )}
 
                 <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[displayReminder.priority] }]} />
-
-                {/* Status/Process Icon */}
-                <View style={{ marginRight: 8, justifyContent: 'center' }}>
-                  <StatusIcon />
-                </View>
 
                 {/* Title */}
                 <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
@@ -817,6 +888,7 @@ export default function HomeScreen() {
                 </Text>
 
                 <Text style={styles.compactSeparator}>•</Text>
+
                 {/* Time */}
                 <Text style={styles.reminderTimeCompact}>
                   {formatTime(displayReminder.time)}
@@ -826,84 +898,37 @@ export default function HomeScreen() {
 
                 {/* Date */}
                 <Text style={styles.reminderDateCompact} numberOfLines={1}>
-                  {(() => {
-                      if (displayReminder.repeatType === 'daily') {
-                        const getNextDate = () => {
-                          if (displayReminder.snoozeUntil) return new Date(displayReminder.snoozeUntil);
-                          if (displayReminder.nextReminderDate) return new Date(displayReminder.nextReminderDate);
-                          // For daily, if we don't have next date, calc it.
-                          // But for PARENT display, we might want generic "Daily"? 
-                          // User requested "Date/Time". 
-                          // If it's a parent, showing next occurrence is standard.
-                          // However, calculateNextReminderDate needs imported/available.
-                          // It is available in scope.
-                          const calc = calculateNextReminderDate(displayReminder);
-                          return calc ?? null;
-                        };
-                        const nextDate = getNextDate();
-                        if (nextDate) {
-                          return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        }
-                      }
-                      const [year, month, day] = displayReminder.date.split('-').map(Number);
-                      const date = new Date(year, month - 1, day);
-                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  })()}
+                  {formatDate(displayReminder.date)}
                 </Text>
 
                 {/* Badges */}
                 {(displayReminder.repeatType !== 'none') && (
-                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                  <Text style={styles.repeatBadgeTextCompact}>
-                    {formatRepeatType(displayReminder.repeatType, displayReminder.everyInterval)}
-                  </Text>
-                </View>
+                  <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                    <Text style={styles.repeatBadgeTextCompact}>
+                      {formatRepeatType(displayReminder.repeatType, displayReminder.everyInterval)}
+                    </Text>
+                  </View>
                 )}
 
-                {/* Every Duration */}
-                {displayReminder.repeatType === 'every' && displayReminder.everyInterval && (
-                  <Text style={styles.everyDurationCompact}>
-                    {(() => {
-                      const value = displayReminder.everyInterval.value;
-                      const unit = displayReminder.everyInterval.unit;
-                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
-                      return `${value}${unitShort}`;
-                    })()}
-                  </Text>
-                )}
-
-                {/* Count Badge */}
-                <View style={[styles.groupedCountBadge, { marginLeft: 8 }]}>
-                  <Text style={styles.groupedCountText}>{group.occurrences.length}</Text>
-                </View>
               </View>
 
               <View style={styles.reminderRight}>
-                {/* Chevron Toggle */}
-                {expanded ? (
-                  <ChevronUp size={20} color={Material3Colors.light.onSurfaceVariant} />
-                ) : (
-                  <ChevronDown size={20} color={Material3Colors.light.onSurfaceVariant} />
-                )}
+                {/* Count Button */}
+                <TouchableOpacity
+                  style={[styles.groupedCountBadge, { backgroundColor: buttonColor }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setHistoryVisible(true);
+                  }}
+                >
+                  <Text style={[styles.groupedCountText, { color: buttonTextColor }]}>
+                    {group.occurrences.length}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </TouchableOpacity>
         </SwipeableRow>
-
-        {expanded && (
-          <View style={styles.groupedCardBody}>
-            {group.occurrences.map(reminder => (
-              <ReminderCard
-                key={reminder.id}
-                reminder={reminder}
-                listType={listType}
-                isSelected={selectedReminders.has(reminder.id)}
-                isSelectionMode={isSelectionMode}
-                isSubReminder={true}
-              />
-            ))}
-          </View>
-        )}
       </View>
     );
   });
@@ -4385,56 +4410,101 @@ const styles = StyleSheet.create({
   },
   groupedCardContainer: {
     marginBottom: 8,
-    borderRadius: 16,
+    borderRadius: 8, // Reduced from 16 to match standard card slightly better or just preference
     backgroundColor: Material3Colors.light.surface,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: 2,
       },
       android: {
-        elevation: 2,
+        elevation: 0, // Removed extra elevation to avoid double shadow with the inner card
       },
     }),
-    overflow: 'hidden',
+    overflow: 'visible', // Changed to visible for SwipeableRow
   },
   groupedCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: Material3Colors.light.surface,
-  },
-  groupedHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  groupedHeaderTitle: {
-    fontSize: 16,
-    fontFamily: 'Rookery-Regular',
-    color: Material3Colors.light.onSurface,
-    flex: 1,
+    // Removed padding/margin overrides to make it look exactly like a standard compact card
+    // The standard ReminderCardCompact styles will apply
   },
   groupedCountBadge: {
-    backgroundColor: Material3Colors.light.surfaceVariant,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   groupedCountText: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
     fontFamily: 'Rookery-Medium',
+    fontWeight: '600',
   },
-  groupedCardBody: {
-    borderTopWidth: 1,
-    borderTopColor: Material3Colors.light.outlineVariant,
-    paddingLeft: 16,
-    paddingBottom: 8,
-    backgroundColor: '#FAFAFA',
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
   },
+  historyModalContainer: {
+    width: '100%',
+    maxHeight: '60%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 5
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE'
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333'
+  },
+  historyList: {
+    paddingBottom: 16
+  },
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5'
+  },
+  historyItemLeft: {
+    flex: 1
+  },
+  historyTime: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333'
+  },
+  historyDate: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 2
+  },
+  historyBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  historyBadgeText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: '600'
+  }
 });
