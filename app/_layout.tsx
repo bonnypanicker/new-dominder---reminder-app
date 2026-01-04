@@ -145,13 +145,13 @@ function AppContent() {
           console.log('[RootLayout] Midnight refresh trigger received');
           // Immediately cancel the trigger notification
           if (notification?.id) {
-            try { await notifee.cancelNotification(notification.id); } catch {}
+            try { await notifee.cancelNotification(notification.id); } catch { }
           }
           const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('../services/notification-refresh-service');
           // Trigger pending check to catch any missed ringers at midnight
           const { checkAndTriggerPendingNotifications } = require('../services/startup-notification-check');
           await checkAndTriggerPendingNotifications();
-          
+
           await refreshDisplayedNotifications();
           await scheduleMidnightRefresh(); // Schedule next midnight refresh
           return;
@@ -169,7 +169,7 @@ function AppContent() {
           // Get reminder and check if it's an "every" type that needs automatic rescheduling
           const reminderService = require('../services/reminder-service');
           const reminder = await reminderService.getReminder(reminderId);
-          
+
           if (!reminder) {
             console.log(`[RootLayout] Reminder ${reminderId} not found for delivered event`);
             return;
@@ -293,7 +293,7 @@ function AppContent() {
         console.log('[RootLayout] Cleaning up notification handlers');
         alarmActionListener.remove();
         unsub && unsub();
-      } catch {}
+      } catch { }
     };
   }, [router, queryClient]);
 
@@ -301,7 +301,7 @@ function AppContent() {
   useEffect(() => {
     console.log('[RootLayout] Initializing missed alarm service');
     missedAlarmService.initialize();
-    
+
     return () => {
       missedAlarmService.cleanup();
     };
@@ -321,7 +321,7 @@ function AppContent() {
             await AlarmModule.saveNotificationSettings(
               settings.soundEnabled ?? true,
               settings.vibrationEnabled ?? true,
-              settings.ringerVolume ?? 100
+              settings.ringerVolume ?? 40
             );
             console.log('[RootLayout] Initialized notification settings in native');
           }

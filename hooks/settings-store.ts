@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
-  ringerVolume: 100, // Default to max volume
+  ringerVolume: 40, // Default to 40% volume
 };
 
 export const useSettings = () => {
@@ -49,14 +49,14 @@ export const useSettings = () => {
 
 export const useUpdateSettings = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (updates: Partial<AppSettings>): Promise<AppSettings> => {
       try {
         const current = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
         const currentSettings: AppSettings = current ? JSON.parse(current) as AppSettings : DEFAULT_SETTINGS;
         const updatedSettings: AppSettings = { ...currentSettings, ...updates };
-        
+
         await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updatedSettings));
         return updatedSettings;
       } catch (error) {

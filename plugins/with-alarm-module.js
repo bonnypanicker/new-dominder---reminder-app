@@ -668,7 +668,7 @@ class AlarmRingtoneService : Service() {
             // Get saved ringtone URI and volume from SharedPreferences
             val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
-            val volumePercent = prefs.getInt("ringer_volume", 100)
+            val volumePercent = prefs.getInt("ringer_volume", 40)
             
             val ringtoneUri = if (savedUriString != null) {
                 DebugLogger.log("AlarmRingtoneService: Using saved ringtone: \$savedUriString")
@@ -2278,7 +2278,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 100, promise: Promise? = null) {
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 40, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             prefs.edit().apply {
