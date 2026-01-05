@@ -84,40 +84,48 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
       const hasDateCap = reminder.untilType === 'endsAt' && reminder.untilDate;
       
+      console.log(`[Scheduler] Standard Done - hasCountCap: ${hasCountCap}, hasDateCap: ${hasDateCap}, nextReminderDate: ${reminder.nextReminderDate}`);
+      
       let nextIsValid = true;
       
-      // Check count cap: if occurrenceCount >= untilCount, no more occurrences
-      if (hasCountCap && (reminder.occurrenceCount ?? 0) >= (reminder.untilCount as number)) {
-        console.log(`[Scheduler] Count cap reached: ${reminder.occurrenceCount}/${reminder.untilCount}`);
-        nextIsValid = false;
-      }
-      
-      // Check date cap: if nextReminderDate is past the end boundary, no more occurrences
-      if (nextIsValid && hasDateCap && reminder.nextReminderDate) {
-        try {
-          const [uy, um, ud] = (reminder.untilDate as string).split('-').map((v) => parseInt(v || '0', 10));
-          const endBoundary = new Date(uy, (um || 1) - 1, ud || 1);
-          const isTimeBound = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
-          if (isTimeBound && reminder.untilTime) {
-            const [eh, em] = reminder.untilTime.split(':').map((v) => parseInt(v || '0', 10));
-            endBoundary.setHours(eh, em, 0, 0);
-          } else {
-            endBoundary.setHours(23, 59, 59, 999);
-          }
-          const nextDate = new Date(reminder.nextReminderDate);
-          if (nextDate > endBoundary) {
-            console.log(`[Scheduler] Date cap reached: next ${nextDate.toISOString()} > end ${endBoundary.toISOString()}`);
-            nextIsValid = false;
-          }
-        } catch (e) {
-          console.log(`[Scheduler] Error checking date cap:`, e);
+      // For reminders without any end constraint, if nextReminderDate exists, it's valid
+      if (!hasCountCap && !hasDateCap) {
+        nextIsValid = !!reminder.nextReminderDate;
+        console.log(`[Scheduler] No end constraints, nextIsValid based on nextReminderDate: ${nextIsValid}`);
+      } else {
+        // Check count cap: if occurrenceCount >= untilCount, no more occurrences
+        if (hasCountCap && (reminder.occurrenceCount ?? 0) >= (reminder.untilCount as number)) {
+          console.log(`[Scheduler] Count cap reached: ${reminder.occurrenceCount}/${reminder.untilCount}`);
+          nextIsValid = false;
         }
-      }
-      
-      // Also check if nextReminderDate exists at all
-      if (nextIsValid && !reminder.nextReminderDate) {
-        console.log(`[Scheduler] No nextReminderDate set`);
-        nextIsValid = false;
+        
+        // Check date cap: if nextReminderDate is past the end boundary, no more occurrences
+        if (nextIsValid && hasDateCap && reminder.nextReminderDate) {
+          try {
+            const [uy, um, ud] = (reminder.untilDate as string).split('-').map((v) => parseInt(v || '0', 10));
+            const endBoundary = new Date(uy, (um || 1) - 1, ud || 1);
+            const isTimeBound = reminder.repeatType === 'every' && (reminder.everyInterval?.unit === 'minutes' || reminder.everyInterval?.unit === 'hours');
+            if (isTimeBound && reminder.untilTime) {
+              const [eh, em] = reminder.untilTime.split(':').map((v) => parseInt(v || '0', 10));
+              endBoundary.setHours(eh, em, 0, 0);
+            } else {
+              endBoundary.setHours(23, 59, 59, 999);
+            }
+            const nextDate = new Date(reminder.nextReminderDate);
+            if (nextDate > endBoundary) {
+              console.log(`[Scheduler] Date cap reached: next ${nextDate.toISOString()} > end ${endBoundary.toISOString()}`);
+              nextIsValid = false;
+            }
+          } catch (e) {
+            console.log(`[Scheduler] Error checking date cap:`, e);
+          }
+        }
+        
+        // Also check if nextReminderDate exists at all (for capped reminders)
+        if (nextIsValid && !reminder.nextReminderDate) {
+          console.log(`[Scheduler] No nextReminderDate set (final occurrence)`);
+          nextIsValid = false;
+        }
       }
       
       console.log(`[Scheduler] Notifee Done - nextIsValid: ${nextIsValid}`);
@@ -187,6 +195,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
         const updated = {
           ...calcContext,
+          nextReminderDate: reminder.nextReminderDate, // Explicitly preserve - delivery handler already set this
           snoozeUntil: undefined,
           wasSnoozed: undefined,
           isActive: true,
@@ -194,6 +203,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           isPaused: false,
         };
         await updateReminder(updated as any);
+        console.log(`[Scheduler] Updated reminder ${reminderId}, nextReminderDate preserved: ${updated.nextReminderDate}`);
       }
     } else {
       // Native alarm "Done" path
