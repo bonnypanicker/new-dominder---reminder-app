@@ -177,6 +177,11 @@ export default function HomeScreen() {
   const [pauseUntilReminder, setPauseUntilReminder] = useState<Reminder | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedReminders, setSelectedReminders] = useState<Set<string>>(new Set());
+  
+  // Completed history modal state
+  const [completedHistoryModalVisible, setCompletedHistoryModalVisible] = useState<boolean>(false);
+  const [completedHistoryReminder, setCompletedHistoryReminder] = useState<Reminder | null>(null);
+  
   // Use ref to always access latest selection mode state
   const isSelectionModeRef = React.useRef<boolean>(false);
   // Prevent the immediate onPress firing right after onLongPress
@@ -267,8 +272,16 @@ export default function HomeScreen() {
       return dateA.getTime() - dateB.getTime();
     });
   }, [reminders, settings?.sortMode]);
+
   const completedReminders = React.useMemo(() => {
-    const completed = reminders.filter(r => r.isCompleted && !r.isDeleted);
+    // Filter out legacy history items (those with parentId) - we now use completedTimes array
+    // Show reminders that are:
+    // 1. Fully completed (isCompleted = true) - these show with green counter
+    // 2. Have completedTimes but NOT active (for edge cases)
+    // Active reminders with completedTimes stay in active tab until fully completed
+    const completed = reminders.filter(r => 
+      r.isCompleted && !r.isDeleted && !r.parentId
+    );
     // Sort by when they were completed (using lastTriggeredAt or createdAt as fallback)
     return completed.sort((a, b) => {
       const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
@@ -278,7 +291,8 @@ export default function HomeScreen() {
   }, [reminders]);
 
   const deletedReminders = React.useMemo(() => {
-    const deleted = reminders.filter(r => r.isDeleted);
+    // Filter out legacy history items from deleted as well
+    const deleted = reminders.filter(r => r.isDeleted && !r.parentId);
     // Sort by creation date (most recently created first)
     return deleted.sort((a, b) => {
       const createdA = new Date(a.createdAt).getTime();
@@ -311,6 +325,8 @@ export default function HomeScreen() {
     } else {
       // For repeating reminders, calculate next reminder date and keep active
       const nextDate = calculateNextReminderDate(reminder);
+      const completedTime = new Date().toISOString();
+      const updatedCompletedTimes = [...(reminder.completedTimes || []), completedTime];
 
       // If no next date and reminder has an end condition, it has ended - mark as completed
       const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
@@ -318,32 +334,21 @@ export default function HomeScreen() {
         updateReminder.mutate({
           ...reminder,
           isCompleted: true,
-          lastTriggeredAt: new Date().toISOString(),
+          lastTriggeredAt: completedTime,
+          completedTimes: updatedCompletedTimes,
         });
       } else {
-        // Create a history item for this completed occurrence
-        addReminder.mutate({
-          ...reminder,
-          id: `${reminder.id}_${Date.now()}_hist`,
-          isCompleted: true,
-          isActive: false,
-          repeatType: 'none',
-          nextReminderDate: undefined,
-          notificationId: undefined,
-          lastTriggeredAt: new Date().toISOString(),
-          createdAt: new Date().toISOString()
-        });
-
-        // Continue with next occurrence
+        // Continue with next occurrence, add to completedTimes
         updateReminder.mutate({
           ...reminder,
           nextReminderDate: nextDate?.toISOString(),
-          lastTriggeredAt: new Date().toISOString(),
+          lastTriggeredAt: completedTime,
           snoozeUntil: undefined, // Clear any snooze
+          completedTimes: updatedCompletedTimes,
         });
       }
     }
-  }, [updateReminder, addReminder]);
+  }, [updateReminder]);
 
   // Complete all occurrences (used for swipe action)
   const completeAllOccurrences = useCallback((reminder: Reminder) => {
@@ -711,6 +716,12 @@ export default function HomeScreen() {
 
     const isDeleted = listType === 'deleted';
     const isCompletedOrDeleted = listType === 'completed' || listType === 'deleted';
+    
+    // Get completed times count for counter button
+    const completedTimesCount = reminder.completedTimes?.length ?? 0;
+    const hasCompletedTimes = completedTimesCount > 0;
+    // Counter is green when reminder is fully completed (isCompleted = true)
+    const isFullyCompleted = reminder.isCompleted === true;
 
     // Minimized single-line layout for completed and deleted
     if (isCompletedOrDeleted) {
@@ -762,6 +773,11 @@ export default function HomeScreen() {
                   <Text style={styles.compactSeparator}>•</Text>
                   <Text style={styles.reminderDateCompact} numberOfLines={1}>
                     {(() => {
+                      // For completed/deleted history items, use lastTriggeredAt for accurate date
+                      if (reminder.lastTriggeredAt && (listType === 'completed' || listType === 'deleted')) {
+                        const triggerDate = new Date(reminder.lastTriggeredAt);
+                        return triggerDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      }
                       if (reminder.repeatType === 'daily') {
                         // For daily reminders, show next occurrence date
                         const getNextDate = () => {
@@ -799,23 +815,37 @@ export default function HomeScreen() {
                   </Text>
                 )}
               </View>
-
-              <View style={styles.reminderRight}>
+              
+              {/* Counter button for completed times */}
+              {/* Counter button only in completed tab (not deleted) */}
+              {hasCompletedTimes && listType === 'completed' && (
                 <TouchableOpacity
-                  style={isDeleted ? styles.restoreButton : styles.reassignButton}
+                  style={[
+                    styles.completedCounterButton,
+                    isFullyCompleted && styles.completedCounterButtonGreen
+                  ]}
                   onPress={(e) => {
                     e.stopPropagation();
-                    if (isDeleted) {
-                      handleRestore(reminder);
-                    } else {
-                      reassignReminder(reminder);
-                    }
+                    setCompletedHistoryReminder(reminder);
+                    setCompletedHistoryModalVisible(true);
                   }}
-                  testID={isDeleted ? `restore-button-${reminder.id}` : `reassign-button-${reminder.id}`}
+                  testID={`counter-button-${reminder.id}`}
                 >
-                  <RotateCcw size={18} color={Material3Colors.light.primary} />
+                  <Text style={[
+                    styles.completedCounterText,
+                    isFullyCompleted && styles.completedCounterTextGreen
+                  ]}>
+                    {completedTimesCount}
+                  </Text>
                 </TouchableOpacity>
-              </View>
+              )}
+              
+              {/* Show check icon for fully completed reminders without completedTimes (one-time reminders) in completed tab */}
+              {!hasCompletedTimes && isFullyCompleted && listType === 'completed' && (
+                <View style={styles.completedCheckIcon}>
+                  <CheckCircle size={20} color="#4CAF50" />
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </SwipeableRow>
@@ -1128,6 +1158,7 @@ export default function HomeScreen() {
             {/* Action buttons */}
             {isActive && !isDeleted && (
               <View style={styles.reminderRight}>
+                
                 {reminder.repeatType !== 'none' && (
                   reminder.isPaused ? (
                     <TouchableOpacity
@@ -1180,38 +1211,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* Restore button for deleted items */}
-            {isDeleted && (
-              <View style={styles.reminderRight}>
-                <TouchableOpacity
-                  style={styles.restoreButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleRestore(reminder);
-                  }}
-                  testID={`restore-button-${reminder.id}`}
-                >
-                  <RotateCcw size={20} color={Material3Colors.light.primary} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Reassign button for completed items */}
-            {!isActive && !isDeleted && (
-              <View style={styles.reminderRight}>
-                <TouchableOpacity
-                  style={styles.reassignButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    reassignReminder(reminder);
-                  }}
-                  testID={`reassign-button-${reminder.id}`}
-                >
-                  <RotateCcw size={20} color={Material3Colors.light.primary} />
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         </TouchableOpacity>
       </SwipeableRow>
@@ -1233,6 +1232,7 @@ export default function HomeScreen() {
       (prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i]) ?? true);
     const isEveryIntervalEqual = prev.everyInterval?.value === next.everyInterval?.value &&
       prev.everyInterval?.unit === next.everyInterval?.unit;
+    const areCompletedTimesEqual = prev.completedTimes?.length === next.completedTimes?.length;
 
     return prev.title === next.title &&
       prev.time === next.time &&
@@ -1250,7 +1250,8 @@ export default function HomeScreen() {
       prev.untilDate === next.untilDate &&
       prev.untilCount === next.untilCount &&
       areDaysEqual &&
-      isEveryIntervalEqual;
+      isEveryIntervalEqual &&
+      areCompletedTimesEqual;
   });
 
   ReminderCard.displayName = 'ReminderCard';
@@ -1853,6 +1854,68 @@ export default function HomeScreen() {
         hideYear={false}
         title="Pause Until"
       />
+      
+      {/* Completed History Modal */}
+      <Modal
+        visible={completedHistoryModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setCompletedHistoryModalVisible(false);
+          setCompletedHistoryReminder(null);
+        }}
+      >
+        <Pressable 
+          style={styles.completedHistoryModalOverlay}
+          onPress={() => {
+            setCompletedHistoryModalVisible(false);
+            setCompletedHistoryReminder(null);
+          }}
+        >
+          <Pressable style={styles.completedHistoryModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.completedHistoryModalHeader}>
+              <Text style={styles.completedHistoryModalTitle}>Completed Times</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setCompletedHistoryModalVisible(false);
+                  setCompletedHistoryReminder(null);
+                }}
+                style={styles.completedHistoryModalCloseButton}
+              >
+                <X size={24} color={Material3Colors.light.onSurface} />
+              </TouchableOpacity>
+            </View>
+            {completedHistoryReminder && (
+              <View style={styles.completedHistoryModalBody}>
+                <Text style={styles.completedHistoryReminderTitle}>{completedHistoryReminder.title}</Text>
+                <ScrollView style={styles.completedHistoryList} showsVerticalScrollIndicator={true}>
+                  {(completedHistoryReminder.completedTimes || []).map((time, index) => {
+                    const date = new Date(time);
+                    const hours = date.getHours();
+                    const minutes = date.getMinutes();
+                    const period = hours >= 12 ? 'PM' : 'AM';
+                    const displayHours = hours % 12 || 12;
+                    const timeStr = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+                    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    return (
+                      <View key={index} style={styles.completedHistoryItem}>
+                        <View style={styles.completedHistoryItemNumber}>
+                          <Text style={styles.completedHistoryItemNumberText}>{index + 1}</Text>
+                        </View>
+                        <View style={styles.completedHistoryItemContent}>
+                          <Text style={styles.completedHistoryItemTime}>{timeStr}</Text>
+                          <Text style={styles.completedHistoryItemDate}>{dateStr}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+      
       <OnboardingFlow visible={showOnboarding} onSkip={completeOnboarding} onComplete={completeOnboarding} />
     </>
   );
@@ -4086,5 +4149,115 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
     flexShrink: 0,
+  },
+  // Completed counter button styles
+  completedCounterButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Material3Colors.light.outline,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  completedCounterButtonGreen: {
+    borderColor: '#4CAF50',
+    backgroundColor: 'transparent',
+  },
+  completedCounterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Material3Colors.light.onSurfaceVariant,
+  },
+  completedCounterTextGreen: {
+    color: '#4CAF50',
+  },
+  completedCheckIcon: {
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  // Completed History Modal styles
+  completedHistoryModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completedHistoryModalContent: {
+    backgroundColor: Material3Colors.light.surface,
+    borderRadius: 16,
+    width: '85%',
+    maxHeight: '70%',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  completedHistoryModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Material3Colors.light.outlineVariant,
+  },
+  completedHistoryModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurface,
+  },
+  completedHistoryModalCloseButton: {
+    padding: 4,
+  },
+  completedHistoryModalBody: {
+    padding: 16,
+  },
+  completedHistoryReminderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurface,
+    marginBottom: 16,
+  },
+  completedHistoryList: {
+    maxHeight: 300,
+  },
+  completedHistoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Material3Colors.light.outlineVariant,
+  },
+  completedHistoryItemNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Material3Colors.light.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  completedHistoryItemNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Material3Colors.light.onPrimaryContainer,
+  },
+  completedHistoryItemContent: {
+    flex: 1,
+  },
+  completedHistoryItemTime: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurface,
+  },
+  completedHistoryItemDate: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    marginTop: 2,
   },
 });
