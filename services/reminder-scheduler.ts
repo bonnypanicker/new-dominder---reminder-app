@@ -52,11 +52,17 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     return;
   }
 
-  console.log(`[Scheduler] Reminder state: repeatType=${reminder.repeatType}, untilType=${reminder.untilType}, untilCount=${reminder.untilCount}, occurrenceCount=${reminder.occurrenceCount}, nextReminderDate=${reminder.nextReminderDate}`);
+  // Helpers
+  const { getReminders, deleteReminder } = require('./reminder-service');
 
-  // Only cancel notifications for one-time reminders; for repeating reminders
-  // the current notification is cancelled by the action handler/native UI,
-  // and we should not cancel the next scheduled occurrence.
+  // Logic to find existing history item for this reminder
+  const historyId = `${reminderId}_hist`;
+
+  const getHistoryItem = async () => {
+    const allReminders = await getReminders();
+    return allReminders.find((r: any) => r.id === historyId);
+  };
+
   if (reminder.repeatType === 'none') {
     await notificationService.cancelAllNotificationsForReminder(reminderId);
   }
@@ -70,6 +76,17 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     await updateReminder(reminder);
   } else if (reminder.repeatType && reminder.repeatType !== 'none') {
     console.log(`[Scheduler] Processing 'Done' for repeating reminder ${reminderId}`);
+
+    if (!shouldIncrementOccurrence) {
+      const nextTime = reminder.nextReminderDate ? new Date(reminder.nextReminderDate).getTime() : 0;
+      const nowTime = Date.now();
+
+      if (!reminder.nextReminderDate || nextTime <= nowTime) {
+        console.log(`[Scheduler] Reminder ${reminderId} appears not rescheduled (next=${reminder.nextReminderDate}), forcing occurrence increment.`);
+        shouldIncrementOccurrence = true;
+      }
+    }
+
     const occurred = reminder.occurrenceCount ?? 0;
     const calcContext = shouldIncrementOccurrence
       ? { ...reminder, occurrenceCount: occurred + 1 }
@@ -77,29 +94,23 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     console.log(`[Scheduler] occurred=${occurred}, calcContext.occurrenceCount=${calcContext.occurrenceCount}`);
 
+    const completedOccurrenceTime = triggerTimeMs
+      ? new Date(triggerTimeMs).toISOString()
+      : reminder.lastTriggeredAt || new Date().toISOString();
+
     if (!shouldIncrementOccurrence) {
-      // Foreground Notifee action "Done": delivery handler already scheduled next occurrence
-      // Check if the already-scheduled next occurrence is valid (not past end constraints)
-      // We check against the CURRENT occurrenceCount (already incremented by delivery)
+      // Foreground Notifee Done (Standard)
       const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
       const hasDateCap = reminder.untilType === 'endsAt' && reminder.untilDate;
-      
-      console.log(`[Scheduler] Standard Done - hasCountCap: ${hasCountCap}, hasDateCap: ${hasDateCap}, nextReminderDate: ${reminder.nextReminderDate}`);
-      
+
       let nextIsValid = true;
-      
-      // For reminders without any end constraint, if nextReminderDate exists, it's valid
+
       if (!hasCountCap && !hasDateCap) {
         nextIsValid = !!reminder.nextReminderDate;
-        console.log(`[Scheduler] No end constraints, nextIsValid based on nextReminderDate: ${nextIsValid}`);
       } else {
-        // Check count cap: if occurrenceCount >= untilCount, no more occurrences
         if (hasCountCap && (reminder.occurrenceCount ?? 0) >= (reminder.untilCount as number)) {
-          console.log(`[Scheduler] Count cap reached: ${reminder.occurrenceCount}/${reminder.untilCount}`);
           nextIsValid = false;
         }
-        
-        // Check date cap: if nextReminderDate is past the end boundary, no more occurrences
         if (nextIsValid && hasDateCap && reminder.nextReminderDate) {
           try {
             const [uy, um, ud] = (reminder.untilDate as string).split('-').map((v) => parseInt(v || '0', 10));
@@ -113,89 +124,80 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
             }
             const nextDate = new Date(reminder.nextReminderDate);
             if (nextDate > endBoundary) {
-              console.log(`[Scheduler] Date cap reached: next ${nextDate.toISOString()} > end ${endBoundary.toISOString()}`);
               nextIsValid = false;
             }
           } catch (e) {
             console.log(`[Scheduler] Error checking date cap:`, e);
           }
         }
-        
-        // Also check if nextReminderDate exists at all (for capped reminders)
         if (nextIsValid && !reminder.nextReminderDate) {
-          console.log(`[Scheduler] No nextReminderDate set (final occurrence)`);
           nextIsValid = false;
         }
       }
-      
-      console.log(`[Scheduler] Notifee Done - nextIsValid: ${nextIsValid}`);
 
       if (!nextIsValid) {
-        // Final occurrence reached - create history and mark completed
-        console.log(`[Scheduler] Final occurrence - marking as completed`);
-        
-        // Use triggerTimeMs if available (native alarms), otherwise use lastTriggeredAt
-        // (set by delivery handler) as the best approximation of when this occurrence fired
-        const completedOccurrenceTime = triggerTimeMs 
-          ? new Date(triggerTimeMs).toISOString()
-          : reminder.lastTriggeredAt || new Date().toISOString();
-        
-        const historyItem = {
-          ...calcContext,
-          id: `${reminderId}_${Date.now()}_hist`,
-          parentId: reminderId,
-          isCompleted: true,
-          isActive: false,
-          repeatType: 'none',
-          snoozeUntil: undefined,
-          wasSnoozed: undefined,
-          lastTriggeredAt: completedOccurrenceTime,
-          createdAt: new Date().toISOString(),
-          nextReminderDate: undefined,
-          notificationId: undefined
-        };
-        await addReminder(historyItem as any);
-        console.log(`[Scheduler] Created final history item ${historyItem.id} at ${completedOccurrenceTime}`);
-        
-        // Cancel any scheduled notifications since this is the final occurrence
-        await notificationService.cancelAllNotificationsForReminder(reminderId);
-        
+        // FINAL OCCURRENCE - MERGE HISTORY
+        console.log(`[Scheduler] Final occurrence - converting active reminder ${reminderId} to completed.`);
+
+        const existingHistory = await getHistoryItem();
+        let historyTimes = existingHistory?.completionHistory || [];
+        historyTimes.push(completedOccurrenceTime);
+
+        if (existingHistory) {
+          await deleteReminder(existingHistory.id);
+        }
+
         const completed = {
           ...calcContext,
           isCompleted: true,
           isActive: false,
           snoozeUntil: undefined,
           wasSnoozed: undefined,
-          lastTriggeredAt: new Date().toISOString(),
+          lastTriggeredAt: completedOccurrenceTime,
           nextReminderDate: undefined,
+          completionHistory: historyTimes,
+          parentId: undefined
         };
         await updateReminder(completed as any);
-      } else {
-        // Create history item for this occurrence
-        // Use triggerTimeMs if available, otherwise use lastTriggeredAt
-        const scheduledTime = triggerTimeMs 
-          ? new Date(triggerTimeMs).toISOString()
-          : reminder.lastTriggeredAt || new Date().toISOString();
-        const historyItem = {
-          ...calcContext,
-          id: `${reminderId}_${Date.now()}_hist`,
-          parentId: reminderId,
-          isCompleted: true,
-          isActive: false,
-          repeatType: 'none',
-          snoozeUntil: undefined,
-          wasSnoozed: undefined,
-          lastTriggeredAt: scheduledTime,
-          createdAt: new Date().toISOString(),
-          nextReminderDate: undefined,
-          notificationId: undefined
-        };
-        await addReminder(historyItem as any);
-        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence (Standard/Silent) at ${scheduledTime}`);
+        await notificationService.cancelAllNotificationsForReminder(reminderId);
 
+      } else {
+        // INTERMEDIATE OCCURRENCE
+        console.log(`[Scheduler] Intermediate occurrence for ${reminderId} at ${completedOccurrenceTime}`);
+
+        const existingHistory = await getHistoryItem();
+
+        if (existingHistory) {
+          const updatedHistory = {
+            ...existingHistory,
+            lastTriggeredAt: completedOccurrenceTime,
+            completionHistory: [...(existingHistory.completionHistory || []), completedOccurrenceTime],
+            title: reminder.title,
+            priority: reminder.priority
+          };
+          await updateReminder(updatedHistory as any);
+        } else {
+          const historyItem = {
+            ...calcContext,
+            id: historyId,
+            parentId: reminderId,
+            isCompleted: true,
+            isActive: false,
+            snoozeUntil: undefined,
+            wasSnoozed: undefined,
+            lastTriggeredAt: completedOccurrenceTime,
+            completionHistory: [completedOccurrenceTime],
+            createdAt: new Date().toISOString(),
+            nextReminderDate: undefined,
+            notificationId: undefined
+          };
+          await addReminder(historyItem as any);
+        }
+
+        // Ensure Main Reminder stays active
         const updated = {
           ...calcContext,
-          nextReminderDate: reminder.nextReminderDate, // Explicitly preserve - delivery handler already set this
+          nextReminderDate: reminder.nextReminderDate,
           snoozeUntil: undefined,
           wasSnoozed: undefined,
           isActive: true,
@@ -203,39 +205,40 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           isPaused: false,
         };
         await updateReminder(updated as any);
-        console.log(`[Scheduler] Updated reminder ${reminderId}, nextReminderDate preserved: ${updated.nextReminderDate}`);
       }
     } else {
-      // Native alarm "Done" path
-      const completedOccurrenceTime = triggerTimeMs 
-        ? new Date(triggerTimeMs).toISOString()
-        : reminder.nextReminderDate || new Date().toISOString();
-      
-      console.log(`[Scheduler] Native Done - completedOccurrenceTime: ${completedOccurrenceTime}`);
-      
+      // Native Done (manual calculation needed)
       const nextDate = calculateNextReminderDate(calcContext as any, new Date());
-      console.log(`[Scheduler] Native Done - nextDate: ${nextDate?.toISOString() || 'null'}`);
 
       if (nextDate) {
-        console.log(`[Scheduler] Next occurrence for ${reminderId} is ${nextDate.toISOString()}`);
-
-        const historyItem = {
-          ...calcContext,
-          id: `${reminderId}_${Date.now()}_hist`,
-          parentId: reminderId,
-          isCompleted: true,
-          isActive: false,
-          repeatType: 'none',
-          snoozeUntil: undefined,
-          wasSnoozed: undefined,
-          lastTriggeredAt: completedOccurrenceTime,
-          createdAt: new Date().toISOString(),
-          nextReminderDate: undefined,
-          notificationId: undefined
-        };
-
-        await addReminder(historyItem as any);
-        console.log(`[Scheduler] Created history item ${historyItem.id} for occurrence at ${completedOccurrenceTime}`);
+        // Intermediate (Native)
+        const existingHistory = await getHistoryItem();
+        if (existingHistory) {
+          const updatedHistory = {
+            ...existingHistory,
+            lastTriggeredAt: completedOccurrenceTime,
+            completionHistory: [...(existingHistory.completionHistory || []), completedOccurrenceTime],
+            title: reminder.title,
+            priority: reminder.priority
+          };
+          await updateReminder(updatedHistory as any);
+        } else {
+          const historyItem = {
+            ...calcContext,
+            id: historyId,
+            parentId: reminderId,
+            isCompleted: true,
+            isActive: false,
+            snoozeUntil: undefined,
+            wasSnoozed: undefined,
+            lastTriggeredAt: completedOccurrenceTime,
+            completionHistory: [completedOccurrenceTime],
+            createdAt: new Date().toISOString(),
+            nextReminderDate: undefined,
+            notificationId: undefined
+          };
+          await addReminder(historyItem as any);
+        }
 
         const updated = {
           ...calcContext,
@@ -249,38 +252,26 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           isExpired: false,
         };
         await updateReminder(updated as any);
-        
-        // Schedule next occurrence - JS handles rescheduling for native alarms too
-        // Native side only handles snooze rescheduling, not regular Done rescheduling
         await notificationService.scheduleReminderByModel(updated as any);
-        console.log(`[Scheduler] Scheduled next native alarm for ${reminderId} at ${nextDate.toISOString()}`);
       } else {
-        console.log(`[Scheduler] No next occurrence found for ${reminderId}, marking as complete.`);
-        
-        const historyItem = {
-          ...calcContext,
-          id: `${reminderId}_${Date.now()}_hist`,
-          parentId: reminderId,
-          isCompleted: true,
-          isActive: false,
-          repeatType: 'none',
-          snoozeUntil: undefined,
-          wasSnoozed: undefined,
-          lastTriggeredAt: completedOccurrenceTime,
-          createdAt: new Date().toISOString(),
-          nextReminderDate: undefined,
-          notificationId: undefined
-        };
-        await addReminder(historyItem as any);
-        console.log(`[Scheduler] Created final history item ${historyItem.id} at ${completedOccurrenceTime}`);
-        
+        // Final (Native)
+        const existingHistory = await getHistoryItem();
+        let historyTimes = existingHistory?.completionHistory || [];
+        historyTimes.push(completedOccurrenceTime);
+
+        if (existingHistory) {
+          await deleteReminder(existingHistory.id);
+        }
+
         const completed = {
           ...calcContext,
           isCompleted: true,
           isActive: false,
           snoozeUntil: undefined,
           wasSnoozed: undefined,
-          lastTriggeredAt: new Date().toISOString(),
+          lastTriggeredAt: completedOccurrenceTime,
+          completionHistory: historyTimes,
+          parentId: undefined
         };
         await updateReminder(completed as any);
       }

@@ -36,7 +36,7 @@ export interface Reminder {
   lastTriggeredAt?: string;
   occurrenceCount?: number;
   snoozeUntil?: string;
-  
+
   // Extended fields
   description?: string;
   isActive?: boolean;
@@ -47,7 +47,9 @@ export interface Reminder {
   notificationId?: string;
   untilIsAM?: boolean;
   ringerSound?: string;
-  
+  completionHistory?: string[];
+  parentId?: string; // Add explicit parentId since it's used in logic
+
   // Transient fields
   snoozeClearing?: boolean;
   notificationUpdating?: boolean;

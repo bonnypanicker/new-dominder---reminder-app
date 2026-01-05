@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated, LayoutChangeEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated, LayoutChangeEvent, FlatList } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -201,6 +201,16 @@ export default function HomeScreen() {
 
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'deleted' | null>(null);
 
+  const [historyPopupVisible, setHistoryPopupVisible] = useState(false);
+  const [historyPopupData, setHistoryPopupData] = useState<string[]>([]);
+
+  const openHistoryPopup = useCallback((history: string[]) => {
+    // Sort history by date descending
+    const sorted = [...history].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    setHistoryPopupData(sorted);
+    setHistoryPopupVisible(true);
+  }, []);
+
   const addReminder = useAddReminder();
 
   const scrollToTab = useCallback((tab: 'active' | 'completed' | 'deleted') => {
@@ -307,52 +317,111 @@ export default function HomeScreen() {
       updateReminder.mutate({
         ...reminder,
         isCompleted: true,
+        lastTriggeredAt: new Date().toISOString(),
       });
     } else {
-      // For repeating reminders, calculate next reminder date and keep active
+      // For repeating reminders:
+      // 1. Calculate next date
       const nextDate = calculateNextReminderDate(reminder);
-
-      // If no next date and reminder has an end condition, it has ended - mark as completed
       const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
+      const historyId = `${reminder.id}_hist`;
+      const completionTime = new Date().toISOString();
+
       if (!nextDate && hasEndCondition) {
+        // Final occurrence: Merge existing history + current time, delete history item, mark main as completed
+        const existingHistory = reminders.find(r => r.id === historyId);
+        const historyTimes = existingHistory?.completionHistory || [];
+
+        // Add current completion time for the final occurrence
+        historyTimes.push(completionTime);
+
+        if (existingHistory) {
+          deleteReminder.mutate(existingHistory.id);
+        }
+
         updateReminder.mutate({
           ...reminder,
           isCompleted: true,
-          lastTriggeredAt: new Date().toISOString(),
+          isActive: false,
+          lastTriggeredAt: completionTime,
+          completionHistory: historyTimes,
+          nextReminderDate: undefined,
+          snoozeUntil: undefined,
         });
       } else {
-        // Create a history item for this completed occurrence
-        addReminder.mutate({
-          ...reminder,
-          id: `${reminder.id}_${Date.now()}_hist`,
-          isCompleted: true,
-          isActive: false,
-          repeatType: 'none',
-          nextReminderDate: undefined,
-          notificationId: undefined,
-          lastTriggeredAt: new Date().toISOString(),
-          createdAt: new Date().toISOString()
-        });
+        // Intermediate occurrence: Update/Create history item
+        const existingHistory = reminders.find(r => r.id === historyId);
 
-        // Continue with next occurrence
+        if (existingHistory) {
+          updateReminder.mutate({
+            ...existingHistory,
+            lastTriggeredAt: completionTime,
+            completionHistory: [...(existingHistory.completionHistory || []), completionTime],
+            title: reminder.title,
+            priority: reminder.priority
+          });
+        } else {
+          addReminder.mutate({
+            ...reminder,
+            id: historyId,
+            parentId: reminder.id,
+            isCompleted: true, // Shows in completed tab
+            isActive: false,
+            // Keep repeatType for UI (badge)
+            snoozeUntil: undefined,
+            wasSnoozed: undefined,
+            lastTriggeredAt: completionTime,
+            completionHistory: [completionTime],
+            createdAt: new Date().toISOString(),
+            nextReminderDate: undefined,
+            notificationId: undefined
+          });
+        }
+
+        // Schedule next occurrence on main reminder
         updateReminder.mutate({
           ...reminder,
           nextReminderDate: nextDate?.toISOString(),
-          lastTriggeredAt: new Date().toISOString(),
-          snoozeUntil: undefined, // Clear any snooze
+          lastTriggeredAt: completionTime,
+          snoozeUntil: undefined,
         });
       }
     }
-  }, [updateReminder, addReminder]);
+  }, [updateReminder, addReminder, deleteReminder, reminders]);
 
   // Complete all occurrences (used for swipe action)
   const completeAllOccurrences = useCallback((reminder: Reminder) => {
-    // Mark as completed regardless of repeat type
-    updateReminder.mutate({
-      ...reminder,
-      isCompleted: true,
-    });
-  }, [updateReminder]);
+    // For repeating reminders, this is a "Stop Series" action.
+    // Merge existing history, but do NOT add current time (as per user request "no time updation required").
+    // Mark main reminder as completed (Final).
+
+    if (reminder.repeatType !== 'none') {
+      const historyId = `${reminder.id}_hist`;
+      const existingHistory = reminders.find(r => r.id === historyId);
+      const historyTimes = existingHistory?.completionHistory || [];
+
+      if (existingHistory) {
+        deleteReminder.mutate(existingHistory.id);
+      }
+
+      updateReminder.mutate({
+        ...reminder,
+        isCompleted: true,
+        isActive: false,
+        completionHistory: historyTimes,
+        // Keep lastTriggeredAt as is (or update? user said no time updation required).
+        // Let's keep it as is.
+        snoozeUntil: undefined,
+        nextReminderDate: undefined,
+      });
+    } else {
+      updateReminder.mutate({
+        ...reminder,
+        isCompleted: true,
+        lastTriggeredAt: new Date().toISOString(),
+      });
+    }
+  }, [updateReminder, deleteReminder, reminders]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
     // When resuming (isPaused is currently true), clear pauseUntilDate
@@ -798,23 +867,28 @@ export default function HomeScreen() {
                     })()}
                   </Text>
                 </>
-                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                  <Text style={styles.repeatBadgeTextCompact}>
-                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
-                  </Text>
-                </View>
-                {/* Show compact duration for Every reminders */}
-                {reminder.repeatType === 'every' && reminder.everyInterval && (
-                  <Text style={styles.everyDurationCompact}>
-                    {(() => {
-                      const value = reminder.everyInterval.value;
-                      const unit = reminder.everyInterval.unit;
-                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
-                      return `${value}${unitShort}`;
-                    })()}
-                  </Text>
-                )}
               </View>
+
+              {/* Counter Badge for Completion History */}
+              {(reminder.completionHistory && reminder.completionHistory.length > 0) && (
+                <TouchableOpacity
+                  style={[
+                    styles.historyBadge,
+                    !reminder.id.endsWith('_hist') && styles.historyBadgeFinal
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openHistoryPopup(reminder.completionHistory!);
+                  }}
+                >
+                  <Text style={[
+                    styles.historyBadgeText,
+                    !reminder.id.endsWith('_hist') && styles.historyBadgeTextFinal
+                  ]}>
+                    {reminder.completionHistory.length}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableOpacity>
         </SwipeableRow>
@@ -1444,6 +1518,37 @@ export default function HomeScreen() {
             alwaysBounceVertical={true}
             overScrollMode="always"
           />
+
+          <Modal
+            visible={historyPopupVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setHistoryPopupVisible(false)}
+          >
+            <Pressable style={styles.historyPopupOverlay} onPress={() => setHistoryPopupVisible(false)}>
+              <View style={styles.historyPopupContent}>
+                <Text style={styles.historyPopupTitle}>History</Text>
+                <FlatList
+                  data={historyPopupData}
+                  keyExtractor={(item) => item}
+                  renderItem={({ item }) => {
+                    const d = new Date(item);
+                    return (
+                      <View style={styles.historyPopupItem}>
+                        <Text style={styles.historyPopupItemText}>
+                          {d.toLocaleDateString()} at {formatTime(d.toTimeString().slice(0, 5))}
+                        </Text>
+                      </View>
+                    );
+                  }}
+                  style={{ maxHeight: 300 }}
+                />
+                <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setHistoryPopupVisible(false)}>
+                  <Text style={styles.closeHistoryButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Modal>
 
           <CreateReminderPopup
             visible={showCreatePopup}
@@ -4053,5 +4158,75 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
     flexShrink: 0,
+  },
+  // History Badge Styles
+  historyBadge: {
+    marginLeft: 'auto', // Push to right
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: Material3Colors.light.surfaceContainer,
+    borderWidth: 1,
+    borderColor: Material3Colors.light.outlineVariant,
+    minWidth: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyBadgeFinal: {
+    backgroundColor: 'transparent',
+    borderColor: '#4CAF50', // Green Ring
+    borderWidth: 1.5,
+  },
+  historyBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Material3Colors.light.onSurface,
+  },
+  historyBadgeTextFinal: {
+    color: '#4CAF50',
+  },
+  // Popup Styles
+  historyPopupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  historyPopupContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 320,
+    elevation: 4,
+  },
+  historyPopupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: Material3Colors.light.onSurface,
+    textAlign: 'center',
+  },
+  historyPopupItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Material3Colors.light.outlineVariant,
+  },
+  historyPopupItemText: {
+    fontSize: 16,
+    color: Material3Colors.light.onSurface,
+    textAlign: 'center',
+  },
+  closeHistoryButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    backgroundColor: Material3Colors.light.surfaceContainer,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  closeHistoryButtonText: {
+    fontWeight: '600',
+    color: Material3Colors.light.primary,
   },
 });
