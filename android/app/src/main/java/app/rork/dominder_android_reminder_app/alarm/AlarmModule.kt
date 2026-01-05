@@ -43,7 +43,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, interval: Double = 0.0, unit: String? = null, endDate: Double = 0.0, untilCount: Int = 0, occurrenceCount: Int = 0, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -60,12 +60,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority ?: "medium")
-                putExtra("interval", interval)
-                putExtra("unit", unit)
-                putExtra("endDate", endDate)
-                putExtra("triggerTime", triggerTime) // Pass triggerTime for native reschedule
-                putExtra("untilCount", untilCount)
-                putExtra("occurrenceCount", occurrenceCount)
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -75,7 +69,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime with interval=$interval $unit, untilCount=$untilCount, occurrenceCount=$occurrenceCount")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -134,16 +128,15 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 40, promise: Promise? = null) {
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             prefs.edit().apply {
                 putBoolean("ringer_sound_enabled", soundEnabled)
                 putBoolean("ringer_vibration_enabled", vibrationEnabled)
-                putInt("ringer_volume", ringerVolume)
                 apply()
             }
-            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled, volume: $ringerVolume%")
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: $soundEnabled, vibration: $vibrationEnabled")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving notification settings: ${e.message}")
@@ -262,40 +255,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error clearing deleted alarm: ${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun getDismissedAlarms(promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            val dismissed = Arguments.createMap()
-            
-            prefs.all.forEach { (key, value) ->
-                if (key.startsWith("dismissed_")) {
-                    val reminderId = key.removePrefix("dismissed_")
-                    dismissed.putString(reminderId, value.toString())
-                }
-            }
-            
-            DebugLogger.log("AlarmModule: Retrieved ${dismissed.toHashMap().size} dismissed alarms")
-            promise.resolve(dismissed)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting dismissed alarms: ${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun clearDismissedAlarm(reminderId: String, promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().remove("dismissed_${reminderId}").apply()
-            DebugLogger.log("AlarmModule: Cleared dismissed alarm ${reminderId}")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing dismissed alarm: ${e.message}")
             promise.reject("ERROR", e.message, e)
         }
     }

@@ -220,11 +220,8 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
   if (!candidate) return null;
 
   // Count-based end: stop if occurrenceCount has reached untilCount
-  // IMPORTANT: The check is >= because occurrenceCount represents completed occurrences
-  // If untilCount=2 and occurrenceCount=2, we've already had 2 occurrences, so stop
   if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
     const occurred = reminder.occurrenceCount ?? 0;
-    console.log(`[calculateNextReminderDate] Count check: occurred=${occurred}, untilCount=${reminder.untilCount}`);
     if (occurred >= reminder.untilCount) {
       console.log(`[calculateNextReminderDate] Count cap reached (${occurred}/${reminder.untilCount}), no next occurrence`);
       return null;

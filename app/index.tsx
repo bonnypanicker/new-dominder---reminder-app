@@ -12,78 +12,11 @@ import { CHANNEL_IDS } from '@/services/channels';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
-
-type ReminderGroup = {
-  id: string;
-  mainReminder?: Reminder;
-  occurrences: Reminder[];
-  isGroup: boolean;
-};
-
 import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel, { CalendarModal } from '@/components/CustomizePanel';
 import { showToast } from '@/utils/toast';
 import SwipeableRow from '@/components/SwipeableRow';
 import OnboardingFlow from '@/components/OnboardingFlow';
-
-/**
- * History Modal for completed occurrences
- */
-const HistoryModal = ({
-  visible,
-  onClose,
-  group
-}: {
-  visible: boolean;
-  onClose: () => void;
-  group: ReminderGroup;
-}) => {
-  if (!group) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.historyModalContainer}>
-          <View style={styles.historyHeader}>
-            <Text style={styles.historyTitle}>Completed History</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <X size={20} color={Material3Colors.light.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.historyList}>
-            {group.occurrences.map((occ) => {
-              const timeLabel = occ.lastTriggeredAt
-                ? new Date(occ.lastTriggeredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-                : new Date(occ.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-              const dateLabel = occ.lastTriggeredAt
-                ? new Date(occ.lastTriggeredAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
-                : new Date(occ.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-
-              return (
-                <View key={occ.id} style={styles.historyItem}>
-                  <View style={styles.historyItemLeft}>
-                    <Text style={styles.historyTime}>{timeLabel}</Text>
-                    <Text style={styles.historyDate}>{dateLabel}</Text>
-                  </View>
-                  <View style={styles.historyBadge}>
-                    <CheckCircle size={20} color="#4CAF50" />
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </Pressable>
-    </Modal>
-  );
-};
 
 // Icon components (declared after all imports to satisfy import/first)
 const Plus = (props: any) => <Feather name="plus" {...props} />;
@@ -101,10 +34,6 @@ const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
 const HelpCircle = (props: any) => <Feather name="help-circle" {...props} />;
 const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
-const ChevronDown = (props: any) => <Feather name="chevron-down" {...props} />;
-const ChevronUp = (props: any) => <Feather name="chevron-up" {...props} />;
-const Activity = (props: any) => <Feather name="activity" {...props} />;
-
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -319,103 +248,43 @@ export default function HomeScreen() {
     const sortMode = settings?.sortMode ?? 'creation';
     const active = reminders.filter(r => r.isActive && !r.isCompleted && !r.isExpired && !r.isDeleted);
 
-    let sortedActive: Reminder[];
     if (sortMode === 'creation') {
-      sortedActive = active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    } else {
-      sortedActive = active.sort((a, b) => {
-        const getNextDate = (reminder: Reminder) => {
-          if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
-          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-          const calculated = calculateNextReminderDate(reminder);
-          if (calculated) return calculated;
-          const [year, month, day] = reminder.date.split('-').map(Number);
-          const [hours, minutes] = reminder.time.split(':').map(Number);
-          return new Date(year, month - 1, day, hours, minutes);
-        };
-        const dateA = getNextDate(a);
-        const dateB = getNextDate(b);
-        return dateA.getTime() - dateB.getTime();
-      });
+      return active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
-    return sortedActive.map(r => ({
-      id: r.id,
-      mainReminder: r,
-      occurrences: [],
-      isGroup: false
-    } as ReminderGroup));
-  }, [reminders, settings?.sortMode]);
-
-  const completedReminders = React.useMemo(() => {
-    const groups: Record<string, ReminderGroup> = {};
-    const completed = reminders.filter(r => r.isCompleted && !r.isDeleted);
-
-    completed.forEach(r => {
-      const groupId = r.parentId || r.id;
-      if (!groups[groupId]) {
-        groups[groupId] = {
-          id: groupId,
-          occurrences: [],
-          isGroup: false,
-          mainReminder: undefined
-        };
-      }
-      groups[groupId].occurrences.push(r);
-    });
-
-    Object.keys(groups).forEach(groupId => {
-      const group = groups[groupId];
-      // Find main reminder (could be active or completed or deleted)
-      const main = reminders.find(r => r.id === groupId);
-      group.mainReminder = main;
-
-      // Identify if this is a group:
-      // 1. Has parentId linkage (history items from repeating reminders)
-      // 2. OR the main reminder is a repeating type (so counter button shows even with 1 occurrence)
-      // 3. OR any occurrence is a repeating type
-      const hasParentIdLinkage = group.occurrences.some(o => !!o.parentId);
-      const mainIsRepeating = main && main.repeatType && main.repeatType !== 'none';
-      const anyOccurrenceIsRepeating = group.occurrences.some(o => o.repeatType && o.repeatType !== 'none');
-      
-      if (hasParentIdLinkage || mainIsRepeating || anyOccurrenceIsRepeating) {
-        group.isGroup = true;
-      }
-
-      // Sort occurrences by completion time (newest first)
-      group.occurrences.sort((a, b) => {
-        const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
-        const dateB = b.lastTriggeredAt ? new Date(b.lastTriggeredAt).getTime() : new Date(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-    });
-
-    return Object.values(groups).sort((a, b) => {
-      const getGroupDate = (g: ReminderGroup) => {
-        // Use most recent occurrence
-        if (g.occurrences.length > 0) {
-          const o = g.occurrences[0];
-          return o.lastTriggeredAt ? new Date(o.lastTriggeredAt).getTime() : new Date(o.createdAt).getTime();
-        }
-        return 0;
+    return active.sort((a, b) => {
+      const getNextDate = (reminder: Reminder) => {
+        if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+        if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+        const calculated = calculateNextReminderDate(reminder);
+        if (calculated) return calculated;
+        const [year, month, day] = reminder.date.split('-').map(Number);
+        const [hours, minutes] = reminder.time.split(':').map(Number);
+        return new Date(year, month - 1, day, hours, minutes);
       };
-      return getGroupDate(b) - getGroupDate(a);
+      const dateA = getNextDate(a);
+      const dateB = getNextDate(b);
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [reminders, settings?.sortMode]);
+  const completedReminders = React.useMemo(() => {
+    const completed = reminders.filter(r => r.isCompleted && !r.isDeleted);
+    // Sort by when they were completed (using lastTriggeredAt or createdAt as fallback)
+    return completed.sort((a, b) => {
+      const dateA = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() : new Date(a.createdAt).getTime();
+      const dateB = b.lastTriggeredAt ? new Date(b.lastTriggeredAt).getTime() : new Date(b.createdAt).getTime();
+      return dateB - dateA; // Most recently completed first
     });
   }, [reminders]);
 
   const deletedReminders = React.useMemo(() => {
     const deleted = reminders.filter(r => r.isDeleted);
-    const sorted = deleted.sort((a, b) => {
+    // Sort by creation date (most recently created first)
+    return deleted.sort((a, b) => {
       const createdA = new Date(a.createdAt).getTime();
       const createdB = new Date(b.createdAt).getTime();
-      return createdB - createdA;
+      return createdB - createdA; // Most recently created first
     });
-    return sorted.map(r => ({
-      id: r.id,
-      mainReminder: r,
-      occurrences: [],
-      isGroup: false
-    } as ReminderGroup));
   }, [reminders]);
 
   // Use useMemo to derive current list without causing re-renders
@@ -455,9 +324,7 @@ export default function HomeScreen() {
         // Create a history item for this completed occurrence
         addReminder.mutate({
           ...reminder,
-
           id: `${reminder.id}_${Date.now()}_hist`,
-          parentId: reminder.parentId || reminder.id,
           isCompleted: true,
           isActive: false,
           repeatType: 'none',
@@ -467,16 +334,12 @@ export default function HomeScreen() {
           createdAt: new Date().toISOString()
         });
 
-        // Continue with next occurrence - DO NOT mark the original reminder as completed
-        // Just update its scheduling
+        // Continue with next occurrence
         updateReminder.mutate({
           ...reminder,
           nextReminderDate: nextDate?.toISOString(),
           lastTriggeredAt: new Date().toISOString(),
           snoozeUntil: undefined, // Clear any snooze
-          // Ensure it stays active
-          isActive: true,
-          isCompleted: false
         });
       }
     }
@@ -698,22 +561,13 @@ export default function HomeScreen() {
 
   const selectAll = useCallback(() => {
     const scope = selectionTab ?? activeTab;
-    let targetList: ReminderGroup[] = [];
-    if (scope === 'active') targetList = activeReminders;
-    else if (scope === 'completed') targetList = completedReminders;
-    else targetList = deletedReminders;
+    const ids = scope === 'active'
+      ? new Set(activeReminders.map(r => r.id))
+      : scope === 'completed'
+        ? new Set(completedReminders.map(r => r.id))
+        : new Set(deletedReminders.map(r => r.id));
 
-    const ids = new Set<string>();
-    targetList.forEach(group => {
-      if (scope === 'active' || scope === 'deleted') {
-        if (group.mainReminder) ids.add(group.mainReminder.id);
-      } else {
-        // For completed, select all occurrences
-        group.occurrences.forEach(o => ids.add(o.id));
-      }
-    });
-
-    const allSelected = ids.size > 0 && ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
+    const allSelected = ids.size === selectedReminders.size && Array.from(ids).every(id => selectedReminders.has(id));
 
     if (allSelected) {
       isSelectionModeRef.current = false;
@@ -791,8 +645,6 @@ export default function HomeScreen() {
   }, []);
 
   const formatRepeatType = useCallback((repeatType: RepeatType, everyInterval?: { value: number; unit: EveryUnit }) => {
-    // For 'every' type, just return "Every" for the badge
-    // The interval details (1m, 2h, 1d) will be shown as separate text
     switch (repeatType) {
       case 'none': return 'Once';
       case 'daily': return 'Daily';
@@ -800,18 +652,10 @@ export default function HomeScreen() {
       case 'monthly': return 'Monthly';
       case 'yearly': return 'Yearly';
       case 'custom': return 'Custom';
-      case 'every': return 'Every';
+      case 'every':
+        return 'Every';
       default: return 'Once';
     }
-  }, []);
-
-  const formatEveryInterval = useCallback((everyInterval?: { value: number; unit: EveryUnit }) => {
-    if (!everyInterval) return '';
-    // Format as "1m", "2h", "1d" for display after the "Every" badge
-    const unitShort = everyInterval.unit === 'minutes' ? 'm' :
-      everyInterval.unit === 'hours' ? 'h' :
-        everyInterval.unit === 'days' ? 'd' : '';
-    return `${everyInterval.value}${unitShort}`;
   }, []);
 
   const formatDays = useCallback((days: number[]) => {
@@ -822,172 +666,16 @@ export default function HomeScreen() {
   }, []);
 
 
-  const GroupedReminderCard = memo(({
-    group,
-    listType,
-    isSelected,
-    isSelectionMode
-  }: {
-    group: ReminderGroup;
-    listType: 'active' | 'completed' | 'deleted';
-    isSelected: boolean;
-    isSelectionMode: boolean;
-  }) => {
-    const [historyVisible, setHistoryVisible] = useState(false);
-
-    // Use mainReminder for title/info if available, otherwise first occurrence
-    const displayReminder = group.mainReminder || group.occurrences[0];
-
-    if (!displayReminder) return null;
-
-    // Check if the "series" is fully done/inactive.
-    // If mainReminder exists and is NOT active, then the whole thing is "Done".
-    // Or if repeatType is none, it's a one-off, so it's done.
-    const isSeriesCompleted = group.mainReminder
-      ? (!group.mainReminder.isActive || group.mainReminder.isCompleted)
-      : true; // If no main reminder (orphaned occurrences), treat as done.
-
-    // For completed series, use ring style (border only)
-    // For active series, use filled background
-    const buttonStyle = isSeriesCompleted 
-      ? { 
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          borderColor: '#4CAF50',
-          elevation: 1,
-          shadowColor: '#4CAF50',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.15,
-          shadowRadius: 1
-        }
-      : { 
-          backgroundColor: Material3Colors.light.surfaceVariant,
-          borderWidth: 0
-        };
-    const buttonTextColor = isSeriesCompleted ? '#4CAF50' : Material3Colors.light.onSurfaceVariant;
-
-
-    const handleGroupSwipeRight = useCallback(() => {
-      // Delete all occurrences in the group
-      const ids = group.occurrences.map(r => r.id);
-      bulkDeleteReminders.mutate(ids);
-    }, [group.occurrences, bulkDeleteReminders]);
-
-    const onCardPress = useCallback(() => {
-      // If completed, open edit window to allow rescheduling/re-creating
-      // We pass the displayReminder which has the config
-      openEdit(displayReminder);
-    }, [displayReminder, openEdit]);
-
-    return (
-      <View style={styles.groupedCardContainer}>
-        <HistoryModal
-          visible={historyVisible}
-          onClose={() => setHistoryVisible(false)}
-          group={group}
-        />
-        <SwipeableRow
-          reminder={displayReminder}
-          swipeableRefs={swipeableRefs}
-          simultaneousHandlers={contentScrollRef}
-          onSwipeRight={!isSelectionMode ? handleGroupSwipeRight : undefined}
-          onSwipeLeft={!isSelectionMode ? handleGroupSwipeRight : undefined} // Swipe left also deletes for completed
-          isSelectionMode={isSelectionMode}
-          leftActionType="delete"
-        >
-          <TouchableOpacity
-            style={[
-              styles.reminderCardCompact,
-              styles.groupedCardHeader,
-              isSelected && styles.selectedCard
-            ]}
-            onPress={isSelectionMode ? undefined : onCardPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.reminderContentCompact}>
-              <View style={styles.reminderLeftCompact}>
-                {isSelectionMode && (
-                  <TouchableOpacity style={styles.selectionCheckbox} onPress={() => {/* selection logic handled by parent touchable in selection mode? No, needs explicit handler if touchable is blocking */ }}>
-                    {/* Actually, in selection mode, the parent TouchableOpacity could handle selection toggle if we passed that handler, 
-                         but existing logic uses a specific checkbox area or relies on long press. 
-                         Let's keep consistent with ReminderCard logic. 
-                      */}
-                    {isSelected ? <CheckSquare size={20} color={Material3Colors.light.primary} /> : <Square size={20} color={Material3Colors.light.onSurfaceVariant} />}
-                  </TouchableOpacity>
-                )}
-
-                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[displayReminder.priority] }]} />
-
-                {/* Title */}
-                <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
-                  {displayReminder.title}
-                </Text>
-
-                <Text style={styles.compactSeparator}>•</Text>
-
-                {/* Time */}
-                <Text style={styles.reminderTimeCompact}>
-                  {formatTime(displayReminder.time)}
-                </Text>
-
-                <Text style={styles.compactSeparator}>•</Text>
-
-                {/* Date */}
-                <Text style={styles.reminderDateCompact} numberOfLines={1}>
-                  {formatDate(displayReminder.date)}
-                </Text>
-
-                {/* Badges */}
-                {(displayReminder.repeatType !== 'none') && (
-                  <>
-                    <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                      <Text style={styles.repeatBadgeTextCompact}>
-                        {formatRepeatType(displayReminder.repeatType, displayReminder.everyInterval)}
-                      </Text>
-                    </View>
-                    {displayReminder.repeatType === 'every' && displayReminder.everyInterval && (
-                      <Text style={styles.reminderDateCompact}>
-                        {formatEveryInterval(displayReminder.everyInterval)}
-                      </Text>
-                    )}
-                  </>
-                )}
-
-              </View>
-
-              <View style={styles.reminderRight}>
-                {/* Count Button */}
-                <TouchableOpacity
-                  style={[styles.groupedCountBadge, buttonStyle]}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setHistoryVisible(true);
-                  }}
-                >
-                  <Text style={[styles.groupedCountText, { color: buttonTextColor }]}>
-                    {group.occurrences.length}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </SwipeableRow>
-      </View>
-    );
-  });
-
   const ReminderCard = memo(({
     reminder,
     listType,
     isSelected,
-    isSelectionMode: selectionMode,
-    isSubReminder = false
+    isSelectionMode: selectionMode
   }: {
     reminder: Reminder;
     listType: 'active' | 'completed' | 'deleted';
     isSelected: boolean;
     isSelectionMode: boolean;
-    isSubReminder?: boolean;
   }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
@@ -1026,129 +714,6 @@ export default function HomeScreen() {
 
     // Minimized single-line layout for completed and deleted
     if (isCompletedOrDeleted) {
-      // For sub-reminders, we simply render the card content without SwipeableRow
-      // For top-level completed items (non-grouped or parent), we use SwipeableRow
-      // But sub-reminders are children of GroupedReminderCard which handles the grouping.
-      // Wait, isSubReminder=true means it's inside the expanded view.
-
-      const CompactCardContent = () => (
-        <TouchableOpacity
-          activeOpacity={isSubReminder ? 1 : 0.85} // Sub-reminders non-interactive? Or just not swipeable.
-          onPress={isSubReminder ? undefined : () => handleCardPress(reminder)} // Sub-reminders usually strictly read-only or selection?
-          onLongPress={isSubReminder ? undefined : () => handleLongPress(reminder.id, listType)}
-          delayLongPress={200}
-          style={[
-            styles.reminderCardCompact,
-            isSelected && styles.selectedCard,
-            isSubReminder && { marginLeft: 16, borderLeftWidth: 0 } // Indent sub-reminders, maybe remove priority bar?
-          ]}
-          testID={`reminder-card-${reminder.id}`}
-        >
-          <View style={styles.reminderContentCompact}>
-            <View style={styles.reminderLeftCompact}>
-              {selectionMode && !isSubReminder && (
-                <TouchableOpacity
-                  style={styles.selectionCheckbox}
-                  onPress={() => handleCardPress(reminder)}
-                >
-                  {isSelected ? (
-                    <CheckSquare size={20} color={Material3Colors.light.primary} />
-                  ) : (
-                    <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
-                  )}
-                </TouchableOpacity>
-              )}
-              {/* Priority Bar - Maintain for all */}
-              <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
-
-              <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
-                {reminder.title}
-              </Text>
-              <Text style={styles.compactSeparator}>•</Text>
-
-              {/* Time Display */}
-              <Text style={styles.reminderTimeCompact}>
-                {isSubReminder && reminder.lastTriggeredAt
-                  ? formatTime(new Date(reminder.lastTriggeredAt).toTimeString().slice(0, 5))
-                  : formatTime(reminder.time)
-                }
-              </Text>
-
-              {/* Date Display */}
-              <>
-                <Text style={styles.compactSeparator}>•</Text>
-                <Text style={styles.reminderDateCompact} numberOfLines={1}>
-                  {(() => {
-                    if (isSubReminder && reminder.lastTriggeredAt) {
-                      const trigDate = new Date(reminder.lastTriggeredAt);
-                      const now = new Date();
-                      if (trigDate.toDateString() === now.toDateString()) {
-                        return "Today";
-                      }
-                      return trigDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    }
-                    if (reminder.repeatType === 'daily') {
-                      // For daily reminders, show next occurrence date
-                      const getNextDate = () => {
-                        if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
-                        if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
-                        const calc = calculateNextReminderDate(reminder);
-                        return calc ?? null;
-                      };
-                      const nextDate = getNextDate();
-                      if (nextDate) {
-                        return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                      }
-                    }
-                    // For other reminders, show the stored date
-                    const [year, month, day] = reminder.date.split('-').map(Number);
-                    const date = new Date(year, month - 1, day);
-                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  })()}
-                </Text>
-              </>
-
-              {/* Badges - Show "Every" badge with interval text after it */}
-              {!isSubReminder && (
-                <>
-                  <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
-                    <Text style={styles.repeatBadgeTextCompact}>
-                      {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
-                    </Text>
-                  </View>
-                  {reminder.repeatType === 'every' && reminder.everyInterval && (
-                    <Text style={styles.reminderDateCompact}>
-                      {formatEveryInterval(reminder.everyInterval)}
-                    </Text>
-                  )}
-                </>
-              )}
-            </View>
-
-            <View style={styles.reminderRight}>
-              {/* Restore Button - REMOVED for Completed items per request */}
-              {isDeleted && (
-                <TouchableOpacity
-                  style={styles.restoreButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleRestore(reminder);
-                  }}
-                  testID={`restore-button-${reminder.id}`}
-                >
-                  <RotateCcw size={18} color={Material3Colors.light.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-
-      if (isSubReminder) {
-        // No SwipeableRow for sub-reminders
-        return <CompactCardContent />;
-      }
-
       return (
         <SwipeableRow
           reminder={reminder}
@@ -1159,7 +724,100 @@ export default function HomeScreen() {
           isSelectionMode={selectionMode}
           leftActionType="delete"
         >
-          <CompactCardContent />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleCardPress(reminder)}
+            onLongPress={() => handleLongPress(reminder.id, listType)}
+            delayLongPress={200}
+            style={[
+              styles.reminderCardCompact,
+              isSelected && styles.selectedCard
+            ]}
+            testID={`reminder-card-${reminder.id}`}
+          >
+            <View style={styles.reminderContentCompact}>
+              <View style={styles.reminderLeftCompact}>
+                {selectionMode && (
+                  <TouchableOpacity
+                    style={styles.selectionCheckbox}
+                    onPress={() => handleCardPress(reminder)}
+                  >
+                    {isSelected ? (
+                      <CheckSquare size={20} color={Material3Colors.light.primary} />
+                    ) : (
+                      <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+                <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
+                  {reminder.title}
+                </Text>
+                <Text style={styles.compactSeparator}>•</Text>
+                <Text style={styles.reminderTimeCompact}>
+                  {formatTime(reminder.time)}
+                </Text>
+                {/* Show date for all reminders - use next occurrence for daily */}
+                <>
+                  <Text style={styles.compactSeparator}>•</Text>
+                  <Text style={styles.reminderDateCompact} numberOfLines={1}>
+                    {(() => {
+                      if (reminder.repeatType === 'daily') {
+                        // For daily reminders, show next occurrence date
+                        const getNextDate = () => {
+                          if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
+                          if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
+                          const calc = calculateNextReminderDate(reminder);
+                          return calc ?? null;
+                        };
+                        const nextDate = getNextDate();
+                        if (nextDate) {
+                          return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }
+                      }
+                      // For other reminders, show the stored date
+                      const [year, month, day] = reminder.date.split('-').map(Number);
+                      const date = new Date(year, month - 1, day);
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    })()}
+                  </Text>
+                </>
+                <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                  <Text style={styles.repeatBadgeTextCompact}>
+                    {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                  </Text>
+                </View>
+                {/* Show compact duration for Every reminders */}
+                {reminder.repeatType === 'every' && reminder.everyInterval && (
+                  <Text style={styles.everyDurationCompact}>
+                    {(() => {
+                      const value = reminder.everyInterval.value;
+                      const unit = reminder.everyInterval.unit;
+                      const unitShort = unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : 'm';
+                      return `${value}${unitShort}`;
+                    })()}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.reminderRight}>
+                <TouchableOpacity
+                  style={isDeleted ? styles.restoreButton : styles.reassignButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (isDeleted) {
+                      handleRestore(reminder);
+                    } else {
+                      reassignReminder(reminder);
+                    }
+                  }}
+                  testID={isDeleted ? `restore-button-${reminder.id}` : `reassign-button-${reminder.id}`}
+                >
+                  <RotateCcw size={18} color={Material3Colors.light.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
         </SwipeableRow>
       );
     }
@@ -1395,12 +1053,6 @@ export default function HomeScreen() {
                           {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
                         </Text>
                       </View>
-                      {/* 1b. For Every type, show interval text after badge */}
-                      {reminder.repeatType === 'every' && reminder.everyInterval && (
-                        <Text style={[styles.reminderNextOccurrence, { marginLeft: 4 }]}>
-                          {formatEveryInterval(reminder.everyInterval)}
-                        </Text>
-                      )}
                       {/* 2. Snoozed badge (for all types) */}
                       {reminder.snoozeUntil && isActive && !reminder.isCompleted && (
                         <View style={styles.snoozedBadgeInline}>
@@ -1765,30 +1417,14 @@ export default function HomeScreen() {
           <FlashList
             ref={contentScrollRef}
             data={currentList}
-            renderItem={({ item }: { item: ReminderGroup }) => {
-              if (item.isGroup) {
-                return (
-                  <GroupedReminderCard
-                    group={item}
-                    listType={activeTab}
-                    isSelected={false} // Selection handled within occurrences
-                    isSelectionMode={isSelectionMode}
-                  />
-                );
-              }
-
-              const reminder = item.mainReminder || item.occurrences[0];
-              if (!reminder) return null;
-
-              return (
-                <ReminderCard
-                  reminder={reminder}
-                  listType={activeTab}
-                  isSelected={selectedReminders.has(reminder.id)}
-                  isSelectionMode={isSelectionMode}
-                />
-              );
-            }}
+            renderItem={({ item }) => (
+              <ReminderCard
+                reminder={item}
+                listType={activeTab}
+                isSelected={selectedReminders.has(item.id)}
+                isSelectionMode={isSelectionMode}
+              />
+            )}
             extraData={selectionTimestamp}
             estimatedItemSize={120}
             keyExtractor={(item) => item.id.toString()}
@@ -2709,7 +2345,6 @@ const createPopupStyles = StyleSheet.create({
     fontWeight: '500',
     color: Material3Colors.light.primary,
   },
-
   createButtonText: {
     fontSize: 14,
     fontWeight: '500',
@@ -4452,99 +4087,4 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     flexShrink: 0,
   },
-  groupedCardContainer: {
-    // Spacing - Uniform 2px vertical margin to match standard cards which have marginVertical: 2
-    marginVertical: 2,
-    marginHorizontal: 0, // Container is typically transparent, internal card has margin
-    borderRadius: 8,
-    backgroundColor: 'transparent', // The container itself is transparent layout wrapper
-    overflow: 'visible',
-  },
-  groupedCardHeader: {
-    // This styles the actual Touchable card inside SwipeableRow
-    // It inherits reminderCardCompact styles, so we keep this empty or for specific overrides
-  },
-  groupedCountBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14, // Perfect circle
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Add subtle shadow to look like a button
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-  },
-  groupedCountText: {
-    fontSize: 12,
-    fontFamily: 'Rookery-Medium',
-    fontWeight: '700', // Bolder text
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
-  },
-  historyModalContainer: {
-    width: '100%',
-    maxHeight: '60%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    elevation: 5
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE'
-  },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333333'
-  },
-  historyList: {
-    paddingBottom: 16
-  },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5'
-  },
-  historyItemLeft: {
-    flex: 1
-  },
-  historyTime: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333333'
-  },
-  historyDate: {
-    fontSize: 12,
-    color: '#888888',
-    marginTop: 2
-  },
-  historyBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8
-  },
-  historyBadgeText: {
-    fontSize: 12,
-    color: '#2E7D32',
-    fontWeight: '600'
-  }
 });

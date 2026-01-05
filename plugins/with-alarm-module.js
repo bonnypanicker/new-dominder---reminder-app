@@ -237,26 +237,10 @@ class AlarmActionBridge : BroadcastReceiver() {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}")
-                
-                val interval = intent.getDoubleExtra("interval", 0.0)
-                val unit = intent.getStringExtra("unit")
-                val endDate = intent.getDoubleExtra("endDate", 0.0)
-                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
-                val title = intent.getStringExtra("title") ?: "Reminder"
-                val priority = intent.getStringExtra("priority") ?: "medium"
-                val untilCount = intent.getIntExtra("untilCount", 0)
-                val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
-
                 if (reminderId != null) {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
                     emitEventToReactNative(context, "alarmDone", reminderId, 0)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
-                    
-                    // Native Rescheduling Fallback
-                    if (interval > 0 && unit != null) {
-                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule (interval=\${interval} \${unit}, untilCount=\${untilCount}, occurrenceCount=\${occurrenceCount})")
-                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime, untilCount, occurrenceCount)
-                    }
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
@@ -282,120 +266,18 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
             "com.dominder.MISSED_ALARM" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                val title = intent.getStringExtra("title") ?: "Reminder"
+                val title = intent.getStringExtra("title")
                 val time = intent.getStringExtra("time")
                 
-                // Get recurrence info from SharedPreferences or intent
-                val interval = intent.getDoubleExtra("interval", 0.0)
-                val unit = intent.getStringExtra("unit")
-                val endDate = intent.getDoubleExtra("endDate", 0.0)
-                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
-                val priority = intent.getStringExtra("priority") ?: "medium"
-                val untilCount = intent.getIntExtra("untilCount", 0)
-                val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
-                
-                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: \${reminderId}, interval: \${interval} \${unit}, untilCount=\${untilCount}, occurrenceCount=\${occurrenceCount}")
+                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: \${reminderId}")
                 
                 if (reminderId != null) {
                     emitMissedAlarmToReactNative(context, reminderId, title, time)
-                    
-                    // Native Rescheduling Fallback for missed alarms with recurrence
-                    if (interval > 0 && unit != null) {
-                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule for missed alarm (interval=\${interval} \${unit})")
-                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime, untilCount, occurrenceCount)
-                    }
                 }
             }
             else -> {
                 DebugLogger.log("AlarmActionBridge: Unknown action received: \${action}")
             }
-        }
-    }
-    
-    private fun calculateNextTime(baseTime: Long, interval: Double, unit: String): Long {
-        val multiplier = when (unit.lowercase()) {
-            "minutes", "minute" -> 60 * 1000L
-            "hours", "hour" -> 60 * 60 * 1000L
-            "days", "day" -> 24 * 60 * 60 * 1000L
-            "weeks", "week" -> 7 * 24 * 60 * 60 * 1000L
-            else -> 0L
-        }
-        return baseTime + (interval * multiplier).toLong()
-    }
-
-    private fun scheduleNextAlarm(context: Context, reminderId: String, title: String, priority: String, interval: Double, unit: String, endDate: Double, lastTriggerTime: Double, untilCount: Int = 0, occurrenceCount: Int = 0) {
-        try {
-            val now = System.currentTimeMillis()
-            
-            // Increment occurrence count for this completed occurrence
-            val newOccurrenceCount = occurrenceCount + 1
-            
-            // Check count cap BEFORE scheduling next alarm
-            if (untilCount > 0 && newOccurrenceCount >= untilCount) {
-                DebugLogger.log("AlarmActionBridge: Count cap reached (newOccurrenceCount=\${newOccurrenceCount} >= untilCount=\${untilCount}), NOT scheduling next alarm")
-                return
-            }
-            
-            // Use lastTriggerTime as base to prevent slip. If invalid (0), fallback to now.
-            var baseTime = if (lastTriggerTime > 0) lastTriggerTime.toLong() else now
-            
-            var nextTime = calculateNextTime(baseTime, interval, unit)
-            
-            // If nextTime is already in the past (e.g. user delayed action, or device was off),
-            // catch up by adding intervals until we are in the future.
-            // This maintains the cadence (e.g. 12:00, 12:02, 12:04) even if processed at 12:03.
-            while (nextTime <= now) {
-                DebugLogger.log("AlarmActionBridge: nextTime \${nextTime} is in past (now=\${now}), adding interval to catch up")
-                nextTime = calculateNextTime(nextTime, interval, unit)
-            }
-            
-            // If endDate is set and nextTime is past it, don't schedule
-            if (endDate > 0 && nextTime > endDate) {
-                DebugLogger.log("AlarmActionBridge: Next alarm time \${nextTime} is past end date \${endDate}, skipping")
-                return
-            }
-            
-            DebugLogger.log("AlarmActionBridge: Scheduling next recurring alarm for \${nextTime} (newOccurrenceCount=\${newOccurrenceCount})")
-            
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority)
-                // Pass recurrence info for next time
-                putExtra("interval", interval)
-                putExtra("unit", unit)
-                putExtra("endDate", endDate)
-                putExtra("triggerTime", nextTime.toDouble()) // Update triggerTime for next loop
-                putExtra("untilCount", untilCount)
-                putExtra("occurrenceCount", newOccurrenceCount) // Pass incremented count
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                reminderId.hashCode(),
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                 if (!alarmManager.canScheduleExactAlarms()) {
-                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm for recurrence")
-                     return
-                 }
-            }
-
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                nextTime,
-                pendingIntent
-            )
-            DebugLogger.log("AlarmActionBridge: Recurring alarm scheduled successfully")
-
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error scheduling recurring alarm: \${e.message}")
         }
     }
     
@@ -688,15 +570,11 @@ class AlarmRingtoneService : Service() {
         }
     }
     
-    private var originalAlarmVolume: Int = -1
-    private var audioManager: AudioManager? = null
-    
     private fun startRingtone() {
         try {
-            // Get saved ringtone URI and volume from SharedPreferences
+            // Get saved ringtone URI from SharedPreferences
             val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
-            val volumePercent = prefs.getInt("ringer_volume", 40)
             
             val ringtoneUri = if (savedUriString != null) {
                 DebugLogger.log("AlarmRingtoneService: Using saved ringtone: \$savedUriString")
@@ -707,18 +585,6 @@ class AlarmRingtoneService : Service() {
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             }
             
-            // Get AudioManager and set alarm volume to override silent/low volume
-            audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val maxVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: 7
-            originalAlarmVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: -1
-            
-            // Calculate target volume from percentage
-            val targetVolume = (maxVolume * volumePercent / 100).coerceAtLeast(1)
-            
-            // Set alarm stream volume (bypasses silent mode for STREAM_ALARM)
-            audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
-            DebugLogger.log("AlarmRingtoneService: Set alarm volume to \$targetVolume/\$maxVolume (\$volumePercent%)")
-            
             // Use MediaPlayer for full song playback with looping
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(applicationContext, ringtoneUri)
@@ -728,7 +594,6 @@ class AlarmRingtoneService : Service() {
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_ALARM)
                             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
                             .build()
                     )
                 } else {
@@ -816,14 +681,6 @@ class AlarmRingtoneService : Service() {
                 DebugLogger.log("AlarmRingtoneService: MediaPlayer stopped and released")
             }
             mediaPlayer = null
-            
-            // Restore original alarm volume
-            if (originalAlarmVolume >= 0 && audioManager != null) {
-                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, originalAlarmVolume, 0)
-                DebugLogger.log("AlarmRingtoneService: Restored original alarm volume to \$originalAlarmVolume")
-            }
-            originalAlarmVolume = -1
-            audioManager = null
             
             // Stop vibration
             vibrator?.cancel()
@@ -954,27 +811,18 @@ class AlarmActivity : AppCompatActivity() {
             AlarmRingtoneService.stopAlarmRingtone(this)
             
             // Send missed alarm broadcast for JS (if alive) - with package for Android 14+ compatibility
-            // Include recurrence info for native rescheduling fallback
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
                 setPackage(packageName)
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("time", timeFormat.format(Date()))
-                putExtra("priority", priority)
-                putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
-                putExtra("unit", getIntent().getStringExtra("unit"))
-                putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
-                putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
-                putExtra("untilCount", getIntent().getIntExtra("untilCount", 0))
-                putExtra("occurrenceCount", getIntent().getIntExtra("occurrenceCount", 0))
             }
             sendBroadcast(missedIntent)
-            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent with recurrence info")
+            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
             
             // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
-            val interval = getIntent().getDoubleExtra("interval", 0.0)
-            postMissedNotification(reminderId, title, interval)
+            postMissedNotification(reminderId, title)
 
             // Cancel the ACTIVE ringing notification to stop the fullscreen/ongoing state
             cancelNotification()
@@ -1002,9 +850,6 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
-        // Get title from the original intent
-        val title = getIntent().getStringExtra("title") ?: "Reminder"
-        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -1018,16 +863,16 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast
-        val snoozeIntent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+        val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
-            putExtra("title", title)
+            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
             putExtra("priority", priority)
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
-        sendBroadcast(snoozeIntent)
+        sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -1042,9 +887,6 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
-        // Get title from the original intent
-        val title = getIntent().getStringExtra("title") ?: "Reminder"
-        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -1058,21 +900,13 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast as fallback for when app is running
-        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
+        val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
-            putExtra("title", title)
-            putExtra("priority", priority)
-            putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
-            putExtra("unit", getIntent().getStringExtra("unit"))
-            putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
-            putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
-            putExtra("untilCount", getIntent().getIntExtra("untilCount", 0))
-            putExtra("occurrenceCount", getIntent().getIntExtra("occurrenceCount", 0))
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with title: \${title}")
-        sendBroadcast(doneIntent)
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
+        sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -1122,10 +956,8 @@ class AlarmActivity : AppCompatActivity() {
         DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
     }
 
-    private fun postMissedNotification(id: String?, title: String?, interval: Double) {
+    private fun postMissedNotification(id: String?, title: String?) {
         if (id == null) return
-        
-        val isRepeating = interval > 0
         
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -1144,17 +976,16 @@ class AlarmActivity : AppCompatActivity() {
                 notificationManager.createNotificationChannel(channel)
             }
             
-            // Create dismiss action intent
-            val dismissIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
-                action = "com.dominder.DISMISS_MISSED_ALARM"
+            // Create delete action intent
+            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
+                action = "com.dominder.DELETE_MISSED_ALARM"
                 putExtra("reminderId", id)
                 putExtra("notificationId", id.hashCode() + 999)
-                putExtra("isRepeating", isRepeating)
             }
-            val dismissPendingIntent = PendingIntent.getBroadcast(
+            val deletePendingIntent = PendingIntent.getBroadcast(
                 this,
                 id.hashCode() + 500,
-                dismissIntent,
+                deleteIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
@@ -1181,14 +1012,14 @@ class AlarmActivity : AppCompatActivity() {
                 .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
                 .setOngoing(true) // Non-swipable
                 .setAutoCancel(false)
-                .addAction(0, "Dismiss", dismissPendingIntent)
+                .addAction(0, "Delete", deletePendingIntent)
             
             if (contentPendingIntent != null) {
                 notifBuilder.setContentIntent(contentPendingIntent)
             }
 
             notificationManager.notify(id.hashCode() + 999, notifBuilder.build())
-            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with dismiss button (isRepeating: \${isRepeating})")
+            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with delete button")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Failed to post missed notification: \${e.message}")
         }
@@ -1209,9 +1040,16 @@ class AlarmActivity : AppCompatActivity() {
             // Method 2: Finish this activity
             finish()
             
-            // Method 3: REMOVED process killing to allow JS to handle rescheduling
-            // The activity is already finished, so we just let the process live
-            DebugLogger.log("AlarmActivity: Keeping process alive for JS events")
+            // Method 3: As a final cleanup, exit this process after a delay
+            // This ensures the alarm activity process is completely cleaned up
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    // Only kill this specific activity's process, not the main app
+                    Process.killProcess(Process.myPid())
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmActivity: Error killing process: \${e.message}")
+                }
+            }, 500)
             
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {
@@ -1261,14 +1099,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
-        val interval = intent.getDoubleExtra("interval", 0.0)
-        val unit = intent.getStringExtra("unit")
-        val endDate = intent.getDoubleExtra("endDate", 0.0)
-        val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
-        val untilCount = intent.getIntExtra("untilCount", 0)
-        val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
-        
-        DebugLogger.log("AlarmReceiver: untilCount=\$untilCount, occurrenceCount=\$occurrenceCount")
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -1313,12 +1143,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
-            putExtra("interval", interval)
-            putExtra("unit", unit)
-            putExtra("endDate", endDate)
-            putExtra("triggerTime", triggerTime)
-            putExtra("untilCount", untilCount)
-            putExtra("occurrenceCount", occurrenceCount)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -1334,12 +1158,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
-            putExtra("interval", interval)
-            putExtra("unit", unit)
-            putExtra("endDate", endDate)
-            putExtra("triggerTime", triggerTime)
-            putExtra("untilCount", untilCount)
-            putExtra("occurrenceCount", occurrenceCount)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
@@ -1361,9 +1179,7 @@ class AlarmReceiver : BroadcastReceiver() {
             // FIX: Add content intent for notification tap handling.
             .setContentIntent(contentPendingIntent)
             // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
-            .setOngoing(true)
-
-            .setAutoCancel(false)
+            .setAutoCancel(true)
             // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .build()
@@ -1868,13 +1684,12 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 class MissedAlarmDeleteReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != "com.dominder.DISMISS_MISSED_ALARM") return
+        if (intent.action != "com.dominder.DELETE_MISSED_ALARM") return
         
         val reminderId = intent.getStringExtra("reminderId") ?: return
         val notificationId = intent.getIntExtra("notificationId", 0)
-        val isRepeating = intent.getBooleanExtra("isRepeating", false)
         
-        DebugLogger.log("MissedAlarmDeleteReceiver: Dismiss action for reminder \$reminderId (isRepeating: \$isRepeating)")
+        DebugLogger.log("MissedAlarmDeleteReceiver: Delete action for reminder \$reminderId")
         
         // Cancel the notification
         if (notificationId != 0) {
@@ -1883,47 +1698,41 @@ class MissedAlarmDeleteReceiver : BroadcastReceiver() {
             DebugLogger.log("MissedAlarmDeleteReceiver: Cancelled notification \$notificationId")
         }
         
-        // For repeating reminders, just cancel the notification (do nothing else)
-        // For once reminders, permanently delete the reminder
-        if (!isRepeating) {
-            // Mark reminder as dismissed (permanently deleted) in SharedPreferences for JS to pick up
-            try {
-                val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-                prefs.edit().apply {
-                    putString("dismissed_\${reminderId}", System.currentTimeMillis().toString())
-                    apply()
-                }
-                DebugLogger.log("MissedAlarmDeleteReceiver: Saved dismissal to SharedPreferences for once reminder")
-            } catch (e: Exception) {
-                DebugLogger.log("MissedAlarmDeleteReceiver: Error saving to SharedPreferences: \${e.message}")
+        // Mark reminder as deleted in SharedPreferences for JS to pick up
+        try {
+            val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("deleted_\${reminderId}", System.currentTimeMillis().toString())
+                apply()
             }
-            
-            // Try to emit event to React Native if app is running
-            try {
-                val app = context.applicationContext
-                if (app is ReactApplication) {
-                    val reactInstanceManager = app.reactNativeHost.reactInstanceManager
-                    val reactContext = reactInstanceManager.currentReactContext
-                    
-                    if (reactContext != null) {
-                        val params = Arguments.createMap().apply {
-                            putString("reminderId", reminderId)
-                        }
-                        
-                        reactContext
-                            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                            .emit("onMissedAlarmDismissed", params)
-                            
-                        DebugLogger.log("MissedAlarmDeleteReceiver: Emitted onMissedAlarmDismissed event")
-                    } else {
-                        DebugLogger.log("MissedAlarmDeleteReceiver: ReactContext is null, dismissal saved to SharedPreferences")
+            DebugLogger.log("MissedAlarmDeleteReceiver: Saved deletion to SharedPreferences")
+        } catch (e: Exception) {
+            DebugLogger.log("MissedAlarmDeleteReceiver: Error saving to SharedPreferences: \${e.message}")
+        }
+        
+        // Try to emit event to React Native if app is running
+        try {
+            val app = context.applicationContext
+            if (app is ReactApplication) {
+                val reactInstanceManager = app.reactNativeHost.reactInstanceManager
+                val reactContext = reactInstanceManager.currentReactContext
+                
+                if (reactContext != null) {
+                    val params = Arguments.createMap().apply {
+                        putString("reminderId", reminderId)
                     }
+                    
+                    reactContext
+                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                        .emit("onMissedAlarmDeleted", params)
+                        
+                    DebugLogger.log("MissedAlarmDeleteReceiver: Emitted onMissedAlarmDeleted event")
+                } else {
+                    DebugLogger.log("MissedAlarmDeleteReceiver: ReactContext is null, deletion saved to SharedPreferences")
                 }
-            } catch (e: Exception) {
-                DebugLogger.log("MissedAlarmDeleteReceiver: Error emitting event: \${e.message}")
             }
-        } else {
-            DebugLogger.log("MissedAlarmDeleteReceiver: Repeating reminder - just cancelled notification, no further action")
+        } catch (e: Exception) {
+            DebugLogger.log("MissedAlarmDeleteReceiver: Error emitting event: \${e.message}")
         }
     }
 }`
@@ -2251,7 +2060,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, interval: Double = 0.0, unit: String? = null, endDate: Double = 0.0, untilCount: Int = 0, occurrenceCount: Int = 0, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -2268,12 +2077,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority ?: "medium")
-                putExtra("interval", interval)
-                putExtra("unit", unit)
-                putExtra("endDate", endDate)
-                putExtra("triggerTime", triggerTime) // Pass triggerTime for native reschedule
-                putExtra("untilCount", untilCount)
-                putExtra("occurrenceCount", occurrenceCount)
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -2283,7 +2086,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime with interval=\$interval \$unit, untilCount=\$untilCount, occurrenceCount=\$occurrenceCount")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -2342,16 +2145,15 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, ringerVolume: Int = 40, promise: Promise? = null) {
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             prefs.edit().apply {
                 putBoolean("ringer_sound_enabled", soundEnabled)
                 putBoolean("ringer_vibration_enabled", vibrationEnabled)
-                putInt("ringer_volume", ringerVolume)
                 apply()
             }
-            DebugLogger.log("AlarmModule: Saved notification settings - sound: \$soundEnabled, vibration: \$vibrationEnabled, volume: \$ringerVolume%")
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving notification settings: \${e.message}")
@@ -2470,40 +2272,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error clearing deleted alarm: \${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun getDismissedAlarms(promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            val dismissed = Arguments.createMap()
-            
-            prefs.all.forEach { (key, value) ->
-                if (key.startsWith("dismissed_")) {
-                    val reminderId = key.removePrefix("dismissed_")
-                    dismissed.putString(reminderId, value.toString())
-                }
-            }
-            
-            DebugLogger.log("AlarmModule: Retrieved \${dismissed.toHashMap().size} dismissed alarms")
-            promise.resolve(dismissed)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting dismissed alarms: \${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun clearDismissedAlarm(reminderId: String, promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().remove("dismissed_\${reminderId}").apply()
-            DebugLogger.log("AlarmModule: Cleared dismissed alarm \${reminderId}")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing dismissed alarm: \${e.message}")
             promise.reject("ERROR", e.message, e)
         }
     }
@@ -2803,7 +2571,7 @@ const withAlarmManifest = (config) => {
             $: { 'android:name': '.alarm.MissedAlarmDeleteReceiver', 'android:exported': 'false' },
             'intent-filter': [{
                 action: [
-                    { $: { 'android:name': 'com.dominder.DISMISS_MISSED_ALARM' } }
+                    { $: { 'android:name': 'com.dominder.DELETE_MISSED_ALARM' } }
                 ]
             }]
         });

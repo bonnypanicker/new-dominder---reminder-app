@@ -90,20 +90,53 @@ class MissedAlarmService {
         console.log('[MissedAlarmService] No original notification to cancel');
       }
 
-      // NOTE: The native code (AlarmActivity.postMissedNotification) already posts
-      // a missed notification. We only need to handle the JS side here if the native
-      // notification wasn't posted (e.g., if called from JS directly).
-      // Check if native notification already exists before posting a duplicate.
+      // Create notification for missed ringer
+      const channelId = 'missed-alarm-v1';
       
-      // For now, skip posting from JS since native handles it
-      // This prevents duplicate notifications
-      console.log('[MissedAlarmService] Native code handles missed notification, skipping JS notification');
-      
-      // Just emit the event for any listeners
-      DeviceEventEmitter.emit('remindersChanged');
+      // Ensure channel exists
+      await notifee.createChannel({
+        id: channelId,
+        name: 'Missed Ringer Alarms',
+        importance: AndroidImportance.HIGH,
+        sound: 'default',
+      });
 
+      const body = time 
+        ? `${title}\n${time}`
+        : title;
+
+      await notifee.displayNotification({
+        id: `missed-${reminderId}`,
+        title: 'You missed a Ringer reminder',
+        body,
+        data: {
+          reminderId,
+          type: 'missed',
+        },
+        android: {
+          channelId,
+          importance: AndroidImportance.HIGH,
+          smallIcon: 'small_icon_noti',
+          color: '#F44336', // Red color for missed
+          pressAction: {
+            id: 'default',
+            launchActivity: 'default',
+          },
+          style: {
+            type: AndroidStyle.BIGTEXT,
+            text: body,
+          },
+          autoCancel: true,
+          ongoing: true, // Non-swipable
+          actions: [
+            { title: 'Delete', pressAction: { id: 'delete_missed' } },
+          ],
+        },
+      });
+
+      console.log('[MissedAlarmService] Displayed missed notification for:', reminderId);
     } catch (error) {
-      console.error('[MissedAlarmService] Error in showMissedNotification:', error);
+      console.error('[MissedAlarmService] Error displaying notification:', error);
     }
   }
 }

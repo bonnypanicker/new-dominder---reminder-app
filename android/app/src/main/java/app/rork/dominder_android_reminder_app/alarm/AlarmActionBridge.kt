@@ -23,26 +23,10 @@ class AlarmActionBridge : BroadcastReceiver() {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: ${reminderId}")
-                
-                val interval = intent.getDoubleExtra("interval", 0.0)
-                val unit = intent.getStringExtra("unit")
-                val endDate = intent.getDoubleExtra("endDate", 0.0)
-                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
-                val title = intent.getStringExtra("title") ?: "Reminder"
-                val priority = intent.getStringExtra("priority") ?: "medium"
-                val untilCount = intent.getIntExtra("untilCount", 0)
-                val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
-
                 if (reminderId != null) {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
                     emitEventToReactNative(context, "alarmDone", reminderId, 0)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
-                    
-                    // Native Rescheduling Fallback
-                    if (interval > 0 && unit != null) {
-                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule (interval=${interval} ${unit}, untilCount=${untilCount}, occurrenceCount=${occurrenceCount})")
-                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime, untilCount, occurrenceCount)
-                    }
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
@@ -68,120 +52,18 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
             "com.dominder.MISSED_ALARM" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                val title = intent.getStringExtra("title") ?: "Reminder"
+                val title = intent.getStringExtra("title")
                 val time = intent.getStringExtra("time")
                 
-                // Get recurrence info from SharedPreferences or intent
-                val interval = intent.getDoubleExtra("interval", 0.0)
-                val unit = intent.getStringExtra("unit")
-                val endDate = intent.getDoubleExtra("endDate", 0.0)
-                val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
-                val priority = intent.getStringExtra("priority") ?: "medium"
-                val untilCount = intent.getIntExtra("untilCount", 0)
-                val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
-                
-                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}, interval: ${interval} ${unit}, untilCount=${untilCount}, occurrenceCount=${occurrenceCount}")
+                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}")
                 
                 if (reminderId != null) {
                     emitMissedAlarmToReactNative(context, reminderId, title, time)
-                    
-                    // Native Rescheduling Fallback for missed alarms with recurrence
-                    if (interval > 0 && unit != null) {
-                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule for missed alarm (interval=${interval} ${unit})")
-                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime, untilCount, occurrenceCount)
-                    }
                 }
             }
             else -> {
                 DebugLogger.log("AlarmActionBridge: Unknown action received: ${action}")
             }
-        }
-    }
-    
-    private fun calculateNextTime(baseTime: Long, interval: Double, unit: String): Long {
-        val multiplier = when (unit.lowercase()) {
-            "minutes", "minute" -> 60 * 1000L
-            "hours", "hour" -> 60 * 60 * 1000L
-            "days", "day" -> 24 * 60 * 60 * 1000L
-            "weeks", "week" -> 7 * 24 * 60 * 60 * 1000L
-            else -> 0L
-        }
-        return baseTime + (interval * multiplier).toLong()
-    }
-
-    private fun scheduleNextAlarm(context: Context, reminderId: String, title: String, priority: String, interval: Double, unit: String, endDate: Double, lastTriggerTime: Double, untilCount: Int = 0, occurrenceCount: Int = 0) {
-        try {
-            val now = System.currentTimeMillis()
-            
-            // Increment occurrence count for this completed occurrence
-            val newOccurrenceCount = occurrenceCount + 1
-            
-            // Check count cap BEFORE scheduling next alarm
-            if (untilCount > 0 && newOccurrenceCount >= untilCount) {
-                DebugLogger.log("AlarmActionBridge: Count cap reached (newOccurrenceCount=${newOccurrenceCount} >= untilCount=${untilCount}), NOT scheduling next alarm")
-                return
-            }
-            
-            // Use lastTriggerTime as base to prevent slip. If invalid (0), fallback to now.
-            var baseTime = if (lastTriggerTime > 0) lastTriggerTime.toLong() else now
-            
-            var nextTime = calculateNextTime(baseTime, interval, unit)
-            
-            // If nextTime is already in the past (e.g. user delayed action, or device was off),
-            // catch up by adding intervals until we are in the future.
-            // This maintains the cadence (e.g. 12:00, 12:02, 12:04) even if processed at 12:03.
-            while (nextTime <= now) {
-                DebugLogger.log("AlarmActionBridge: nextTime ${nextTime} is in past (now=${now}), adding interval to catch up")
-                nextTime = calculateNextTime(nextTime, interval, unit)
-            }
-            
-            // If endDate is set and nextTime is past it, don't schedule
-            if (endDate > 0 && nextTime > endDate) {
-                DebugLogger.log("AlarmActionBridge: Next alarm time ${nextTime} is past end date ${endDate}, skipping")
-                return
-            }
-            
-            DebugLogger.log("AlarmActionBridge: Scheduling next recurring alarm for ${nextTime} (newOccurrenceCount=${newOccurrenceCount})")
-            
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority)
-                // Pass recurrence info for next time
-                putExtra("interval", interval)
-                putExtra("unit", unit)
-                putExtra("endDate", endDate)
-                putExtra("triggerTime", nextTime.toDouble()) // Update triggerTime for next loop
-                putExtra("untilCount", untilCount)
-                putExtra("occurrenceCount", newOccurrenceCount) // Pass incremented count
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                reminderId.hashCode(),
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                 if (!alarmManager.canScheduleExactAlarms()) {
-                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm for recurrence")
-                     return
-                 }
-            }
-
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                nextTime,
-                pendingIntent
-            )
-            DebugLogger.log("AlarmActionBridge: Recurring alarm scheduled successfully")
-
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error scheduling recurring alarm: ${e.message}")
         }
     }
     

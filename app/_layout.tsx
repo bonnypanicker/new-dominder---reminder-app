@@ -145,13 +145,13 @@ function AppContent() {
           console.log('[RootLayout] Midnight refresh trigger received');
           // Immediately cancel the trigger notification
           if (notification?.id) {
-            try { await notifee.cancelNotification(notification.id); } catch { }
+            try { await notifee.cancelNotification(notification.id); } catch {}
           }
           const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('../services/notification-refresh-service');
           // Trigger pending check to catch any missed ringers at midnight
           const { checkAndTriggerPendingNotifications } = require('../services/startup-notification-check');
           await checkAndTriggerPendingNotifications();
-
+          
           await refreshDisplayedNotifications();
           await scheduleMidnightRefresh(); // Schedule next midnight refresh
           return;
@@ -169,7 +169,7 @@ function AppContent() {
           // Get reminder and check if it's an "every" type that needs automatic rescheduling
           const reminderService = require('../services/reminder-service');
           const reminder = await reminderService.getReminder(reminderId);
-
+          
           if (!reminder) {
             console.log(`[RootLayout] Reminder ${reminderId} not found for delivered event`);
             return;
@@ -179,12 +179,13 @@ function AppContent() {
           if (reminder.repeatType !== 'none') {
             console.log(`[RootLayout] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId} (foreground)`);
 
-            // Increment occurrence count on delivery
+            // Increment occurrence count on delivery (but do not exceed untilCount)
             const occurred = reminder.occurrenceCount ?? 0;
-            const nextOccurCount = occurred + 1;
+            const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
+            const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount as number)
+              ? occurred
+              : occurred + 1;
             const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
-            
-            console.log(`[RootLayout] Occurrence count: ${occurred} -> ${nextOccurCount}, untilType: ${reminder.untilType}, untilCount: ${reminder.untilCount}`);
 
             const reminderUtils = require('../services/reminder-utils');
             const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
@@ -212,41 +213,20 @@ function AppContent() {
               console.log(`[RootLayout] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()} (foreground)`);
             } else {
               // No next occurrence (likely due to Until constraints).
-              // This is the FINAL occurrence - mark as completed after user action.
-              // But we need to persist the incremented count now.
-              console.log(`[RootLayout] Final occurrence reached for ${reminderId} (foreground); count=${nextOccurCount}`);
-              
-              // Create a history item for this final occurrence
-              const historyItem = {
-                ...forCalc, // Use forCalc which has the incremented occurrenceCount
-                id: `${reminderId}_${Date.now()}_hist`,
-                parentId: reminderId,
-                isCompleted: true,
-                isActive: false,
-                repeatType: 'none',
-                snoozeUntil: undefined,
-                wasSnoozed: undefined,
-                lastTriggeredAt: reminder.nextReminderDate || new Date().toISOString(),
-                createdAt: new Date().toISOString(),
-                nextReminderDate: undefined,
-                notificationId: undefined
-              };
-              await reminderService.addReminder(historyItem);
-              console.log(`[RootLayout] Created history item for final occurrence: ${historyItem.id}`);
-              
-              // Mark the main reminder as completed
+              // Do NOT mark completed yet to avoid cancelling the just-delivered notification.
+              // Persist occurrenceCount and lastTriggeredAt; leave notification visible for user action.
               const finalOccurrenceState = {
                 ...forCalc,
                 nextReminderDate: undefined,
                 lastTriggeredAt: new Date().toISOString(),
                 snoozeUntil: undefined,
                 wasSnoozed: undefined,
-                isActive: false,
-                isCompleted: true,
+                isActive: true,
+                isCompleted: false,
                 isPaused: false,
               };
               await reminderService.updateReminder(finalOccurrenceState);
-              console.log(`[RootLayout] Marked reminder ${reminderId} as completed (final occurrence)`);
+              console.log(`[RootLayout] Final occurrence reached for ${reminderId} (foreground); left notification visible (no further scheduling)`);
             }
           }
           return;
@@ -283,13 +263,16 @@ function AppContent() {
             return;
           }
 
-          // Handle dismiss action from missed notification (for "once" reminders only)
-          if (pressAction.id === 'dismiss_missed') {
-            console.log('[RootLayout] Dismiss missed reminder:', reminderId);
+          // Handle delete action from missed notification
+          if (pressAction.id === 'delete_missed') {
+            console.log('[RootLayout] Delete missed reminder:', reminderId);
             const reminderService = require('../services/reminder-service');
-            // Permanently delete the reminder (not soft delete - don't show in deleted page)
-            await reminderService.permanentlyDeleteReminder(reminderId);
-            console.log('[RootLayout] Reminder permanently deleted:', reminderId);
+            // Use standard service method which handles:
+            // 1. Soft delete in storage
+            // 2. Cancellation of all notifications (scheduled, displayed, missed, native)
+            // 3. Emitting change events
+            await reminderService.deleteReminder(reminderId);
+            console.log('[RootLayout] Reminder moved to deleted:', reminderId);
             return;
           }
 
@@ -310,7 +293,7 @@ function AppContent() {
         console.log('[RootLayout] Cleaning up notification handlers');
         alarmActionListener.remove();
         unsub && unsub();
-      } catch { }
+      } catch {}
     };
   }, [router, queryClient]);
 
@@ -318,7 +301,7 @@ function AppContent() {
   useEffect(() => {
     console.log('[RootLayout] Initializing missed alarm service');
     missedAlarmService.initialize();
-
+    
     return () => {
       missedAlarmService.cleanup();
     };
@@ -337,8 +320,7 @@ function AppContent() {
           if (AlarmModule?.saveNotificationSettings) {
             await AlarmModule.saveNotificationSettings(
               settings.soundEnabled ?? true,
-              settings.vibrationEnabled ?? true,
-              settings.ringerVolume ?? 40
+              settings.vibrationEnabled ?? true
             );
             console.log('[RootLayout] Initialized notification settings in native');
           }

@@ -92,27 +92,18 @@ class AlarmActivity : AppCompatActivity() {
             AlarmRingtoneService.stopAlarmRingtone(this)
             
             // Send missed alarm broadcast for JS (if alive) - with package for Android 14+ compatibility
-            // Include recurrence info for native rescheduling fallback
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
                 setPackage(packageName)
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("time", timeFormat.format(Date()))
-                putExtra("priority", priority)
-                putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
-                putExtra("unit", getIntent().getStringExtra("unit"))
-                putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
-                putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
-                putExtra("untilCount", getIntent().getIntExtra("untilCount", 0))
-                putExtra("occurrenceCount", getIntent().getIntExtra("occurrenceCount", 0))
             }
             sendBroadcast(missedIntent)
-            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent with recurrence info")
+            DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
             
             // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
-            val interval = getIntent().getDoubleExtra("interval", 0.0)
-            postMissedNotification(reminderId, title, interval)
+            postMissedNotification(reminderId, title)
 
             // Cancel the ACTIVE ringing notification to stop the fullscreen/ongoing state
             cancelNotification()
@@ -140,9 +131,6 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
-        // Get title from the original intent
-        val title = getIntent().getStringExtra("title") ?: "Reminder"
-        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -156,16 +144,16 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast
-        val snoozeIntent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+        val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
-            putExtra("title", title)
+            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
             putExtra("priority", priority)
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
-        sendBroadcast(snoozeIntent)
+        sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -180,9 +168,6 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
-        // Get title from the original intent
-        val title = getIntent().getStringExtra("title") ?: "Reminder"
-        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -196,21 +181,13 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast as fallback for when app is running
-        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
+        val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
-            putExtra("title", title)
-            putExtra("priority", priority)
-            putExtra("interval", getIntent().getDoubleExtra("interval", 0.0))
-            putExtra("unit", getIntent().getStringExtra("unit"))
-            putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
-            putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
-            putExtra("untilCount", getIntent().getIntExtra("untilCount", 0))
-            putExtra("occurrenceCount", getIntent().getIntExtra("occurrenceCount", 0))
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with title: ${title}")
-        sendBroadcast(doneIntent)
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}")
+        sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -260,10 +237,8 @@ class AlarmActivity : AppCompatActivity() {
         DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
     }
 
-    private fun postMissedNotification(id: String?, title: String?, interval: Double) {
+    private fun postMissedNotification(id: String?, title: String?) {
         if (id == null) return
-        
-        val isRepeating = interval > 0
         
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -282,17 +257,16 @@ class AlarmActivity : AppCompatActivity() {
                 notificationManager.createNotificationChannel(channel)
             }
             
-            // Create dismiss action intent
-            val dismissIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
-                action = "com.dominder.DISMISS_MISSED_ALARM"
+            // Create delete action intent
+            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
+                action = "com.dominder.DELETE_MISSED_ALARM"
                 putExtra("reminderId", id)
                 putExtra("notificationId", id.hashCode() + 999)
-                putExtra("isRepeating", isRepeating)
             }
-            val dismissPendingIntent = PendingIntent.getBroadcast(
+            val deletePendingIntent = PendingIntent.getBroadcast(
                 this,
                 id.hashCode() + 500,
-                dismissIntent,
+                deleteIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
@@ -319,14 +293,14 @@ class AlarmActivity : AppCompatActivity() {
                 .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
                 .setOngoing(true) // Non-swipable
                 .setAutoCancel(false)
-                .addAction(0, "Dismiss", dismissPendingIntent)
+                .addAction(0, "Delete", deletePendingIntent)
             
             if (contentPendingIntent != null) {
                 notifBuilder.setContentIntent(contentPendingIntent)
             }
 
             notificationManager.notify(id.hashCode() + 999, notifBuilder.build())
-            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with dismiss button (isRepeating: ${isRepeating})")
+            DebugLogger.log("AlarmActivity: Posted non-swipable missed notification with delete button")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Failed to post missed notification: ${e.message}")
         }
@@ -347,9 +321,16 @@ class AlarmActivity : AppCompatActivity() {
             // Method 2: Finish this activity
             finish()
             
-            // Method 3: REMOVED process killing to allow JS to handle rescheduling
-            // The activity is already finished, so we just let the process live
-            DebugLogger.log("AlarmActivity: Keeping process alive for JS events")
+            // Method 3: As a final cleanup, exit this process after a delay
+            // This ensures the alarm activity process is completely cleaned up
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    // Only kill this specific activity's process, not the main app
+                    Process.killProcess(Process.myPid())
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmActivity: Error killing process: ${e.message}")
+                }
+            }, 500)
             
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {

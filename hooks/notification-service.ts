@@ -13,7 +13,7 @@ import { NativeModules, Platform } from 'react-native';
 import type { Priority, RepeatType, EveryUnit } from '@/types/reminder';
 
 const AlarmModule: {
-  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string, interval?: number, unit?: string, endDate?: number, untilCount?: number, occurrenceCount?: number) => Promise<void>;
+  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => Promise<void>;
   cancelAlarm?: (reminderId: string) => void;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
@@ -310,38 +310,8 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
     } else {
       try {
-        // Calculate recurrence for native fallback
-        let interval = 0;
-        let unit = undefined;
-        let endDate = 0;
-        let untilCount = 0;
-        let occurrenceCount = 0;
-
-        if (reminder.repeatType === 'every' && reminder.everyInterval) {
-            interval = reminder.everyInterval.value;
-            unit = reminder.everyInterval.unit;
-            
-            if (reminder.untilType === 'endsAt' && reminder.untilDate) {
-                 const [y, m, d] = reminder.untilDate.split('-').map(Number);
-                 const endD = new Date(y, (m || 1) - 1, d || 1);
-                 if (reminder.untilTime) {
-                     const [h, min] = reminder.untilTime.split(':').map(Number);
-                     endD.setHours(h, min, 0, 0);
-                 } else {
-                     endD.setHours(23, 59, 59, 999);
-                 }
-                 endDate = endD.getTime();
-            }
-            
-            // Pass count-based end info to native
-            if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
-                untilCount = reminder.untilCount;
-                occurrenceCount = reminder.occurrenceCount ?? 0;
-            }
-        }
-
-        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority, interval, unit, endDate, untilCount, occurrenceCount);
-        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}, untilCount=${untilCount}, occurrenceCount=${occurrenceCount}`);
+        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
+        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
         return;
       } catch (e) {
         console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);

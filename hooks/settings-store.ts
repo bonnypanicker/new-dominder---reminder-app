@@ -14,7 +14,6 @@ export interface AppSettings {
   sortMode: 'creation' | 'upcoming';
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
-  ringerVolume: number; // 0-100 percentage
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -25,7 +24,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
-  ringerVolume: 40, // Default to 40% volume
 };
 
 export const useSettings = () => {
@@ -49,14 +47,14 @@ export const useSettings = () => {
 
 export const useUpdateSettings = () => {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
     mutationFn: async (updates: Partial<AppSettings>): Promise<AppSettings> => {
       try {
         const current = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
         const currentSettings: AppSettings = current ? JSON.parse(current) as AppSettings : DEFAULT_SETTINGS;
         const updatedSettings: AppSettings = { ...currentSettings, ...updates };
-
+        
         await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updatedSettings));
         return updatedSettings;
       } catch (error) {
@@ -77,7 +75,7 @@ export const useUpdateSettings = () => {
           }
         }
 
-        if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean' || typeof variables.ringerVolume === 'number') {
+        if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean') {
           // Save to native SharedPreferences for AlarmRingtoneService to read
           const { NativeModules } = require('react-native');
           const { AlarmModule } = NativeModules;
@@ -85,8 +83,7 @@ export const useUpdateSettings = () => {
             try {
               await AlarmModule.saveNotificationSettings(
                 data.soundEnabled,
-                data.vibrationEnabled,
-                data.ringerVolume
+                data.vibrationEnabled
               );
             } catch (e) {
               console.log('Failed to save notification settings to native:', e);

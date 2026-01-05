@@ -17,14 +17,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
-        val interval = intent.getDoubleExtra("interval", 0.0)
-        val unit = intent.getStringExtra("unit")
-        val endDate = intent.getDoubleExtra("endDate", 0.0)
-        val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
-        val untilCount = intent.getIntExtra("untilCount", 0)
-        val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
-        
-        DebugLogger.log("AlarmReceiver: untilCount=$untilCount, occurrenceCount=$occurrenceCount")
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -69,12 +61,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
-            putExtra("interval", interval)
-            putExtra("unit", unit)
-            putExtra("endDate", endDate)
-            putExtra("triggerTime", triggerTime)
-            putExtra("untilCount", untilCount)
-            putExtra("occurrenceCount", occurrenceCount)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -90,12 +76,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
-            putExtra("interval", interval)
-            putExtra("unit", unit)
-            putExtra("endDate", endDate)
-            putExtra("triggerTime", triggerTime)
-            putExtra("untilCount", untilCount)
-            putExtra("occurrenceCount", occurrenceCount)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
@@ -117,9 +97,7 @@ class AlarmReceiver : BroadcastReceiver() {
             // FIX: Add content intent for notification tap handling.
             .setContentIntent(contentPendingIntent)
             // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
-            .setOngoing(true)
-
-            .setAutoCancel(false)
+            .setAutoCancel(true)
             // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .build()

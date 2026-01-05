@@ -121,13 +121,16 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       return;
     }
 
-    // Handle dismiss action from missed notification (for "once" reminders only)
-    if (pressAction.id === 'dismiss_missed') {
-      console.log('[onBackgroundEvent] Dismiss missed reminder:', reminderId);
+    // Handle delete action from missed notification
+    if (pressAction.id === 'delete_missed') {
+      console.log('[onBackgroundEvent] Delete missed reminder:', reminderId);
       const reminderService = require('./services/reminder-service');
-      // Permanently delete the reminder (not soft delete - don't show in deleted page)
-      await reminderService.permanentlyDeleteReminder(reminderId);
-      console.log('[onBackgroundEvent] Reminder permanently deleted:', reminderId);
+      // Use standard service method which handles:
+      // 1. Soft delete in storage
+      // 2. Cancellation of all notifications (scheduled, displayed, missed, native)
+      // 3. Emitting change events
+      await reminderService.deleteReminder(reminderId);
+      console.log('[onBackgroundEvent] Reminder moved to deleted:', reminderId);
       return;
     }
 

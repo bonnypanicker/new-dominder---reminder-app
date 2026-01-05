@@ -15,7 +15,6 @@
     "@nkzw/create-context-hook": "^1.1.0",
     "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "2.1.2",
-    "@react-native-community/slider": "^5.1.1",
     "@react-navigation/native": "^7.1.6",
     "@shopify/flash-list": "1.7.6",
     "@stardazed/streams-text-encoding": "^1.0.2",
@@ -39,7 +38,6 @@
     "expo-system-ui": "~5.0.6",
     "expo-web-browser": "^14.2.0",
     "lucide-react-native": "^0.544.0",
-    "nativewind": "^4.1.23",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.6",
@@ -51,7 +49,8 @@
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0",
     "react-native-worklets": "~0.6.0",
-    "zustand": "^5.0.2"
+    "zustand": "^5.0.2",
+    "@rork-ai/toolkit-sdk": "0.2.51"
   },
   "overrides": {
     "react-native-worklets": "~0.6.0"

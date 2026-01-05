@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState, NativeModules, Platform } from 'react-native';
 import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
-import { deleteReminder, permanentlyDeleteReminder } from '@/services/reminder-service';
+import { deleteReminder } from '@/services/reminder-service';
 
 const { AlarmModule } = NativeModules;
 
@@ -35,13 +35,6 @@ export function useCompletedAlarmSync() {
         // Avoid processing the same alarm twice in one session
         if (processedRef.current.has(key)) {
           console.log('[AlarmSync] Already processed completion for:', reminderId);
-          // Still clear from SharedPreferences to prevent buildup
-          try {
-            await AlarmModule.clearCompletedAlarm(reminderId);
-            console.log('[AlarmSync] Cleared already-processed alarm from SharedPreferences:', reminderId);
-          } catch (e) {
-            console.error('[AlarmSync] Error clearing already-processed alarm:', e);
-          }
           continue;
         }
 
@@ -75,13 +68,6 @@ export function useCompletedAlarmSync() {
         // Avoid processing the same alarm twice
         if (processedRef.current.has(key)) {
           console.log('[AlarmSync] Already processed snooze for:', reminderId);
-          // Still clear from SharedPreferences to prevent buildup
-          try {
-            await AlarmModule.clearSnoozedAlarm(reminderId);
-            console.log('[AlarmSync] Cleared already-processed snooze from SharedPreferences:', reminderId);
-          } catch (e) {
-            console.error('[AlarmSync] Error clearing already-processed snooze:', e);
-          }
           continue;
         }
 
@@ -126,13 +112,6 @@ export function useCompletedAlarmSync() {
           // Avoid processing the same alarm twice
           if (processedRef.current.has(key)) {
             console.log('[AlarmSync] Already processed deletion for:', reminderId);
-            // Still clear from SharedPreferences to prevent buildup
-            try {
-              await AlarmModule.clearDeletedAlarm(reminderId);
-              console.log('[AlarmSync] Cleared already-processed deletion from SharedPreferences:', reminderId);
-            } catch (e) {
-              console.error('[AlarmSync] Error clearing already-processed deletion:', e);
-            }
             continue;
           }
 
@@ -151,48 +130,6 @@ export function useCompletedAlarmSync() {
             console.log('[AlarmSync] ✓ Successfully processed deletion for:', reminderId);
           } catch (error) {
             console.error('[AlarmSync] Error processing deleted alarm:', reminderId, error);
-          }
-        }
-      }
-
-      // Process dismissed alarms (from missed notification dismiss action - for "once" reminders only)
-      if (AlarmModule.getDismissedAlarms) {
-        const dismissedAlarms = await AlarmModule.getDismissedAlarms();
-        const dismissedEntries = Object.entries(dismissedAlarms || {});
-        
-        console.log('[AlarmSync] Found dismissed alarms:', dismissedEntries.length);
-        
-        for (const [reminderId, timestamp] of dismissedEntries) {
-          const key = `dismissed_${reminderId}`;
-          
-          // Avoid processing the same alarm twice
-          if (processedRef.current.has(key)) {
-            console.log('[AlarmSync] Already processed dismissal for:', reminderId);
-            // Still clear from SharedPreferences to prevent buildup
-            try {
-              await AlarmModule.clearDismissedAlarm(reminderId);
-              console.log('[AlarmSync] Cleared already-processed dismissal from SharedPreferences:', reminderId);
-            } catch (e) {
-              console.error('[AlarmSync] Error clearing already-processed dismissal:', e);
-            }
-            continue;
-          }
-
-          console.log('[AlarmSync] Processing dismissed alarm:', reminderId, 'at', timestamp);
-          
-          try {
-            // Permanently delete the reminder (not soft delete - don't show in deleted page)
-            await permanentlyDeleteReminder(reminderId);
-            
-            // Clear from SharedPreferences
-            await AlarmModule.clearDismissedAlarm(reminderId);
-            
-            // Mark as processed
-            processedRef.current.add(key);
-            
-            console.log('[AlarmSync] ✓ Successfully processed dismissal (permanent delete) for:', reminderId);
-          } catch (error) {
-            console.error('[AlarmSync] Error processing dismissed alarm:', reminderId, error);
           }
         }
       }

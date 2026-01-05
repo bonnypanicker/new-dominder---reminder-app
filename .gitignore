@@ -37,3 +37,8 @@ yarn-error.*
 .vercel
 credentials.json
 *.txt
+ios/
+android/
+.rork
+.env
+rork-eslint.config.js
