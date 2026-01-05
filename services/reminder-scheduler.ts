@@ -138,8 +138,9 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         // Create a history item for this completed occurrence
         // This ensures the user sees it in their "Completed" list
         // Use the CAPTURED scheduled time (before we update nextReminderDate)
+        // Use calcContext to get the correct incremented occurrenceCount
         const historyItem = {
-          ...reminder, // Use original reminder, not calcContext (which has incremented count)
+          ...calcContext, // Use calcContext which has the incremented occurrenceCount
           id: `${reminderId}_${Date.now()}_hist`,
           parentId: reminderId,
           isCompleted: true,

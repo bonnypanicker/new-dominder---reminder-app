@@ -43,7 +43,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     override fun getName(): String = "AlarmModule"
 
     @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, interval: Double = 0.0, unit: String? = null, endDate: Double = 0.0, promise: Promise? = null) {
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, interval: Double = 0.0, unit: String? = null, endDate: Double = 0.0, untilCount: Int = 0, occurrenceCount: Int = 0, promise: Promise? = null) {
         try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -64,6 +64,8 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("unit", unit)
                 putExtra("endDate", endDate)
                 putExtra("triggerTime", triggerTime) // Pass triggerTime for native reschedule
+                putExtra("untilCount", untilCount)
+                putExtra("occurrenceCount", occurrenceCount)
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -73,7 +75,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime with interval=$interval $unit")
+            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for $reminderId at $triggerTime with interval=$interval $unit, untilCount=$untilCount, occurrenceCount=$occurrenceCount")
             
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,

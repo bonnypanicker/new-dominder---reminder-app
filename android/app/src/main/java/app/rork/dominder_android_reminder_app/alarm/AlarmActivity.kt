@@ -103,6 +103,8 @@ class AlarmActivity : AppCompatActivity() {
                 putExtra("unit", getIntent().getStringExtra("unit"))
                 putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
                 putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
+                putExtra("untilCount", getIntent().getIntExtra("untilCount", 0))
+                putExtra("occurrenceCount", getIntent().getIntExtra("occurrenceCount", 0))
             }
             sendBroadcast(missedIntent)
             DebugLogger.log("AlarmActivity: Missed alarm broadcast sent with recurrence info")
@@ -203,6 +205,8 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("unit", getIntent().getStringExtra("unit"))
             putExtra("endDate", getIntent().getDoubleExtra("endDate", 0.0))
             putExtra("triggerTime", getIntent().getDoubleExtra("triggerTime", 0.0))
+            putExtra("untilCount", getIntent().getIntExtra("untilCount", 0))
+            putExtra("occurrenceCount", getIntent().getIntExtra("occurrenceCount", 0))
         }
         
         DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with title: ${title}")

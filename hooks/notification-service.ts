@@ -13,7 +13,7 @@ import { NativeModules, Platform } from 'react-native';
 import type { Priority, RepeatType, EveryUnit } from '@/types/reminder';
 
 const AlarmModule: {
-  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string, interval?: number, unit?: string, endDate?: number) => Promise<void>;
+  scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string, interval?: number, unit?: string, endDate?: number, untilCount?: number, occurrenceCount?: number) => Promise<void>;
   cancelAlarm?: (reminderId: string) => void;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
@@ -314,6 +314,8 @@ export async function scheduleReminderByModel(reminder: Reminder) {
         let interval = 0;
         let unit = undefined;
         let endDate = 0;
+        let untilCount = 0;
+        let occurrenceCount = 0;
 
         if (reminder.repeatType === 'every' && reminder.everyInterval) {
             interval = reminder.everyInterval.value;
@@ -330,10 +332,16 @@ export async function scheduleReminderByModel(reminder: Reminder) {
                  }
                  endDate = endD.getTime();
             }
+            
+            // Pass count-based end info to native
+            if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
+                untilCount = reminder.untilCount;
+                occurrenceCount = reminder.occurrenceCount ?? 0;
+            }
         }
 
-        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority, interval, unit, endDate);
-        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
+        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority, interval, unit, endDate, untilCount, occurrenceCount);
+        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}, untilCount=${untilCount}, occurrenceCount=${occurrenceCount}`);
         return;
       } catch (e) {
         console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);

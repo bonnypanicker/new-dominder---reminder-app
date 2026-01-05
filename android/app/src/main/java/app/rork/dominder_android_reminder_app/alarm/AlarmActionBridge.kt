@@ -30,6 +30,8 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val priority = intent.getStringExtra("priority") ?: "medium"
+                val untilCount = intent.getIntExtra("untilCount", 0)
+                val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
 
                 if (reminderId != null) {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
@@ -38,8 +40,8 @@ class AlarmActionBridge : BroadcastReceiver() {
                     
                     // Native Rescheduling Fallback
                     if (interval > 0 && unit != null) {
-                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule (interval=${interval} ${unit})")
-                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime)
+                        DebugLogger.log("AlarmActionBridge: Attempting native reschedule (interval=${interval} ${unit}, untilCount=${untilCount}, occurrenceCount=${occurrenceCount})")
+                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime, untilCount, occurrenceCount)
                     }
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
@@ -75,8 +77,10 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val endDate = intent.getDoubleExtra("endDate", 0.0)
                 val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
                 val priority = intent.getStringExtra("priority") ?: "medium"
+                val untilCount = intent.getIntExtra("untilCount", 0)
+                val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
                 
-                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}, interval: ${interval} ${unit}")
+                DebugLogger.log("AlarmActionBridge: MISSED_ALARM - reminderId: ${reminderId}, interval: ${interval} ${unit}, untilCount=${untilCount}, occurrenceCount=${occurrenceCount}")
                 
                 if (reminderId != null) {
                     emitMissedAlarmToReactNative(context, reminderId, title, time)
@@ -84,7 +88,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                     // Native Rescheduling Fallback for missed alarms with recurrence
                     if (interval > 0 && unit != null) {
                         DebugLogger.log("AlarmActionBridge: Attempting native reschedule for missed alarm (interval=${interval} ${unit})")
-                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime)
+                        scheduleNextAlarm(context, reminderId, title, priority, interval, unit, endDate, triggerTime, untilCount, occurrenceCount)
                     }
                 }
             }
@@ -105,9 +109,18 @@ class AlarmActionBridge : BroadcastReceiver() {
         return baseTime + (interval * multiplier).toLong()
     }
 
-    private fun scheduleNextAlarm(context: Context, reminderId: String, title: String, priority: String, interval: Double, unit: String, endDate: Double, lastTriggerTime: Double) {
+    private fun scheduleNextAlarm(context: Context, reminderId: String, title: String, priority: String, interval: Double, unit: String, endDate: Double, lastTriggerTime: Double, untilCount: Int = 0, occurrenceCount: Int = 0) {
         try {
             val now = System.currentTimeMillis()
+            
+            // Increment occurrence count for this completed occurrence
+            val newOccurrenceCount = occurrenceCount + 1
+            
+            // Check count cap BEFORE scheduling next alarm
+            if (untilCount > 0 && newOccurrenceCount >= untilCount) {
+                DebugLogger.log("AlarmActionBridge: Count cap reached (newOccurrenceCount=${newOccurrenceCount} >= untilCount=${untilCount}), NOT scheduling next alarm")
+                return
+            }
             
             // Use lastTriggerTime as base to prevent slip. If invalid (0), fallback to now.
             var baseTime = if (lastTriggerTime > 0) lastTriggerTime.toLong() else now
@@ -128,7 +141,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                 return
             }
             
-            DebugLogger.log("AlarmActionBridge: Scheduling next recurring alarm for ${nextTime}")
+            DebugLogger.log("AlarmActionBridge: Scheduling next recurring alarm for ${nextTime} (newOccurrenceCount=${newOccurrenceCount})")
             
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
@@ -142,6 +155,8 @@ class AlarmActionBridge : BroadcastReceiver() {
                 putExtra("unit", unit)
                 putExtra("endDate", endDate)
                 putExtra("triggerTime", nextTime.toDouble()) // Update triggerTime for next loop
+                putExtra("untilCount", untilCount)
+                putExtra("occurrenceCount", newOccurrenceCount) // Pass incremented count
             }
             
             val pendingIntent = PendingIntent.getBroadcast(

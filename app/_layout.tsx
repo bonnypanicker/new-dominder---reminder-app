@@ -218,7 +218,7 @@ function AppContent() {
               
               // Create a history item for this final occurrence
               const historyItem = {
-                ...reminder,
+                ...forCalc, // Use forCalc which has the incremented occurrenceCount
                 id: `${reminderId}_${Date.now()}_hist`,
                 parentId: reminderId,
                 isCompleted: true,

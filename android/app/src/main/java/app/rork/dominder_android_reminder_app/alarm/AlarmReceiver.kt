@@ -21,6 +21,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val unit = intent.getStringExtra("unit")
         val endDate = intent.getDoubleExtra("endDate", 0.0)
         val triggerTime = intent.getDoubleExtra("triggerTime", 0.0)
+        val untilCount = intent.getIntExtra("untilCount", 0)
+        val occurrenceCount = intent.getIntExtra("occurrenceCount", 0)
+        
+        DebugLogger.log("AlarmReceiver: untilCount=$untilCount, occurrenceCount=$occurrenceCount")
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -69,6 +73,8 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("unit", unit)
             putExtra("endDate", endDate)
             putExtra("triggerTime", triggerTime)
+            putExtra("untilCount", untilCount)
+            putExtra("occurrenceCount", occurrenceCount)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -88,6 +94,8 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("unit", unit)
             putExtra("endDate", endDate)
             putExtra("triggerTime", triggerTime)
+            putExtra("untilCount", untilCount)
+            putExtra("occurrenceCount", occurrenceCount)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
