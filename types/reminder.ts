@@ -48,10 +48,6 @@ export interface Reminder {
   untilIsAM?: boolean;
   ringerSound?: string;
   
-  // Completed occurrences tracking for repeating reminders
-  completedTimes?: string[]; // Array of ISO timestamps for each completed occurrence
-  parentId?: string; // For legacy history items (deprecated)
-  
   // Transient fields
   snoozeClearing?: boolean;
   notificationUpdating?: boolean;
