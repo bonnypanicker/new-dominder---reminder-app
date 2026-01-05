@@ -236,10 +236,11 @@ class AlarmActionBridge : BroadcastReceiver() {
         when (action) {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}")
+                val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
+                DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
-                    emitEventToReactNative(context, "alarmDone", reminderId, 0)
+                    emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
@@ -347,10 +348,10 @@ class AlarmActionBridge : BroadcastReceiver() {
         }
     }
 
-    private fun emitEventToReactNative(context: Context, eventName: String, reminderId: String, snoozeMinutes: Int) {
+    private fun emitEventToReactNative(context: Context, eventName: String, reminderId: String, snoozeMinutes: Int, triggerTime: Long = 0L) {
         try {
             DebugLogger.log("AlarmActionBridge: ===== emitEventToReactNative START =====")
-            DebugLogger.log("AlarmActionBridge: Event name: \${eventName}, reminderId: \${reminderId}")
+            DebugLogger.log("AlarmActionBridge: Event name: \${eventName}, reminderId: \${reminderId}, triggerTime: \${triggerTime}")
             
             val app = context.applicationContext
             DebugLogger.log("AlarmActionBridge: Got application context: \${app.javaClass.name}")
@@ -372,6 +373,9 @@ class AlarmActionBridge : BroadcastReceiver() {
                         putString("reminderId", reminderId)
                         if (eventName == "alarmSnooze") {
                             putInt("snoozeMinutes", snoozeMinutes)
+                        }
+                        if (eventName == "alarmDone" && triggerTime > 0) {
+                            putDouble("triggerTime", triggerTime.toDouble())
                         }
                     }
                     
@@ -752,6 +756,7 @@ class AlarmActivity : AppCompatActivity() {
     private var reminderId: String? = null
     private var notificationId: Int = 0
     private var priority: String = "medium"
+    private var triggerTimeMs: Long = 0L
     private var timeUpdateRunnable: Runnable? = null
     private var timeoutRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -778,9 +783,10 @@ class AlarmActivity : AppCompatActivity() {
         reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         priority = intent.getStringExtra("priority") ?: "medium"
+        triggerTimeMs = intent.getLongExtra("triggerTime", System.currentTimeMillis())
         notificationId = reminderId?.hashCode() ?: 0
         
-        DebugLogger.log("AlarmActivity: Priority = \$priority")
+        DebugLogger.log("AlarmActivity: Priority = \$priority, triggerTime = \$triggerTimeMs")
 
         if (reminderId == null) {
             DebugLogger.log("AlarmActivity: reminderId is null, finishing.")
@@ -903,9 +909,10 @@ class AlarmActivity : AppCompatActivity() {
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
+            putExtra("triggerTime", triggerTimeMs)
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}")
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}, triggerTime: \${triggerTimeMs}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
@@ -1099,6 +1106,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
+        val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -1119,7 +1127,7 @@ class AlarmReceiver : BroadcastReceiver() {
             AlarmRingtoneService.startAlarmRingtone(context, reminderId, title, priority)
         }
 
-        DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId")
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId, triggerTime: \$triggerTime")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
@@ -1143,6 +1151,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
+            putExtra("triggerTime", triggerTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -1158,6 +1167,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
+            putExtra("triggerTime", triggerTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(

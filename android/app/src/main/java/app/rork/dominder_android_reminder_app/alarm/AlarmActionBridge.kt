@@ -22,10 +22,11 @@ class AlarmActionBridge : BroadcastReceiver() {
         when (action) {
             "app.rork.dominder.ALARM_DONE" -> {
                 val reminderId = intent.getStringExtra("reminderId")
-                DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: ${reminderId}")
+                val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
+                DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: ${reminderId}, triggerTime: ${triggerTime}")
                 if (reminderId != null) {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
-                    emitEventToReactNative(context, "alarmDone", reminderId, 0)
+                    emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
@@ -133,10 +134,10 @@ class AlarmActionBridge : BroadcastReceiver() {
         }
     }
 
-    private fun emitEventToReactNative(context: Context, eventName: String, reminderId: String, snoozeMinutes: Int) {
+    private fun emitEventToReactNative(context: Context, eventName: String, reminderId: String, snoozeMinutes: Int, triggerTime: Long = 0L) {
         try {
             DebugLogger.log("AlarmActionBridge: ===== emitEventToReactNative START =====")
-            DebugLogger.log("AlarmActionBridge: Event name: ${eventName}, reminderId: ${reminderId}")
+            DebugLogger.log("AlarmActionBridge: Event name: ${eventName}, reminderId: ${reminderId}, triggerTime: ${triggerTime}")
             
             val app = context.applicationContext
             DebugLogger.log("AlarmActionBridge: Got application context: ${app.javaClass.name}")
@@ -158,6 +159,9 @@ class AlarmActionBridge : BroadcastReceiver() {
                         putString("reminderId", reminderId)
                         if (eventName == "alarmSnooze") {
                             putInt("snoozeMinutes", snoozeMinutes)
+                        }
+                        if (eventName == "alarmDone" && triggerTime > 0) {
+                            putDouble("triggerTime", triggerTime.toDouble())
                         }
                     }
                     

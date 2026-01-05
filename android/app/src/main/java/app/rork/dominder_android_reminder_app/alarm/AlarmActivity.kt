@@ -33,6 +33,7 @@ class AlarmActivity : AppCompatActivity() {
     private var reminderId: String? = null
     private var notificationId: Int = 0
     private var priority: String = "medium"
+    private var triggerTimeMs: Long = 0L
     private var timeUpdateRunnable: Runnable? = null
     private var timeoutRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -59,9 +60,10 @@ class AlarmActivity : AppCompatActivity() {
         reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         priority = intent.getStringExtra("priority") ?: "medium"
+        triggerTimeMs = intent.getLongExtra("triggerTime", System.currentTimeMillis())
         notificationId = reminderId?.hashCode() ?: 0
         
-        DebugLogger.log("AlarmActivity: Priority = $priority")
+        DebugLogger.log("AlarmActivity: Priority = $priority, triggerTime = $triggerTimeMs")
 
         if (reminderId == null) {
             DebugLogger.log("AlarmActivity: reminderId is null, finishing.")
@@ -184,9 +186,10 @@ class AlarmActivity : AppCompatActivity() {
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
+            putExtra("triggerTime", triggerTimeMs)
         }
         
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}")
+        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: ${intent.action}, package: ${intent.`package`}, triggerTime: ${triggerTimeMs}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         

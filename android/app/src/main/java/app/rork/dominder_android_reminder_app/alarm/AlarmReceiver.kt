@@ -17,6 +17,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
+        val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -37,7 +38,7 @@ class AlarmReceiver : BroadcastReceiver() {
             AlarmRingtoneService.startAlarmRingtone(context, reminderId, title, priority)
         }
 
-        DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId")
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for $reminderId, triggerTime: $triggerTime")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
@@ -61,6 +62,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
+            putExtra("triggerTime", triggerTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -76,6 +78,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
+            putExtra("triggerTime", triggerTime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(

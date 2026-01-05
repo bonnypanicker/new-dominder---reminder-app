@@ -28,11 +28,12 @@ const useAlarmListeners = () => {
 
     const doneSubscription = DeviceEventEmitter.addListener(
       'alarmDone',
-      (event: { reminderId: string }) => {
-        console.log('Native alarm DONE event received for:', event.reminderId);
+      (event: { reminderId: string; triggerTime?: number }) => {
+        console.log('Native alarm DONE event received for:', event.reminderId, 'triggerTime:', event.triggerTime);
         if (event.reminderId) {
           // Native alarm DONE -> increment occurrence and schedule next
-          markReminderDone(event.reminderId, true);
+          // Pass triggerTime for accurate history timestamps
+          markReminderDone(event.reminderId, true, event.triggerTime);
         }
       }
     );
