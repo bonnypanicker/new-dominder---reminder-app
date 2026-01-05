@@ -51,6 +51,9 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (reminder.repeatType !== 'none') {
         console.log(`[onBackgroundEvent] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId}`);
 
+        // Store the scheduled trigger time BEFORE updating nextReminderDate
+        const triggeredAt = reminder.nextReminderDate || new Date().toISOString();
+
         // Increment occurrence count on delivery (but do not exceed untilCount)
         const occurred = reminder.occurrenceCount ?? 0;
         const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
@@ -67,7 +70,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
           const updatedReminder = {
             ...forCalc,
             nextReminderDate: nextDate.toISOString(),
-            lastTriggeredAt: new Date().toISOString(),
+            lastTriggeredAt: triggeredAt, // Use the scheduled time, not current time
             snoozeUntil: undefined,
             wasSnoozed: undefined,
             isActive: true,
@@ -90,7 +93,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
           const finalOccurrenceState = {
             ...forCalc,
             nextReminderDate: undefined,
-            lastTriggeredAt: new Date().toISOString(),
+            lastTriggeredAt: triggeredAt, // Use the scheduled time, not current time
             snoozeUntil: undefined,
             wasSnoozed: undefined,
             isActive: true,

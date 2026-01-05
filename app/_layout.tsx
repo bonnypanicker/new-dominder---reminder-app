@@ -180,6 +180,9 @@ function AppContent() {
           if (reminder.repeatType !== 'none') {
             console.log(`[RootLayout] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId} (foreground)`);
 
+            // Store the scheduled trigger time BEFORE updating nextReminderDate
+            const triggeredAt = reminder.nextReminderDate || new Date().toISOString();
+
             // Increment occurrence count on delivery (but do not exceed untilCount)
             const occurred = reminder.occurrenceCount ?? 0;
             const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
@@ -196,7 +199,7 @@ function AppContent() {
               const updatedReminder = {
                 ...forCalc,
                 nextReminderDate: nextDate.toISOString(),
-                lastTriggeredAt: new Date().toISOString(),
+                lastTriggeredAt: triggeredAt, // Use the scheduled time, not current time
                 snoozeUntil: undefined,
                 wasSnoozed: undefined,
                 isActive: true,
@@ -219,7 +222,7 @@ function AppContent() {
               const finalOccurrenceState = {
                 ...forCalc,
                 nextReminderDate: undefined,
-                lastTriggeredAt: new Date().toISOString(),
+                lastTriggeredAt: triggeredAt, // Use the scheduled time, not current time
                 snoozeUntil: undefined,
                 wasSnoozed: undefined,
                 isActive: true,
