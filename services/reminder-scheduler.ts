@@ -205,6 +205,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           isPaused: false,
         };
         await updateReminder(updated as any);
+        await notificationService.scheduleReminderByModel(updated as any);
       }
     } else {
       // Native Done (manual calculation needed)
