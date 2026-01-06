@@ -263,9 +263,10 @@ function AppContent() {
           if (pressAction.id === 'done') {
             const { markReminderDone } = require('@/services/reminder-scheduler');
             // Foreground notifee action DONE -> do not increment (already counted on delivery)
-            // Use notification timestamp if available to ensure accurate history
-            const doneTimestamp = notification.date
-              ? (typeof notification.date === 'number' ? notification.date : parseInt(notification.date))
+            // Use trigger time from notification data if available to ensure accurate history
+            const triggerTime = notification.data?.triggerTime;
+            const doneTimestamp = triggerTime
+              ? (typeof triggerTime === 'number' ? triggerTime : parseInt(triggerTime as string, 10))
               : undefined;
             await markReminderDone(reminderId, false, doneTimestamp);
             return;
