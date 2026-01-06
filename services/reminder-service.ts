@@ -45,8 +45,19 @@ export async function addReminder(newReminder: Reminder): Promise<Reminder> {
   return serializeAsyncStorageWrite(async () => {
     console.log(`[ReminderService] Adding reminder ${newReminder.id}: isActive=${newReminder.isActive}, isCompleted=${newReminder.isCompleted}, repeatType=${newReminder.repeatType}`);
     const reminders = await getReminders();
-    const updated = [...reminders, newReminder];
-    
+
+    // Check for duplicates to prevent race conditions creating multiple cards
+    const existingIndex = reminders.findIndex(r => r.id === newReminder.id);
+    let updated;
+
+    if (existingIndex >= 0) {
+      console.warn(`[ReminderService] addReminder called for existing ID ${newReminder.id} - updating instead to prevent duplication`);
+      updated = [...reminders];
+      updated[existingIndex] = newReminder;
+    } else {
+      updated = [...reminders, newReminder];
+    }
+
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     DeviceEventEmitter.emit('remindersChanged');
     return newReminder;
@@ -90,15 +101,15 @@ export async function updateReminder(updatedReminder: Reminder): Promise<void> {
       await notificationService.cancelAllNotificationsForReminder(updatedReminder.id);
       updatedReminder.notificationId = undefined;
     }
-    
+
     const cleanedReminder = { ...updatedReminder };
     delete cleanedReminder.snoozeClearing;
     delete cleanedReminder.notificationUpdating;
-    
+
     console.log(`[ReminderService] Updating reminder ${updatedReminder.id}: isActive=${updatedReminder.isActive}, isCompleted=${updatedReminder.isCompleted}, repeatType=${updatedReminder.repeatType}`);
-    
+
     const updated = reminders.map(r => r.id === updatedReminder.id ? cleanedReminder : r);
-    
+
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     DeviceEventEmitter.emit('remindersChanged');
   });
@@ -122,10 +133,10 @@ export async function deleteReminder(id: string): Promise<void> {
       console.log(`Soft deleting reminder: ${id}`);
       // Cancel all notifications when soft deleting
       await notificationService.cancelAllNotificationsForReminder(id);
-      
+
       // Mark as deleted
-      const updated = reminders.map(r => 
-        r.id === id 
+      const updated = reminders.map(r =>
+        r.id === id
           ? { ...r, isDeleted: true, isActive: false }
           : r
       );
@@ -146,7 +157,7 @@ export async function permanentlyDeleteReminder(id: string): Promise<void> {
       // Cancel all notifications for permanent deletion
       await notificationService.cancelAllNotificationsForReminder(id);
     }
-    
+
     const updated = reminders.filter(r => r.id !== id);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     DeviceEventEmitter.emit('remindersChanged');
@@ -161,15 +172,15 @@ export async function restoreReminder(id: string): Promise<void> {
 
     if (reminderToRestore && reminderToRestore.isDeleted) {
       console.log(`Restoring reminder: ${id}`);
-      
+
       // Restore the reminder
-      const updated = reminders.map(r => 
-        r.id === id 
+      const updated = reminders.map(r =>
+        r.id === id
           ? { ...r, isDeleted: false, isActive: !r.isCompleted }
           : r
       );
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      
+
       // Reschedule if it was active
       if (!reminderToRestore.isCompleted) {
         await notificationService.scheduleReminderByModel({

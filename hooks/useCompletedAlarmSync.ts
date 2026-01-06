@@ -22,16 +22,16 @@ export function useCompletedAlarmSync() {
 
     try {
       console.log('[AlarmSync] Checking for completed alarms...');
-      
+
       // Process completed alarms
       const completedAlarms = await AlarmModule.getCompletedAlarms();
       const completedEntries = Object.entries(completedAlarms || {});
-      
+
       console.log('[AlarmSync] Found completed alarms:', completedEntries.length);
-      
+
       for (const [reminderId, timestamp] of completedEntries) {
         const key = `done_${reminderId}`;
-        
+
         // Avoid processing the same alarm twice in one session
         if (processedRef.current.has(key)) {
           console.log('[AlarmSync] Already processed completion for:', reminderId);
@@ -39,17 +39,18 @@ export function useCompletedAlarmSync() {
         }
 
         console.log('[AlarmSync] Processing completed alarm:', reminderId, 'at', timestamp);
-        
+
         try {
           // Native alarm completion -> increment occurrence and schedule next
-          await markReminderDone(reminderId, true);
-          
+          // Pass the actual trigger timestamp to ensure history is accurate
+          await markReminderDone(reminderId, true, parseInt(timestamp as string, 10));
+
           // Clear from SharedPreferences
           await AlarmModule.clearCompletedAlarm(reminderId);
-          
+
           // Mark as processed
           processedRef.current.add(key);
-          
+
           console.log('[AlarmSync] ✓ Successfully processed completion for:', reminderId);
         } catch (error) {
           console.error('[AlarmSync] Error processing completed alarm:', reminderId, error);
@@ -59,12 +60,12 @@ export function useCompletedAlarmSync() {
       // Process snoozed alarms
       const snoozedAlarms = await AlarmModule.getSnoozedAlarms();
       const snoozedEntries = Object.entries(snoozedAlarms || {});
-      
+
       console.log('[AlarmSync] Found snoozed alarms:', snoozedEntries.length);
-      
+
       for (const [reminderId, data] of snoozedEntries) {
         const key = `snooze_${reminderId}`;
-        
+
         // Avoid processing the same alarm twice
         if (processedRef.current.has(key)) {
           console.log('[AlarmSync] Already processed snooze for:', reminderId);
@@ -75,24 +76,24 @@ export function useCompletedAlarmSync() {
           // Parse timestamp:minutes format
           const [timestamp, minutesStr] = (data as string).split(':');
           const minutes = parseInt(minutesStr, 10);
-          
+
           if (isNaN(minutes)) {
             console.error('[AlarmSync] Invalid snooze minutes for:', reminderId);
             await AlarmModule.clearSnoozedAlarm(reminderId);
             continue;
           }
-          
+
           console.log('[AlarmSync] Processing snoozed alarm:', reminderId, 'for', minutes, 'minutes');
-          
+
           // Snooze in the store
           await rescheduleReminderById(reminderId, minutes);
-          
+
           // Clear from SharedPreferences
           await AlarmModule.clearSnoozedAlarm(reminderId);
-          
+
           // Mark as processed
           processedRef.current.add(key);
-          
+
           console.log('[AlarmSync] ✓ Successfully processed snooze for:', reminderId);
         } catch (error) {
           console.error('[AlarmSync] Error processing snoozed alarm:', reminderId, error);
@@ -103,12 +104,12 @@ export function useCompletedAlarmSync() {
       if (AlarmModule.getDeletedAlarms) {
         const deletedAlarms = await AlarmModule.getDeletedAlarms();
         const deletedEntries = Object.entries(deletedAlarms || {});
-        
+
         console.log('[AlarmSync] Found deleted alarms:', deletedEntries.length);
-        
+
         for (const [reminderId, timestamp] of deletedEntries) {
           const key = `deleted_${reminderId}`;
-          
+
           // Avoid processing the same alarm twice
           if (processedRef.current.has(key)) {
             console.log('[AlarmSync] Already processed deletion for:', reminderId);
@@ -116,24 +117,24 @@ export function useCompletedAlarmSync() {
           }
 
           console.log('[AlarmSync] Processing deleted alarm:', reminderId, 'at', timestamp);
-          
+
           try {
             // Move reminder to deleted
             await deleteReminder(reminderId);
-            
+
             // Clear from SharedPreferences
             await AlarmModule.clearDeletedAlarm(reminderId);
-            
+
             // Mark as processed
             processedRef.current.add(key);
-            
+
             console.log('[AlarmSync] ✓ Successfully processed deletion for:', reminderId);
           } catch (error) {
             console.error('[AlarmSync] Error processing deleted alarm:', reminderId, error);
           }
         }
       }
-      
+
     } catch (error) {
       console.error('[AlarmSync] Error syncing alarms:', error);
     }
@@ -141,7 +142,7 @@ export function useCompletedAlarmSync() {
 
   useEffect(() => {
     console.log('[AlarmSync] Hook initialized');
-    
+
     // Sync immediately when hook mounts
     syncCompletedAlarms();
 
