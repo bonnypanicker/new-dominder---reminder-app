@@ -174,7 +174,16 @@ class AlarmActionBridge : BroadcastReceiver() {
                     DebugLogger.log("AlarmActionBridge: ✓✓✓ Event '${eventName}' emitted successfully! ✓✓✓")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ✗✗✗ ERROR - ReactContext is NULL! ✗✗✗")
-                    DebugLogger.log("AlarmActionBridge: This means React Native is not running or was killed")
+                    DebugLogger.log("AlarmActionBridge: Starting BackgroundActionService to handle '${eventName}'")
+                    
+                    // Map event name to cleaner action string
+                    val action = when(eventName) {
+                        "alarmDone" -> "done"
+                        "alarmSnooze" -> "snooze"
+                        else -> eventName
+                    }
+                    
+                    startBackgroundService(context, reminderId, action, snoozeMinutes, triggerTime)
                 }
             } else {
                 DebugLogger.log("AlarmActionBridge: ✗✗✗ ERROR - App is NOT ReactApplication! ✗✗✗")
@@ -184,6 +193,29 @@ class AlarmActionBridge : BroadcastReceiver() {
             DebugLogger.log("AlarmActionBridge: ✗✗✗ EXCEPTION in emitEventToReactNative ✗✗✗")
             DebugLogger.log("AlarmActionBridge: Exception: ${e.message}")
             DebugLogger.log("AlarmActionBridge: Stack trace: ${e.stackTraceToString()}")
+        }
+    }
+
+    private fun startBackgroundService(context: Context, reminderId: String, action: String, snoozeMinutes: Int, triggerTime: Long) {
+        try {
+            val serviceIntent = Intent(context, BackgroundActionService::class.java).apply {
+                putExtra("reminderId", reminderId)
+                putExtra("action", action)
+                if (action == "snooze") {
+                    putExtra("snoozeMinutes", snoozeMinutes)
+                }
+                if (triggerTime > 0) {
+                    putExtra("triggerTime", triggerTime)
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            DebugLogger.log("AlarmActionBridge: Started BackgroundActionService")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActionBridge: Failed to start service: ${e.message}")
         }
     }
 }

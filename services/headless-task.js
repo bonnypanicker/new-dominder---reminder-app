@@ -8,11 +8,11 @@ const RescheduleAlarms = async () => {
   console.log('[Dominder-Debug] Headless task: RescheduleAlarms started');
   try {
     await notificationService.initialize();
-    
+
     // Use the robust startup check to handle overdue/missed/future reminders
     const { checkAndTriggerPendingNotifications } = require('./startup-notification-check');
     await checkAndTriggerPendingNotifications();
-    
+
     console.log('[Dominder-Debug] Headless task: Completed checkAndTriggerPendingNotifications');
   } catch (error) {
     console.error('[Dominder-Debug] Error in headless task:', error);
@@ -20,3 +20,6 @@ const RescheduleAlarms = async () => {
 };
 
 AppRegistry.registerHeadlessTask('RescheduleAlarms', () => RescheduleAlarms);
+
+import BackgroundActionTask from './background-action-task';
+AppRegistry.registerHeadlessTask('BackgroundActionTask', () => BackgroundActionTask);
