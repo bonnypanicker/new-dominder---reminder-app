@@ -20,6 +20,3 @@ const RescheduleAlarms = async () => {
 };
 
 AppRegistry.registerHeadlessTask('RescheduleAlarms', () => RescheduleAlarms);
-
-import BackgroundActionTask from './background-action-task';
-AppRegistry.registerHeadlessTask('BackgroundActionTask', () => BackgroundActionTask);

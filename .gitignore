@@ -38,7 +38,7 @@ yarn-error.*
 credentials.json
 *.txt
 ios/
-
+android/
 .rork
 .env
 rork-eslint.config.js
