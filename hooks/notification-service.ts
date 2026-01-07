@@ -15,6 +15,23 @@ import type { Priority, RepeatType, EveryUnit } from '@/types/reminder';
 const AlarmModule: {
   scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => Promise<void>;
   cancelAlarm?: (reminderId: string) => void;
+  storeReminderMetadata?: (
+    reminderId: string,
+    repeatType: string,
+    everyIntervalValue: number,
+    everyIntervalUnit: string,
+    untilType: string,
+    untilCount: number,
+    untilDate: string,
+    untilTime: string,
+    occurrenceCount: number,
+    startDate: string,
+    startTime: string,
+    title: string,
+    priority: string
+  ) => Promise<void>;
+  clearReminderMetadata?: (reminderId: string) => Promise<void>;
+  updateOccurrenceCount?: (reminderId: string, newCount: number) => Promise<void>;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
 if (Platform.OS === 'android') {
@@ -310,6 +327,26 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
     } else {
       try {
+        // Store reminder metadata for native background scheduling
+        if (AlarmModule?.storeReminderMetadata) {
+          await AlarmModule.storeReminderMetadata(
+            reminder.id,
+            reminder.repeatType || 'none',
+            reminder.everyInterval?.value || 1,
+            reminder.everyInterval?.unit || 'minutes',
+            reminder.untilType || 'forever',
+            reminder.untilCount || 0,
+            reminder.untilDate || '',
+            reminder.untilTime || '',
+            reminder.occurrenceCount || 0,
+            reminder.date || '',
+            reminder.time || '',
+            reminder.title,
+            reminder.priority
+          );
+          console.log(`[NotificationService] Stored metadata for native alarm ${reminder.id}`);
+        }
+        
         await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
         console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
         return;
@@ -375,12 +412,21 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
     await notifee.cancelNotification(`missed-${reminderId}`);
     await notifee.cancelDisplayedNotification(`missed-${reminderId}`);
     
-    // Cancel native alarms
+    // Cancel native alarms and clear metadata
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
       try {
         AlarmModule.cancelAlarm(reminderId);
       } catch (e) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
+      }
+    }
+    
+    // Clear native metadata for this reminder
+    if (AlarmModule?.clearReminderMetadata) {
+      try {
+        await AlarmModule.clearReminderMetadata(reminderId);
+      } catch (e) {
+        console.warn('[NotificationService] Native clearReminderMetadata failed, continuing:', e);
       }
     }
     

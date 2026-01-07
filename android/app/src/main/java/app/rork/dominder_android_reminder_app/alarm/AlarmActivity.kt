@@ -171,13 +171,14 @@ class AlarmActivity : AppCompatActivity() {
         AlarmRingtoneService.stopAlarmRingtone(this)
         
         // NEW: Persist to SharedPreferences immediately
+        // IMPORTANT: Save triggerTimeMs (actual alarm time) for accurate history, not current time
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             prefs.edit().apply {
-                putString("completed_${reminderId}", System.currentTimeMillis().toString())
+                putString("completed_${reminderId}", triggerTimeMs.toString())
                 apply()
             }
-            DebugLogger.log("AlarmActivity: Saved completion to SharedPreferences for ${reminderId}")
+            DebugLogger.log("AlarmActivity: Saved completion to SharedPreferences for ${reminderId} with triggerTime: ${triggerTimeMs}")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error saving to SharedPreferences: ${e.message}")
         }

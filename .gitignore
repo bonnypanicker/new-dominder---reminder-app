@@ -39,6 +39,15 @@ credentials.json
 *.txt
 ios/
 android/
+!android/app/
+!android/app/src/
+!android/app/src/main/
+!android/app/src/main/java/
+!android/app/src/main/java/app/
+!android/app/src/main/java/app/rork/
+!android/app/src/main/java/app/rork/dominder_android_reminder_app/
+!android/app/src/main/java/app/rork/dominder_android_reminder_app/alarm/
+!android/app/src/main/java/app/rork/dominder_android_reminder_app/alarm/*.kt
 .rork
 .env
 rork-eslint.config.js

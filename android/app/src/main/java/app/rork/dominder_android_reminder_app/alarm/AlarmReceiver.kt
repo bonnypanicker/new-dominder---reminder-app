@@ -10,7 +10,6 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
-import app.rork.dominder_android_reminder_app.BackgroundActionService
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -23,23 +22,6 @@ class AlarmReceiver : BroadcastReceiver() {
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
             return
-        }
-
-        // NEW: Start BackgroundActionService to handle delivery logic (e.g. rescheduling)
-        try {
-            val serviceIntent = Intent(context, BackgroundActionService::class.java).apply {
-                putExtra("reminderId", reminderId)
-                putExtra("action", "delivered")
-                putExtra("triggerTime", triggerTime)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
-            DebugLogger.log("AlarmReceiver: Started BackgroundActionService (delivered)")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmReceiver: Failed to start BackgroundActionService: ${e.message}")
         }
 
         // CRITICAL: Check if reminder is paused before firing

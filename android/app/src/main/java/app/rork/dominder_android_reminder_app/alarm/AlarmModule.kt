@@ -80,8 +80,90 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: $e.message")
+            DebugLogger.log("AlarmModule: Error scheduling alarm: ${e.message}")
             promise?.reject("SCHEDULE_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun storeReminderMetadata(
+        reminderId: String,
+        repeatType: String,
+        everyIntervalValue: Int,
+        everyIntervalUnit: String,
+        untilType: String,
+        untilCount: Int,
+        untilDate: String,
+        untilTime: String,
+        occurrenceCount: Int,
+        startDate: String,
+        startTime: String,
+        title: String,
+        priority: String,
+        promise: Promise? = null
+    ) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("meta_${reminderId}_repeatType", repeatType)
+                putInt("meta_${reminderId}_everyValue", everyIntervalValue)
+                putString("meta_${reminderId}_everyUnit", everyIntervalUnit)
+                putString("meta_${reminderId}_untilType", untilType)
+                putInt("meta_${reminderId}_untilCount", untilCount)
+                putString("meta_${reminderId}_untilDate", untilDate)
+                putString("meta_${reminderId}_untilTime", untilTime)
+                putInt("meta_${reminderId}_occurrenceCount", occurrenceCount)
+                putString("meta_${reminderId}_startDate", startDate)
+                putString("meta_${reminderId}_startTime", startTime)
+                putString("meta_${reminderId}_title", title)
+                putString("meta_${reminderId}_priority", priority)
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Stored metadata for $reminderId - repeatType=$repeatType, everyValue=$everyIntervalValue, everyUnit=$everyIntervalUnit, occurrenceCount=$occurrenceCount")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error storing metadata: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearReminderMetadata(reminderId: String, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                remove("meta_${reminderId}_repeatType")
+                remove("meta_${reminderId}_everyValue")
+                remove("meta_${reminderId}_everyUnit")
+                remove("meta_${reminderId}_untilType")
+                remove("meta_${reminderId}_untilCount")
+                remove("meta_${reminderId}_untilDate")
+                remove("meta_${reminderId}_untilTime")
+                remove("meta_${reminderId}_occurrenceCount")
+                remove("meta_${reminderId}_startDate")
+                remove("meta_${reminderId}_startTime")
+                remove("meta_${reminderId}_title")
+                remove("meta_${reminderId}_priority")
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Cleared metadata for $reminderId")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing metadata: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun updateOccurrenceCount(reminderId: String, newCount: Int, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().putInt("meta_${reminderId}_occurrenceCount", newCount).apply()
+            DebugLogger.log("AlarmModule: Updated occurrenceCount for $reminderId to $newCount")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error updating occurrenceCount: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
         }
     }
 

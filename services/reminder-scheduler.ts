@@ -1,7 +1,9 @@
-import { DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter, NativeModules, Platform } from 'react-native';
 import { notificationService } from '../hooks/notification-service';
 import { calculateNextReminderDate } from '../services/reminder-utils';
 import { getReminder, updateReminder, addReminder } from './reminder-service';
+
+const AlarmModule = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
 export async function rescheduleReminderById(reminderId: string, minutes: number) {
   console.log(`[Scheduler] Snoozing reminder ${reminderId} for ${minutes} minutes`);
@@ -160,6 +162,16 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         };
         await updateReminder(completed as any);
         await notificationService.cancelAllNotificationsForReminder(reminderId);
+        
+        // Clear native metadata since reminder is complete
+        if (AlarmModule?.clearReminderMetadata) {
+          try {
+            await AlarmModule.clearReminderMetadata(reminderId);
+            console.log(`[Scheduler] Cleared native metadata for completed reminder ${reminderId}`);
+          } catch (e) {
+            console.log(`[Scheduler] Failed to clear native metadata:`, e);
+          }
+        }
 
       } else {
         // INTERMEDIATE OCCURRENCE
@@ -253,6 +265,17 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           isExpired: false,
         };
         await updateReminder(updated as any);
+        
+        // Sync occurrence count to native for background scheduling
+        if (AlarmModule?.updateOccurrenceCount && calcContext.occurrenceCount !== undefined) {
+          try {
+            await AlarmModule.updateOccurrenceCount(reminderId, calcContext.occurrenceCount);
+            console.log(`[Scheduler] Synced occurrenceCount ${calcContext.occurrenceCount} to native for ${reminderId}`);
+          } catch (e) {
+            console.log(`[Scheduler] Failed to sync occurrenceCount to native:`, e);
+          }
+        }
+        
         await notificationService.scheduleReminderByModel(updated as any);
       } else {
         // Final (Native)
@@ -275,6 +298,16 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           parentId: undefined
         };
         await updateReminder(completed as any);
+        
+        // Clear native metadata since reminder is complete
+        if (AlarmModule?.clearReminderMetadata) {
+          try {
+            await AlarmModule.clearReminderMetadata(reminderId);
+            console.log(`[Scheduler] Cleared native metadata for completed reminder ${reminderId}`);
+          } catch (e) {
+            console.log(`[Scheduler] Failed to clear native metadata:`, e);
+          }
+        }
       }
     }
   } else {
@@ -284,6 +317,15 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     reminder.wasSnoozed = undefined;
     reminder.lastTriggeredAt = new Date().toISOString();
     await updateReminder(reminder);
+    
+    // Clear native metadata for one-time reminders
+    if (AlarmModule?.clearReminderMetadata) {
+      try {
+        await AlarmModule.clearReminderMetadata(reminderId);
+      } catch (e) {
+        console.log(`[Scheduler] Failed to clear native metadata:`, e);
+      }
+    }
   }
 
   console.log(`[Scheduler] ========== markReminderDone END ==========`);
