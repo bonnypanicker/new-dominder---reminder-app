@@ -75,6 +75,8 @@ class AlarmActionBridge : BroadcastReceiver() {
     /**
      * Schedule the next occurrence for repeating reminders when Done is pressed
      * while the app is killed. This ensures alarms continue even without JS.
+     * 
+     * IMPORTANT: This uses actualTriggerCount (set by AlarmReceiver) as the source of truth.
      */
     private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
         try {
@@ -86,26 +88,39 @@ class AlarmActionBridge : BroadcastReceiver() {
                 return
             }
             
+            // Check if already completed natively
+            val isNativeCompleted = metaPrefs.getBoolean("meta_${reminderId}_isCompleted", false)
+            if (isNativeCompleted) {
+                DebugLogger.log("AlarmActionBridge: Reminder $reminderId is already completed natively, not scheduling next")
+                return
+            }
+            
             val everyValue = metaPrefs.getInt("meta_${reminderId}_everyValue", 1)
             val everyUnit = metaPrefs.getString("meta_${reminderId}_everyUnit", "minutes") ?: "minutes"
             val untilType = metaPrefs.getString("meta_${reminderId}_untilType", "forever") ?: "forever"
             val untilCount = metaPrefs.getInt("meta_${reminderId}_untilCount", 0)
             val untilDate = metaPrefs.getString("meta_${reminderId}_untilDate", "") ?: ""
             val untilTime = metaPrefs.getString("meta_${reminderId}_untilTime", "") ?: ""
-            var occurrenceCount = metaPrefs.getInt("meta_${reminderId}_occurrenceCount", 0)
+            // Use actualTriggerCount as the authoritative count (set by AlarmReceiver when alarm fires)
+            val actualTriggerCount = metaPrefs.getInt("meta_${reminderId}_actualTriggerCount", 0)
             val startDate = metaPrefs.getString("meta_${reminderId}_startDate", "") ?: ""
             val startTime = metaPrefs.getString("meta_${reminderId}_startTime", "") ?: ""
             val title = metaPrefs.getString("meta_${reminderId}_title", "Reminder") ?: "Reminder"
             val priority = metaPrefs.getString("meta_${reminderId}_priority", "high") ?: "high"
             
-            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=$repeatType, everyValue=$everyValue, everyUnit=$everyUnit, untilType=$untilType, untilCount=$untilCount, occurrenceCount=$occurrenceCount")
+            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=$repeatType, everyValue=$everyValue, everyUnit=$everyUnit, untilType=$untilType, untilCount=$untilCount, actualTriggerCount=$actualTriggerCount")
             
-            // Increment occurrence count
-            occurrenceCount++
-            
-            // Check if we've reached the limit
-            if (untilType == "count" && occurrenceCount >= untilCount) {
-                DebugLogger.log("AlarmActionBridge: Reached occurrence limit ($occurrenceCount >= $untilCount), no more occurrences")
+            // Check if we've reached the count limit (actualTriggerCount is already incremented by AlarmReceiver)
+            if (untilType == "count" && actualTriggerCount >= untilCount) {
+                DebugLogger.log("AlarmActionBridge: Reached occurrence limit ($actualTriggerCount >= $untilCount), no more occurrences")
+                // Mark as completed if not already
+                if (!isNativeCompleted) {
+                    metaPrefs.edit().apply {
+                        putBoolean("meta_${reminderId}_isCompleted", true)
+                        putLong("meta_${reminderId}_completedAt", System.currentTimeMillis())
+                        apply()
+                    }
+                }
                 return
             }
             
@@ -114,14 +129,25 @@ class AlarmActionBridge : BroadcastReceiver() {
                 repeatType, everyValue, everyUnit, untilType, untilDate, untilTime, startDate, startTime
             )
             
-            if (nextTriggerTime == null || nextTriggerTime <= System.currentTimeMillis()) {
-                DebugLogger.log("AlarmActionBridge: No valid next trigger time, reminder may have ended")
+            if (nextTriggerTime == null) {
+                DebugLogger.log("AlarmActionBridge: No valid next trigger time, reminder has ended")
+                // Mark as completed
+                metaPrefs.edit().apply {
+                    putBoolean("meta_${reminderId}_isCompleted", true)
+                    putLong("meta_${reminderId}_completedAt", System.currentTimeMillis())
+                    apply()
+                }
                 return
             }
             
-            // Update occurrence count in SharedPreferences
-            metaPrefs.edit().putInt("meta_${reminderId}_occurrenceCount", occurrenceCount).apply()
-            DebugLogger.log("AlarmActionBridge: Updated occurrenceCount to $occurrenceCount")
+            if (nextTriggerTime <= System.currentTimeMillis()) {
+                DebugLogger.log("AlarmActionBridge: Next trigger time is in the past, reminder may have ended")
+                return
+            }
+            
+            // Also sync the occurrenceCount for JS compatibility (legacy field)
+            metaPrefs.edit().putInt("meta_${reminderId}_occurrenceCount", actualTriggerCount).apply()
+            DebugLogger.log("AlarmActionBridge: Synced occurrenceCount to $actualTriggerCount")
             
             // Schedule the next alarm
             scheduleNativeAlarmAtTime(context, reminderId, title, priority, nextTriggerTime)

@@ -12,6 +12,18 @@ import { Reminder } from '@/types/reminder';
 import { NativeModules, Platform } from 'react-native';
 import type { Priority, RepeatType, EveryUnit } from '@/types/reminder';
 
+interface NativeReminderState {
+  actualTriggerCount: number;
+  occurrenceCount: number;
+  isCompleted: boolean;
+  completedAt: number;
+  lastTriggerTime: number;
+  triggerHistory: string;
+  repeatType: string;
+  untilType: string;
+  untilCount: number;
+}
+
 const AlarmModule: {
   scheduleAlarm?: (reminderId: string, title: string, triggerTimeMillis: number, priority?: string) => Promise<void>;
   cancelAlarm?: (reminderId: string) => void;
@@ -32,6 +44,10 @@ const AlarmModule: {
   ) => Promise<void>;
   clearReminderMetadata?: (reminderId: string) => Promise<void>;
   updateOccurrenceCount?: (reminderId: string, newCount: number) => Promise<void>;
+  getNativeReminderState?: (reminderId: string) => Promise<NativeReminderState>;
+  syncNativeState?: (reminderId: string, actualTriggerCount: number, isCompleted: boolean, completedAt: number) => Promise<void>;
+  markReminderCompletedNatively?: (reminderId: string, completedAt: number) => Promise<void>;
+  getAllNativeReminderStates?: () => Promise<Record<string, NativeReminderState>>;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
 if (Platform.OS === 'android') {

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState, NativeModules, Platform } from 'react-native';
 import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
-import { deleteReminder } from '@/services/reminder-service';
+import { deleteReminder, getReminder, updateReminder } from '@/services/reminder-service';
 
 const { AlarmModule } = NativeModules;
 
@@ -11,6 +11,9 @@ const { AlarmModule } = NativeModules;
  * 
  * Polls SharedPreferences when app becomes active and processes any
  * pending alarm actions.
+ * 
+ * IMPORTANT: Native state (actualTriggerCount, isCompleted) is the SINGLE SOURCE OF TRUTH
+ * for occurrence tracking when app is killed.
  */
 export function useCompletedAlarmSync() {
   const processedRef = useRef(new Set<string>());
@@ -23,7 +26,62 @@ export function useCompletedAlarmSync() {
     try {
       console.log('[AlarmSync] Checking for completed alarms...');
 
-      // Process completed alarms
+      // First, sync native state for all reminders to ensure JS has accurate data
+      if (AlarmModule.getAllNativeReminderStates) {
+        try {
+          const nativeStates = await AlarmModule.getAllNativeReminderStates();
+          const stateEntries = Object.entries(nativeStates || {});
+          
+          if (stateEntries.length > 0) {
+            console.log('[AlarmSync] Syncing native states for', stateEntries.length, 'reminders');
+            
+            for (const [reminderId, state] of stateEntries) {
+              const nativeState = state as any;
+              
+              // If native says completed but we haven't processed it yet
+              if (nativeState.isCompleted) {
+                const key = `native_completed_${reminderId}`;
+                if (!processedRef.current.has(key)) {
+                  console.log('[AlarmSync] Native state shows reminder completed:', reminderId);
+                  
+                  // Get the reminder and update its state
+                  const reminder = await getReminder(reminderId);
+                  if (reminder && !reminder.isCompleted) {
+                    console.log('[AlarmSync] Marking reminder as completed from native state:', reminderId);
+                    
+                    // Use the native completedAt time for accurate history
+                    const completedAt = nativeState.completedAt > 0 
+                      ? nativeState.completedAt 
+                      : Date.now();
+                    
+                    // Mark done with the native trigger count
+                    await markReminderDone(reminderId, true, completedAt);
+                    processedRef.current.add(key);
+                  }
+                }
+              }
+              
+              // Sync actualTriggerCount to JS occurrenceCount if different
+              if (nativeState.actualTriggerCount > 0) {
+                const reminder = await getReminder(reminderId);
+                if (reminder && (reminder.occurrenceCount || 0) < nativeState.actualTriggerCount) {
+                  console.log('[AlarmSync] Syncing occurrenceCount from native:', reminderId, 
+                    'JS:', reminder.occurrenceCount, '-> Native:', nativeState.actualTriggerCount);
+                  
+                  await updateReminder({
+                    ...reminder,
+                    occurrenceCount: nativeState.actualTriggerCount
+                  });
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[AlarmSync] Error syncing native states:', e);
+        }
+      }
+
+      // Process completed alarms (from DoMinderAlarmActions SharedPreferences)
       const completedAlarms = await AlarmModule.getCompletedAlarms();
       const completedEntries = Object.entries(completedAlarms || {});
 

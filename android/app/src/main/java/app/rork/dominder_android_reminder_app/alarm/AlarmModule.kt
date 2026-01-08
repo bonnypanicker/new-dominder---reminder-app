@@ -117,6 +117,16 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putString("meta_${reminderId}_startTime", startTime)
                 putString("meta_${reminderId}_title", title)
                 putString("meta_${reminderId}_priority", priority)
+                // Initialize native tracking fields (only if not already set to preserve existing state)
+                if (!prefs.contains("meta_${reminderId}_actualTriggerCount")) {
+                    putInt("meta_${reminderId}_actualTriggerCount", occurrenceCount)
+                }
+                if (!prefs.contains("meta_${reminderId}_isCompleted")) {
+                    putBoolean("meta_${reminderId}_isCompleted", false)
+                }
+                if (!prefs.contains("meta_${reminderId}_triggerHistory")) {
+                    putString("meta_${reminderId}_triggerHistory", "")
+                }
                 apply()
             }
             DebugLogger.log("AlarmModule: Stored metadata for $reminderId - repeatType=$repeatType, everyValue=$everyIntervalValue, everyUnit=$everyIntervalUnit, occurrenceCount=$occurrenceCount")
@@ -144,6 +154,12 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 remove("meta_${reminderId}_startTime")
                 remove("meta_${reminderId}_title")
                 remove("meta_${reminderId}_priority")
+                // Also clear native tracking fields
+                remove("meta_${reminderId}_actualTriggerCount")
+                remove("meta_${reminderId}_isCompleted")
+                remove("meta_${reminderId}_completedAt")
+                remove("meta_${reminderId}_lastTriggerTime")
+                remove("meta_${reminderId}_triggerHistory")
                 apply()
             }
             DebugLogger.log("AlarmModule: Cleared metadata for $reminderId")
@@ -164,6 +180,124 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error updating occurrenceCount: ${e.message}")
             promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    /**
+     * Get the native state for a reminder - this is the SINGLE SOURCE OF TRUTH
+     * for occurrence count, completion status, and trigger history.
+     */
+    @ReactMethod
+    fun getNativeReminderState(reminderId: String, promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            
+            val result = Arguments.createMap().apply {
+                putInt("actualTriggerCount", prefs.getInt("meta_${reminderId}_actualTriggerCount", 0))
+                putInt("occurrenceCount", prefs.getInt("meta_${reminderId}_occurrenceCount", 0))
+                putBoolean("isCompleted", prefs.getBoolean("meta_${reminderId}_isCompleted", false))
+                putDouble("completedAt", prefs.getLong("meta_${reminderId}_completedAt", 0L).toDouble())
+                putDouble("lastTriggerTime", prefs.getLong("meta_${reminderId}_lastTriggerTime", 0L).toDouble())
+                putString("triggerHistory", prefs.getString("meta_${reminderId}_triggerHistory", "") ?: "")
+                putString("repeatType", prefs.getString("meta_${reminderId}_repeatType", "none") ?: "none")
+                putString("untilType", prefs.getString("meta_${reminderId}_untilType", "forever") ?: "forever")
+                putInt("untilCount", prefs.getInt("meta_${reminderId}_untilCount", 0))
+            }
+            
+            DebugLogger.log("AlarmModule: getNativeReminderState for $reminderId: actualTriggerCount=${result.getInt("actualTriggerCount")}, isCompleted=${result.getBoolean("isCompleted")}")
+            promise.resolve(result)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting native state: ${e.message}")
+            promise.reject("ERROR", e.message, e)
+        }
+    }
+
+    /**
+     * Sync the native state to match JS state (used when JS has more accurate info)
+     */
+    @ReactMethod
+    fun syncNativeState(
+        reminderId: String,
+        actualTriggerCount: Int,
+        isCompleted: Boolean,
+        completedAt: Double,
+        promise: Promise? = null
+    ) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putInt("meta_${reminderId}_actualTriggerCount", actualTriggerCount)
+                putInt("meta_${reminderId}_occurrenceCount", actualTriggerCount) // Keep in sync
+                putBoolean("meta_${reminderId}_isCompleted", isCompleted)
+                if (completedAt > 0) {
+                    putLong("meta_${reminderId}_completedAt", completedAt.toLong())
+                }
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Synced native state for $reminderId: count=$actualTriggerCount, completed=$isCompleted")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error syncing native state: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    /**
+     * Mark a reminder as completed natively
+     */
+    @ReactMethod
+    fun markReminderCompletedNatively(reminderId: String, completedAt: Double, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putBoolean("meta_${reminderId}_isCompleted", true)
+                putLong("meta_${reminderId}_completedAt", completedAt.toLong())
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Marked $reminderId as completed natively at $completedAt")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error marking completed: ${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    /**
+     * Get all native reminder states (for bulk sync on app startup)
+     */
+    @ReactMethod
+    fun getAllNativeReminderStates(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            val result = Arguments.createMap()
+            
+            // Find all unique reminder IDs by looking for _repeatType keys
+            val allKeys = prefs.all.keys
+            val reminderIds = mutableSetOf<String>()
+            
+            for (key in allKeys) {
+                if (key.startsWith("meta_") && key.endsWith("_repeatType")) {
+                    val reminderId = key.removePrefix("meta_").removeSuffix("_repeatType")
+                    reminderIds.add(reminderId)
+                }
+            }
+            
+            for (reminderId in reminderIds) {
+                val state = Arguments.createMap().apply {
+                    putInt("actualTriggerCount", prefs.getInt("meta_${reminderId}_actualTriggerCount", 0))
+                    putBoolean("isCompleted", prefs.getBoolean("meta_${reminderId}_isCompleted", false))
+                    putDouble("completedAt", prefs.getLong("meta_${reminderId}_completedAt", 0L).toDouble())
+                    putDouble("lastTriggerTime", prefs.getLong("meta_${reminderId}_lastTriggerTime", 0L).toDouble())
+                    putString("triggerHistory", prefs.getString("meta_${reminderId}_triggerHistory", "") ?: "")
+                }
+                result.putMap(reminderId, state)
+            }
+            
+            DebugLogger.log("AlarmModule: getAllNativeReminderStates found ${reminderIds.size} reminders")
+            promise.resolve(result)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error getting all native states: ${e.message}")
+            promise.reject("ERROR", e.message, e)
         }
     }
 

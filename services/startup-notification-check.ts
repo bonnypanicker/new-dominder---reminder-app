@@ -60,18 +60,58 @@ export async function checkAndTriggerPendingNotifications() {
             const completedAlarmsMap = await AlarmModule.getCompletedAlarms();
             const snoozedAlarmsMap = await AlarmModule.getSnoozedAlarms();
             
+            // Also get native reminder states for accurate occurrence tracking
+            let nativeStates: Record<string, any> = {};
+            if (AlarmModule.getAllNativeReminderStates) {
+                try {
+                    nativeStates = await AlarmModule.getAllNativeReminderStates();
+                } catch (e) {
+                    console.log('[StartupCheck] Could not get native states:', e);
+                }
+            }
+            
             // Only log if we actually have something to sync
             const completedCount = Object.keys(completedAlarmsMap || {}).length;
             const snoozedCount = Object.keys(snoozedAlarmsMap || {}).length;
+            const nativeStateCount = Object.keys(nativeStates || {}).length;
             
-            if (completedCount > 0 || snoozedCount > 0) {
-                console.log(`[StartupCheck] Syncing native state: ${completedCount} completed, ${snoozedCount} snoozed`);
+            if (completedCount > 0 || snoozedCount > 0 || nativeStateCount > 0) {
+                console.log(`[StartupCheck] Syncing native state: ${completedCount} completed, ${snoozedCount} snoozed, ${nativeStateCount} native states`);
 
                 let stateChanged = false;
 
                 // Apply native state changes
                 allReminders = allReminders.map((reminder: Reminder) => {
-                    // Check if completed natively
+                    // First check native state for accurate occurrence count and completion
+                    const nativeState = nativeStates[reminder.id];
+                    if (nativeState) {
+                        // If native says completed, mark as completed
+                        if (nativeState.isCompleted && !reminder.isCompleted) {
+                            console.log(`[StartupCheck] Syncing: Marking ${reminder.id} as completed from native state (isCompleted=true)`);
+                            stateChanged = true;
+                            return {
+                                ...reminder,
+                                isCompleted: true,
+                                isActive: false,
+                                occurrenceCount: nativeState.actualTriggerCount || reminder.occurrenceCount,
+                                lastTriggeredAt: nativeState.completedAt > 0 
+                                    ? new Date(nativeState.completedAt).toISOString() 
+                                    : new Date().toISOString()
+                            };
+                        }
+                        
+                        // Sync occurrence count if native has higher count
+                        if (nativeState.actualTriggerCount > (reminder.occurrenceCount || 0)) {
+                            console.log(`[StartupCheck] Syncing occurrenceCount for ${reminder.id}: ${reminder.occurrenceCount} -> ${nativeState.actualTriggerCount}`);
+                            stateChanged = true;
+                            return {
+                                ...reminder,
+                                occurrenceCount: nativeState.actualTriggerCount
+                            };
+                        }
+                    }
+                    
+                    // Check if completed natively (from DoMinderAlarmActions)
                     if (completedAlarmsMap && completedAlarmsMap[reminder.id]) {
                          console.log(`[StartupCheck] Syncing: Marking ${reminder.id} as completed from native state`);
                          stateChanged = true;
