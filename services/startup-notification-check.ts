@@ -187,16 +187,32 @@ export async function checkAndTriggerPendingNotifications() {
       await showExpiredRingerNotifications(expiredRingerReminders);
     }
 
-    // Reschedule all future reminders (force stop clears AlarmManager alarms)
+    // Reschedule future reminders (force stop clears AlarmManager alarms)
+    // CRITICAL: Skip high priority (ringer) reminders - they use native AlarmManager
+    // which persists across app restarts. Re-scheduling them via JS causes timing drift.
     if (remindersToReschedule.length > 0) {
-      console.log(`[StartupCheck] Rescheduling ${remindersToReschedule.length} future reminders`);
       const notificationService = require('../hooks/notification-service');
-      for (const reminder of remindersToReschedule) {
-        try {
-          await notificationService.scheduleReminderByModel(reminder);
-          console.log(`[StartupCheck] Rescheduled reminder: ${reminder.id}`);
-        } catch (error) {
-          console.error(`[StartupCheck] Error rescheduling ${reminder.id}:`, error);
+      
+      // Separate high priority from others
+      const standardReminders = remindersToReschedule.filter(r => r.priority !== 'high');
+      const ringerReminders = remindersToReschedule.filter(r => r.priority === 'high');
+      
+      if (ringerReminders.length > 0) {
+        console.log(`[StartupCheck] Skipping ${ringerReminders.length} high priority reminders - native AlarmManager handles them`);
+        for (const reminder of ringerReminders) {
+          console.log(`[StartupCheck] Skipped ringer: ${reminder.id} (native scheduled)`);
+        }
+      }
+      
+      if (standardReminders.length > 0) {
+        console.log(`[StartupCheck] Rescheduling ${standardReminders.length} standard/silent reminders`);
+        for (const reminder of standardReminders) {
+          try {
+            await notificationService.scheduleReminderByModel(reminder);
+            console.log(`[StartupCheck] Rescheduled reminder: ${reminder.id}`);
+          } catch (error) {
+            console.error(`[StartupCheck] Error rescheduling ${reminder.id}:`, error);
+          }
         }
       }
     }
