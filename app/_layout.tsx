@@ -31,9 +31,11 @@ const useAlarmListeners = () => {
       (event: { reminderId: string; triggerTime?: number }) => {
         console.log('Native alarm DONE event received for:', event.reminderId, 'triggerTime:', event.triggerTime);
         if (event.reminderId) {
-          // Native alarm DONE -> increment occurrence and schedule next
-          // Pass triggerTime for accurate history timestamps
-          markReminderDone(event.reminderId, true, event.triggerTime);
+          // Native alarm DONE -> schedule next occurrence
+          // IMPORTANT: shouldIncrementOccurrence=false because native AlarmReceiver 
+          // already incremented actualTriggerCount when the alarm fired.
+          // We just need to record history and schedule the next occurrence.
+          markReminderDone(event.reminderId, false, event.triggerTime);
         }
       }
     );

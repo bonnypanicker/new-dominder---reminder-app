@@ -26,8 +26,18 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: ${reminderId}, triggerTime: ${triggerTime}")
                 if (reminderId != null) {
-                    // Schedule next occurrence natively for repeating reminders
-                    scheduleNextOccurrenceIfNeeded(context, reminderId)
+                    // Check if React Native is running
+                    val isReactRunning = isReactContextAvailable(context)
+                    DebugLogger.log("AlarmActionBridge: React Native running: $isReactRunning")
+                    
+                    if (!isReactRunning) {
+                        // App is killed - native handles scheduling next occurrence
+                        DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
+                        scheduleNextOccurrenceIfNeeded(context, reminderId)
+                    } else {
+                        // App is running - JS will handle everything via event
+                        DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
+                    }
                     
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
                     emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
@@ -373,6 +383,26 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             DebugLogger.log("AlarmActionBridge: Error emitting missed alarm: ${e.message}")
+        }
+    }
+    
+    /**
+     * Check if React Native context is available (app is running).
+     * Used to decide whether native or JS should handle scheduling.
+     */
+    private fun isReactContextAvailable(context: Context): Boolean {
+        return try {
+            val app = context.applicationContext
+            if (app is ReactApplication) {
+                val reactInstanceManager = app.reactNativeHost.reactInstanceManager
+                val reactContext = reactInstanceManager.currentReactContext
+                reactContext != null
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActionBridge: Error checking React context: ${e.message}")
+            false
         }
     }
 
