@@ -180,8 +180,19 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         }
       }
       
-      await notificationService.scheduleReminderByModel(updated as any);
-      console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
+      // CRITICAL FIX: For "every" type reminders triggered from native (shouldIncrementOccurrence=false),
+      // native AlarmReceiver already scheduled the next occurrence with exact timing.
+      // We only need to update the reminder state, NOT reschedule via JS (which adds delays).
+      const isNativeTriggered = !shouldIncrementOccurrence;
+      const isEveryType = reminder.repeatType === 'every';
+      
+      if (isNativeTriggered && isEveryType) {
+        console.log(`[Scheduler] Skipping JS scheduling for 'every' reminder - native already scheduled next occurrence`);
+        // Just update the reminder state without rescheduling
+      } else {
+        await notificationService.scheduleReminderByModel(updated as any);
+        console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
+      }
     } else {
       // Series ended - merge history into main reminder and mark complete
       console.log(`[Scheduler] Series ended for ${reminderId}, marking as completed`);
