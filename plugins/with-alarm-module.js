@@ -1629,7 +1629,7 @@ class AlarmReceiver : BroadcastReceiver() {
     
     /**
      * Schedule the next occurrence IMMEDIATELY when alarm fires.
-     * This ensures exact timing for "every X minutes/hours" reminders regardless of
+     * This ensures exact timing for ALL repeating ringer reminders regardless of
      * when user dismisses the alarm or whether app is open/closed.
      * 
      * This is called from onReceive() right after recording the trigger, BEFORE showing
@@ -1656,12 +1656,27 @@ class AlarmReceiver : BroadcastReceiver() {
             val startDate = metaPrefs.getString("meta_\${reminderId}_startDate", "") ?: ""
             val startTime = metaPrefs.getString("meta_\${reminderId}_startTime", "") ?: ""
             
-            DebugLogger.log("AlarmReceiver: scheduleNextOccurrenceImmediately - repeatType=\$repeatType, everyValue=\$everyValue, everyUnit=\$everyUnit, actualTriggerCount=\$actualTriggerCount")
+            DebugLogger.log("AlarmReceiver: scheduleNextOccurrenceImmediately - repeatType=\$repeatType, everyValue=\$everyValue, everyUnit=\$everyUnit, actualTriggerCount=\$actualTriggerCount, startTime=\$startTime")
             
             // Check if we've reached the count limit
             if (untilType == "count" && actualTriggerCount >= untilCount) {
                 DebugLogger.log("AlarmReceiver: Reached occurrence limit (\$actualTriggerCount >= \$untilCount), no more occurrences")
                 return
+            }
+            
+            // Parse the original time for daily/weekly/monthly/yearly reminders
+            var originalHour = 0
+            var originalMinute = 0
+            if (startTime.isNotEmpty()) {
+                try {
+                    val timeParts = startTime.split(":")
+                    if (timeParts.size == 2) {
+                        originalHour = timeParts[0].toInt()
+                        originalMinute = timeParts[1].toInt()
+                    }
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmReceiver: Error parsing startTime: \${e.message}")
+                }
             }
             
             // Calculate next trigger time based on repeat type
@@ -1704,34 +1719,66 @@ class AlarmReceiver : BroadcastReceiver() {
                     }
                 }
                 "daily" -> {
+                    // Next day at the same time
                     val calendar = java.util.Calendar.getInstance()
                     calendar.timeInMillis = currentTriggerTime
                     calendar.add(java.util.Calendar.DAY_OF_MONTH, 1)
+                    // Preserve original time
+                    if (startTime.isNotEmpty()) {
+                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
+                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
+                        calendar.set(java.util.Calendar.SECOND, 0)
+                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    }
                     calendar.timeInMillis
                 }
                 "weekly" -> {
+                    // Next week at the same time
                     val calendar = java.util.Calendar.getInstance()
                     calendar.timeInMillis = currentTriggerTime
                     calendar.add(java.util.Calendar.WEEK_OF_YEAR, 1)
+                    // Preserve original time
+                    if (startTime.isNotEmpty()) {
+                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
+                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
+                        calendar.set(java.util.Calendar.SECOND, 0)
+                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    }
                     calendar.timeInMillis
                 }
                 "monthly" -> {
+                    // Next month at the same time
                     val calendar = java.util.Calendar.getInstance()
                     calendar.timeInMillis = currentTriggerTime
                     calendar.add(java.util.Calendar.MONTH, 1)
+                    // Preserve original time
+                    if (startTime.isNotEmpty()) {
+                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
+                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
+                        calendar.set(java.util.Calendar.SECOND, 0)
+                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    }
                     calendar.timeInMillis
                 }
                 "yearly" -> {
+                    // Next year at the same time
                     val calendar = java.util.Calendar.getInstance()
                     calendar.timeInMillis = currentTriggerTime
                     calendar.add(java.util.Calendar.YEAR, 1)
+                    // Preserve original time
+                    if (startTime.isNotEmpty()) {
+                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
+                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
+                        calendar.set(java.util.Calendar.SECOND, 0)
+                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    }
                     calendar.timeInMillis
                 }
                 else -> null
             }
             
             if (nextTriggerTime == null) {
-                DebugLogger.log("AlarmReceiver: Could not calculate next trigger time")
+                DebugLogger.log("AlarmReceiver: Could not calculate next trigger time for repeatType=\$repeatType")
                 return
             }
             
@@ -1774,7 +1821,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 pendingIntent
             )
             
-            DebugLogger.log("AlarmReceiver: Scheduled next occurrence at \${java.util.Date(nextTriggerTime)} (in \${(nextTriggerTime - currentTriggerTime) / 1000}s)")
+            DebugLogger.log("AlarmReceiver: Scheduled next \$repeatType occurrence at \${java.util.Date(nextTriggerTime)} (in \${(nextTriggerTime - currentTriggerTime) / 1000}s)")
             
         } catch (e: Exception) {
             DebugLogger.log("AlarmReceiver: Error scheduling next occurrence: \${e.message}")

@@ -180,11 +180,11 @@ function AppContent() {
 
           // Auto-reschedule all repeating reminder types (not just 'every')
           if (reminder.repeatType !== 'none') {
-            // CRITICAL FIX: For high priority "every" type reminders, native AlarmReceiver
+            // CRITICAL FIX: For high priority (ringer) reminders, native AlarmReceiver
             // already schedules the next occurrence with exact timing. Skip JS rescheduling
-            // to avoid delays and duplicate scheduling.
-            if (reminder.repeatType === 'every' && reminder.priority === 'high') {
-              console.log(`[RootLayout] Skipping JS rescheduling for high priority 'every' reminder ${reminderId} - native handles it`);
+            // to avoid delays and duplicate scheduling. This applies to ALL repeat types.
+            if (reminder.priority === 'high') {
+              console.log(`[RootLayout] Skipping JS rescheduling for high priority '${reminder.repeatType}' reminder ${reminderId} - native handles it`);
               return;
             }
             
