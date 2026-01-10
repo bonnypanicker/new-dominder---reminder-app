@@ -156,6 +156,35 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     }
 
     if (nextDate) {
+      // FIX 4: Double-check native completion status before scheduling
+      // This prevents scheduling after native has already marked the reminder complete
+      if (AlarmModule?.getNativeReminderState) {
+        try {
+          const finalCheck = await AlarmModule.getNativeReminderState(reminderId);
+          if (finalCheck?.isCompleted) {
+            console.log(`[Scheduler] Native reports ${reminderId} is COMPLETED, skipping schedule`);
+            // Mark as completed in JS too
+            const completed = {
+              ...calcContext,
+              isCompleted: true,
+              isActive: false,
+              snoozeUntil: undefined,
+              wasSnoozed: undefined,
+              lastTriggeredAt: completedOccurrenceTime,
+              nextReminderDate: undefined,
+            };
+            await updateReminder(completed as any);
+            await notificationService.cancelAllNotificationsForReminder(reminderId);
+            console.log(`[Scheduler] ========== markReminderDone END (native completed) ==========`);
+            DeviceEventEmitter.emit('remindersChanged');
+            return;
+          }
+        } catch (e) {
+          console.log(`[Scheduler] Could not verify native completion status:`, e);
+          // Continue with scheduling if we can't check
+        }
+      }
+
       // More occurrences to come - update and reschedule
       const updated = {
         ...calcContext,
