@@ -111,8 +111,17 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     // Create context for calculating next date with the new occurrence count
     const calcContext = { ...reminder, occurrenceCount: newOccurrenceCount };
 
-    // Calculate next occurrence
-    const nextDate = calculateNextReminderDate(calcContext as any, new Date());
+    // GEMINI FIX: Use the scheduled time of the completed occurrence as baseline
+    // This ensures strict sequential adherence even if user dismisses late
+    // e.g., if 10:45 alarm is dismissed at 10:46:05, next should be 10:46, not 10:47
+    const referenceDate = reminder.nextReminderDate 
+      ? new Date(reminder.nextReminderDate) 
+      : new Date();
+    
+    console.log(`[Scheduler] Using reference date for next calculation: ${referenceDate.toISOString()}`);
+
+    // Calculate next occurrence from the scheduled time, not current time
+    const nextDate = calculateNextReminderDate(calcContext as any, referenceDate);
     
     console.log(`[Scheduler] Next occurrence calculated: ${nextDate ? nextDate.toISOString() : 'null (series ended)'}`);
 
