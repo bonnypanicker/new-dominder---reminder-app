@@ -277,8 +277,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   let when = reminderToTimestamp(reminder);
   const now = Date.now();
   
-  if (when <= now) {
-    console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past`);
+  // CRITICAL FIX: Add tolerance window to account for processing delays
+  // Only treat as "in the past" if more than 5 seconds behind
+  const TOLERANCE_MS = 5000; // 5 seconds
+  
+  if (when <= now - TOLERANCE_MS) {
+    console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past (beyond ${TOLERANCE_MS}ms tolerance)`);
     
     // For 'every' reminders, recalculate from current time instead of skipping
      if (reminder.repeatType === 'every') {

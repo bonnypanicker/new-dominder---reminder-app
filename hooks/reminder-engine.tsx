@@ -110,6 +110,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         }
       }
       
+      // CRITICAL FIX: Add latency buffer to prevent race condition between JS and native alarm
+      // Wait 45 seconds after scheduled time before JS intervenes, giving native alarm time to fire
+      const LATENCY_BUFFER_MS = 45000; // 45 seconds
+      
       if (nextFireTime && nextFireTime > now) {
         console.log(`[ReminderEngine] Scheduling notification for reminder ${reminder.id} at ${nextFireTime.toISOString()}`);
         
@@ -127,8 +131,10 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             console.error(`[ReminderEngine] Failed to schedule reminder ${reminder.id}:`, error);
             schedulingInProgress.current.delete(reminder.id);
           });
-      } else if (nextFireTime && nextFireTime <= now) {
-        console.log(`[ReminderEngine] Reminder ${reminder.id} fire time ${nextFireTime.toISOString()} is in the past`);
+      } else if (nextFireTime && nextFireTime.getTime() <= nowTimestamp - LATENCY_BUFFER_MS) {
+        // Only intervene if fire time is MORE than 45 seconds in the past
+        // This gives native AlarmManager time to fire without JS interference
+        console.log(`[ReminderEngine] Reminder ${reminder.id} fire time ${nextFireTime.toISOString()} is in the past (beyond ${LATENCY_BUFFER_MS}ms buffer)`);
         
         if (reminder.repeatType === 'none' && !reminder.snoozeUntil) {
           console.log(`[ReminderEngine] Marking one-time reminder ${reminder.id} as expired`);
@@ -213,6 +219,12 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             processedReminders.current.delete(reminder.id);
           }
         }
+      } else if (nextFireTime && nextFireTime.getTime() <= nowTimestamp && nextFireTime.getTime() > nowTimestamp - LATENCY_BUFFER_MS) {
+        // GRACE PERIOD: Fire time is in the past but within the 45-second buffer
+        // Let the native alarm fire without JS interference - don't reschedule or advance
+        console.log(`[ReminderEngine] Reminder ${reminder.id} fire time ${nextFireTime.toISOString()} is within grace period (${LATENCY_BUFFER_MS}ms buffer) - letting native alarm fire`);
+        // Don't update processedReminders - we'll check again on next tick
+        // If native alarm fires, markReminderDone will handle rescheduling
       } else {
         console.log(`[ReminderEngine] No valid fire time for reminder ${reminder.id}`);
         console.log(`[ReminderEngine] Reminder details:`, {
