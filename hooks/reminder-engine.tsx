@@ -164,10 +164,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             : occurred + 1;
           const reminderForCalc = { ...reminder, occurrenceCount: nextOccurCount };
           
-          let nextDate = calculateNextReminderDate(reminderForCalc, now);
+          // FIX: Use the scheduled time as baseline, not current time
+          // This ensures strict sequential adherence (10:45 -> 10:46, not 10:47)
+          const referenceDate = reminder.nextReminderDate 
+            ? new Date(reminder.nextReminderDate) 
+            : now;
+          
+          let nextDate = calculateNextReminderDate(reminderForCalc, referenceDate);
           
           // For 'every' type reminders, if the calculated next date is still in the past,
-          // we need to keep advancing until we get a future date
+          // we need to advance but use floor (not ceil) to allow catch-up
           if (reminder.repeatType === 'every' && reminder.everyInterval && nextDate && nextDate <= now) {
             console.log(`[ReminderEngine] Next calculated date ${nextDate.toISOString()} is still in past, advancing further`);
             
@@ -179,9 +185,15 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
               : interval.value * 24 * 60 * 60 * 1000;
             
             // Calculate how many intervals we need to skip to get to the future
+            // Use floor to allow catch-up of the most recent missed occurrence
             const timeDiff = now.getTime() - nextDate.getTime();
-            const intervalsToSkip = Math.ceil(timeDiff / addMs);
+            const intervalsToSkip = Math.floor(timeDiff / addMs);
             nextDate = new Date(nextDate.getTime() + (intervalsToSkip * addMs));
+            
+            // If still in past (within same interval), schedule it anyway for immediate catch-up
+            if (nextDate <= now) {
+              nextDate = new Date(nextDate.getTime() + addMs);
+            }
             
             console.log(`[ReminderEngine] Advanced ${reminder.id} by ${intervalsToSkip} intervals to ${nextDate.toISOString()}`);
           }
