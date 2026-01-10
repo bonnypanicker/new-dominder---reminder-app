@@ -111,16 +111,19 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
       
       if (nextFireTime && nextFireTime > now) {
-        // CRITICAL: Skip scheduling for high priority (ringer) reminders
-        // Native AlarmManager already has them scheduled with exact timing.
-        // Re-scheduling via JS causes timing drift and delays.
-        if (reminder.priority === 'high') {
-          console.log(`[ReminderEngine] Skipping JS scheduling for high priority reminder ${reminder.id} - native AlarmManager handles it`);
+        // For high priority (ringer) reminders, we need to determine if native already has it scheduled:
+        // - NEW reminders (occurrenceCount === 0 and no lastTriggeredAt): Need JS to schedule the FIRST alarm
+        // - TRIGGERED reminders (occurrenceCount > 0 or has lastTriggeredAt): Native schedules next occurrence
+        const isNewReminder = (reminder.occurrenceCount ?? 0) === 0 && !reminder.lastTriggeredAt;
+        const shouldSkipJsScheduling = reminder.priority === 'high' && !isNewReminder;
+        
+        if (shouldSkipJsScheduling) {
+          console.log(`[ReminderEngine] Skipping JS scheduling for triggered high priority reminder ${reminder.id} - native AlarmManager handles next occurrence`);
           const scheduledKey = `${reminderToSchedule.id}-${reminderToSchedule.date}-${reminderToSchedule.time}-${reminderToSchedule.priority}-${reminderToSchedule.snoozeUntil || ''}-${reminderToSchedule.nextReminderDate || ''}`;
           const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
           processedReminders.current.set(reminder.id, scheduledHash);
         } else {
-          console.log(`[ReminderEngine] Scheduling notification for reminder ${reminder.id} at ${nextFireTime.toISOString()}`);
+          console.log(`[ReminderEngine] Scheduling notification for reminder ${reminder.id} at ${nextFireTime.toISOString()}${isNewReminder ? ' (new reminder)' : ''}`);
           
           schedulingInProgress.current.add(reminder.id);
           
@@ -204,10 +207,13 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             console.log(`[ReminderEngine] Advancing ${reminder.id} to next occurrence at ${updated.nextReminderDate}`);
             updateReminderRef.current.mutate(updated);
 
-            // CRITICAL: Skip scheduling for high priority (ringer) reminders
-            // Native AlarmManager handles them with exact timing
-            if (reminder.priority === 'high') {
-              console.log(`[ReminderEngine] Skipping JS scheduling for high priority reminder ${reminder.id} - native AlarmManager handles it`);
+            // For high priority reminders that have been triggered, native handles scheduling
+            // But if this is auto-advancing (reminder was in the past), we need to schedule
+            const hasBeenTriggered = (reminder.occurrenceCount ?? 0) > 0 || !!reminder.lastTriggeredAt;
+            const shouldSkipJsScheduling = reminder.priority === 'high' && hasBeenTriggered;
+            
+            if (shouldSkipJsScheduling) {
+              console.log(`[ReminderEngine] Skipping JS scheduling for triggered high priority reminder ${reminder.id} - native AlarmManager handles next occurrence`);
               const scheduledKey = `${updated.id}-${updated.date}-${updated.time}-${updated.priority}-${updated.snoozeUntil || ''}-${updated.nextReminderDate || ''}`;
               const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
               processedReminders.current.set(reminder.id, scheduledHash);

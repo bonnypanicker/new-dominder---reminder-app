@@ -191,7 +191,8 @@ export async function checkAndTriggerPendingNotifications(isAfterReboot: boolean
 
     // Reschedule future reminders (force stop clears AlarmManager alarms)
     // CRITICAL: After device reboot, AlarmManager alarms are cleared - must reschedule ALL.
-    // During normal app startup, skip high priority reminders - native already has them scheduled.
+    // During normal app startup, skip high priority reminders ONLY if they've been triggered
+    // (meaning native already scheduled the next occurrence).
     if (remindersToReschedule.length > 0) {
       const notificationService = require('../hooks/notification-service');
       
@@ -207,26 +208,22 @@ export async function checkAndTriggerPendingNotifications(isAfterReboot: boolean
           }
         }
       } else {
-        // Normal app startup: Skip high priority reminders (native already has them)
-        const standardReminders = remindersToReschedule.filter(r => r.priority !== 'high');
-        const ringerReminders = remindersToReschedule.filter(r => r.priority === 'high');
-        
-        if (ringerReminders.length > 0) {
-          console.log(`[StartupCheck] Skipping ${ringerReminders.length} high priority reminders - native AlarmManager handles them`);
-          for (const reminder of ringerReminders) {
-            console.log(`[StartupCheck] Skipped ringer: ${reminder.id} (native scheduled)`);
+        // Normal app startup: Skip high priority reminders ONLY if they've been triggered
+        // New reminders (occurrenceCount === 0, no lastTriggeredAt) need JS to schedule the first alarm
+        for (const reminder of remindersToReschedule) {
+          const isNewReminder = (reminder.occurrenceCount ?? 0) === 0 && !reminder.lastTriggeredAt;
+          const shouldSkip = reminder.priority === 'high' && !isNewReminder;
+          
+          if (shouldSkip) {
+            console.log(`[StartupCheck] Skipping triggered ringer: ${reminder.id} (native scheduled)`);
+            continue;
           }
-        }
-        
-        if (standardReminders.length > 0) {
-          console.log(`[StartupCheck] Rescheduling ${standardReminders.length} standard/silent reminders`);
-          for (const reminder of standardReminders) {
-            try {
-              await notificationService.scheduleReminderByModel(reminder);
-              console.log(`[StartupCheck] Rescheduled reminder: ${reminder.id}`);
-            } catch (error) {
-              console.error(`[StartupCheck] Error rescheduling ${reminder.id}:`, error);
-            }
+          
+          try {
+            await notificationService.scheduleReminderByModel(reminder);
+            console.log(`[StartupCheck] Rescheduled reminder: ${reminder.id}${isNewReminder ? ' (new)' : ''}`);
+          } catch (error) {
+            console.error(`[StartupCheck] Error rescheduling ${reminder.id}:`, error);
           }
         }
       }
