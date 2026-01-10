@@ -173,7 +173,13 @@ class AlarmReceiver : BroadcastReceiver() {
         try {
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
             
-            val repeatType = metaPrefs.getString("meta_${reminderId}_repeatType", "none") ?: "none"
+            // Debug: Check if metadata exists
+            val metaKey = "meta_${reminderId}_repeatType"
+            val hasMetadata = metaPrefs.contains(metaKey)
+            DebugLogger.log("AlarmReceiver: checkAndMarkCompletionNatively - key '$metaKey' exists=$hasMetadata")
+            
+            val repeatType = metaPrefs.getString(metaKey, "none") ?: "none"
+            DebugLogger.log("AlarmReceiver: checkAndMarkCompletionNatively - repeatType='$repeatType' for reminderId=$reminderId")
             if (repeatType == "none") {
                 // One-time reminder - mark complete after this trigger
                 metaPrefs.edit().apply {
@@ -275,12 +281,21 @@ class AlarmReceiver : BroadcastReceiver() {
      */
     private fun scheduleNextOccurrenceImmediately(context: Context, reminderId: String, title: String, priority: String, currentTriggerTime: Long) {
         try {
+            DebugLogger.log("AlarmReceiver: scheduleNextOccurrenceImmediately called for reminderId=$reminderId")
+            
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val repeatType = metaPrefs.getString("meta_${reminderId}_repeatType", "none") ?: "none"
+            
+            // Debug: Check if metadata exists
+            val metaKey = "meta_${reminderId}_repeatType"
+            val hasMetadata = metaPrefs.contains(metaKey)
+            DebugLogger.log("AlarmReceiver: Checking metadata key '$metaKey', exists=$hasMetadata")
+            
+            val repeatType = metaPrefs.getString(metaKey, "none") ?: "none"
+            DebugLogger.log("AlarmReceiver: Read repeatType='$repeatType' for reminderId=$reminderId")
             
             // Only schedule for repeating reminders
             if (repeatType == "none") {
-                DebugLogger.log("AlarmReceiver: Non-repeating reminder, no next occurrence needed")
+                DebugLogger.log("AlarmReceiver: Non-repeating reminder (repeatType=none), no next occurrence needed")
                 return
             }
             

@@ -26,17 +26,27 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: ${reminderId}, triggerTime: ${triggerTime}")
                 if (reminderId != null) {
-                    // Check if React Native is running
-                    val isReactRunning = isReactContextAvailable(context)
-                    DebugLogger.log("AlarmActionBridge: React Native running: $isReactRunning")
+                    // Check if metadata still exists (JS may have already cleared it if series ended)
+                    val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+                    val hasMetadata = metaPrefs.contains("meta_${reminderId}_repeatType")
+                    DebugLogger.log("AlarmActionBridge: Metadata exists for $reminderId: $hasMetadata")
                     
-                    if (!isReactRunning) {
-                        // App is killed - native handles scheduling next occurrence
-                        DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
-                        scheduleNextOccurrenceIfNeeded(context, reminderId)
+                    if (!hasMetadata) {
+                        // Metadata was already cleared by JS - series has ended, nothing to do
+                        DebugLogger.log("AlarmActionBridge: Metadata already cleared (series ended), skipping scheduling")
                     } else {
-                        // App is running - JS will handle everything via event
-                        DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
+                        // Check if React Native is running
+                        val isReactRunning = isReactContextAvailable(context)
+                        DebugLogger.log("AlarmActionBridge: React Native running: $isReactRunning")
+                        
+                        if (!isReactRunning) {
+                            // App is killed - native handles scheduling next occurrence
+                            DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
+                            scheduleNextOccurrenceIfNeeded(context, reminderId)
+                        } else {
+                            // App is running - JS will handle everything via event
+                            DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
+                        }
                     }
                     
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
@@ -90,11 +100,23 @@ class AlarmActionBridge : BroadcastReceiver() {
      */
     private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
         try {
+            DebugLogger.log("AlarmActionBridge: scheduleNextOccurrenceIfNeeded called for reminderId=$reminderId")
+            
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val repeatType = metaPrefs.getString("meta_${reminderId}_repeatType", "none") ?: "none"
+            
+            // Debug: Check if metadata exists for this reminder
+            val metaKey = "meta_${reminderId}_repeatType"
+            val hasMetadata = metaPrefs.contains(metaKey)
+            DebugLogger.log("AlarmActionBridge: Checking metadata key '$metaKey', exists=$hasMetadata")
+            
+            val repeatType = metaPrefs.getString(metaKey, "none") ?: "none"
+            DebugLogger.log("AlarmActionBridge: Read repeatType='$repeatType' for reminderId=$reminderId")
             
             if (repeatType == "none") {
-                DebugLogger.log("AlarmActionBridge: Non-repeating reminder, no next occurrence needed")
+                DebugLogger.log("AlarmActionBridge: Non-repeating reminder (repeatType=none), no next occurrence needed")
+                // Debug: List all keys in SharedPreferences to help diagnose
+                val allKeys = metaPrefs.all.keys.filter { it.startsWith("meta_") }.take(10)
+                DebugLogger.log("AlarmActionBridge: Sample metadata keys in prefs: $allKeys")
                 return
             }
             
