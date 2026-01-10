@@ -180,20 +180,8 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         }
       }
       
-      // CRITICAL FIX: For high priority (ringer) reminders triggered from native (shouldIncrementOccurrence=false),
-      // native AlarmReceiver already scheduled the next occurrence with exact timing.
-      // We only need to update the reminder state, NOT reschedule via JS (which adds delays).
-      // This applies to ALL repeat types: every, daily, weekly, monthly, yearly
-      const isNativeTriggered = !shouldIncrementOccurrence;
-      const isRingerMode = reminder.priority === 'high';
-      
-      if (isNativeTriggered && isRingerMode) {
-        console.log(`[Scheduler] Skipping JS scheduling for ringer mode '${reminder.repeatType}' reminder - native already scheduled next occurrence`);
-        // Just update the reminder state without rescheduling
-      } else {
-        await notificationService.scheduleReminderByModel(updated as any);
-        console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
-      }
+      await notificationService.scheduleReminderByModel(updated as any);
+      console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
     } else {
       // Series ended - merge history into main reminder and mark complete
       console.log(`[Scheduler] Series ended for ${reminderId}, marking as completed`);

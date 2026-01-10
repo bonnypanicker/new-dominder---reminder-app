@@ -240,27 +240,17 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
-                    // Check if metadata still exists (JS may have already cleared it if series ended)
-                    val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-                    val hasMetadata = metaPrefs.contains("meta_\${reminderId}_repeatType")
-                    DebugLogger.log("AlarmActionBridge: Metadata exists for \$reminderId: \$hasMetadata")
+                    // Check if React Native is running
+                    val isReactRunning = isReactContextAvailable(context)
+                    DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
                     
-                    if (!hasMetadata) {
-                        // Metadata was already cleared by JS - series has ended, nothing to do
-                        DebugLogger.log("AlarmActionBridge: Metadata already cleared (series ended), skipping scheduling")
+                    if (!isReactRunning) {
+                        // App is killed - native handles scheduling next occurrence
+                        DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
+                        scheduleNextOccurrenceIfNeeded(context, reminderId)
                     } else {
-                        // Check if React Native is running
-                        val isReactRunning = isReactContextAvailable(context)
-                        DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
-                        
-                        if (!isReactRunning) {
-                            // App is killed - native handles scheduling next occurrence
-                            DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
-                            scheduleNextOccurrenceIfNeeded(context, reminderId)
-                        } else {
-                            // App is running - JS will handle everything via event
-                            DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
-                        }
+                        // App is running - JS will handle everything via event
+                        DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
                     }
                     
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
@@ -314,23 +304,11 @@ class AlarmActionBridge : BroadcastReceiver() {
      */
     private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
         try {
-            DebugLogger.log("AlarmActionBridge: scheduleNextOccurrenceIfNeeded called for reminderId=\$reminderId")
-            
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            // Debug: Check if metadata exists for this reminder
-            val metaKey = "meta_\${reminderId}_repeatType"
-            val hasMetadata = metaPrefs.contains(metaKey)
-            DebugLogger.log("AlarmActionBridge: Checking metadata key '\$metaKey', exists=\$hasMetadata")
-            
-            val repeatType = metaPrefs.getString(metaKey, "none") ?: "none"
-            DebugLogger.log("AlarmActionBridge: Read repeatType='\$repeatType' for reminderId=\$reminderId")
+            val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
             
             if (repeatType == "none") {
-                DebugLogger.log("AlarmActionBridge: Non-repeating reminder (repeatType=none), no next occurrence needed")
-                // Debug: List all keys in SharedPreferences to help diagnose
-                val allKeys = metaPrefs.all.keys.filter { it.startsWith("meta_") }.take(10)
-                DebugLogger.log("AlarmActionBridge: Sample metadata keys in prefs: \$allKeys")
+                DebugLogger.log("AlarmActionBridge: Non-repeating reminder, no next occurrence needed")
                 return
             }
             
@@ -1432,11 +1410,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
         if (shouldComplete) {
             DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
-        } else {
-            // CRITICAL FIX: Schedule next occurrence IMMEDIATELY when alarm fires
-            // This ensures exact timing for "every X minutes" reminders regardless of
-            // when user dismisses the alarm or whether app is open/closed
-            scheduleNextOccurrenceImmediately(context, reminderId, title, priority, triggerTime)
         }
 
         // Start AlarmRingtoneService for high priority reminders
@@ -1557,13 +1530,7 @@ class AlarmReceiver : BroadcastReceiver() {
         try {
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
             
-            // Debug: Check if metadata exists
-            val metaKey = "meta_\${reminderId}_repeatType"
-            val hasMetadata = metaPrefs.contains(metaKey)
-            DebugLogger.log("AlarmReceiver: checkAndMarkCompletionNatively - key '\$metaKey' exists=\$hasMetadata")
-            
-            val repeatType = metaPrefs.getString(metaKey, "none") ?: "none"
-            DebugLogger.log("AlarmReceiver: checkAndMarkCompletionNatively - repeatType='\$repeatType' for reminderId=\$reminderId")
+            val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
             if (repeatType == "none") {
                 // One-time reminder - mark complete after this trigger
                 metaPrefs.edit().apply {
@@ -1653,216 +1620,6 @@ class AlarmReceiver : BroadcastReceiver() {
             DebugLogger.log("AlarmReceiver: Error parsing end boundary: \${e.message}")
         }
         return calendar.timeInMillis
-    }
-    
-    /**
-     * Schedule the next occurrence IMMEDIATELY when alarm fires.
-     * This ensures exact timing for ALL repeating ringer reminders regardless of
-     * when user dismisses the alarm or whether app is open/closed.
-     * 
-     * This is called from onReceive() right after recording the trigger, BEFORE showing
-     * the fullscreen alarm. This way the next alarm is queued with exact timing.
-     */
-    private fun scheduleNextOccurrenceImmediately(context: Context, reminderId: String, title: String, priority: String, currentTriggerTime: Long) {
-        try {
-            DebugLogger.log("AlarmReceiver: scheduleNextOccurrenceImmediately called for reminderId=\$reminderId")
-            
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            // Debug: Check if metadata exists
-            val metaKey = "meta_\${reminderId}_repeatType"
-            val hasMetadata = metaPrefs.contains(metaKey)
-            DebugLogger.log("AlarmReceiver: Checking metadata key '\$metaKey', exists=\$hasMetadata")
-            
-            val repeatType = metaPrefs.getString(metaKey, "none") ?: "none"
-            DebugLogger.log("AlarmReceiver: Read repeatType='\$repeatType' for reminderId=\$reminderId")
-            
-            // Only schedule for repeating reminders
-            if (repeatType == "none") {
-                DebugLogger.log("AlarmReceiver: Non-repeating reminder (repeatType=none), no next occurrence needed")
-                return
-            }
-            
-            val everyValue = metaPrefs.getInt("meta_\${reminderId}_everyValue", 1)
-            val everyUnit = metaPrefs.getString("meta_\${reminderId}_everyUnit", "minutes") ?: "minutes"
-            val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-            val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-            val untilDate = metaPrefs.getString("meta_\${reminderId}_untilDate", "") ?: ""
-            val untilTime = metaPrefs.getString("meta_\${reminderId}_untilTime", "") ?: ""
-            val actualTriggerCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-            val startDate = metaPrefs.getString("meta_\${reminderId}_startDate", "") ?: ""
-            val startTime = metaPrefs.getString("meta_\${reminderId}_startTime", "") ?: ""
-            
-            DebugLogger.log("AlarmReceiver: scheduleNextOccurrenceImmediately - repeatType=\$repeatType, everyValue=\$everyValue, everyUnit=\$everyUnit, actualTriggerCount=\$actualTriggerCount, startTime=\$startTime")
-            
-            // Check if we've reached the count limit
-            if (untilType == "count" && actualTriggerCount >= untilCount) {
-                DebugLogger.log("AlarmReceiver: Reached occurrence limit (\$actualTriggerCount >= \$untilCount), no more occurrences")
-                return
-            }
-            
-            // Parse the original time for daily/weekly/monthly/yearly reminders
-            var originalHour = 0
-            var originalMinute = 0
-            if (startTime.isNotEmpty()) {
-                try {
-                    val timeParts = startTime.split(":")
-                    if (timeParts.size == 2) {
-                        originalHour = timeParts[0].toInt()
-                        originalMinute = timeParts[1].toInt()
-                    }
-                } catch (e: Exception) {
-                    DebugLogger.log("AlarmReceiver: Error parsing startTime: \${e.message}")
-                }
-            }
-            
-            // Calculate next trigger time based on repeat type
-            val nextTriggerTime: Long? = when (repeatType) {
-                "every" -> {
-                    val intervalMs = when (everyUnit) {
-                        "minutes" -> everyValue * 60 * 1000L
-                        "hours" -> everyValue * 60 * 60 * 1000L
-                        else -> everyValue * 60 * 1000L
-                    }
-                    
-                    // Calculate next aligned occurrence from start time
-                    if (startDate.isNotEmpty() && startTime.isNotEmpty()) {
-                        try {
-                            val calendar = java.util.Calendar.getInstance()
-                            val dateParts = startDate.split("-")
-                            val timeParts = startTime.split(":")
-                            if (dateParts.size == 3 && timeParts.size == 2) {
-                                calendar.set(java.util.Calendar.YEAR, dateParts[0].toInt())
-                                calendar.set(java.util.Calendar.MONTH, dateParts[1].toInt() - 1)
-                                calendar.set(java.util.Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-                                calendar.set(java.util.Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-                                calendar.set(java.util.Calendar.MINUTE, timeParts[1].toInt())
-                                calendar.set(java.util.Calendar.SECOND, 0)
-                                calendar.set(java.util.Calendar.MILLISECOND, 0)
-                                
-                                val startMs = calendar.timeInMillis
-                                val elapsed = currentTriggerTime - startMs
-                                val intervalsPassed = (elapsed / intervalMs) + 1
-                                startMs + (intervalsPassed * intervalMs)
-                            } else {
-                                currentTriggerTime + intervalMs
-                            }
-                        } catch (e: Exception) {
-                            DebugLogger.log("AlarmReceiver: Error parsing start date/time: \${e.message}")
-                            currentTriggerTime + intervalMs
-                        }
-                    } else {
-                        currentTriggerTime + intervalMs
-                    }
-                }
-                "daily" -> {
-                    // Next day at the same time
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.timeInMillis = currentTriggerTime
-                    calendar.add(java.util.Calendar.DAY_OF_MONTH, 1)
-                    // Preserve original time
-                    if (startTime.isNotEmpty()) {
-                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
-                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
-                        calendar.set(java.util.Calendar.SECOND, 0)
-                        calendar.set(java.util.Calendar.MILLISECOND, 0)
-                    }
-                    calendar.timeInMillis
-                }
-                "weekly" -> {
-                    // Next week at the same time
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.timeInMillis = currentTriggerTime
-                    calendar.add(java.util.Calendar.WEEK_OF_YEAR, 1)
-                    // Preserve original time
-                    if (startTime.isNotEmpty()) {
-                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
-                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
-                        calendar.set(java.util.Calendar.SECOND, 0)
-                        calendar.set(java.util.Calendar.MILLISECOND, 0)
-                    }
-                    calendar.timeInMillis
-                }
-                "monthly" -> {
-                    // Next month at the same time
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.timeInMillis = currentTriggerTime
-                    calendar.add(java.util.Calendar.MONTH, 1)
-                    // Preserve original time
-                    if (startTime.isNotEmpty()) {
-                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
-                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
-                        calendar.set(java.util.Calendar.SECOND, 0)
-                        calendar.set(java.util.Calendar.MILLISECOND, 0)
-                    }
-                    calendar.timeInMillis
-                }
-                "yearly" -> {
-                    // Next year at the same time
-                    val calendar = java.util.Calendar.getInstance()
-                    calendar.timeInMillis = currentTriggerTime
-                    calendar.add(java.util.Calendar.YEAR, 1)
-                    // Preserve original time
-                    if (startTime.isNotEmpty()) {
-                        calendar.set(java.util.Calendar.HOUR_OF_DAY, originalHour)
-                        calendar.set(java.util.Calendar.MINUTE, originalMinute)
-                        calendar.set(java.util.Calendar.SECOND, 0)
-                        calendar.set(java.util.Calendar.MILLISECOND, 0)
-                    }
-                    calendar.timeInMillis
-                }
-                else -> null
-            }
-            
-            if (nextTriggerTime == null) {
-                DebugLogger.log("AlarmReceiver: Could not calculate next trigger time for repeatType=\$repeatType")
-                return
-            }
-            
-            // Check against end boundary for endsAt type
-            if (untilType == "endsAt" && untilDate.isNotEmpty()) {
-                val endBoundary = parseEndBoundaryStatic(untilDate, untilTime, everyUnit)
-                if (nextTriggerTime > endBoundary) {
-                    DebugLogger.log("AlarmReceiver: Next trigger \$nextTriggerTime exceeds end boundary \$endBoundary, not scheduling")
-                    return
-                }
-            }
-            
-            // Schedule the next alarm using AlarmManager
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority)
-            }
-            
-            val pendingIntent = android.app.PendingIntent.getBroadcast(
-                context,
-                reminderId.hashCode(),
-                intent,
-                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    DebugLogger.log("AlarmReceiver: Cannot schedule exact alarm, skipping")
-                    return
-                }
-            }
-            
-            alarmManager.setExactAndAllowWhileIdle(
-                android.app.AlarmManager.RTC_WAKEUP,
-                nextTriggerTime,
-                pendingIntent
-            )
-            
-            DebugLogger.log("AlarmReceiver: Scheduled next \$repeatType occurrence at \${java.util.Date(nextTriggerTime)} (in \${(nextTriggerTime - currentTriggerTime) / 1000}s)")
-            
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmReceiver: Error scheduling next occurrence: \${e.message}")
-        }
     }
 }`
     },
@@ -2823,7 +2580,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 }
                 apply()
             }
-            DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, everyUnit=\$everyIntervalUnit, untilType=\$untilType, untilCount=\$untilCount, untilDate=\$untilDate, untilTime=\$untilTime, occurrenceCount=\$occurrenceCount, startDate=\$startDate, startTime=\$startTime")
+            DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, everyUnit=\$everyIntervalUnit, occurrenceCount=\$occurrenceCount")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error storing metadata: \${e.message}")

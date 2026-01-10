@@ -111,35 +111,22 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       }
       
       if (nextFireTime && nextFireTime > now) {
-        // For high priority (ringer) reminders, we need to determine if native already has it scheduled:
-        // - NEW reminders (occurrenceCount === 0 and no lastTriggeredAt): Need JS to schedule the FIRST alarm
-        // - TRIGGERED reminders (occurrenceCount > 0 or has lastTriggeredAt): Native schedules next occurrence
-        const isNewReminder = (reminder.occurrenceCount ?? 0) === 0 && !reminder.lastTriggeredAt;
-        const shouldSkipJsScheduling = reminder.priority === 'high' && !isNewReminder;
+        console.log(`[ReminderEngine] Scheduling notification for reminder ${reminder.id} at ${nextFireTime.toISOString()}`);
         
-        if (shouldSkipJsScheduling) {
-          console.log(`[ReminderEngine] Skipping JS scheduling for triggered high priority reminder ${reminder.id} - native AlarmManager handles next occurrence`);
-          const scheduledKey = `${reminderToSchedule.id}-${reminderToSchedule.date}-${reminderToSchedule.time}-${reminderToSchedule.priority}-${reminderToSchedule.snoozeUntil || ''}-${reminderToSchedule.nextReminderDate || ''}`;
-          const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-          processedReminders.current.set(reminder.id, scheduledHash);
-        } else {
-          console.log(`[ReminderEngine] Scheduling notification for reminder ${reminder.id} at ${nextFireTime.toISOString()}${isNewReminder ? ' (new reminder)' : ''}`);
-          
-          schedulingInProgress.current.add(reminder.id);
-          
-          notificationService.scheduleReminderByModel(reminderToSchedule)
-            .then(() => {
-              const scheduledKey = `${reminderToSchedule.id}-${reminderToSchedule.date}-${reminderToSchedule.time}-${reminderToSchedule.priority}-${reminderToSchedule.snoozeUntil || ''}-${reminderToSchedule.nextReminderDate || ''}`;
-              const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-              processedReminders.current.set(reminder.id, scheduledHash);
-              schedulingInProgress.current.delete(reminder.id);
-              console.log(`[ReminderEngine] Successfully scheduled ${reminder.id}`);
-            })
-            .catch((error) => {
-              console.error(`[ReminderEngine] Failed to schedule reminder ${reminder.id}:`, error);
-              schedulingInProgress.current.delete(reminder.id);
-            });
-        }
+        schedulingInProgress.current.add(reminder.id);
+        
+        notificationService.scheduleReminderByModel(reminderToSchedule)
+          .then(() => {
+            const scheduledKey = `${reminderToSchedule.id}-${reminderToSchedule.date}-${reminderToSchedule.time}-${reminderToSchedule.priority}-${reminderToSchedule.snoozeUntil || ''}-${reminderToSchedule.nextReminderDate || ''}`;
+            const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            processedReminders.current.set(reminder.id, scheduledHash);
+            schedulingInProgress.current.delete(reminder.id);
+            console.log(`[ReminderEngine] Successfully scheduled ${reminder.id}`);
+          })
+          .catch((error) => {
+            console.error(`[ReminderEngine] Failed to schedule reminder ${reminder.id}:`, error);
+            schedulingInProgress.current.delete(reminder.id);
+          });
       } else if (nextFireTime && nextFireTime <= now) {
         console.log(`[ReminderEngine] Reminder ${reminder.id} fire time ${nextFireTime.toISOString()} is in the past`);
         
@@ -207,32 +194,20 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             console.log(`[ReminderEngine] Advancing ${reminder.id} to next occurrence at ${updated.nextReminderDate}`);
             updateReminderRef.current.mutate(updated);
 
-            // For high priority reminders that have been triggered, native handles scheduling
-            // But if this is auto-advancing (reminder was in the past), we need to schedule
-            const hasBeenTriggered = (reminder.occurrenceCount ?? 0) > 0 || !!reminder.lastTriggeredAt;
-            const shouldSkipJsScheduling = reminder.priority === 'high' && hasBeenTriggered;
-            
-            if (shouldSkipJsScheduling) {
-              console.log(`[ReminderEngine] Skipping JS scheduling for triggered high priority reminder ${reminder.id} - native AlarmManager handles next occurrence`);
-              const scheduledKey = `${updated.id}-${updated.date}-${updated.time}-${updated.priority}-${updated.snoozeUntil || ''}-${updated.nextReminderDate || ''}`;
-              const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-              processedReminders.current.set(reminder.id, scheduledHash);
-            } else {
-              // Schedule immediately using the updated object so timestamp uses nextReminderDate
-              schedulingInProgress.current.add(reminder.id);
-              notificationService.scheduleReminderByModel(updated)
-                .then(() => {
-                  const scheduledKey = `${updated.id}-${updated.date}-${updated.time}-${updated.priority}-${updated.snoozeUntil || ''}-${updated.nextReminderDate || ''}`;
-                  const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                  processedReminders.current.set(reminder.id, scheduledHash);
-                  schedulingInProgress.current.delete(reminder.id);
-                  console.log(`[ReminderEngine] Auto-rescheduled ${reminder.id}`);
-                })
-                .catch((error) => {
-                  console.error(`[ReminderEngine] Failed to auto-reschedule ${reminder.id}:`, error);
-                  schedulingInProgress.current.delete(reminder.id);
-                });
-            }
+            // Schedule immediately using the updated object so timestamp uses nextReminderDate
+            schedulingInProgress.current.add(reminder.id);
+            notificationService.scheduleReminderByModel(updated)
+              .then(() => {
+                const scheduledKey = `${updated.id}-${updated.date}-${updated.time}-${updated.priority}-${updated.snoozeUntil || ''}-${updated.nextReminderDate || ''}`;
+                const scheduledHash = scheduledKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                processedReminders.current.set(reminder.id, scheduledHash);
+                schedulingInProgress.current.delete(reminder.id);
+                console.log(`[ReminderEngine] Auto-rescheduled ${reminder.id}`);
+              })
+              .catch((error) => {
+                console.error(`[ReminderEngine] Failed to auto-reschedule ${reminder.id}:`, error);
+                schedulingInProgress.current.delete(reminder.id);
+              });
           } else {
             console.log(`[ReminderEngine] No valid future occurrence computed for ${reminder.id}`);
             processedReminders.current.delete(reminder.id);

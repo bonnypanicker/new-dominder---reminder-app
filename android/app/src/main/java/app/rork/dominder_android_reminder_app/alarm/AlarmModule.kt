@@ -129,7 +129,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 }
                 apply()
             }
-            DebugLogger.log("AlarmModule: Stored metadata for $reminderId - repeatType=$repeatType, everyValue=$everyIntervalValue, everyUnit=$everyIntervalUnit, untilType=$untilType, untilCount=$untilCount, untilDate=$untilDate, untilTime=$untilTime, occurrenceCount=$occurrenceCount, startDate=$startDate, startTime=$startTime")
+            DebugLogger.log("AlarmModule: Stored metadata for $reminderId - repeatType=$repeatType, everyValue=$everyIntervalValue, everyUnit=$everyIntervalUnit, occurrenceCount=$occurrenceCount")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error storing metadata: ${e.message}")

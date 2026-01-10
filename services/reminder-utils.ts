@@ -144,6 +144,15 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       // Determine whether we've already had at least one occurrence
       const hasRecurringHistory = Boolean(reminder.nextReminderDate || reminder.lastTriggeredAt);
 
+      // Baseline for subsequent occurrences (after the first trigger)
+      // IMPORTANT: Use nextReminderDate (the scheduled time) to preserve alignment.
+      // Fallback to lastTriggeredAt only if necessary.
+      const baseline = reminder.nextReminderDate
+        ? new Date(reminder.nextReminderDate)
+        : reminder.lastTriggeredAt
+        ? new Date(reminder.lastTriggeredAt)
+        : startBoundary;
+
       let result: Date;
 
       if (!hasRecurringHistory) {
@@ -159,19 +168,19 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
           console.log(`[calculateNextReminderDate] First occurrence aligned after now: ${result.toISOString()} (steps=${steps})`);
         }
       } else {
-        // CRITICAL FIX: For 'every' reminders, always calculate from START + occurrenceCount
-        // to maintain perfect alignment, rather than trusting nextReminderDate which may drift
-        const occurrenceCount = reminder.occurrenceCount || 0;
-        result = new Date(startBoundary.getTime() + occurrenceCount * addMs);
-        
-        // If the calculated time is in the past (due to processing delays), advance to next interval
+        // Subsequent occurrences: advance from the last scheduled/triggered time
+        result = new Date(baseline.getTime() + addMs);
         if (result <= fromDate) {
+          // FIX: Calculate skip from result (not baseline) to avoid skipping occurrences
+          // due to processing delays (e.g., if result=12:01:00 but fromDate=12:01:00.500)
           const diff = fromDate.getTime() - result.getTime();
-          const additionalSteps = Math.floor(diff / addMs) + 1;
-          result = new Date(result.getTime() + additionalSteps * addMs);
-          console.log(`[calculateNextReminderDate] Calculated from start+count was in past, advanced by ${additionalSteps} steps: ${result.toISOString()}`);
+          // Ensure we always move to the future. If diff is 0, steps should be 1.
+          // Math.floor(diff / addMs) + 1 guarantees the next interval is strictly > fromDate
+          const steps = Math.floor(diff / addMs) + 1;
+          result = new Date(result.getTime() + steps * addMs);
+          console.log(`[calculateNextReminderDate] Advanced occurrence aligned after now: ${result.toISOString()} (steps=${steps})`);
         } else {
-          console.log(`[calculateNextReminderDate] Next occurrence from start+count (${occurrenceCount}): ${result.toISOString()}`);
+          console.log(`[calculateNextReminderDate] Next occurrence after baseline: ${result.toISOString()}`);
         }
       }
 
