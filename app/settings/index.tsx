@@ -134,7 +134,7 @@ export default function SettingsScreen() {
                 testID="toggle-sound"
               >
                 <Feather name="volume-2" size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
-                <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Ringer Sound</Text>
+                <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Sound</Text>
                 <Switch
                   value={settings.soundEnabled}
                   onValueChange={(value) => updateSettings.mutate({ soundEnabled: value })}
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
                 testID="toggle-vibration"
               >
                 <Feather name="smartphone" size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
-                <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Ringer Vibration</Text>
+                <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Vibration</Text>
                 <Switch
                   value={settings.vibrationEnabled}
                   onValueChange={(value) => updateSettings.mutate({ vibrationEnabled: value })}
@@ -173,7 +173,7 @@ export default function SettingsScreen() {
               <View style={styles.volumeContainer}>
                 <View style={styles.volumeHeader}>
                   <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
-                  <Text style={styles.volumeLabel}>Ringer Volume</Text>
+                  <Text style={styles.volumeLabel}>Volume</Text>
                   <Text style={styles.volumeValue}>{settings.ringerVolume ?? 100}%</Text>
                 </View>
                 <Slider
@@ -212,10 +212,10 @@ export default function SettingsScreen() {
                 testID="ringtone-picker"
               >
                 <View style={styles.ringtoneIcon}>
-                  <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
+                  <Feather name="music" size={20} color={Material3Colors.light.primary} />
                 </View>
                 <View style={styles.ringtoneContent}>
-                  <Text style={styles.ringtoneTitle}>Ringer Mode Tone</Text>
+                  <Text style={styles.ringtoneTitle}>Alarm Tone</Text>
                   <Text style={styles.ringtoneValue}>{currentRingtone}</Text>
                 </View>
                 <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
