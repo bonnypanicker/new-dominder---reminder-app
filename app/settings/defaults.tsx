@@ -74,7 +74,7 @@ export default function DefaultsScreen() {
   const priorities = useMemo(() => [
     { value: 'standard' as const, label: 'Standard', icon: 'bell' as const },
     { value: 'silent' as const, label: 'Silent', icon: 'volume-2' as const },
-    { value: 'ringer' as const, label: 'High Priority', icon: 'alert-circle' as const },
+    { value: 'ringer' as const, label: 'Ringer Mode', icon: 'alert-circle' as const },
   ], []);
 
   if (!settings) return null;

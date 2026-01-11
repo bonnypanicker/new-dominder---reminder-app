@@ -69,7 +69,7 @@ export default function SettingsScreen() {
     switch (priority) {
       case 'standard': return 'Standard';
       case 'silent': return 'Silent';
-      case 'ringer': return 'High Priority';
+      case 'ringer': return 'Ringer Mode';
       default: return 'Standard';
     }
   };
