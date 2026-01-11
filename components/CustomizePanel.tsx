@@ -887,6 +887,11 @@ function CalendarModal({
                 <TouchableOpacity
                   key={index}
                   disabled={isDisabled}
+                  style={[
+                    calendarStyles.weekdayCell,
+                    multiSelectEnabled && !isEndMode && !hasDatesSelected && calendarStyles.weekdayCellSelectable,
+                    isActive && calendarStyles.weekdayCellActive
+                  ]}
                   onPress={() => {
                     if (multiSelectDays && onMultiSelectDaysChange) {
                       if (multiSelectDays.includes(index)) {
@@ -903,8 +908,8 @@ function CalendarModal({
                 >
                   <Text style={[
                     calendarStyles.weekday,
-                    isActive && { color: '#4F46E5', fontWeight: 'bold' },
-                    hasDatesSelected && { color: '#D1D5DB', opacity: 0.5 } // Disabled appearance
+                    isActive && calendarStyles.weekdayActive,
+                    isDisabled && calendarStyles.weekdayDisabled
                   ]}>{w}</Text>
                 </TouchableOpacity>
               )
@@ -927,16 +932,15 @@ function CalendarModal({
                   // In multi-select start mode, verify if in array or matches weekday
                   (multiSelectEnabled && !isEndMode && (
                     (currentDateString && multiSelectDates?.includes(currentDateString)) ||
-                    (dayDate && multiSelectDays?.includes(dayDate.getDay())) ||
-                    // Also highlight primary selected date? No, multi-select overrides.
-                    currentDateString === selectedDate // Keep primary selection too?
+                    (dayDate && multiSelectDays?.includes(dayDate.getDay()))
                   )) ||
-                  // In End mode or normal mode, use standard check
-                  (!multiSelectEnabled && currentDateString === selectedDate) ||
                   // In End mode, visualize selected dates (read only)
                   (isEndMode && currentDateString && multiSelectDates?.includes(currentDateString)) ||
                   (isEndMode && dayDate && multiSelectDays?.includes(dayDate.getDay()))
                 );
+
+                // Check if this is today (for ring indicator only, not selection)
+                const isToday = val !== null && year === currentYear && month === currentMonth && val === currentDate;
 
                 // Visual distinction for read-only (End mode)
                 const isReadOnlySelected = isEndMode && (
@@ -944,14 +948,18 @@ function CalendarModal({
                   (dayDate && multiSelectDays?.includes(dayDate.getDay()))
                 );
 
+                // Auto-selected by weekday (for ring indicator)
+                const isAutoSelectedByWeekday = multiSelectEnabled && !isEndMode && dayDate && multiSelectDays?.includes(dayDate.getDay()) && !multiSelectDates?.includes(currentDateString!);
+
                 return (
                   <TouchableOpacity
                     key={i}
                     style={[
                       calendarStyles.dayCell,
                       isSelected && calendarStyles.dayCellSelected,
-                      isReadOnlySelected && { backgroundColor: '#E0E7FF', borderColor: '#E0E7FF' },
-                      (val !== null && year === currentYear && month === currentMonth && val === currentDate) && !isSelected && calendarStyles.dayCellToday,
+                      isReadOnlySelected && calendarStyles.dayCellReadOnly,
+                      isAutoSelectedByWeekday && calendarStyles.dayCellAutoSelected,
+                      isToday && !isSelected && calendarStyles.dayCellToday,
                       isDisabled && calendarStyles.dayCellDisabled
                     ]}
                     disabled={isDisabled}
@@ -987,8 +995,8 @@ function CalendarModal({
                     <Text style={[
                       calendarStyles.dayText,
                       isSelected && calendarStyles.dayTextSelected,
-                      isReadOnlySelected && { color: '#1E3A8A' },
-                      (val !== null && year === currentYear && month === currentMonth && val === currentDate) && !isSelected && calendarStyles.dayTextToday,
+                      isReadOnlySelected && calendarStyles.dayTextReadOnly,
+                      isToday && !isSelected && calendarStyles.dayTextToday,
                       isDisabled && calendarStyles.dayTextDisabled
                     ]}>
                       {val ?? ''}
@@ -1001,43 +1009,31 @@ function CalendarModal({
 
           {/* Footer for Multi-Select Mode */}
           {(multiSelectEnabled === true || isEndMode) && (
-            <View style={{
-              marginTop: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderTopWidth: 1,
-              borderTopColor: '#F3F4F6',
-              paddingTop: 12
-            }}>
+            <View style={calendarStyles.footerMultiSelect}>
               {/* Multi-select Checkbox (Start Mode Only) */}
               {!isEndMode && onMultiSelectEnabledChange ? (
                 <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                  style={calendarStyles.multiSelectCheckbox}
                   onPress={() => onMultiSelectEnabledChange(!multiSelectEnabled)}
                 >
-                  <View style={{
-                    width: 20, height: 20, borderRadius: 4, borderWidth: 2,
-                    borderColor: '#4F46E5', backgroundColor: '#4F46E5',
-                    alignItems: 'center', justifyContent: 'center'
-                  }}>
+                  <View style={calendarStyles.checkboxChecked}>
                     <Feather name="check" size={14} color="white" />
                   </View>
-                  <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>Multi-select</Text>
+                  <Text style={calendarStyles.multiSelectLabel}>Multi-select</Text>
                 </TouchableOpacity>
               ) : (
                 <View /> // Spacer if End mode or if no callback
               )}
 
               {/* Right Side Buttons */}
-              <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={calendarStyles.footerButtons}>
                 {onSetTime && (
-                  <TouchableOpacity onPress={onSetTime} style={{ padding: 4 }}>
-                    <Text style={{ color: '#4F46E5', fontWeight: '600' }}>Set Time</Text>
+                  <TouchableOpacity onPress={onSetTime} style={calendarStyles.footerBtn}>
+                    <Text style={calendarStyles.footerBtnTextPrimary}>Set Time</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-                  <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancel</Text>
+                <TouchableOpacity onPress={onClose} style={calendarStyles.footerBtn}>
+                  <Text style={calendarStyles.footerBtnText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1045,16 +1041,13 @@ function CalendarModal({
 
           {/* Show Multi-select option if NOT enabled (to enable it) */}
           {(multiSelectEnabled === false && !isEndMode && onMultiSelectEnabledChange) && (
-            <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={calendarStyles.footerMultiSelect}>
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                style={calendarStyles.multiSelectCheckbox}
                 onPress={() => onMultiSelectEnabledChange(true)}
               >
-                <View style={{
-                  width: 20, height: 20, borderRadius: 4, borderWidth: 2,
-                  borderColor: '#D1D5DB', backgroundColor: 'white'
-                }} />
-                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>Multi-select</Text>
+                <View style={calendarStyles.checkboxUnchecked} />
+                <Text style={calendarStyles.multiSelectLabel}>Multi-select</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
@@ -2149,12 +2142,34 @@ const calendarStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  weekdayCell: {
+    width: 36,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayCellSelectable: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+  },
+  weekdayCellActive: {
+    backgroundColor: '#4F46E5',
+    borderRadius: 6,
+  },
   weekday: {
     width: 36,
     textAlign: 'center',
     color: '#6B7280',
     fontSize: 12,
     fontWeight: '600',
+  },
+  weekdayActive: {
+    color: 'white',
+    fontWeight: '700',
+  },
+  weekdayDisabled: {
+    color: '#D1D5DB',
+    opacity: 0.5,
   },
   weekRow: {
     flexDirection: 'row',
@@ -2171,8 +2186,14 @@ const calendarStyles = StyleSheet.create({
   dayCellSelected: {
     backgroundColor: '#1E3A8A',
   },
-  dayCellToday: {
+  dayCellReadOnly: {
     backgroundColor: '#E0E7FF',
+  },
+  dayCellAutoSelected: {
+    borderWidth: 2,
+    borderColor: '#1E40AF',
+  },
+  dayCellToday: {
     borderWidth: 1,
     borderColor: '#6366F1',
   },
@@ -2187,12 +2208,56 @@ const calendarStyles = StyleSheet.create({
   dayTextSelected: {
     color: 'white',
   },
+  dayTextReadOnly: {
+    color: '#1E3A8A',
+  },
   dayTextToday: {
     color: '#4F46E5',
     fontWeight: '700',
   },
   dayTextDisabled: {
     color: '#D1D5DB',
+  },
+  footerMultiSelect: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 12,
+  },
+  multiSelectCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkboxChecked: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#4F46E5',
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxUnchecked: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: 'white',
+  },
+  multiSelectLabel: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
   footer: {
     marginTop: 8,
@@ -2203,7 +2268,12 @@ const calendarStyles = StyleSheet.create({
     paddingVertical: 8,
   },
   footerBtnText: {
-    color: '#1E3A8A',
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  footerBtnTextPrimary: {
+    color: '#4F46E5',
     fontSize: 14,
     fontWeight: '600',
   },
