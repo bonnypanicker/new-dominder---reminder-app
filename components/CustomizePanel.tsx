@@ -279,7 +279,7 @@ export default function CustomizePanel({
   const getUntilLabel = (u: UntilType): string => {
     const labels: Record<UntilType, string> = {
       none: 'Never',
-      endsAt: 'On date',
+      endsAt: 'On date/time',
       count: 'Occurrence',
     };
     return labels[u];

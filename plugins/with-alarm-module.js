@@ -478,13 +478,21 @@ class AlarmActionBridge : BroadcastReceiver() {
                              val dayOfWeek = cursor.get(Calendar.DAY_OF_WEEK) - 1 
                              
                              if (selectedDates.contains(dateStr) || selectedDays.contains(dayOfWeek)) {
-                                 val wStart = cursor.clone() as Calendar
+                                 // Explicitly construct window start on this cursor date
+                                 val wStart = Calendar.getInstance()
+                                 wStart.timeInMillis = cursor.timeInMillis
                                  wStart.set(Calendar.HOUR_OF_DAY, startH)
                                  wStart.set(Calendar.MINUTE, startM)
+                                 wStart.set(Calendar.SECOND, 0)
+                                 wStart.set(Calendar.MILLISECOND, 0)
                                  
-                                 val wEnd = cursor.clone() as Calendar
+                                 // Explicitly construct window end on this cursor date
+                                 val wEnd = Calendar.getInstance()
+                                 wEnd.timeInMillis = cursor.timeInMillis
                                  wEnd.set(Calendar.HOUR_OF_DAY, endH)
                                  wEnd.set(Calendar.MINUTE, endM)
+                                 wEnd.set(Calendar.SECOND, 0)
+                                 wEnd.set(Calendar.MILLISECOND, 0)
                                  
                                  if (wEnd.before(wStart)) {
                                      wEnd.add(Calendar.DAY_OF_MONTH, 1)

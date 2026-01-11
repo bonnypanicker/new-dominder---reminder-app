@@ -1114,23 +1114,35 @@ export default function HomeScreen() {
                               const [hours, minutes] = reminder.time.split(':').map(Number);
                               return new Date(year, month - 1, day, hours, minutes);
                             })();
+                            const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
+
+                            // Multi-mode: show only time
+                            if (reminder.repeatType === 'every' && reminder.multiSelectEnabled) {
+                              return `Ended: ${timeStr}`;
+                            }
+
                             const dateStr = lastDate.toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric'
                             });
-                            const timeStr = formatTime(lastDate.toTimeString().slice(0, 5));
                             return `Ended: ${dateStr} at ${timeStr}`;
                           }
 
                           if (!nextDate) return 'Calculating...';
+
+                          const timeStr = formatTime(nextDate.toTimeString().slice(0, 5));
+
+                          // Multi-mode: show only time
+                          if (reminder.repeatType === 'every' && reminder.multiSelectEnabled) {
+                            return timeStr;
+                          }
 
                           const dateStr = nextDate.toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           });
-                          const timeStr = formatTime(nextDate.toTimeString().slice(0, 5));
                           return `${dateStr} at ${timeStr}`;
                         })()}
                       </Text>
@@ -1148,9 +1160,69 @@ export default function HomeScreen() {
                         const unit = reminder.everyInterval?.unit ?? 'hours';
                         const unitLabel = value === 1 ? unit.replace(/s$/, '') : unit;
                         const repeatText = `Repeats every ${value} ${unitLabel}`;
-                        return endsLabel ? `${repeatText} • ${endsLabel}` : repeatText;
+
+                        // Multi-mode: show only time for ends label
+                        if (reminder.multiSelectEnabled && reminder.untilType === 'endsAt' && reminder.untilTime) {
+                          const endsTimeOnly = formatTime(reminder.untilTime);
+                          return `${repeatText} · Ends at ${endsTimeOnly}`;
+                        }
+
+                        return endsLabel ? `${repeatText} · ${endsLabel}` : repeatText;
                       })()}
                     </Text>
+                  )}
+
+
+                  {/* Multi-select: Show selected days or dates */}
+                  {reminder.repeatType === 'every' && reminder.multiSelectEnabled && (
+                    <>
+                      {/* Show day discs when days are selected */}
+                      {reminder.multiSelectDays && reminder.multiSelectDays.length > 0 && (
+                        <View style={styles.dailyDaysContainer}>
+                          {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                            const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+                            const dayActive = reminder.multiSelectDays!.includes(day);
+                            return (
+                              <View
+                                key={day}
+                                style={[
+                                  styles.dailyDayDisc,
+                                  dayActive && styles.dailyDayDiscActive
+                                ]}
+                              >
+                                <Text style={[
+                                  styles.dailyDayText,
+                                  dayActive && styles.dailyDayTextActive
+                                ]}>
+                                  {dayLetters[day]}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                      {/* Show selected dates when individual dates are selected */}
+                      {reminder.multiSelectDates && reminder.multiSelectDates.length > 0 && (
+                        <Text style={styles.selectedDatesText}>
+                          {(() => {
+                            const formatDate = (dateStr: string) => {
+                              const [year, month, day] = dateStr.split('-').map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                            };
+
+                            const dates = reminder.multiSelectDates ?? [];
+                            if (dates.length <= 3) {
+                              return dates.map(formatDate).join(', ');
+                            }
+
+                            // Show first 2, then +N
+                            const displayDates = dates.slice(0, 2).map(formatDate).join(', ');
+                            return `${displayDates} +${dates.length - 2}`;
+                          })()}
+                        </Text>
+                      )}
+                    </>
                   )}
 
                   {/* Show repeat badge at bottom for Once, Monthly, Yearly, Every, Daily */}
@@ -1162,6 +1234,12 @@ export default function HomeScreen() {
                           {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
                         </Text>
                       </View>
+                      {/* 1b. Multi badge (for Every with multiSelectEnabled) */}
+                      {reminder.repeatType === 'every' && reminder.multiSelectEnabled && (
+                        <View style={[styles.repeatBadge, styles.multiBadge]}>
+                          <Text style={styles.repeatBadgeText}>Multi</Text>
+                        </View>
+                      )}
                       {/* 2. Snoozed badge (for all types) */}
                       {reminder.snoozeUntil && isActive && !reminder.isCompleted && (
                         <View style={styles.snoozedBadgeInline}>
@@ -3921,6 +3999,9 @@ const styles = StyleSheet.create({
     color: Material3Colors.light.primary,
     fontWeight: '600',
   },
+  multiBadge: {
+    backgroundColor: Material3Colors.light.secondaryContainer,
+  },
   pausedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3967,6 +4048,12 @@ const styles = StyleSheet.create({
     color: Material3Colors.light.tertiary,
     fontWeight: '500',
     fontStyle: 'italic',
+    marginTop: 4,
+  },
+  selectedDatesText: {
+    fontSize: 12,
+    color: '#D32F2F',
+    fontWeight: '500',
     marginTop: 4,
   },
   reminderRight: {
