@@ -1698,7 +1698,7 @@ export default function HomeScreen() {
             onRequestClose={() => setMultiDatesPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setMultiDatesPopupVisible(false)}>
-              <View style={styles.historyPopupContent}>
+              <Pressable style={styles.historyPopupContent} onPress={(e) => e.stopPropagation()}>
                 <Text style={styles.historyPopupTitle}>Selected Dates</Text>
                 <Text style={[styles.historyPopupTitle, { fontSize: 14, fontWeight: 'normal', marginBottom: 16 }]}>{multiDatesPopupTitle}</Text>
                 <FlatList
@@ -1721,12 +1721,13 @@ export default function HomeScreen() {
                       </View>
                     );
                   }}
-                  style={{ maxHeight: 300 }}
+                  style={styles.historyPopupList}
+                  showsVerticalScrollIndicator={true}
                 />
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setMultiDatesPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </View>
+              </Pressable>
             </Pressable>
           </Modal>
 
