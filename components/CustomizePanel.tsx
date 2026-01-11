@@ -505,9 +505,9 @@ export default function CustomizePanel({
               }
             }
           }}
-          // Multi-select props
+          // Multi-select props - only show for 'every' repeat type
           multiSelectEnabled={repeatType === 'every' && multiSelectEnabled}
-          onMultiSelectEnabledChange={onMultiSelectEnabledChange}
+          onMultiSelectEnabledChange={repeatType === 'every' ? onMultiSelectEnabledChange : undefined}
           multiSelectDates={multiSelectDates}
           onMultiSelectDatesChange={onMultiSelectDatesChange}
           multiSelectDays={multiSelectDays}
