@@ -116,9 +116,6 @@ function bodyWithTime(desc: string | undefined, when: number) {
 // Track scheduled timestamps to prevent collisions and add sequential delays
 const scheduledTimestamps = new Map<number, string[]>(); // timestamp -> array of reminder IDs
 
-// FIX 5: Scheduling locks to prevent concurrent scheduling for the same reminder
-const schedulingLocks = new Set<string>();
-
 function reminderToTimestamp(reminder: Reminder): number {
   if (reminder.snoozeUntil) {
     return new Date(reminder.snoozeUntil).getTime();
@@ -237,44 +234,6 @@ export function createNotificationConfig(reminder: Reminder, when: number) {
 }
 
 export async function scheduleReminderByModel(reminder: Reminder) {
-  // FIX 5: Prevent concurrent scheduling for the same reminder
-  if (schedulingLocks.has(reminder.id)) {
-    console.log(`[NotificationService] Scheduling already in progress for ${reminder.id}, skipping duplicate call`);
-    return;
-  }
-  
-  schedulingLocks.add(reminder.id);
-  
-  try {
-    await _scheduleReminderByModelInternal(reminder);
-  } finally {
-    schedulingLocks.delete(reminder.id);
-  }
-}
-
-async function _scheduleReminderByModelInternal(reminder: Reminder) {
-  // FIX 4: Check native completion status before scheduling
-  if (Platform.OS === 'android' && AlarmModule?.getNativeReminderState && reminder.repeatType === 'every') {
-    try {
-      const nativeState = await AlarmModule.getNativeReminderState(reminder.id);
-      if (nativeState?.isCompleted) {
-        console.log(`[NotificationService] Native reports reminder ${reminder.id} is COMPLETED, skipping schedule`);
-        return;
-      }
-      
-      // Also check if we've reached the occurrence limit
-      if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
-        if (nativeState?.actualTriggerCount >= reminder.untilCount) {
-          console.log(`[NotificationService] Native trigger count ${nativeState.actualTriggerCount} >= untilCount ${reminder.untilCount}, skipping schedule`);
-          return;
-        }
-      }
-    } catch (e) {
-      console.log(`[NotificationService] Could not check native completion status:`, e);
-      // Continue with scheduling if we can't check
-    }
-  }
-
   // Check if notifications are enabled in settings
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
   try {
@@ -325,15 +284,11 @@ async function _scheduleReminderByModelInternal(reminder: Reminder) {
   if (when <= now - TOLERANCE_MS) {
     console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past (beyond ${TOLERANCE_MS}ms tolerance)`);
     
-    // For 'every' reminders, recalculate from nextReminderDate to preserve alignment
+    // For 'every' reminders, recalculate from current time instead of skipping
      if (reminder.repeatType === 'every') {
-      console.log(`[NotificationService] Recalculating 'every' reminder`);
+      console.log(`[NotificationService] Recalculating 'every' reminder from current time`);
       const { calculateNextReminderDate } = require('../services/reminder-utils');
-      // FIX: Use nextReminderDate as baseline to prevent drift, consistent with other rescheduling paths
-      const referenceDate = reminder.nextReminderDate 
-        ? new Date(reminder.nextReminderDate) 
-        : new Date(now);
-      const newWhen = calculateNextReminderDate(reminder, referenceDate);
+      const newWhen = calculateNextReminderDate(reminder, new Date(now));
       
       if (newWhen) {
         when = newWhen.getTime();

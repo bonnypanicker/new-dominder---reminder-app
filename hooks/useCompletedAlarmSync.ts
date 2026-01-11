@@ -40,7 +40,6 @@ export function useCompletedAlarmSync() {
 
       // STEP 1: Sync occurrence counts from native state (but DON'T trigger markReminderDone here)
       // This ensures JS has accurate counts before processing completions
-      // CRITICAL: Also recalculate nextReminderDate to prevent stale baseline issues
       if (AlarmModule.getAllNativeReminderStates) {
         try {
           const nativeStates = await AlarmModule.getAllNativeReminderStates();
@@ -60,31 +59,10 @@ export function useCompletedAlarmSync() {
                   console.log('[AlarmSync] Syncing occurrenceCount from native:', reminderId, 
                     'JS:', reminder.occurrenceCount, '-> Native:', nativeState.actualTriggerCount);
                   
-                  // CRITICAL FIX: When syncing occurrence count, also recalculate nextReminderDate
-                  // This prevents stale nextReminderDate from causing skipped occurrences
-                  // when app opens after native alarms fired while app was closed
-                  const { calculateNextReminderDate } = require('../services/reminder-utils');
-                  
-                  const updatedReminder = {
+                  await updateReminder({
                     ...reminder,
                     occurrenceCount: nativeState.actualTriggerCount
-                  };
-                  
-                  // Recalculate next occurrence based on the synced count
-                  // Use lastTriggerTime from native if available, otherwise use current time
-                  const referenceTime = nativeState.lastTriggerTime 
-                    ? new Date(nativeState.lastTriggerTime)
-                    : new Date();
-                  
-                  const nextDate = calculateNextReminderDate(updatedReminder, referenceTime);
-                  
-                  if (nextDate && reminder.repeatType !== 'none') {
-                    updatedReminder.nextReminderDate = nextDate.toISOString();
-                    console.log('[AlarmSync] Recalculated nextReminderDate:', reminderId, 
-                      'from', reminder.nextReminderDate, 'to', updatedReminder.nextReminderDate);
-                  }
-                  
-                  await updateReminder(updatedReminder);
+                  });
                 }
               }
               

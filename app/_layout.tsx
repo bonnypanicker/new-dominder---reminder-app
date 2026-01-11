@@ -161,7 +161,6 @@ function AppContent() {
         }
 
         // Handle notification delivered events for automatic rescheduling (foreground)
-        // For standard/medium priority notifications, increment count and schedule next occurrence
         if (type === EventType.DELIVERED) {
           if (!notification || !notification.data) return;
 
@@ -195,11 +194,7 @@ function AppContent() {
             const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
 
             const reminderUtils = require('../services/reminder-utils');
-            // FIX: Use nextReminderDate as baseline to prevent drift accumulation
-            const referenceDate = reminder.nextReminderDate 
-              ? new Date(reminder.nextReminderDate) 
-              : new Date();
-            const nextDate = reminderUtils.calculateNextReminderDate(forCalc, referenceDate);
+            const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
 
             if (nextDate) {
               // Update the reminder with the next occurrence and keep it active

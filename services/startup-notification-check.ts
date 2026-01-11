@@ -78,7 +78,6 @@ export async function checkAndTriggerPendingNotifications() {
                 let stateChanged = false;
 
                 // Apply native state changes - ONLY occurrence counts, not completions
-                // CRITICAL: Also recalculate nextReminderDate to prevent stale baseline issues
                 allReminders = allReminders.map((reminder: Reminder) => {
                     const nativeState = nativeStates[reminder.id];
                     if (nativeState) {
@@ -87,30 +86,10 @@ export async function checkAndTriggerPendingNotifications() {
                         if (nativeState.actualTriggerCount > (reminder.occurrenceCount || 0)) {
                             console.log(`[StartupCheck] Syncing occurrenceCount for ${reminder.id}: ${reminder.occurrenceCount} -> ${nativeState.actualTriggerCount}`);
                             stateChanged = true;
-                            
-                            // CRITICAL FIX: Recalculate nextReminderDate when syncing count
-                            // This prevents stale nextReminderDate from causing skipped occurrences
-                            const updatedReminder = {
+                            return {
                                 ...reminder,
                                 occurrenceCount: nativeState.actualTriggerCount
                             };
-                            
-                            // Recalculate next occurrence based on the synced count
-                            // Use lastTriggerTime from native if available
-                            if (reminder.repeatType !== 'none') {
-                                const referenceTime = nativeState.lastTriggerTime 
-                                    ? new Date(nativeState.lastTriggerTime)
-                                    : new Date();
-                                
-                                const nextDate = calculateNextReminderDate(updatedReminder, referenceTime);
-                                
-                                if (nextDate) {
-                                    updatedReminder.nextReminderDate = nextDate.toISOString();
-                                    console.log(`[StartupCheck] Recalculated nextReminderDate for ${reminder.id}: ${reminder.nextReminderDate} -> ${updatedReminder.nextReminderDate}`);
-                                }
-                            }
-                            
-                            return updatedReminder;
                         }
                     }
                     return reminder;
@@ -208,81 +187,18 @@ export async function checkAndTriggerPendingNotifications() {
       await showExpiredRingerNotifications(expiredRingerReminders);
     }
 
-    // Reschedule future reminders only if their triggers don't already exist
-    // This prevents redundant rescheduling on normal app open while still handling:
-    // - Phone reboot (AlarmManager alarms cleared)
-    // - App force stop (AlarmManager alarms cleared)
-    // - App update (AlarmManager alarms may be cleared)
+    // Reschedule all future reminders (force stop clears AlarmManager alarms)
     if (remindersToReschedule.length > 0) {
-      console.log(`[StartupCheck] Checking ${remindersToReschedule.length} future reminders for rescheduling`);
+      console.log(`[StartupCheck] Rescheduling ${remindersToReschedule.length} future reminders`);
       const notificationService = require('../hooks/notification-service');
-      
-      // Get existing notifee triggers to avoid redundant scheduling
-      let existingTriggers: any[] = [];
-      try {
-        existingTriggers = await notifee.getTriggerNotifications();
-        console.log(`[StartupCheck] Found ${existingTriggers.length} existing notifee triggers`);
-      } catch (e) {
-        console.log(`[StartupCheck] Could not get existing triggers, will reschedule all:`, e);
-      }
-      
-      // Build a map of existing trigger times by notification ID
-      const existingTriggerMap = new Map<string, number>();
-      for (const trigger of existingTriggers) {
-        if (trigger.notification?.id && trigger.trigger?.timestamp) {
-          existingTriggerMap.set(trigger.notification.id, trigger.trigger.timestamp);
-        }
-      }
-      
-      let rescheduledCount = 0;
-      let skippedCount = 0;
-      
       for (const reminder of remindersToReschedule) {
         try {
-          const notificationId = `rem-${reminder.id}`;
-          const isRinger = reminder.priority === 'high';
-          
-          // Determine expected trigger time
-          let expectedTime: number;
-          if (reminder.snoozeUntil) {
-            expectedTime = new Date(reminder.snoozeUntil).getTime();
-          } else if (reminder.nextReminderDate) {
-            expectedTime = new Date(reminder.nextReminderDate).getTime();
-          } else {
-            const [year, month, day] = reminder.date.split('-').map(Number);
-            const [hours, minutes] = reminder.time.split(':').map(Number);
-            expectedTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
-          }
-          
-          // For standard/medium/low priority (notifee): check if trigger already exists
-          if (!isRinger) {
-            const existingTime = existingTriggerMap.get(notificationId);
-            if (existingTime) {
-              // Allow 2 second tolerance for timestamp comparison
-              const timeDiff = Math.abs(existingTime - expectedTime);
-              if (timeDiff < 2000) {
-                console.log(`[StartupCheck] Skipping ${reminder.id} - notifee trigger already exists at correct time`);
-                skippedCount++;
-                continue;
-              } else {
-                console.log(`[StartupCheck] Rescheduling ${reminder.id} - trigger time mismatch (existing: ${existingTime}, expected: ${expectedTime}, diff: ${timeDiff}ms)`);
-              }
-            }
-          }
-          
-          // For ringer (native alarm): Always reschedule because we can't easily verify
-          // native AlarmManager state, and they ARE cleared on reboot/force-stop
-          // The native scheduleAlarm is idempotent (overwrites existing alarm)
-          
           await notificationService.scheduleReminderByModel(reminder);
           console.log(`[StartupCheck] Rescheduled reminder: ${reminder.id}`);
-          rescheduledCount++;
         } catch (error) {
           console.error(`[StartupCheck] Error rescheduling ${reminder.id}:`, error);
         }
       }
-      
-      console.log(`[StartupCheck] Rescheduling complete: ${rescheduledCount} rescheduled, ${skippedCount} skipped (already scheduled)`);
     }
 
     console.log('[StartupCheck] Completed pending notification check and rescheduling');
