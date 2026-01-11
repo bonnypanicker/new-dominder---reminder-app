@@ -250,7 +250,8 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                         Pause, repeat, and manage reminders exactly the way you need.{'\n\n'}
                         <Text style={{ fontWeight: '700' }}>Pause</Text> – Pause daily reminders. Long-press the button to pause until a selected date. Auto-resumes later.{'\n\n'}
                         <Text style={{ fontWeight: '700' }}>Repeat</Text> – Daily, Monthly, Yearly, or custom recurring schedules.{'\n\n'}
-                        <Text style={{ fontWeight: '700' }}>Occurrence</Text> – Optional setting to repeat reminders by count instead of an end date/time.
+                        <Text style={{ fontWeight: '700' }}>Occurrence</Text> – Optional setting to repeat reminders by count instead of an end date/time.{'\n\n'}
+                        <Text style={{ fontWeight: '700' }}>Multi-Select</Text> – Set reminders for multiple specific dates or weekdays at once.
                       </Text>
                     </View>
                   </View>
