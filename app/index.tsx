@@ -1666,7 +1666,7 @@ export default function HomeScreen() {
             onRequestClose={() => setHistoryPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setHistoryPopupVisible(false)}>
-              <View style={styles.historyPopupContent}>
+              <Pressable style={styles.historyPopupContent} onPress={(e) => e.stopPropagation()}>
                 <Text style={styles.historyPopupTitle}>History</Text>
                 <FlatList
                   data={historyPopupData}
@@ -1681,12 +1681,13 @@ export default function HomeScreen() {
                       </View>
                     );
                   }}
-                  style={{ maxHeight: 300 }}
+                  style={styles.historyPopupList}
+                  showsVerticalScrollIndicator={true}
                 />
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setHistoryPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </View>
+              </Pressable>
             </Pressable>
           </Modal>
 
@@ -4455,6 +4456,7 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '100%',
     maxWidth: 320,
+    maxHeight: '70%',
     elevation: 4,
   },
   historyPopupTitle: {
@@ -4463,6 +4465,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: Material3Colors.light.onSurface,
     textAlign: 'center',
+  },
+  historyPopupList: {
+    maxHeight: 300,
+    flexGrow: 0,
   },
   historyPopupItem: {
     paddingVertical: 12,
