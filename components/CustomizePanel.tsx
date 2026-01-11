@@ -2597,7 +2597,6 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
               ]}>
                 {getUnitLabel(u)}
               </Text>
-              {unit === u && <Feather name="check" size={16} color="#4F46E5" />}
             </TouchableOpacity>
           )
         })}
