@@ -1228,7 +1228,7 @@ export default function HomeScreen() {
                               const formatDate = (dateStr: string) => {
                                 const [year, month, day] = dateStr.split('-').map(Number);
                                 const date = new Date(year, month - 1, day);
-                                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                               };
 
                               const dates = reminder.multiSelectDates ?? [];
@@ -1236,9 +1236,14 @@ export default function HomeScreen() {
                                 return dates.map(formatDate).join(', ');
                               }
 
-                              // Show first 2, then +N
+                              // Show first 2, then +N in darker red
                               const displayDates = dates.slice(0, 2).map(formatDate).join(', ');
-                              return `${displayDates} +${dates.length - 2}`;
+                              return (
+                                <>
+                                  {displayDates}{' '}
+                                  <Text style={styles.selectedDatesMoreText}>+{dates.length - 2}</Text>
+                                </>
+                              );
                             })()}
                           </Text>
                         </TouchableOpacity>
@@ -4115,6 +4120,11 @@ const styles = StyleSheet.create({
     color: '#D32F2F',
     fontWeight: '500',
     marginTop: 4,
+  },
+  selectedDatesMoreText: {
+    fontSize: 12,
+    color: '#B71C1C', // Darker red for +N
+    fontWeight: '600',
   },
   reminderRight: {
     flexDirection: 'row',
