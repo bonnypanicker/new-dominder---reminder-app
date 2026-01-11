@@ -194,7 +194,12 @@ function AppContent() {
             const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
 
             const reminderUtils = require('../services/reminder-utils');
-            const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
+            // FIX: Use nextReminderDate as baseline to prevent drift accumulation
+            // Using new Date() causes drift when there's processing delay (e.g., 10:45:00.500 -> 10:46:00.500)
+            const referenceDate = reminder.nextReminderDate 
+              ? new Date(reminder.nextReminderDate) 
+              : new Date();
+            const nextDate = reminderUtils.calculateNextReminderDate(forCalc, referenceDate);
 
             if (nextDate) {
               // Update the reminder with the next occurrence and keep it active
