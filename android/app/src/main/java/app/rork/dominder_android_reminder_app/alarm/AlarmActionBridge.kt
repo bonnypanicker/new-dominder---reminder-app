@@ -181,6 +181,28 @@ class AlarmActionBridge : BroadcastReceiver() {
         val now = System.currentTimeMillis()
         val calendar = Calendar.getInstance()
         
+        // Parse start date/time
+        var startCal: Calendar? = null
+        if (startDate.isNotEmpty() && startTime.isNotEmpty()) {
+            try {
+                val dateParts = startDate.split("-")
+                val timeParts = startTime.split(":")
+                if (dateParts.size == 3 && timeParts.size == 2) {
+                    val c = Calendar.getInstance()
+                    c.set(Calendar.YEAR, dateParts[0].toInt())
+                    c.set(Calendar.MONTH, dateParts[1].toInt() - 1)
+                    c.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
+                    c.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
+                    c.set(Calendar.MINUTE, timeParts[1].toInt())
+                    c.set(Calendar.SECOND, 0)
+                    c.set(Calendar.MILLISECOND, 0)
+                    startCal = c
+                }
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmActionBridge: Error parsing start date/time: ${e.message}")
+            }
+        }
+
         when (repeatType) {
             "every" -> {
                 // For 'every' type, calculate next aligned occurrence
@@ -190,63 +212,58 @@ class AlarmActionBridge : BroadcastReceiver() {
                     else -> everyValue * 60 * 1000L
                 }
                 
-                // Parse start time to get the base alignment
-                if (startDate.isNotEmpty() && startTime.isNotEmpty()) {
-                    try {
-                        val dateParts = startDate.split("-")
-                        val timeParts = startTime.split(":")
-                        if (dateParts.size == 3 && timeParts.size == 2) {
-                            calendar.set(Calendar.YEAR, dateParts[0].toInt())
-                            calendar.set(Calendar.MONTH, dateParts[1].toInt() - 1)
-                            calendar.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-                            calendar.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-                            calendar.set(Calendar.MINUTE, timeParts[1].toInt())
-                            calendar.set(Calendar.SECOND, 0)
-                            calendar.set(Calendar.MILLISECOND, 0)
-                            
-                            val startMs = calendar.timeInMillis
-                            
-                            // Calculate how many intervals have passed since start
-                            val elapsed = now - startMs
-                            val intervalsPassed = (elapsed / intervalMs) + 1
-                            val nextTrigger = startMs + (intervalsPassed * intervalMs)
-                            
-                            // Check against end boundary
-                            if (untilType == "endsAt" && untilDate.isNotEmpty()) {
-                                val endBoundary = parseEndBoundary(untilDate, untilTime, everyUnit)
-                                if (nextTrigger > endBoundary) {
-                                    return null
-                                }
-                            }
-                            
-                            return nextTrigger
+                if (startCal != null) {
+                    val startMs = startCal.timeInMillis
+                    
+                    // Calculate how many intervals have passed since start
+                    // We want the next trigger > now
+                    // elapsed = now - startMs
+                    // if elapsed < 0 (now is before start), next is startMs
+                    // if elapsed >= 0, next is startMs + (floor(elapsed/interval) + 1) * interval
+                    
+                    val elapsed = now - startMs
+                    val intervalsPassed = if (elapsed < 0) 0 else (elapsed / intervalMs) + 1
+                    val nextTrigger = startMs + (intervalsPassed * intervalMs)
+                    
+                    // Check against end boundary
+                    if (untilType == "endsAt" && untilDate.isNotEmpty()) {
+                        val endBoundary = parseEndBoundary(untilDate, untilTime, everyUnit)
+                        if (nextTrigger > endBoundary) {
+                            return null
                         }
-                    } catch (e: Exception) {
-                        DebugLogger.log("AlarmActionBridge: Error parsing start date/time: ${e.message}")
                     }
+                    
+                    return nextTrigger
                 }
                 
                 // Fallback: just add interval to now
                 return now + intervalMs
             }
-            "daily" -> {
+            "daily", "weekly", "monthly", "yearly" -> {
+                // For calendar based repeats, we add the unit to 'now', 
+                // BUT we must reset the time to the scheduled time to prevent drift.
                 calendar.timeInMillis = now
-                calendar.add(Calendar.DAY_OF_MONTH, 1)
-                return calendar.timeInMillis
-            }
-            "weekly" -> {
-                calendar.timeInMillis = now
-                calendar.add(Calendar.WEEK_OF_YEAR, 1)
-                return calendar.timeInMillis
-            }
-            "monthly" -> {
-                calendar.timeInMillis = now
-                calendar.add(Calendar.MONTH, 1)
-                return calendar.timeInMillis
-            }
-            "yearly" -> {
-                calendar.timeInMillis = now
-                calendar.add(Calendar.YEAR, 1)
+                
+                // 1. Advance the date fields
+                when (repeatType) {
+                    "daily" -> calendar.add(Calendar.DAY_OF_MONTH, 1)
+                    "weekly" -> {
+                        // If we have a start date, we should try to align the day of week too?
+                        // For now, simple logic: Add 1 week to "now"
+                        calendar.add(Calendar.WEEK_OF_YEAR, 1)
+                    }
+                    "monthly" -> calendar.add(Calendar.MONTH, 1)
+                    "yearly" -> calendar.add(Calendar.YEAR, 1)
+                }
+                
+                // 2. Fix the Time Drift: explicit set the hour/minute from start time
+                if (startCal != null) {
+                    calendar.set(Calendar.HOUR_OF_DAY, startCal.get(Calendar.HOUR_OF_DAY))
+                    calendar.set(Calendar.MINUTE, startCal.get(Calendar.MINUTE))
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                }
+
                 return calendar.timeInMillis
             }
             else -> return null
