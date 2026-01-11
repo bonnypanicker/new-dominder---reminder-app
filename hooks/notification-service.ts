@@ -325,11 +325,15 @@ async function _scheduleReminderByModelInternal(reminder: Reminder) {
   if (when <= now - TOLERANCE_MS) {
     console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past (beyond ${TOLERANCE_MS}ms tolerance)`);
     
-    // For 'every' reminders, recalculate from current time instead of skipping
+    // For 'every' reminders, recalculate from nextReminderDate to preserve alignment
      if (reminder.repeatType === 'every') {
-      console.log(`[NotificationService] Recalculating 'every' reminder from current time`);
+      console.log(`[NotificationService] Recalculating 'every' reminder`);
       const { calculateNextReminderDate } = require('../services/reminder-utils');
-      const newWhen = calculateNextReminderDate(reminder, new Date(now));
+      // FIX: Use nextReminderDate as baseline to prevent drift, consistent with other rescheduling paths
+      const referenceDate = reminder.nextReminderDate 
+        ? new Date(reminder.nextReminderDate) 
+        : new Date(now);
+      const newWhen = calculateNextReminderDate(reminder, referenceDate);
       
       if (newWhen) {
         when = newWhen.getTime();
