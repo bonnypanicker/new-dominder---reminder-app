@@ -547,6 +547,11 @@ export default function HomeScreen() {
     setEveryUnit(reminder.everyInterval?.unit ?? 'hours');
     setSelectedDate(reminder.date);
 
+    // Multi-select fields
+    setMultiSelectEnabled(reminder.multiSelectEnabled ?? false);
+    setMultiSelectDates(reminder.multiSelectDates ?? []);
+    setMultiSelectDays(reminder.multiSelectDays ?? []);
+
     // Prefill Until fields
     setUntilType((reminder.untilType ?? 'none') as 'none' | 'endsAt' | 'count');
     setUntilDate(reminder.untilDate ?? '');
@@ -556,8 +561,12 @@ export default function HomeScreen() {
     setSelectedTime(`${hh}:${mm}`);
     setIsAM(isAM);
 
-    // Prefill Until time if present
-    if (reminder.untilTime) {
+    // Prefill Until time if present OR windowEndTime if multi-select
+    if (reminder.multiSelectEnabled && reminder.windowEndTime) {
+      const u = to12h(reminder.windowEndTime);
+      setUntilTime(`${u.hh}:${u.mm}`);
+      setUntilIsAM(u.isAM);
+    } else if (reminder.untilTime) {
       const u = to12h(reminder.untilTime);
       setUntilTime(`${u.hh}:${u.mm}`);
       setUntilIsAM(u.isAM);
