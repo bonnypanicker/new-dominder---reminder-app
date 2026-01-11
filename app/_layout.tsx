@@ -161,6 +161,7 @@ function AppContent() {
         }
 
         // Handle notification delivered events for automatic rescheduling (foreground)
+        // For standard/medium priority notifications, increment count and schedule next occurrence
         if (type === EventType.DELIVERED) {
           if (!notification || !notification.data) return;
 
@@ -195,7 +196,6 @@ function AppContent() {
 
             const reminderUtils = require('../services/reminder-utils');
             // FIX: Use nextReminderDate as baseline to prevent drift accumulation
-            // Using new Date() causes drift when there's processing delay (e.g., 10:45:00.500 -> 10:46:00.500)
             const referenceDate = reminder.nextReminderDate 
               ? new Date(reminder.nextReminderDate) 
               : new Date();

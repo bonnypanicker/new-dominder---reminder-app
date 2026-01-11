@@ -70,6 +70,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
   }
 
   // Determine the completion time for history
+  // For standard notifications, use lastTriggeredAt which was set by DELIVERED handler
   const completedOccurrenceTime = triggerTimeMs
     ? new Date(triggerTimeMs).toISOString()
     : reminder.lastTriggeredAt || new Date().toISOString();
@@ -83,6 +84,55 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     await updateReminder(reminder);
   } else if (reminder.repeatType && reminder.repeatType !== 'none') {
     console.log(`[Scheduler] Processing 'Done' for repeating reminder ${reminderId}`);
+
+    // Check if DELIVERED handler already advanced this reminder (for standard/medium priority)
+    // If nextReminderDate is in the future, DELIVERED already handled scheduling
+    const now = new Date();
+    const nextReminderTime = reminder.nextReminderDate ? new Date(reminder.nextReminderDate) : null;
+    const alreadyAdvancedByDelivered = nextReminderTime && nextReminderTime > now;
+    
+    if (alreadyAdvancedByDelivered && !shouldIncrementOccurrence) {
+      console.log(`[Scheduler] Reminder ${reminderId} already advanced by DELIVERED handler to ${reminder.nextReminderDate}, skipping reschedule`);
+      
+      // Just record history, don't reschedule
+      const existingHistory = await getHistoryItem();
+      const alreadyInHistory = existingHistory?.completionHistory?.includes(completedOccurrenceTime);
+      
+      if (!alreadyInHistory) {
+        if (existingHistory) {
+          const updatedHistory = {
+            ...existingHistory,
+            lastTriggeredAt: completedOccurrenceTime,
+            completionHistory: [...(existingHistory.completionHistory || []), completedOccurrenceTime],
+            title: reminder.title,
+            priority: reminder.priority
+          };
+          await updateReminder(updatedHistory as any);
+          console.log(`[Scheduler] Updated history with trigger at ${completedOccurrenceTime}`);
+        } else {
+          const historyItem = {
+            ...reminder,
+            id: historyId,
+            parentId: reminderId,
+            isCompleted: true,
+            isActive: false,
+            snoozeUntil: undefined,
+            wasSnoozed: undefined,
+            lastTriggeredAt: completedOccurrenceTime,
+            completionHistory: [completedOccurrenceTime],
+            createdAt: new Date().toISOString(),
+            nextReminderDate: undefined,
+            notificationId: undefined
+          };
+          await addReminder(historyItem as any);
+          console.log(`[Scheduler] Created history item with trigger at ${completedOccurrenceTime}`);
+        }
+      }
+      
+      console.log(`[Scheduler] ========== markReminderDone END (already advanced) ==========`);
+      DeviceEventEmitter.emit('remindersChanged');
+      return;
+    }
 
     // Get the current occurrence count from JS
     let currentOccurred = reminder.occurrenceCount ?? 0;
