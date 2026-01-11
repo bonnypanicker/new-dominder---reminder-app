@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
-  ringerVolume: 100,
+  ringerVolume: 40,
 };
 
 export const useSettings = () => {
