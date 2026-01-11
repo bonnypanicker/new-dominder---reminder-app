@@ -125,9 +125,15 @@ export default function SettingsScreen() {
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.toggleDivider} />
+            {/* Ringer Mode Subsection */}
+            <View style={styles.subsectionHeader}>
+              <Feather name="alert-circle" size={18} color={Material3Colors.light.primary} />
+              <Text style={styles.subsectionTitle}>Ringer Mode</Text>
+            </View>
 
+            <View style={styles.toggleGroup}>
               <TouchableOpacity
                 style={styles.toggleItem}
                 onPress={() => updateSettings.mutate({ soundEnabled: !settings.soundEnabled })}
@@ -421,6 +427,21 @@ const styles = StyleSheet.create({
   sectionContent: {
     padding: 20,
     backgroundColor: Material3Colors.light.surfaceContainerLowest,
+  },
+  subsectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Material3Colors.light.primary,
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   toggleGroup: {
     backgroundColor: Material3Colors.light.surfaceContainerLow,
