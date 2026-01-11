@@ -336,7 +336,8 @@ export default function HomeScreen() {
         historyTimes.push(completionTime);
 
         if (existingHistory) {
-          deleteReminder.mutate(existingHistory.id);
+          // Permanently delete the history item so it doesn't show in Deleted tab
+          permanentlyDeleteReminder.mutate(existingHistory.id);
         }
 
         updateReminder.mutate({
@@ -387,7 +388,7 @@ export default function HomeScreen() {
         });
       }
     }
-  }, [updateReminder, addReminder, deleteReminder, reminders]);
+  }, [updateReminder, addReminder, permanentlyDeleteReminder, reminders]);
 
   // Complete all occurrences (used for swipe action)
   const completeAllOccurrences = useCallback((reminder: Reminder) => {
@@ -401,7 +402,8 @@ export default function HomeScreen() {
       const historyTimes = existingHistory?.completionHistory || [];
 
       if (existingHistory) {
-        deleteReminder.mutate(existingHistory.id);
+        // Permanently delete the history item so it doesn't show in Deleted tab
+        permanentlyDeleteReminder.mutate(existingHistory.id);
       }
 
       updateReminder.mutate({
@@ -421,7 +423,7 @@ export default function HomeScreen() {
         lastTriggeredAt: new Date().toISOString(),
       });
     }
-  }, [updateReminder, deleteReminder, reminders]);
+  }, [updateReminder, permanentlyDeleteReminder, reminders]);
 
   const pauseReminder = useCallback((reminder: Reminder) => {
     // When resuming (isPaused is currently true), clear pauseUntilDate
@@ -555,12 +557,19 @@ export default function HomeScreen() {
   const handleDelete = useCallback((reminder: Reminder) => {
     // Mark deletion in progress to prevent extraData updates that would interrupt animation
     isDeletingRef.current = true;
+
+    // Find associated history items (children) to delete as well
+    const childrenToDelete = reminders.filter(r => r.parentId === reminder.id).map(r => r.id);
+    const idsToDelete = [reminder.id, ...childrenToDelete];
+
     // Allow extraData updates again after animation completes (typically 600ms)
     setTimeout(() => {
       isDeletingRef.current = false;
     }, 650);
-    deleteReminder.mutate(reminder.id);
-  }, [deleteReminder]);
+
+    // Use bulk delete to remove parent + all history children
+    bulkDeleteReminders.mutate(idsToDelete);
+  }, [bulkDeleteReminders, reminders]);
 
   const handlePermanentDelete = useCallback((reminder: Reminder) => {
     // Mark deletion in progress to prevent extraData updates that would interrupt animation
@@ -867,8 +876,30 @@ export default function HomeScreen() {
                     })()}
                   </Text>
                 </>
-              </View>
 
+                {/* Repeat Badge (Once, Daily, Monthly, Yearly, Every) */}
+                {reminder.repeatType && (
+                  <>
+                    <Text style={styles.compactSeparator}>•</Text>
+                    <View style={[styles.repeatBadge, { paddingVertical: 1, paddingHorizontal: 6, minHeight: 0 }]}>
+                      <Text style={[styles.repeatBadgeText, { fontSize: 11 }]}>
+                        {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {/* Interval Text for 'Every' (1m, 2h, 1d) */}
+                {reminder.repeatType === 'every' && reminder.everyInterval && (
+                  <>
+                    <Text style={styles.compactSeparator}>•</Text>
+                    <Text style={{ fontSize: 11, color: Material3Colors.light.onSurfaceVariant, fontWeight: '600' }}>
+                      {reminder.everyInterval.value}
+                      {reminder.everyInterval.unit === 'minutes' ? 'm' : reminder.everyInterval.unit === 'hours' ? 'h' : 'd'}
+                    </Text>
+                  </>
+                )}
+              </View>
               {/* Counter Badge for Completion History */}
               {(reminder.completionHistory && reminder.completionHistory.length > 0) && (
                 <TouchableOpacity
@@ -4107,7 +4138,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 2, // Reduced gap
     minWidth: 0, // Allow flex shrinking
   },
   priorityBarCompact: {
@@ -4126,7 +4157,7 @@ const styles = StyleSheet.create({
   compactSeparator: {
     fontSize: 12,
     color: Material3Colors.light.outline,
-    marginHorizontal: 2,
+    marginHorizontal: 0,
     flexShrink: 0,
   },
   reminderTimeCompact: {
