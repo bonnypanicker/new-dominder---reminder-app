@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Linking, NativeModules } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
+import Slider from '@react-native-community/slider';
 
 const { AlarmModule } = NativeModules;
 
@@ -170,24 +170,22 @@ export default function SettingsScreen() {
 
               <View style={styles.toggleDivider} />
 
-              <View style={[styles.toggleItem, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 16 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, width: '100%' }}>
+              <View style={styles.volumeContainer}>
+                <View style={styles.volumeHeader}>
                   <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
-                  <Text style={[styles.toggleLabel, styles.toggleLabelActive]}>Ringer Volume</Text>
-                  <Text style={{ fontSize: 13, color: Material3Colors.light.primary, fontWeight: '600' }}>
-                    {settings.ringerVolume ?? 100}%
-                  </Text>
+                  <Text style={styles.volumeLabel}>Ringer Volume</Text>
+                  <Text style={styles.volumeValue}>{settings.ringerVolume ?? 100}%</Text>
                 </View>
                 <Slider
-                  style={{ width: '100%', height: 40 }}
+                  style={styles.volumeSlider}
                   minimumValue={10}
                   maximumValue={100}
-                  step={5}
+                  step={10}
                   value={settings.ringerVolume ?? 100}
+                  onSlidingComplete={(value) => updateSettings.mutate({ ringerVolume: value })}
                   minimumTrackTintColor={Material3Colors.light.primary}
                   maximumTrackTintColor={Material3Colors.light.surfaceVariant}
                   thumbTintColor={Material3Colors.light.primary}
-                  onSlidingComplete={(value) => updateSettings.mutate({ ringerVolume: value })}
                 />
               </View>
             </View>
@@ -590,6 +588,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Material3Colors.light.onSurfaceVariant,
     fontStyle: 'italic',
+  },
+  volumeContainer: {
+    padding: 16,
+    paddingTop: 12,
+  },
+  volumeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  volumeLabel: {
+    flex: 1,
+    fontSize: 15,
+    marginLeft: 12,
+    color: Material3Colors.light.onSurface,
+    fontWeight: '500',
+  },
+  volumeValue: {
+    fontSize: 14,
+    color: Material3Colors.light.primary,
+    fontWeight: '600',
+  },
+  volumeSlider: {
+    width: '100%',
+    height: 40,
   },
 });
 

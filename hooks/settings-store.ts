@@ -14,7 +14,7 @@ export interface AppSettings {
   sortMode: 'creation' | 'upcoming';
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
-  ringerVolume?: number;
+  ringerVolume: number;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -68,6 +68,9 @@ export const useUpdateSettings = () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
 
       try {
+        const { NativeModules } = require('react-native');
+        const { AlarmModule } = NativeModules;
+
         if (typeof variables.notificationsEnabled === 'boolean') {
           if (variables.notificationsEnabled === false) {
             await notificationService.cancelAllNotifications();
@@ -77,19 +80,26 @@ export const useUpdateSettings = () => {
           }
         }
 
-        if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean' || typeof variables.ringerVolume === 'number') {
+        if (typeof variables.soundEnabled === 'boolean' || typeof variables.vibrationEnabled === 'boolean') {
           // Save to native SharedPreferences for AlarmRingtoneService to read
-          const { NativeModules } = require('react-native');
-          const { AlarmModule } = NativeModules;
           if (AlarmModule?.saveNotificationSettings) {
             try {
               await AlarmModule.saveNotificationSettings(
                 data.soundEnabled,
-                data.vibrationEnabled,
-                data.ringerVolume ?? 100
+                data.vibrationEnabled
               );
             } catch (e) {
               console.log('Failed to save notification settings to native:', e);
+            }
+          }
+        }
+
+        if (typeof variables.ringerVolume === 'number') {
+          if (AlarmModule?.saveRingerVolume) {
+            try {
+              await AlarmModule.saveRingerVolume(variables.ringerVolume);
+            } catch (e) {
+              console.log('Failed to save ringer volume to native:', e);
             }
           }
         }
