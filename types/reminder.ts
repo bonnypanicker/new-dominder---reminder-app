@@ -50,6 +50,13 @@ export interface Reminder {
   completionHistory?: string[];
   parentId?: string; // Add explicit parentId since it's used in logic
 
+  // Multi-select / Window fields
+  multiSelectEnabled?: boolean;
+  multiSelectDates?: string[];
+  multiSelectDays?: number[]; // 0-6
+  windowEndTime?: string; // For defining daily window end
+  windowEndIsAM?: boolean;
+
   // Transient fields
   snoozeClearing?: boolean;
   notificationUpdating?: boolean;

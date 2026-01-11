@@ -130,6 +130,76 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
         break;
       }
 
+      // MULTI-SELECT LOGIC
+      if (reminder.multiSelectEnabled) {
+        // Parse Window End Time
+        let endH = 23, endM = 59;
+        if (reminder.windowEndTime) {
+          const parts = reminder.windowEndTime.split(':');
+          endH = parseInt(parts[0], 10);
+          endM = parseInt(parts[1], 10);
+        }
+
+        // Interval in ms
+        const addMs = interval.unit === 'minutes' ? interval.value * 60 * 1000 :
+          interval.unit === 'hours' ? interval.value * 60 * 60 * 1000 :
+            interval.value * 24 * 60 * 60 * 1000;
+
+        // Start check from date of fromDate (reset time to 00:00 to iterate days)
+        // Or better: Iterate days starting from "today" (fromDate).
+        const cursor = new Date(fromDate);
+        cursor.setHours(0, 0, 0, 0);
+
+        let foundCandidate: Date | null = null;
+
+        // Safety limit: look ahead 1 year max
+        for (let i = 0; i < 366; i++) {
+          const checkDate = new Date(cursor.getTime() + i * 24 * 60 * 60 * 1000);
+          const yyyy = checkDate.getFullYear();
+          const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+          const dd = String(checkDate.getDate()).padStart(2, '0');
+          const dateStr = `${yyyy}-${month}-${dd}`;
+          const dayOfWeek = checkDate.getDay();
+
+          const isSelectedDate = reminder.multiSelectDates?.includes(dateStr);
+          const isSelectedDay = reminder.multiSelectDays?.includes(dayOfWeek);
+
+          if (isSelectedDate || isSelectedDay) {
+            // This day is valid. Generate occurrences within window.
+            const startWindow = new Date(checkDate);
+            startWindow.setHours(hh, mm, 0, 0);
+
+            const endWindow = new Date(checkDate);
+            endWindow.setHours(endH, endM, 0, 0);
+
+            // If end window < start window, assume it ends next day? OR ignore?
+            // User prompt implies same day window generally. 
+            // If 1pm to 5pm, same day.
+            // If 11pm to 2am? Let's assume user inputs standard valid range for same day for now or standard wrapping if we supported it.
+            // Given the UI "Set Time" in Ends modal, it's just a time.
+            if (endWindow <= startWindow) {
+              endWindow.setDate(endWindow.getDate() + 1);
+            }
+
+            // Generate occurrences: startWindow, startWindow + interval, ... <= endWindow
+            // We need the first one > fromDate
+
+            let occurrence = new Date(startWindow);
+            while (occurrence <= endWindow) {
+              if (occurrence > fromDate) {
+                foundCandidate = occurrence;
+                break;
+              }
+              occurrence = new Date(occurrence.getTime() + addMs);
+            }
+          }
+          if (foundCandidate) break;
+        }
+        candidate = foundCandidate;
+        break;
+      }
+
+      // STANDARD EVERY LOGIC (Legacy/Single)
       // Calculate the interval in milliseconds
       const addMs = interval.unit === 'minutes'
         ? interval.value * 60 * 1000
@@ -142,9 +212,6 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       startBoundary.setHours(hh, mm, 0, 0);
 
       // ANCHORED CALCULATION:
-      // Always calculate the next occurrence based on the original startBoundary (or synced start time).
-      // This prevents drift that occurs when calculating relative to "lastTriggeredAt" or "now".
-
       const diff = fromDate.getTime() - startBoundary.getTime();
 
       // If we are before the start, the start is the next occurrence

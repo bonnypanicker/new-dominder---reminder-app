@@ -40,7 +40,12 @@ const AlarmModule: {
     startDate: string,
     startTime: string,
     title: string,
-    priority: string
+    priority: string,
+    multiSelectEnabled: boolean,
+    multiSelectDates: string,
+    multiSelectDays: string,
+    windowEndTime: string,
+    windowEndIsAM: boolean
   ) => Promise<void>;
   clearReminderMetadata?: (reminderId: string) => Promise<void>;
   updateOccurrenceCount?: (reminderId: string, newCount: number) => Promise<void>;
@@ -61,19 +66,19 @@ if (Platform.OS === 'android') {
 function formatSmartDateTime(when: number): string {
   const reminderDate = new Date(when);
   const now = new Date();
-  
+
   // Reset time to start of day for date comparison
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const reminderStart = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
   const yesterdayStart = new Date(todayStart);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  
+
   const timeStr = reminderDate.toLocaleString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
   });
-  
+
   if (reminderStart.getTime() === todayStart.getTime()) {
     return `Today ${timeStr}`;
   } else if (reminderStart.getTime() === yesterdayStart.getTime()) {
@@ -120,11 +125,11 @@ function reminderToTimestamp(reminder: Reminder): number {
   if (reminder.snoozeUntil) {
     return new Date(reminder.snoozeUntil).getTime();
   }
-  
+
   if (reminder.nextReminderDate) {
     return new Date(reminder.nextReminderDate).getTime();
   }
-  
+
   const [year, month, day] = reminder.date.split('-').map(Number);
   const [hours, minutes] = reminder.time.split(':').map(Number);
   const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
@@ -135,7 +140,7 @@ function reminderToTimestamp(reminder: Reminder): number {
 function applySequentialDelay(baseTimestamp: number, reminderId: string): number {
   // Round to nearest second to group reminders
   const baseSecond = Math.floor(baseTimestamp / 1000) * 1000;
-  
+
   // First, remove any existing entries for this reminder ID from all timestamps
   // This prevents stale entries when rescheduling repeating reminders
   for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
@@ -147,7 +152,7 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
       }
     }
   }
-  
+
   // Clean up old entries (older than 5 minutes)
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
   for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
@@ -155,39 +160,39 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
       scheduledTimestamps.delete(timestamp);
     }
   }
-  
+
   // Find available slot starting from base timestamp
   let candidateTimestamp = baseSecond;
   let delayCount = 0;
-  
+
   while (scheduledTimestamps.has(candidateTimestamp)) {
     // Slot taken by another reminder, try next second
     candidateTimestamp += 1000;
     delayCount++;
-    
+
     // Limit to 60 seconds of delay
     if (delayCount >= 60) {
       console.warn(`[NotificationService] Max delay reached for ${reminderId}, using ${delayCount}s delay`);
       break;
     }
   }
-  
+
   // Register this timestamp
   if (!scheduledTimestamps.has(candidateTimestamp)) {
     scheduledTimestamps.set(candidateTimestamp, []);
   }
   scheduledTimestamps.get(candidateTimestamp)!.push(reminderId);
-  
+
   if (delayCount > 0) {
     console.log(`[NotificationService] Applied ${delayCount}s sequential delay to ${reminderId} (${new Date(baseSecond).toISOString()} -> ${new Date(candidateTimestamp).toISOString()})`);
   }
-  
+
   return candidateTimestamp;
 }
 
 export function createNotificationConfig(reminder: Reminder, when: number) {
-  const channelId = reminder.priority === 'high' ? 'alarm-v2' : 
-                    reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
+  const channelId = reminder.priority === 'high' ? 'alarm-v2' :
+    reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
 
   const body = bodyWithTime(reminder.description, when);
   const repeatTypeLabel = formatRepeatType(reminder.repeatType, reminder.everyInterval);
@@ -197,8 +202,8 @@ export function createNotificationConfig(reminder: Reminder, when: number) {
     title: reminder.title,
     subtitle: repeatTypeLabel, // Add repeat type next to app name
     body,
-    data: { 
-      reminderId: reminder.id, 
+    data: {
+      reminderId: reminder.id,
       priority: reminder.priority,
       title: reminder.title,
       route: 'index'
@@ -212,19 +217,19 @@ export function createNotificationConfig(reminder: Reminder, when: number) {
       lightUpScreen: reminder.priority === 'high',
       ongoing: true,
       autoCancel: false,
-      pressAction: { 
+      pressAction: {
         id: 'default',
         launchActivity: 'default'
       },
       timestamp: when,
       showTimestamp: true, // Show relative duration next to app name (e.g., 5m)
-      style: { 
-        type: AndroidStyle.BIGTEXT as AndroidStyle.BIGTEXT, 
-        text: body 
+      style: {
+        type: AndroidStyle.BIGTEXT as AndroidStyle.BIGTEXT,
+        text: body
       },
       actions: [
-        { title: 'Done',      pressAction: { id: 'done' } },
-        { title: 'Snooze 5',  pressAction: { id: 'snooze_5' } },
+        { title: 'Done', pressAction: { id: 'done' } },
+        { title: 'Snooze 5', pressAction: { id: 'snooze_5' } },
         { title: 'Snooze 10', pressAction: { id: 'snooze_10' } },
         { title: 'Snooze 15', pressAction: { id: 'snooze_15' } },
         { title: 'Snooze 30', pressAction: { id: 'snooze_30' } },
@@ -273,23 +278,23 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   }
 
   console.log(`[NotificationService] Scheduling reminder ${reminder.id}, priority: ${reminder.priority}, repeatType: ${reminder.repeatType}`);
-  
+
   let when = reminderToTimestamp(reminder);
   const now = Date.now();
-  
+
   // CRITICAL FIX: Add tolerance window to account for processing delays
   // Only treat as "in the past" if more than 5 seconds behind
   const TOLERANCE_MS = 5000; // 5 seconds
-  
+
   if (when <= now - TOLERANCE_MS) {
     console.log(`[NotificationService] Reminder ${reminder.id} time ${new Date(when).toISOString()} is in the past (beyond ${TOLERANCE_MS}ms tolerance)`);
-    
+
     // For 'every' reminders, recalculate from current time instead of skipping
-     if (reminder.repeatType === 'every') {
+    if (reminder.repeatType === 'every') {
       console.log(`[NotificationService] Recalculating 'every' reminder from current time`);
       const { calculateNextReminderDate } = require('../services/reminder-utils');
       const newWhen = calculateNextReminderDate(reminder, new Date(now));
-      
+
       if (newWhen) {
         when = newWhen.getTime();
         console.log(`[NotificationService] Rescheduled to: ${new Date(when).toISOString()}`);
@@ -328,7 +333,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       return;
     }
   }
-  
+
   // Apply sequential delay to prevent multiple reminders from firing simultaneously
   // SKIP for 'every' type reminders to preserve exact timing (e.g., every 1 minute at :00 seconds)
   if (reminder.repeatType !== 'every') {
@@ -336,7 +341,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   } else {
     console.log(`[NotificationService] Skipping sequential delay for 'every' reminder to preserve exact timing`);
   }
-  
+
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
   const isRinger = reminder.priority === 'high';
@@ -362,11 +367,16 @@ export async function scheduleReminderByModel(reminder: Reminder) {
             reminder.date || '',
             reminder.time || '',
             reminder.title,
-            reminder.priority
+            reminder.priority,
+            reminder.multiSelectEnabled ?? false,
+            JSON.stringify(reminder.multiSelectDates ?? []),
+            JSON.stringify(reminder.multiSelectDays ?? []),
+            reminder.windowEndTime ?? '',
+            reminder.windowEndIsAM ?? false
           );
           console.log(`[NotificationService] Stored metadata for native alarm ${reminder.id}`);
         }
-        
+
         await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
         console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
         return;
@@ -375,7 +385,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       }
     }
   }
-  
+
   {
     // Use notifee for medium/low priority OR as fallback for high priority
     // CRITICAL: Always use alarmManager with allowWhileIdle for exact timing
@@ -392,7 +402,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
     const notificationConfig = createNotificationConfig(reminder, when);
 
     await notifee.createTriggerNotification(notificationConfig, trigger);
-    
+
     console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
   }
 }
@@ -401,10 +411,10 @@ export async function cancelNotification(notificationId: string) {
   try {
     // Cancel scheduled (trigger) notification
     await notifee.cancelNotification(notificationId);
-    
+
     // Cancel displayed notification (if showing in notification center)
     await notifee.cancelDisplayedNotification(notificationId);
-    
+
     // Cancel native alarm
     const remId = notificationId.replace('rem-', '');
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
@@ -424,14 +434,14 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
   try {
     // Cancel scheduled (trigger) notifications
     await notifee.cancelNotification(`rem-${reminderId}`);
-    
+
     // Cancel displayed notifications (notifications already showing in notification center)
     await notifee.cancelDisplayedNotification(`rem-${reminderId}`);
 
     // Cancel missed notification (if any)
     await notifee.cancelNotification(`missed-${reminderId}`);
     await notifee.cancelDisplayedNotification(`missed-${reminderId}`);
-    
+
     // Cancel native alarms and clear metadata
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
       try {
@@ -440,7 +450,7 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
       }
     }
-    
+
     // Clear native metadata for this reminder
     if (AlarmModule?.clearReminderMetadata) {
       try {
@@ -449,7 +459,7 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
         console.warn('[NotificationService] Native clearReminderMetadata failed, continuing:', e);
       }
     }
-    
+
     // Clean up from scheduledTimestamps map
     for (const [timestamp, ids] of Array.from(scheduledTimestamps.entries())) {
       const index = ids.indexOf(reminderId);
@@ -460,7 +470,7 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
         }
       }
     }
-    
+
     console.log(`[NotificationService] Cancelled all notifications (scheduled + displayed) for reminder ${reminderId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
@@ -471,13 +481,13 @@ export async function cancelAllNotifications() {
   try {
     // Cancel all scheduled notifications
     await notifee.cancelAllNotifications();
-    
+
     // Cancel all displayed notifications
     await notifee.cancelDisplayedNotifications();
-    
+
     // Clear the scheduledTimestamps map
     scheduledTimestamps.clear();
-    
+
     console.log('[NotificationService] Cancelled all notifications');
   } catch (error) {
     console.error('[NotificationService] Error cancelling all notifications:', error);

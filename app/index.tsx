@@ -97,6 +97,11 @@ export default function HomeScreen() {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
 
+  // Multi-select state
+  const [multiSelectEnabled, setMultiSelectEnabled] = useState<boolean>(false);
+  const [multiSelectDates, setMultiSelectDates] = useState<string[]>([]);
+  const [multiSelectDays, setMultiSelectDays] = useState<number[]>([]);
+
   // Tab animation state
   const [tabLayouts, setTabLayouts] = useState<Record<string, { x: number, width: number }>>({});
   const indicatorX = useRef(new Animated.Value(0)).current;
@@ -1632,7 +1637,15 @@ export default function HomeScreen() {
             }}
             onUntilDateChange={setUntilDate}
             onUntilCountChange={(count) => setUntilCount(Math.min(999, Math.max(1, count)))}
+
             onOpenUntilTime={() => { setTimeSelectorContext('until'); setShowTimeSelector(true); }}
+            // Multi-select props
+            multiSelectEnabled={multiSelectEnabled}
+            onMultiSelectEnabledChange={setMultiSelectEnabled}
+            multiSelectDates={multiSelectDates}
+            onMultiSelectDatesChange={setMultiSelectDates}
+            multiSelectDays={multiSelectDays}
+            onMultiSelectDaysChange={setMultiSelectDays}
             onConfirm={() => {
               if (!title.trim()) {
                 showToast('Please enter your reminder');
@@ -1857,6 +1870,19 @@ export default function HomeScreen() {
                 ringerSound: undefined,
                 isCompleted: false,
                 isExpired: false,
+
+                // Multi-select fields
+                multiSelectEnabled,
+                multiSelectDates: multiSelectEnabled ? multiSelectDates : undefined,
+                multiSelectDays: multiSelectEnabled ? multiSelectDays : undefined,
+                windowEndTime: multiSelectEnabled && untilTime ? (() => {
+                  const [uHours, uMinutes] = untilTime.split(':').map(Number);
+                  let finalUHours = uHours;
+                  if (!untilIsAM && uHours !== 12) finalUHours = uHours + 12;
+                  else if (untilIsAM && uHours === 12) finalUHours = 0;
+                  return `${finalUHours.toString().padStart(2, '0')}:${uMinutes.toString().padStart(2, '0')}`;
+                })() : undefined,
+                windowEndIsAM: multiSelectEnabled ? untilIsAM : undefined,
               };
 
               addReminder.mutate(newReminder, {
@@ -1895,6 +1921,10 @@ export default function HomeScreen() {
                     const mm = String(d.getMonth() + 1).padStart(2, '0');
                     const dd = String(d.getDate()).padStart(2, '0');
                     setSelectedDate(`${yyyy}-${mm}-${dd}`);
+                    // Reset multi-select
+                    setMultiSelectEnabled(false);
+                    setMultiSelectDates([]);
+                    setMultiSelectDays([]);
                   }, 150);
                 },
                 onError: (error) => {
@@ -1934,6 +1964,9 @@ export default function HomeScreen() {
               const mm = String(now.getMonth() + 1).padStart(2, '0');
               const dd = String(now.getDate()).padStart(2, '0');
               setSelectedDate(`${yyyy}-${mm}-${dd}`);
+              setMultiSelectEnabled(false);
+              setMultiSelectDates([]);
+              setMultiSelectDays([]);
               setShowCreatePopup(true);
             }}
             testID="fab-create-reminder"
@@ -2000,6 +2033,14 @@ interface CreateReminderPopupProps {
   onUntilDateChange: (date: string) => void;
   onUntilCountChange: (count: number) => void;
   onOpenUntilTime: () => void;
+
+  // Multi-select props
+  multiSelectEnabled: boolean;
+  onMultiSelectEnabledChange: (enabled: boolean) => void;
+  multiSelectDates: string[];
+  onMultiSelectDatesChange: (dates: string[]) => void;
+  multiSelectDays: number[];
+  onMultiSelectDaysChange: (days: number[]) => void;
 }
 
 function CreateReminderPopup({
@@ -2039,6 +2080,13 @@ function CreateReminderPopup({
   onUntilDateChange,
   onUntilCountChange,
   onOpenUntilTime,
+
+  multiSelectEnabled,
+  onMultiSelectEnabledChange,
+  multiSelectDates,
+  onMultiSelectDatesChange,
+  multiSelectDays,
+  onMultiSelectDaysChange,
 }: CreateReminderPopupProps) {
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [scaleFactor, setScaleFactor] = useState<number>(1);
@@ -2288,6 +2336,26 @@ function CreateReminderPopup({
                         onDropdownStateChange={() => { }}
                         scaleFactor={scaleFactor}
                         isLandscape={isLandscape}
+                        // Multi-select
+                        multiSelectEnabled={multiSelectEnabled}
+                        onMultiSelectEnabledChange={onMultiSelectEnabledChange}
+                        multiSelectDates={multiSelectDates}
+                        onMultiSelectDatesChange={onMultiSelectDatesChange}
+                        multiSelectDays={multiSelectDays}
+                        onMultiSelectDaysChange={onMultiSelectDaysChange}
+                        onSetTime={() => {
+                          // If in Start context, open Start Time. 
+                          // But CustomizePanel handles context internally for its own logic?
+                          // Actually CalendarModal for start calls onSetTime.
+                          // We want to differentiate between Start and End time setting?
+                          // CalendarModal 'onSetTime' is generic.
+                          // However, we are passing 'onSetTime' to CustomizePanel.
+                          // CustomizePanel uses it for Start Context.
+                          // Update: I only hooked up onSetTime in CustomizePanel.tsx for Start CalendarModal.
+                          // For End CalendarModal, I mapped it to onOpenUntilTime.
+                          // So this prop is mainly for Start CalendarModal "Set Time" button.
+                          onTimeSelect();
+                        }}
                       />
                     </View>
 

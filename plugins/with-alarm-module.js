@@ -225,6 +225,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.util.Calendar
+import org.json.JSONArray
 
 class AlarmActionBridge : BroadcastReceiver() {
 
@@ -332,7 +333,14 @@ class AlarmActionBridge : BroadcastReceiver() {
             val title = metaPrefs.getString("meta_\${reminderId}_title", "Reminder") ?: "Reminder"
             val priority = metaPrefs.getString("meta_\${reminderId}_priority", "high") ?: "high"
             
-            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=\$repeatType, everyValue=\$everyValue, everyUnit=\$everyUnit, untilType=\$untilType, untilCount=\$untilCount, actualTriggerCount=\$actualTriggerCount")
+            // Multi-select fields
+            val multiSelectEnabled = metaPrefs.getBoolean("meta_\${reminderId}_multiSelectEnabled", false)
+            val multiSelectDates = metaPrefs.getString("meta_\${reminderId}_multiSelectDates", "[]") ?: "[]"
+            val multiSelectDays = metaPrefs.getString("meta_\${reminderId}_multiSelectDays", "[]") ?: "[]"
+            val windowEndTime = metaPrefs.getString("meta_\${reminderId}_windowEndTime", "") ?: ""
+            val windowEndIsAM = metaPrefs.getBoolean("meta_\${reminderId}_windowEndIsAM", false)
+            
+            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=\$repeatType, everyValue=\$everyValue, multiSelect=\$multiSelectEnabled, actualTriggerCount=\$actualTriggerCount")
             
             // Check if we've reached the count limit (actualTriggerCount is already incremented by AlarmReceiver)
             if (untilType == "count" && actualTriggerCount >= untilCount) {
@@ -350,7 +358,8 @@ class AlarmActionBridge : BroadcastReceiver() {
             
             // Calculate next trigger time
             val nextTriggerTime = calculateNextTriggerTime(
-                repeatType, everyValue, everyUnit, untilType, untilDate, untilTime, startDate, startTime
+                repeatType, everyValue, everyUnit, untilType, untilDate, untilTime, startDate, startTime,
+                multiSelectEnabled, multiSelectDates, multiSelectDays, windowEndTime, windowEndIsAM
             )
             
             if (nextTriggerTime == null) {
@@ -371,7 +380,6 @@ class AlarmActionBridge : BroadcastReceiver() {
             
             // Also sync the occurrenceCount for JS compatibility (legacy field)
             metaPrefs.edit().putInt("meta_\${reminderId}_occurrenceCount", actualTriggerCount).apply()
-            DebugLogger.log("AlarmActionBridge: Synced occurrenceCount to \$actualTriggerCount")
             
             // Schedule the next alarm
             scheduleNativeAlarmAtTime(context, reminderId, title, priority, nextTriggerTime)
@@ -390,7 +398,12 @@ class AlarmActionBridge : BroadcastReceiver() {
         untilDate: String,
         untilTime: String,
         startDate: String,
-        startTime: String
+        startTime: String,
+        multiSelectEnabled: Boolean = false,
+        multiSelectDates: String = "[]",
+        multiSelectDays: String = "[]",
+        windowEndTime: String = "",
+        windowEndIsAM: Boolean = false
     ): Long? {
         val now = System.currentTimeMillis()
         val calendar = Calendar.getInstance()
@@ -426,58 +439,104 @@ class AlarmActionBridge : BroadcastReceiver() {
                     else -> everyValue * 60 * 1000L
                 }
                 
+                if (multiSelectEnabled && startCal != null) {
+                    try {
+                         var endH = 23
+                         var endM = 59
+                         if (windowEndTime.isNotEmpty()) {
+                             val parts = windowEndTime.split(":")
+                             if (parts.size == 2) {
+                                 endH = parts[0].toInt()
+                                 endM = parts[1].toInt()
+                             }
+                         }
+                         
+                         val datesArray = JSONArray(multiSelectDates)
+                         val daysArray = JSONArray(multiSelectDays)
+                         val selectedDays = mutableSetOf<Int>()
+                         for(i in 0 until daysArray.length()) selectedDays.add(daysArray.getInt(i))
+                         
+                         val selectedDates = mutableSetOf<String>()
+                         for(i in 0 until datesArray.length()) selectedDates.add(datesArray.getString(i))
+
+                         val startH = startCal.get(Calendar.HOUR_OF_DAY)
+                         val startM = startCal.get(Calendar.MINUTE)
+                         
+                         val cursor = Calendar.getInstance()
+                         cursor.timeInMillis = now
+                         // Start from beginning of today (to cover current day windows)
+                         cursor.set(Calendar.HOUR_OF_DAY, 0)
+                         cursor.set(Calendar.MINUTE, 0)
+                         cursor.set(Calendar.SECOND, 0)
+                         cursor.set(Calendar.MILLISECOND, 0)
+                         
+                         for (i in 0 until 366) { // Look ahead 1 year
+                             val cy = cursor.get(Calendar.YEAR)
+                             val cm = cursor.get(Calendar.MONTH) + 1
+                             val cd = cursor.get(Calendar.DAY_OF_MONTH)
+                             val dateStr = String.format("%04d-%02d-%02d", cy, cm, cd)
+                             val dayOfWeek = cursor.get(Calendar.DAY_OF_WEEK) - 1 
+                             
+                             if (selectedDates.contains(dateStr) || selectedDays.contains(dayOfWeek)) {
+                                 val wStart = cursor.clone() as Calendar
+                                 wStart.set(Calendar.HOUR_OF_DAY, startH)
+                                 wStart.set(Calendar.MINUTE, startM)
+                                 
+                                 val wEnd = cursor.clone() as Calendar
+                                 wEnd.set(Calendar.HOUR_OF_DAY, endH)
+                                 wEnd.set(Calendar.MINUTE, endM)
+                                 
+                                 if (wEnd.before(wStart)) {
+                                     wEnd.add(Calendar.DAY_OF_MONTH, 1)
+                                 }
+                                 
+                                 var occ = wStart.timeInMillis
+                                 while (occ <= wEnd.timeInMillis) {
+                                     if (occ > now) {
+                                         return occ
+                                     }
+                                     occ += intervalMs
+                                 }
+                             }
+                             cursor.add(Calendar.DAY_OF_MONTH, 1)
+                         }
+                         return null
+                    } catch (e: Exception) {
+                        DebugLogger.log("AlarmActionBridge: Error in multi-select calculation: \${e.message}")
+                    }
+                }
+                
                 if (startCal != null) {
                     val startMs = startCal.timeInMillis
-                    
-                    // Calculate how many intervals have passed since start
-                    // We want the next trigger > now
-                    // elapsed = now - startMs
-                    // if elapsed < 0 (now is before start), next is startMs
-                    // if elapsed >= 0, next is startMs + (floor(elapsed/interval) + 1) * interval
-                    
                     val elapsed = now - startMs
                     val intervalsPassed = if (elapsed < 0) 0 else (elapsed / intervalMs) + 1
                     val nextTrigger = startMs + (intervalsPassed * intervalMs)
                     
-                    // Check against end boundary
                     if (untilType == "endsAt" && untilDate.isNotEmpty()) {
                         val endBoundary = parseEndBoundary(untilDate, untilTime, everyUnit)
                         if (nextTrigger > endBoundary) {
                             return null
                         }
                     }
-                    
                     return nextTrigger
                 }
                 
-                // Fallback: just add interval to now
                 return now + intervalMs
             }
             "daily", "weekly", "monthly", "yearly" -> {
-                // For calendar based repeats, we add the unit to 'now', 
-                // BUT we must reset the time to the scheduled time to prevent drift.
                 calendar.timeInMillis = now
-                
-                // 1. Advance the date fields
                 when (repeatType) {
                     "daily" -> calendar.add(Calendar.DAY_OF_MONTH, 1)
-                    "weekly" -> {
-                        // If we have a start date, we should try to align the day of week too?
-                        // For now, simple logic: Add 1 week to "now"
-                        calendar.add(Calendar.WEEK_OF_YEAR, 1)
-                    }
+                    "weekly" -> calendar.add(Calendar.WEEK_OF_YEAR, 1)
                     "monthly" -> calendar.add(Calendar.MONTH, 1)
                     "yearly" -> calendar.add(Calendar.YEAR, 1)
                 }
-                
-                // 2. Fix the Time Drift: explicit set the hour/minute from start time
                 if (startCal != null) {
                     calendar.set(Calendar.HOUR_OF_DAY, startCal.get(Calendar.HOUR_OF_DAY))
                     calendar.set(Calendar.MINUTE, startCal.get(Calendar.MINUTE))
                     calendar.set(Calendar.SECOND, 0)
                     calendar.set(Calendar.MILLISECOND, 0)
                 }
-
                 return calendar.timeInMillis
             }
             else -> return null
@@ -2596,6 +2655,11 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         startTime: String,
         title: String,
         priority: String,
+        multiSelectEnabled: Boolean,
+        multiSelectDates: String,
+        multiSelectDays: String,
+        windowEndTime: String,
+        windowEndIsAM: Boolean,
         promise: Promise? = null
     ) {
         try {
@@ -2613,6 +2677,14 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putString("meta_\${reminderId}_startTime", startTime)
                 putString("meta_\${reminderId}_title", title)
                 putString("meta_\${reminderId}_priority", priority)
+                
+                // Multi-select fields
+                putBoolean("meta_\${reminderId}_multiSelectEnabled", multiSelectEnabled)
+                putString("meta_\${reminderId}_multiSelectDates", multiSelectDates)
+                putString("meta_\${reminderId}_multiSelectDays", multiSelectDays)
+                putString("meta_\${reminderId}_windowEndTime", windowEndTime)
+                putBoolean("meta_\${reminderId}_windowEndIsAM", windowEndIsAM)
+
                 // Initialize native tracking fields (only if not already set to preserve existing state)
                 if (!prefs.contains("meta_\${reminderId}_actualTriggerCount")) {
                     putInt("meta_\${reminderId}_actualTriggerCount", occurrenceCount)
@@ -2625,7 +2697,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 }
                 apply()
             }
-            DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, everyUnit=\$everyIntervalUnit, occurrenceCount=\$occurrenceCount")
+            DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, multiSelect=\$multiSelectEnabled")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error storing metadata: \${e.message}")

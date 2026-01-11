@@ -39,6 +39,17 @@ interface CustomizePanelProps {
   // Scale factor for responsive sizing on small screens
   scaleFactor?: number;
   isLandscape?: boolean;
+  // Multi-select props
+  multiSelectEnabled?: boolean;
+  onMultiSelectEnabledChange?: (enabled: boolean) => void;
+  multiSelectDates?: string[];
+  onMultiSelectDatesChange?: (dates: string[]) => void;
+  multiSelectDays?: number[];
+  onMultiSelectDaysChange?: (days: number[]) => void;
+  // Callback for Set Time button in calendar
+  onSetTime?: () => void;
+  windowEndTime?: string;
+  windowEndIsAM?: boolean;
 }
 
 export default function CustomizePanel({
@@ -65,12 +76,22 @@ export default function CustomizePanel({
   onDropdownStateChange,
   scaleFactor = 1,
   isLandscape = false,
+  // New props
+  multiSelectEnabled,
+  onMultiSelectEnabledChange,
+  multiSelectDates,
+  onMultiSelectDatesChange,
+  multiSelectDays,
+  onMultiSelectDaysChange,
+  onSetTime,
+  windowEndTime,
+  windowEndIsAM,
 }: CustomizePanelProps) {
   const containerRef = useRef<View>(null);
   const dateAnchorRef = useRef<View>(null);
   const unitAnchorRef = useRef<View>(null);
   const untilAnchorRef = useRef<View>(null);
-  
+
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownAnchor, setDropdownAnchor] = useState<AnchorRect | null>(null);
@@ -245,7 +266,7 @@ export default function CustomizePanel({
   }, [closeAllDropdowns, onDropdownStateChange]);
 
   const units: EveryUnit[] = ['minutes', 'hours', 'days'];
-  
+
   const getUnitLabel = (unit: EveryUnit): string => {
     const labels: Record<EveryUnit, string> = {
       minutes: 'Minutes',
@@ -266,276 +287,308 @@ export default function CustomizePanel({
 
   return (
     <View ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'visible' }}>
-      <ScrollView 
-        style={styles.container} 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
         keyboardDismissMode="none"
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled={true}
       >
-      <View style={[styles.repeatOptionsContainer, { marginBottom: 8 * scaleFactor }]}>
-        {repeatOptions.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            style={[
-              styles.repeatOption,
-              repeatType === option.value && styles.repeatOptionSelected,
-              { paddingVertical: 6 * scaleFactor }
-            ]}
-            onPress={() => onRepeatTypeChange(option.value)}
-            testID={`repeat-${option.value}`}
-          >
-            <Text 
+        <View style={[styles.repeatOptionsContainer, { marginBottom: 8 * scaleFactor }]}>
+          {repeatOptions.map((option) => (
+            <TouchableOpacity
+              key={option.value}
               style={[
-                styles.repeatOptionText,
-                repeatType === option.value && styles.repeatOptionTextSelected,
-                { fontSize: 12 * scaleFactor }
+                styles.repeatOption,
+                repeatType === option.value && styles.repeatOptionSelected,
+                { paddingVertical: 6 * scaleFactor }
               ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
+              onPress={() => onRepeatTypeChange(option.value)}
+              testID={`repeat-${option.value}`}
             >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {(repeatType === 'none' || repeatType === 'every') && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
-          <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
-            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
-            <View style={styles.menuWrapper}
+              <Text
+                style={[
+                  styles.repeatOptionText,
+                  repeatType === option.value && styles.repeatOptionTextSelected,
+                  { fontSize: 12 * scaleFactor }
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
               >
-              <DropdownAnchor
-                ref={dateAnchorRef}
-                label={`${formattedSelectedDate} • ${displayTime}`}
-                open={dropdownOpen}
-                onOpen={() => {}}
-                onToggle={() => setDropdownOpen(!dropdownOpen)}
-                onMeasure={(coords) => coords && handleDropdownOpen(coords)}
-              />
-
-            </View>
-          </View>
-
-          {repeatType === 'every' && (
-            <View style={styles.everyRow}>
-              <Text style={styles.everyText}>Repeats every</Text>
-              <TextInput
-                style={styles.everyInput}
-                keyboardType="number-pad"
-                maxLength={2}
-                defaultValue={String((everyValue ?? 1))}
-                onChangeText={(txt) => {
-                  const num = parseInt(txt.replace(/\D/g, '') || '0', 10);
-                  onEveryChange?.(Math.min(99, Math.max(1, num)), everyUnit ?? 'hours');
-                }}
-                testID="every-value-input"
-              />
-              <UnitDropdownButton
-                ref={unitAnchorRef}
-                unit={everyUnit ?? 'hours'}
-                onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
-                onOpenDropdown={handleUnitDropdownOpen}
-              />
-            </View>
-          )}
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
 
-      {repeatType === 'daily' && (
-        <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Time</Text>
-            <View style={styles.menuWrapper}>
-              <TouchableOpacity
-                style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
-                onPress={() => { onOpenTime?.(); }}
-                testID="daily-time-button"
+        {(repeatType === 'none' || repeatType === 'every') && (
+          <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
+            <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
+              <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
+              <View style={styles.menuWrapper}
               >
-                <Feather name="clock" size={16} color="#111827" />
-                <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{displayTime}</Text>
-                <Feather name="chevron-down" size={16} color="#111827" />
-              </TouchableOpacity>
+                <DropdownAnchor
+                  ref={dateAnchorRef}
+                  label={`${formattedSelectedDate} • ${displayTime}`}
+                  open={dropdownOpen}
+                  onOpen={() => { }}
+                  onToggle={() => setDropdownOpen(!dropdownOpen)}
+                  onMeasure={(coords) => coords && handleDropdownOpen(coords)}
+                />
+
+              </View>
             </View>
+
+            {repeatType === 'every' && (
+              <View style={styles.everyRow}>
+                <Text style={styles.everyText}>Repeats every</Text>
+                <TextInput
+                  style={styles.everyInput}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  defaultValue={String((everyValue ?? 1))}
+                  onChangeText={(txt) => {
+                    const num = parseInt(txt.replace(/\D/g, '') || '0', 10);
+                    onEveryChange?.(Math.min(99, Math.max(1, num)), everyUnit ?? 'hours');
+                  }}
+                  testID="every-value-input"
+                />
+                <UnitDropdownButton
+                  ref={unitAnchorRef}
+                  unit={everyUnit ?? 'hours'}
+                  onChange={(u) => onEveryChange?.(everyValue ?? 1, u)}
+                  onOpenDropdown={handleUnitDropdownOpen}
+                />
+              </View>
+            )}
           </View>
-          <View style={[styles.dailySection, styles.dailyTimeRow]}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
-            <View style={styles.menuWrapper}>
-              <UntilTypeButton
-                ref={untilAnchorRef}
-                untilType={(untilType ?? 'none') as UntilType}
-                getLabel={getUntilLabel}
-                valueLabel={untilValueLabel}
-                onOpenDropdown={handleUntilDropdownOpen}
-              />
-            </View>
-          </View>
-          <View style={styles.dailySection}>
-            <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Days</Text>
-            <View style={[
-              styles.daysRow, 
-              { marginHorizontal: 0, paddingHorizontal: 0 },
-              isLandscape && { justifyContent: 'center' }
-            ]}>
-              {DAYS_OF_WEEK.map((day) => (
+        )}
+
+        {repeatType === 'daily' && (
+          <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
+            <View style={[styles.dailySection, styles.dailyTimeRow]}>
+              <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Time</Text>
+              <View style={styles.menuWrapper}>
                 <TouchableOpacity
-                  key={day.value}
-                  style={[
-                    styles.dayButtonCompact,
-                    repeatDays.includes(day.value) && styles.dayButtonCompactSelected,
-                    { height: 40 * scaleFactor }, // Fixed height
-                    isLandscape && { flex: 0, width: 40 * scaleFactor, marginHorizontal: 2 } // Fixed width in landscape to prevent stretching
-                  ]}
-                  onPress={() => toggleDay(day.value)}
-                  testID={`weekday-${day.value}`}
+                  style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
+                  onPress={() => { onOpenTime?.(); }}
+                  testID="daily-time-button"
                 >
-                  <Text style={[
-                    styles.dayButtonCompactText,
-                    repeatDays.includes(day.value) && styles.dayButtonCompactTextSelected,
-                    { fontSize: 14 * scaleFactor }
-                  ]}>
-                    {day.label}
-                  </Text>
+                  <Feather name="clock" size={16} color="#111827" />
+                  <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{displayTime}</Text>
+                  <Feather name="chevron-down" size={16} color="#111827" />
                 </TouchableOpacity>
-              ))}
+              </View>
+            </View>
+            <View style={[styles.dailySection, styles.dailyTimeRow]}>
+              <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
+              <View style={styles.menuWrapper}>
+                <UntilTypeButton
+                  ref={untilAnchorRef}
+                  untilType={(untilType ?? 'none') as UntilType}
+                  getLabel={getUntilLabel}
+                  valueLabel={untilValueLabel}
+                  onOpenDropdown={handleUntilDropdownOpen}
+                />
+              </View>
+            </View>
+            <View style={styles.dailySection}>
+              <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Days</Text>
+              <View style={[
+                styles.daysRow,
+                { marginHorizontal: 0, paddingHorizontal: 0 },
+                isLandscape && { justifyContent: 'center' }
+              ]}>
+                {DAYS_OF_WEEK.map((day) => (
+                  <TouchableOpacity
+                    key={day.value}
+                    style={[
+                      styles.dayButtonCompact,
+                      repeatDays.includes(day.value) && styles.dayButtonCompactSelected,
+                      { height: 40 * scaleFactor }, // Fixed height
+                      isLandscape && { flex: 0, width: 40 * scaleFactor, marginHorizontal: 2 } // Fixed width in landscape to prevent stretching
+                    ]}
+                    onPress={() => toggleDay(day.value)}
+                    testID={`weekday-${day.value}`}
+                  >
+                    <Text style={[
+                      styles.dayButtonCompactText,
+                      repeatDays.includes(day.value) && styles.dayButtonCompactTextSelected,
+                      { fontSize: 14 * scaleFactor }
+                    ]}>
+                      {day.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {repeatType === 'monthly' && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
-          <View style={styles.topRow}>
-            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
-            <View style={styles.menuWrapper}>
-              <TouchableOpacity
-                testID="monthly-open-calendar"
-                style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
-                onPress={() => { setMonthlyCalendarOpen(true); }}
-              >
-                <MaterialIcons name="calendar-today" size={16} color="#111827" />
-                <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>
-                  Day {monthlyDate} • {displayTime}
-                </Text>
-                <Feather name="chevron-down" size={16} color="#111827" />
-              </TouchableOpacity>
+        {repeatType === 'monthly' && (
+          <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
+            <View style={styles.topRow}>
+              <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
+              <View style={styles.menuWrapper}>
+                <TouchableOpacity
+                  testID="monthly-open-calendar"
+                  style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
+                  onPress={() => { setMonthlyCalendarOpen(true); }}
+                >
+                  <MaterialIcons name="calendar-today" size={16} color="#111827" />
+                  <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>
+                    Day {monthlyDate} • {displayTime}
+                  </Text>
+                  <Feather name="chevron-down" size={16} color="#111827" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {repeatType === 'yearly' && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
-          <View style={styles.topRow}>
-            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
-            <View style={styles.menuWrapper}>
-              <TouchableOpacity
-                testID="yearly-open-calendar"
-                style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
-                onPress={() => { setYearlyCalendarOpen(true); }}
-              >
-                <MaterialIcons name="calendar-today" size={16} color="#111827" />
-                <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
-                <Feather name="chevron-down" size={16} color="#111827" />
-              </TouchableOpacity>
+        {repeatType === 'yearly' && (
+          <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
+            <View style={styles.topRow}>
+              <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
+              <View style={styles.menuWrapper}>
+                <TouchableOpacity
+                  testID="yearly-open-calendar"
+                  style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
+                  onPress={() => { setYearlyCalendarOpen(true); }}
+                >
+                  <MaterialIcons name="calendar-today" size={16} color="#111827" />
+                  <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
+                  <Feather name="chevron-down" size={16} color="#111827" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {repeatType !== 'none' && repeatType !== 'daily' && (
-        <View style={[styles.dateSelectionContainer, { marginTop: 0, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
-          <View style={styles.topRow}>
-            <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
-            <View style={styles.menuWrapper}>
-              <UntilTypeButton
-                ref={untilAnchorRef}
-                untilType={(untilType ?? 'none') as UntilType}
-                getLabel={getUntilLabel}
-                valueLabel={untilValueLabel}
-                onOpenDropdown={handleUntilDropdownOpen}
-              />
+        {repeatType !== 'none' && repeatType !== 'daily' && (
+          <View style={[styles.dateSelectionContainer, { marginTop: 0, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
+            <View style={styles.topRow}>
+              <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Ends</Text>
+              <View style={styles.menuWrapper}>
+                <UntilTypeButton
+                  ref={untilAnchorRef}
+                  untilType={(untilType ?? 'none') as UntilType}
+                  getLabel={getUntilLabel}
+                  valueLabel={untilValueLabel}
+                  onOpenDropdown={handleUntilDropdownOpen}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      <CalendarModal
-        visible={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
-        selectedDate={selectedDate}
-        onSelectDate={(date) => {
-          onDateChange(date);
-          setCalendarOpen(false);
-          // Keep keyboard as-is on date selection; opening time will handle focus
-          const unit = everyUnit ?? 'hours';
-          const shouldOpenTime = repeatType === 'none' || (repeatType === 'every' && (unit === 'minutes' || unit === 'hours'));
-          if (shouldOpenTime) {
+        <CalendarModal
+          visible={calendarOpen}
+          onClose={() => setCalendarOpen(false)}
+          selectedDate={selectedDate}
+          onSelectDate={(date) => {
+            onDateChange(date);
+            // Only close if not multi-selecting
+            if (!multiSelectEnabled) {
+              setCalendarOpen(false);
+              // Keep keyboard as-is on date selection; opening time will handle focus
+              const unit = everyUnit ?? 'hours';
+              const shouldOpenTime = repeatType === 'none' || (repeatType === 'every' && (unit === 'minutes' || unit === 'hours'));
+              if (shouldOpenTime) {
+                try {
+                  onOpenTime?.();
+                } catch (e) {
+                  console.log('open time after calendar date selection error', e);
+                }
+              }
+            }
+          }}
+          // Multi-select props
+          multiSelectEnabled={repeatType === 'every' && multiSelectEnabled}
+          onMultiSelectEnabledChange={onMultiSelectEnabledChange}
+          multiSelectDates={multiSelectDates}
+          onMultiSelectDatesChange={onMultiSelectDatesChange}
+          multiSelectDays={multiSelectDays}
+          onMultiSelectDaysChange={onMultiSelectDaysChange}
+          isEndMode={false}
+          onSetTime={() => {
+            setCalendarOpen(false);
+            onSetTime?.(); // Actually main time input
+            // Or if user wants specific button behavior:
+            try { onOpenTime?.(); } catch (e) { }
+          }}
+        />
+
+        <CalendarModal
+          visible={yearlyCalendarOpen}
+          onClose={() => setYearlyCalendarOpen(false)}
+          selectedDate={selectedDate}
+          onSelectDate={(date) => {
+            onDateChange(date);
+            setYearlyCalendarOpen(false);
+            // Don't dismiss keyboard when selecting date
+            // Only dismiss when opening time picker
             try {
               onOpenTime?.();
             } catch (e) {
-              console.log('open time after calendar date selection error', e);
+              console.log('open time after yearly date error', e);
             }
-          }
-        }}
-      />
+          }}
+          hideYear
+        />
 
-      <CalendarModal
-        visible={yearlyCalendarOpen}
-        onClose={() => setYearlyCalendarOpen(false)}
-        selectedDate={selectedDate}
-        onSelectDate={(date) => {
-          onDateChange(date);
-          setYearlyCalendarOpen(false);
-          // Don't dismiss keyboard when selecting date
-          // Only dismiss when opening time picker
-          try {
-            onOpenTime?.();
-          } catch (e) {
-            console.log('open time after yearly date error', e);
-          }
-        }}
-        hideYear
-      />
-
-      <MonthlyDateModal
-        visible={monthlyCalendarOpen}
-        onClose={() => setMonthlyCalendarOpen(false)}
-        selectedDate={monthlyDate}
-        onSelectDate={(date) => {
-          setMonthlyDate(date);
-          setMonthlyCalendarOpen(false);
-          // Don't dismiss keyboard when selecting date
-          // Only dismiss when opening time picker
-          try {
-            onOpenTime?.();
-          } catch (e) {
-            console.log('open time after monthly day error', e);
-          }
-        }}
-      />
-      <CalendarModal
-        visible={untilCalendarOpen}
-        onClose={() => setUntilCalendarOpen(false)}
-        selectedDate={untilDate ?? selectedDate}
-        onSelectDate={(date) => {
-          onUntilDateChange?.(date);
-          setUntilCalendarOpen(false);
-          // Open time selector only for Every minutes/hours as per behavior
-          const unit = everyUnit ?? 'hours';
-          const shouldOpenTime = repeatType === 'every' && (unit === 'minutes' || unit === 'hours');
-          if (shouldOpenTime) {
+        <MonthlyDateModal
+          visible={monthlyCalendarOpen}
+          onClose={() => setMonthlyCalendarOpen(false)}
+          selectedDate={monthlyDate}
+          onSelectDate={(date) => {
+            setMonthlyDate(date);
+            setMonthlyCalendarOpen(false);
+            // Don't dismiss keyboard when selecting date
+            // Only dismiss when opening time picker
             try {
-              onOpenUntilTime?.();
+              onOpenTime?.();
             } catch (e) {
-              console.log('open time after until date error', e);
+              console.log('open time after monthly day error', e);
             }
-          }
-        }}
-        disablePast={true}
-      />
+          }}
+        />
+        <CalendarModal
+          visible={untilCalendarOpen}
+          onClose={() => setUntilCalendarOpen(false)}
+          selectedDate={untilDate ?? selectedDate}
+
+          onSelectDate={(date) => {
+            onUntilDateChange?.(date);
+            // Do not close if using multi-select 'view' mode or if we add multi-select to Ends too?
+            // User said: "In the 'ends' calendar modal visually show all selected dates but should not be selectable."
+            // So for Ends, we might just be picking the End Date? or just setting Time?
+            // "Visually show all selected dates but should not be selectable" -> implied read-only view of start dates?
+
+            setUntilCalendarOpen(false);
+            // Open time selector only for Every minutes/hours as per behavior
+            const unit = everyUnit ?? 'hours';
+            const shouldOpenTime = repeatType === 'every' && (unit === 'minutes' || unit === 'hours');
+            if (shouldOpenTime) {
+              try {
+                onOpenUntilTime?.();
+              } catch (e) {
+                console.log('open time after until date error', e);
+              }
+            }
+          }}
+          disablePast={true}
+          // Pass multi-select dates for visualization only
+          multiSelectEnabled={false} // Ends modal doesn't have the checkbox
+          multiSelectDates={multiSelectEnabled ? multiSelectDates : undefined}
+          multiSelectDays={multiSelectEnabled ? multiSelectDays : undefined}
+          isEndMode={true} // Used to show read-only selected dates
+          onSetTime={() => {
+            setUntilCalendarOpen(false);
+            onOpenUntilTime?.();
+          }}
+        />
       </ScrollView>
 
       <InlineDropdown
@@ -560,6 +613,7 @@ export default function CustomizePanel({
         onClose={() => setUnitDropdownOpen(false)}
         containerRef={containerRef}
         anchorRef={unitAnchorRef}
+        disabledUnits={multiSelectEnabled ? ['days'] : []}
       />
 
       {/** Until type dropdown modal */}
@@ -613,9 +667,34 @@ interface CalendarModalProps {
   hideYear?: boolean;
   disablePast?: boolean;
   title?: string;
+  // Multi-select props
+  multiSelectEnabled?: boolean;
+  onMultiSelectEnabledChange?: (enabled: boolean) => void;
+  multiSelectDates?: string[];
+  onMultiSelectDatesChange?: (dates: string[]) => void;
+  multiSelectDays?: number[];
+  onMultiSelectDaysChange?: (days: number[]) => void;
+  isEndMode?: boolean; // If true, multiSelectDates are read-only
+  onSetTime?: () => void;
 }
 
-function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear = false, disablePast = true, title }: CalendarModalProps) {
+function CalendarModal({
+  visible,
+  onClose,
+  selectedDate,
+  onSelectDate,
+  hideYear = false,
+  disablePast = true,
+  title,
+  multiSelectEnabled,
+  onMultiSelectEnabledChange,
+  multiSelectDates,
+  onMultiSelectDatesChange,
+  multiSelectDays,
+  onMultiSelectDaysChange,
+  isEndMode,
+  onSetTime
+}: CalendarModalProps) {
   const [isReady, setIsReady] = useState(false);
   // Safely parse expected YYYY-MM-DD; fallback to today if malformed
   const now = new Date();
@@ -636,7 +715,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     }
     return null;
   });
-  
+
   // Get today's date for comparison
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -665,9 +744,9 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     return weeks;
   }, [month, year]);
 
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  
+
   // Check if a date is in the past
   const isDateDisabled = (dayVal: number | null): boolean => {
     if (dayVal === null) return true;
@@ -676,7 +755,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     checkDate.setHours(0, 0, 0, 0);
     return checkDate < today;
   };
-  
+
   // Prevent navigating to past months
   const canGoPrevMonth = (): boolean => {
     if (!disablePast) return true;
@@ -684,7 +763,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
     if (year === currentYear && month > currentMonth) return true;
     return false;
   };
-  
+
   // Prevent navigating to past years
   const canGoPrevYear = (): boolean => {
     if (!disablePast) return true;
@@ -707,17 +786,17 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
   if (!visible) return null;
 
   return (
-    <Modal 
-      visible={visible} 
-      transparent 
-      animationType="fade" 
-      onRequestClose={onClose} 
-      presentationStyle="overFullScreen" 
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
       statusBarTranslucent
       onShow={() => setIsReady(true)}
     >
       <TouchableOpacity style={calendarStyles.overlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             calendarStyles.container,
             {
@@ -729,8 +808,8 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                 },
               }),
             }
-          ]} 
-          activeOpacity={1} 
+          ]}
+          activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
           {title && (
@@ -751,7 +830,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
               <View style={{ width: 76 }} />
             )}
             <View style={calendarStyles.monthTitle}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   if (canGoPrevMonth()) {
                     if (month === 0) {
@@ -761,14 +840,14 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                       setMonth(prev => prev - 1);
                     }
                   }
-                }} 
+                }}
                 testID="prev-month"
                 disabled={!canGoPrevMonth()}
               >
                 <Feather name="chevron-left" size={20} color={canGoPrevMonth() ? "#111827" : "#D1D5DB"} />
               </TouchableOpacity>
               <Text style={calendarStyles.titleText}>{hideYear ? monthNames[month] : `${monthNames[month]} ${year}`}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   if (month === 11) {
                     setMonth(0);
@@ -776,7 +855,7 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
                   } else {
                     setMonth(prev => prev + 1);
                   }
-                }} 
+                }}
                 testID="next-month"
               >
                 <Feather name="chevron-right" size={20} color="#111827" />
@@ -796,47 +875,107 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
             )}
           </View>
 
+
           <View style={calendarStyles.weekdaysRow}>
-            {weekdays.map((w, index) => (
-              <Text key={`weekday-${index}`} style={calendarStyles.weekday}>{w}</Text>
-            ))}
+            {weekdays.map((w, index) => {
+              const isActive = multiSelectDays?.includes(index);
+              return (
+                <TouchableOpacity
+                  key={index}
+                  disabled={!multiSelectEnabled || isEndMode}
+                  onPress={() => {
+                    if (multiSelectDays && onMultiSelectDaysChange) {
+                      if (multiSelectDays.includes(index)) {
+                        onMultiSelectDaysChange(multiSelectDays.filter(d => d !== index));
+                      } else {
+                        onMultiSelectDaysChange([...multiSelectDays, index]);
+                      }
+                    }
+                  }}
+                >
+                  <Text style={[
+                    calendarStyles.weekday,
+                    isActive && { color: '#4F46E5', fontWeight: 'bold' } // Highlight active weekday
+                  ]}>{w}</Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
 
           {daysMatrix.map((row, idx) => (
             <View key={idx} style={calendarStyles.weekRow}>
               {row.map((val, i) => {
-                const isSelected = val !== null && selectedDay !== null && 
-                                 year === selectedDay.year && month === selectedDay.month && val === selectedDay.day;
-                const isToday = val !== null && year === currentYear && month === currentMonth && val === currentDate;
+                const currentDateString = val !== null
+                  ? `${year}-${String(month + 1).padStart(2, '0')}-${String(val).padStart(2, '0')}`
+                  : null;
+                const dateObj = currentDateString ? new Date(year, month, val!) : null;
+                const dayDate = dateObj ? new Date(year, month, val!) : null;
+
                 const isDisabled = isDateDisabled(val);
+
+                // Determine selection state
+                const isSelected = isDateDisabled(val) ? false : (
+                  // In multi-select start mode, verify if in array or matches weekday
+                  (multiSelectEnabled && !isEndMode && (
+                    (currentDateString && multiSelectDates?.includes(currentDateString)) ||
+                    (dayDate && multiSelectDays?.includes(dayDate.getDay())) ||
+                    // Also highlight primary selected date? No, multi-select overrides.
+                    currentDateString === selectedDate // Keep primary selection too?
+                  )) ||
+                  // In End mode or normal mode, use standard check
+                  (!multiSelectEnabled && currentDateString === selectedDate) ||
+                  // In End mode, visualize selected dates (read only)
+                  (isEndMode && currentDateString && multiSelectDates?.includes(currentDateString)) ||
+                  (isEndMode && dayDate && multiSelectDays?.includes(dayDate.getDay()))
+                );
+
+                // Visual distinction for read-only (End mode)
+                const isReadOnlySelected = isEndMode && (
+                  (currentDateString && multiSelectDates?.includes(currentDateString)) ||
+                  (dayDate && multiSelectDays?.includes(dayDate.getDay()))
+                );
+
                 return (
                   <TouchableOpacity
                     key={i}
                     style={[
-                      calendarStyles.dayCell, 
+                      calendarStyles.dayCell,
                       isSelected && calendarStyles.dayCellSelected,
-                      isToday && !isSelected && calendarStyles.dayCellToday,
+                      isReadOnlySelected && { backgroundColor: '#E0E7FF', borderColor: '#E0E7FF' },
+                      (val !== null && year === currentYear && month === currentMonth && val === currentDate) && !isSelected && calendarStyles.dayCellToday,
                       isDisabled && calendarStyles.dayCellDisabled
                     ]}
                     disabled={isDisabled}
-                    onPressIn={() => {
-                      if (val !== null && !isDisabled) {
-                        // Update selection immediately on touch
-                        setSelectedDay({ year, month, day: val });
-                      }
-                    }}
                     onPress={() => {
-                      if (val === null || isDisabled) return;
-                      const mm = String(month + 1).padStart(2, '0');
-                      const dd = String(val).padStart(2, '0');
-                      onSelectDate(`${year}-${mm}-${dd}`);
+                      if (val && currentDateString && !isDisabled) {
+                        if (multiSelectEnabled && !isEndMode) {
+                          // Update primary selected date for reference/scrolling?
+                          // Actually, let's toggle in array
+                          if (multiSelectDates && onMultiSelectDatesChange) {
+                            if (multiSelectDates.includes(currentDateString)) {
+                              onMultiSelectDatesChange(multiSelectDates.filter(d => d !== currentDateString));
+                            } else {
+                              onMultiSelectDatesChange([...multiSelectDates, currentDateString]);
+                            }
+                          }
+                          // Also update last selected date as primary for reference
+                          // onSelectDate(currentDateString); // Don't call this as it might close modal if we didn't decouple it fully?
+                          // Logic for CalendarModal wrapper says: if (!multiSelectEnabled) setCalendarOpen(false);
+                          // So calling onSelectDate IS safe if multiSelectEnabled is true!
+                          onSelectDate(currentDateString);
+                        } else {
+                          // Normal mode or End mode (picking single date)
+                          onSelectDate(currentDateString);
+                        }
+                      }
                     }}
                     testID={`day-${val ?? 'null'}`}
                   >
                     <Text style={[
-                      calendarStyles.dayText, 
+                      calendarStyles.dayText,
                       isSelected && calendarStyles.dayTextSelected,
-                      isToday && !isSelected && calendarStyles.dayTextToday,
+                      isReadOnlySelected && { color: '#1E3A8A' },
+                      (val !== null && year === currentYear && month === currentMonth && val === currentDate) && !isSelected && calendarStyles.dayTextToday,
                       isDisabled && calendarStyles.dayTextDisabled
                     ]}>
                       {val ?? ''}
@@ -847,11 +986,78 @@ function CalendarModal({ visible, onClose, selectedDate, onSelectDate, hideYear 
             </View>
           ))}
 
-          <View style={calendarStyles.footer}>
-            <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
-              <Text style={calendarStyles.footerBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Footer for Multi-Select Mode */}
+          {(multiSelectEnabled === true || isEndMode) && (
+            <View style={{
+              marginTop: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderTopWidth: 1,
+              borderTopColor: '#F3F4F6',
+              paddingTop: 12
+            }}>
+              {/* Multi-select Checkbox (Start Mode Only) */}
+              {!isEndMode && onMultiSelectEnabledChange ? (
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                  onPress={() => onMultiSelectEnabledChange(!multiSelectEnabled)}
+                >
+                  <View style={{
+                    width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+                    borderColor: '#4F46E5', backgroundColor: '#4F46E5',
+                    alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Feather name="check" size={14} color="white" />
+                  </View>
+                  <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>Multi-select</Text>
+                </TouchableOpacity>
+              ) : (
+                <View /> // Spacer if End mode or if no callback
+              )}
+
+              {/* Right Side Buttons */}
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                {onSetTime && (
+                  <TouchableOpacity onPress={onSetTime} style={{ padding: 4 }}>
+                    <Text style={{ color: '#4F46E5', fontWeight: '600' }}>Set Time</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+                  <Text style={{ color: '#6B7280', fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Show Multi-select option if NOT enabled (to enable it) */}
+          {(multiSelectEnabled === false && !isEndMode && onMultiSelectEnabledChange) && (
+            <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                onPress={() => onMultiSelectEnabledChange(true)}
+              >
+                <View style={{
+                  width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+                  borderColor: '#D1D5DB', backgroundColor: 'white'
+                }} />
+                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>Multi-select</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
+                <Text style={calendarStyles.footerBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Default Footer if Multi-select props are missing (backward compatibility) */}
+          {multiSelectEnabled === undefined && (
+            <View style={calendarStyles.footer}>
+              <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
+                <Text style={calendarStyles.footerBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -953,31 +1159,31 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   }, [visible, anchor]);
 
   if (!visible || !anchor) return null;
-  
+
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
-  
+
   // Calculate dropdown dimensions
   const dropdownWidth = 140;
   const itemHeight = 44;
   const dropdownHeight = units.length * itemHeight + 16;
-  
+
   // Additional null check before accessing anchor properties
-  if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
-      typeof anchor.width !== 'number' || typeof anchor.height !== 'number') {
+  if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' ||
+    typeof anchor.width !== 'number' || typeof anchor.height !== 'number') {
     return null;
   }
-  
+
   // Position calculation
   // Place dropdown below button with 8px gap
   const preferredTop = anchor.y + anchor.height + 8;
-  
+
   // Center align with trigger button
   const preferredLeft = anchor.x + (anchor.width / 2) - (dropdownWidth / 2);
-  
+
   // Boundary checks with 16px padding from screen edges
   const top = Math.max(16, Math.min(preferredTop, winH - dropdownHeight - 16));
   const left = Math.max(16, Math.min(preferredLeft, winW - dropdownWidth - 16));
-  
+
   // If dropdown would go below screen, position it above the button
   const shouldFlipUp = preferredTop + dropdownHeight > winH - 16;
   const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
@@ -992,12 +1198,12 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
     >
       <View style={{ flex: 1 }}>
         {/* Backdrop overlay */}
-        <TouchableOpacity 
-          style={styles.unitOverlayAbsolute} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.unitOverlayAbsolute}
+          activeOpacity={1}
           onPress={onClose}
         />
-        
+
         {/* Dropdown content */}
         <View
           style={[
@@ -1014,16 +1220,16 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
           ]}
         >
           {units.map(u => (
-            <TouchableOpacity 
-              key={u} 
+            <TouchableOpacity
+              key={u}
               style={[
                 styles.unitDropdownItem,
                 unit === u && styles.unitDropdownItemSelected
-              ]} 
-              onPress={() => { 
-                onChange(u); 
-                onClose(); 
-              }} 
+              ]}
+              onPress={() => {
+                onChange(u);
+                onClose();
+              }}
               testID={`unit-${u}`}
             >
               <Text style={[
@@ -1455,15 +1661,15 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: Mont
 
   return (
     <>
-      <Modal 
-        visible={visible} 
-        transparent 
-        animationType="fade" 
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
         onRequestClose={onClose}
         onShow={() => setIsReady(true)}
       >
         <TouchableOpacity style={monthlyStyles.overlay} activeOpacity={1} onPress={onClose}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               monthlyStyles.container,
               {
@@ -1475,8 +1681,8 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: Mont
                   },
                 }),
               }
-            ]} 
-            activeOpacity={1} 
+            ]}
+            activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
             <Text style={monthlyStyles.title}>Select Day of Month</Text>
@@ -1561,17 +1767,17 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
   if (!visible || !selectedDate) return null;
 
   return (
-<Modal 
-        visible={visible} 
-        transparent 
-        animationType="fade" 
-        onRequestClose={onClose} 
-        presentationStyle="overFullScreen" 
-        statusBarTranslucent
-        onShow={() => setIsReady(true)}
-      >
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onShow={() => setIsReady(true)}
+    >
       <TouchableOpacity style={monthlyPopupStyles.overlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             monthlyPopupStyles.container,
             {
@@ -1583,15 +1789,15 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
                 },
               }),
             }
-          ]} 
-          activeOpacity={1} 
+          ]}
+          activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
           <View style={monthlyPopupStyles.header}>
             <Feather name="alert-triangle" size={24} color="#F59E0B" />
             <Text style={monthlyPopupStyles.title}>Monthly Reminder Options</Text>
           </View>
-          
+
           <Text style={monthlyPopupStyles.description}>
             You selected day {selectedDate}. Some months don&apos;t have this date. How would you like to handle this?
           </Text>
@@ -2050,10 +2256,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   // Calculate dropdown dimensions
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
-  
+
   // State for opacity control to prevent flashing
   const [isPositioned, setIsPositioned] = React.useState(false);
-  
+
   // Measure container to bound positioning within it
   const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
   React.useEffect(() => {
@@ -2061,16 +2267,16 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
       containerRef?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
         setContainerOffset({ x, y, width, height });
       });
-    } catch {}
+    } catch { }
   }, [visible, containerRef]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
-  
+
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
   const isPortrait = winH >= winW;
   const rightMarginPortrait = 12;
-  
+
   // Compute anchor-relative position using ref when available; fallback to provided anchor rect
   const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
   React.useEffect(() => {
@@ -2078,12 +2284,12 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
       setIsPositioned(false);
       return;
     }
-    
+
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
-      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
-          typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
+      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' ||
+        typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
       // Position directly below anchor with 4px gap
       const preferredTop = (anchor.y - containerY) + anchor.height + 4;
       // Align dropdown's right edge with anchor's right edge
@@ -2143,15 +2349,15 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   return (
     <>
       {/* Backdrop overlay within container */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[
           styles.inlineDropdownOverlay,
           { zIndex: 999998 }
         ]}
-        activeOpacity={1} 
+        activeOpacity={1}
         onPress={onClose}
       />
-      
+
       {/* Dropdown content */}
       <View
         style={[
@@ -2225,17 +2431,18 @@ interface InlineUnitDropdownProps {
   onClose: () => void;
   containerRef?: React.RefObject<View | null>;
   anchorRef?: React.RefObject<View | null>;
+  disabledUnits?: EveryUnit[];
 }
 
-function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef, anchorRef }: InlineUnitDropdownProps) {
+function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChange, onClose, containerRef, anchorRef, disabledUnits = [] }: InlineUnitDropdownProps) {
   // Calculate dropdown dimensions
   const dropdownWidth = 140;
   const itemHeight = 44;
   const dropdownHeight = units.length * itemHeight + 16;
-  
+
   // Add positioning state for opacity control
   const [isPositioned, setIsPositioned] = React.useState(false);
-  
+
   // Measure container position to convert anchor coordinates
   const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
   React.useEffect(() => {
@@ -2243,12 +2450,12 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
       containerRef?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
         setContainerOffset({ x, y, width, height });
       });
-    } catch {}
+    } catch { }
   }, [visible, containerRef]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
   const containerW = containerOffset?.width ?? 300;
-  
+
   // Compute anchor-relative position using ref when available; fallback to provided anchor rect
   const [computedPos, setComputedPos] = React.useState<{ top: number; left: number } | null>(null);
   React.useEffect(() => {
@@ -2260,8 +2467,8 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
-      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
-          typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
+      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' ||
+        typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
       // Position directly below anchor with 4px gap
       const preferredTop = (anchor.y - containerY) + anchor.height + 4;
       // Align dropdown's right edge with anchor's right edge
@@ -2270,7 +2477,7 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
       const left = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
       if (!cancelled) {
         setComputedPos({ top, left });
-        
+
         // Use requestAnimationFrame with Android delay for smooth positioning
         requestAnimationFrame(() => {
           setTimeout(() => {
@@ -2295,7 +2502,7 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
             const leftBounded = Math.max(4, Math.min(preferredLeft, containerW - dropdownWidth - 4));
             if (!cancelled) {
               setComputedPos({ top: topBounded, left: leftBounded });
-              
+
               // Use requestAnimationFrame with Android delay for smooth positioning
               requestAnimationFrame(() => {
                 setTimeout(() => {
@@ -2327,15 +2534,15 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   return (
     <>
       {/* Backdrop overlay within container */}
-      <TouchableOpacity 
-         style={[
-           styles.inlineDropdownOverlay,
-           { zIndex: 999998 }
-         ]}
-         activeOpacity={1} 
-         onPress={onClose}
-       />
-      
+      <TouchableOpacity
+        style={[
+          styles.inlineDropdownOverlay,
+          { zIndex: 999998 }
+        ]}
+        activeOpacity={1}
+        onPress={onClose}
+      />
+
       {/* Dropdown content */}
       <View
         style={[
@@ -2353,27 +2560,34 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
           },
         ]}
       >
-        {units.map(u => (
-          <TouchableOpacity 
-            key={u} 
-            style={[
-              styles.inlineUnitDropdownItem,
-              unit === u && styles.inlineUnitDropdownItemSelected
-            ]} 
-            onPress={() => { 
-              onChange(u); 
-              onClose(); 
-            }} 
-            testID={`unit-${u}`}
-          >
-            <Text style={[
-              styles.inlineUnitDropdownItemText,
-              unit === u && styles.inlineUnitDropdownItemTextSelected
-            ]}>
-              {getUnitLabel(u)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {units.map(u => {
+          const isDisabled = disabledUnits.includes(u);
+          return (
+            <TouchableOpacity
+              key={u}
+              style={[
+                styles.inlineUnitDropdownItem,
+                unit === u && styles.inlineUnitDropdownItemSelected,
+                isDisabled && { opacity: 0.5 }
+              ]}
+              onPress={() => {
+                if (isDisabled) return;
+                onChange(u);
+                onClose();
+              }}
+              testID={`unit-${u}`}
+              disabled={isDisabled}
+            >
+              <Text style={[
+                styles.inlineUnitDropdownItemText,
+                unit === u && styles.inlineUnitDropdownItemTextSelected
+              ]}>
+                {getUnitLabel(u)}
+              </Text>
+              {unit === u && <Feather name="check" size={16} color="#4F46E5" />}
+            </TouchableOpacity>
+          )
+        })}
       </View>
     </>
   );
@@ -2403,7 +2617,7 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
       containerRef?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
         setContainerOffset({ x, y, width, height });
       });
-    } catch {}
+    } catch { }
   }, [visible, containerRef]);
   const containerX = containerOffset?.x ?? 0;
   const containerY = containerOffset?.y ?? 0;
@@ -2418,8 +2632,8 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
     let cancelled = false;
 
     const fallbackFromAnchorRect = () => {
-      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
-          typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
+      if (!anchor || typeof anchor.y !== 'number' || typeof anchor.x !== 'number' ||
+        typeof anchor.width !== 'number' || typeof anchor.height !== 'number') return;
       // Position directly below anchor with 4px gap
       const preferredTop = (anchor.y - containerY) + anchor.height + 4;
       // Align dropdown's right edge with anchor's right edge
@@ -2475,9 +2689,9 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
 
   return (
     <>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.inlineDropdownOverlay, { zIndex: 999998 }]}
-        activeOpacity={1} 
+        activeOpacity={1}
         onPress={onClose}
       />
       <View
@@ -2530,18 +2744,18 @@ function UntilCountModal({ visible, onClose, countValue, onSubmit }: UntilCountM
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[dropdownModalStyles.overlayAbsolute, { justifyContent: 'center', alignItems: 'center' }]}> 
+      <View style={[dropdownModalStyles.overlayAbsolute, { justifyContent: 'center', alignItems: 'center' }]}>
         <TouchableOpacity activeOpacity={1} style={{
-            width: 260,
-            backgroundColor: Material3Colors.light.surfaceContainerLow,
-            borderRadius: 16,
-            padding: 12,
-            shadowColor: Material3Colors.light.shadow,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.24,
-            shadowRadius: 20,
-            elevation: 24,
-          }}
+          width: 260,
+          backgroundColor: Material3Colors.light.surfaceContainerLow,
+          borderRadius: 16,
+          padding: 12,
+          shadowColor: Material3Colors.light.shadow,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.24,
+          shadowRadius: 20,
+          elevation: 24,
+        }}
           onPress={() => { /* keep modal open */ }}>
           <Text style={[styles.everyText, { marginBottom: 8 }]}>Occurrences</Text>
           <TextInput
@@ -2589,33 +2803,33 @@ interface DropdownModalProps {
 
 function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
   const [layout, setLayout] = React.useState<{ width: number; height: number } | null>(null);
-  
+
   // Early return after all hooks have been called
   if (!visible || !anchor) return null;
-  
+
   // Additional null check before accessing anchor properties
-  if (typeof anchor.y !== 'number' || typeof anchor.x !== 'number' || 
-      typeof anchor.width !== 'number' || typeof anchor.height !== 'number') {
+  if (typeof anchor.y !== 'number' || typeof anchor.x !== 'number' ||
+    typeof anchor.width !== 'number' || typeof anchor.height !== 'number') {
     return null;
   }
-  
+
   const { width: winW, height: winH } = require('react-native').Dimensions.get('window');
-  
+
   // Calculate dropdown dimensions
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
-  
+
   // Position calculation
   // Place dropdown below button with 8px gap
   const preferredTop = anchor.y + anchor.height + 8;
-  
+
   // Align to right edge of trigger button
   const preferredLeft = anchor.x + anchor.width - dropdownWidth;
-  
+
   // Boundary checks with 16px padding from screen edges
   const top = Math.max(16, Math.min(preferredTop, winH - dropdownHeight - 16));
   const left = Math.max(16, Math.min(preferredLeft, winW - dropdownWidth - 16));
-  
+
   // If dropdown would go below screen, position it above the button
   const shouldFlipUp = preferredTop + dropdownHeight > winH - 16;
   const finalTop = shouldFlipUp ? anchor.y - dropdownHeight - 8 : top;
@@ -2629,12 +2843,12 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
     >
       <View style={{ flex: 1 }}>
         {/* Full-screen backdrop */}
-        <TouchableOpacity 
-          style={dropdownModalStyles.overlayAbsolute} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={dropdownModalStyles.overlayAbsolute}
+          activeOpacity={1}
           onPress={onClose}
         />
-        
+
         {/* Dropdown content with measured layout */}
         <View
           style={[
@@ -2650,46 +2864,46 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
             setLayout({ width, height });
           }}
         >
-        <TouchableOpacity
-          testID="menu-today"
-          style={dropdownModalStyles.itemRow}
-          onPress={onToday}
-        >
-          <View style={dropdownModalStyles.itemLeft}>
-            <Feather name="clock" size={16} color={Material3Colors.light.primary} />
-            <Text style={dropdownModalStyles.itemText}>Today</Text>
-          </View>
-          <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
-        </TouchableOpacity>
-        {!hideTomorrow && (
-          <>
-            <View style={dropdownModalStyles.divider} />
-            <TouchableOpacity
-              testID="menu-tomorrow"
-              style={dropdownModalStyles.itemRow}
-              onPress={onTomorrow}
-            >
-              <View style={dropdownModalStyles.itemLeft}>
-                <Feather name="clock" size={16} color={Material3Colors.light.primary} />
-                <Text style={dropdownModalStyles.itemText}>Tomorrow</Text>
-              </View>
-              <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
-            </TouchableOpacity>
-          </>
-        )}
-        <View style={dropdownModalStyles.divider} />
-        <TouchableOpacity
-          testID="menu-custom"
-          style={dropdownModalStyles.itemRow}
-          onPress={onCustom}
-        >
-          <View style={dropdownModalStyles.itemLeft}>
-            <CalendarIcon size={16} color={Material3Colors.light.primary} />
-            <Text style={dropdownModalStyles.itemText}>Custom date…</Text>
-          </View>
-          <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            testID="menu-today"
+            style={dropdownModalStyles.itemRow}
+            onPress={onToday}
+          >
+            <View style={dropdownModalStyles.itemLeft}>
+              <Feather name="clock" size={16} color={Material3Colors.light.primary} />
+              <Text style={dropdownModalStyles.itemText}>Today</Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+          </TouchableOpacity>
+          {!hideTomorrow && (
+            <>
+              <View style={dropdownModalStyles.divider} />
+              <TouchableOpacity
+                testID="menu-tomorrow"
+                style={dropdownModalStyles.itemRow}
+                onPress={onTomorrow}
+              >
+                <View style={dropdownModalStyles.itemLeft}>
+                  <Feather name="clock" size={16} color={Material3Colors.light.primary} />
+                  <Text style={dropdownModalStyles.itemText}>Tomorrow</Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+              </TouchableOpacity>
+            </>
+          )}
+          <View style={dropdownModalStyles.divider} />
+          <TouchableOpacity
+            testID="menu-custom"
+            style={dropdownModalStyles.itemRow}
+            onPress={onCustom}
+          >
+            <View style={dropdownModalStyles.itemLeft}>
+              <CalendarIcon size={16} color={Material3Colors.light.primary} />
+              <Text style={dropdownModalStyles.itemText}>Custom date…</Text>
+            </View>
+            <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
