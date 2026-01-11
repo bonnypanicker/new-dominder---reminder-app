@@ -879,15 +879,22 @@ function CalendarModal({
           <View style={calendarStyles.weekdaysRow}>
             {weekdays.map((w, index) => {
               const isActive = multiSelectDays?.includes(index);
+              const hasDatesSelected = multiSelectDates && multiSelectDates.length > 0;
+              const isDisabled = !multiSelectEnabled || isEndMode || hasDatesSelected;
+
               return (
                 <TouchableOpacity
                   key={index}
-                  disabled={!multiSelectEnabled || isEndMode}
+                  disabled={isDisabled}
                   onPress={() => {
                     if (multiSelectDays && onMultiSelectDaysChange) {
                       if (multiSelectDays.includes(index)) {
                         onMultiSelectDaysChange(multiSelectDays.filter(d => d !== index));
                       } else {
+                        // Clear dates when selecting days (mutual exclusivity)
+                        if (onMultiSelectDatesChange) {
+                          onMultiSelectDatesChange([]);
+                        }
                         onMultiSelectDaysChange([...multiSelectDays, index]);
                       }
                     }
@@ -895,7 +902,8 @@ function CalendarModal({
                 >
                   <Text style={[
                     calendarStyles.weekday,
-                    isActive && { color: '#4F46E5', fontWeight: 'bold' } // Highlight active weekday
+                    isActive && { color: '#4F46E5', fontWeight: 'bold' },
+                    hasDatesSelected && { color: '#D1D5DB', opacity: 0.5 } // Disabled appearance
                   ]}>{w}</Text>
                 </TouchableOpacity>
               )
@@ -955,6 +963,10 @@ function CalendarModal({
                             if (multiSelectDates.includes(currentDateString)) {
                               onMultiSelectDatesChange(multiSelectDates.filter(d => d !== currentDateString));
                             } else {
+                              // Clear days when selecting dates (mutual exclusivity)
+                              if (onMultiSelectDaysChange) {
+                                onMultiSelectDaysChange([]);
+                              }
                               onMultiSelectDatesChange([...multiSelectDates, currentDateString]);
                             }
                           }
