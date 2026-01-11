@@ -179,7 +179,8 @@ export default function CustomizePanel({
   const untilValueLabel = useMemo(() => {
     if (untilType === 'endsAt') {
       const withTime = repeatType === 'every' && (everyUnit === 'minutes' || everyUnit === 'hours');
-      return withTime ? `${formattedUntilDate} • ${formattedUntilTime}` : formattedUntilDate;
+      const dateText = (repeatType === 'every' && multiSelectEnabled) ? 'Multi' : formattedUntilDate;
+      return withTime ? `${dateText} • ${formattedUntilTime}` : dateText;
     }
     if (untilType === 'count') {
       const count = untilCount ?? 1;
@@ -187,7 +188,7 @@ export default function CustomizePanel({
       return `After ${count} ${unit}`;
     }
     return undefined;
-  }, [untilType, formattedUntilDate, untilCount, repeatType, everyUnit, formattedUntilTime]);
+  }, [untilType, formattedUntilDate, untilCount, repeatType, everyUnit, formattedUntilTime, multiSelectEnabled]);
 
   const toggleDay = (day: number) => {
     if (repeatDays.includes(day)) {
@@ -330,7 +331,7 @@ export default function CustomizePanel({
               >
                 <DropdownAnchor
                   ref={dateAnchorRef}
-                  label={`${formattedSelectedDate} • ${displayTime}`}
+                  label={`${(repeatType === 'every' && multiSelectEnabled) ? 'Multi' : formattedSelectedDate} • ${displayTime}`}
                   open={dropdownOpen}
                   onOpen={() => { }}
                   onToggle={() => setDropdownOpen(!dropdownOpen)}

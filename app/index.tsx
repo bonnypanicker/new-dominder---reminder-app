@@ -209,6 +209,16 @@ export default function HomeScreen() {
   const [historyPopupVisible, setHistoryPopupVisible] = useState(false);
   const [historyPopupData, setHistoryPopupData] = useState<string[]>([]);
 
+  const [multiDatesPopupVisible, setMultiDatesPopupVisible] = useState(false);
+  const [multiDatesPopupData, setMultiDatesPopupData] = useState<string[]>([]);
+  const [multiDatesPopupTitle, setMultiDatesPopupTitle] = useState('');
+
+  const openMultiDatesPopup = useCallback((dates: string[], title: string) => {
+    setMultiDatesPopupData(dates);
+    setMultiDatesPopupTitle(title);
+    setMultiDatesPopupVisible(true);
+  }, []);
+
   const openHistoryPopup = useCallback((history: string[]) => {
     // Sort history by date descending
     const sorted = [...history].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -1203,24 +1213,26 @@ export default function HomeScreen() {
                       )}
                       {/* Show selected dates when individual dates are selected */}
                       {reminder.multiSelectDates && reminder.multiSelectDates.length > 0 && (
-                        <Text style={styles.selectedDatesText}>
-                          {(() => {
-                            const formatDate = (dateStr: string) => {
-                              const [year, month, day] = dateStr.split('-').map(Number);
-                              const date = new Date(year, month - 1, day);
-                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-                            };
+                        <TouchableOpacity onPress={() => openMultiDatesPopup(reminder.multiSelectDates!, reminder.title)}>
+                          <Text style={styles.selectedDatesText}>
+                            {(() => {
+                              const formatDate = (dateStr: string) => {
+                                const [year, month, day] = dateStr.split('-').map(Number);
+                                const date = new Date(year, month - 1, day);
+                                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                              };
 
-                            const dates = reminder.multiSelectDates ?? [];
-                            if (dates.length <= 3) {
-                              return dates.map(formatDate).join(', ');
-                            }
+                              const dates = reminder.multiSelectDates ?? [];
+                              if (dates.length <= 3) {
+                                return dates.map(formatDate).join(', ');
+                              }
 
-                            // Show first 2, then +N
-                            const displayDates = dates.slice(0, 2).map(formatDate).join(', ');
-                            return `${displayDates} +${dates.length - 2}`;
-                          })()}
-                        </Text>
+                              // Show first 2, then +N
+                              const displayDates = dates.slice(0, 2).map(formatDate).join(', ');
+                              return `${displayDates} +${dates.length - 2}`;
+                            })()}
+                          </Text>
+                        </TouchableOpacity>
                       )}
                     </>
                   )}
@@ -1658,6 +1670,45 @@ export default function HomeScreen() {
                   style={{ maxHeight: 300 }}
                 />
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setHistoryPopupVisible(false)}>
+                  <Text style={styles.closeHistoryButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Modal>
+
+          <Modal
+            visible={multiDatesPopupVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setMultiDatesPopupVisible(false)}
+          >
+            <Pressable style={styles.historyPopupOverlay} onPress={() => setMultiDatesPopupVisible(false)}>
+              <View style={styles.historyPopupContent}>
+                <Text style={styles.historyPopupTitle}>Selected Dates</Text>
+                <Text style={[styles.historyPopupTitle, { fontSize: 14, fontWeight: 'normal', marginBottom: 16 }]}>{multiDatesPopupTitle}</Text>
+                <FlatList
+                  data={multiDatesPopupData}
+                  keyExtractor={(item) => item}
+                  renderItem={({ item }) => {
+                    const [y, m, d] = item.split('-').map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    const dateStr = dt.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    });
+                    return (
+                      <View style={styles.historyPopupItem}>
+                        <Text style={styles.historyPopupItemText}>
+                          {dateStr}
+                        </Text>
+                      </View>
+                    );
+                  }}
+                  style={{ maxHeight: 300 }}
+                />
+                <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setMultiDatesPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
               </View>
