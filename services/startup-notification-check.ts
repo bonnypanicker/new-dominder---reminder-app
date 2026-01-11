@@ -78,6 +78,7 @@ export async function checkAndTriggerPendingNotifications() {
                 let stateChanged = false;
 
                 // Apply native state changes - ONLY occurrence counts, not completions
+                // CRITICAL: Also recalculate nextReminderDate to prevent stale baseline issues
                 allReminders = allReminders.map((reminder: Reminder) => {
                     const nativeState = nativeStates[reminder.id];
                     if (nativeState) {
@@ -86,10 +87,30 @@ export async function checkAndTriggerPendingNotifications() {
                         if (nativeState.actualTriggerCount > (reminder.occurrenceCount || 0)) {
                             console.log(`[StartupCheck] Syncing occurrenceCount for ${reminder.id}: ${reminder.occurrenceCount} -> ${nativeState.actualTriggerCount}`);
                             stateChanged = true;
-                            return {
+                            
+                            // CRITICAL FIX: Recalculate nextReminderDate when syncing count
+                            // This prevents stale nextReminderDate from causing skipped occurrences
+                            const updatedReminder = {
                                 ...reminder,
                                 occurrenceCount: nativeState.actualTriggerCount
                             };
+                            
+                            // Recalculate next occurrence based on the synced count
+                            // Use lastTriggerTime from native if available
+                            if (reminder.repeatType !== 'none') {
+                                const referenceTime = nativeState.lastTriggerTime 
+                                    ? new Date(nativeState.lastTriggerTime)
+                                    : new Date();
+                                
+                                const nextDate = calculateNextReminderDate(updatedReminder, referenceTime);
+                                
+                                if (nextDate) {
+                                    updatedReminder.nextReminderDate = nextDate.toISOString();
+                                    console.log(`[StartupCheck] Recalculated nextReminderDate for ${reminder.id}: ${reminder.nextReminderDate} -> ${updatedReminder.nextReminderDate}`);
+                                }
+                            }
+                            
+                            return updatedReminder;
                         }
                     }
                     return reminder;
