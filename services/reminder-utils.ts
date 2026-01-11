@@ -154,7 +154,10 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
 
         // Safety limit: look ahead 1 year max
         for (let i = 0; i < 366; i++) {
-          const checkDate = new Date(cursor.getTime() + i * 24 * 60 * 60 * 1000);
+          // Use setDate for reliable day iteration (handles DST/Timezones better than ms addition)
+          const checkDate = new Date(cursor);
+          checkDate.setDate(cursor.getDate() + i);
+          
           const yyyy = checkDate.getFullYear();
           const month = String(checkDate.getMonth() + 1).padStart(2, '0');
           const dd = String(checkDate.getDate()).padStart(2, '0');
