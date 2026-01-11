@@ -15,7 +15,9 @@
     "@nkzw/create-context-hook": "^1.1.0",
     "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/slider": "^5.1.1",
     "@react-navigation/native": "^7.1.6",
+    "@rork-ai/toolkit-sdk": "0.2.51",
     "@shopify/flash-list": "1.7.6",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "^5.83.0",
@@ -49,8 +51,7 @@
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0",
     "react-native-worklets": "~0.6.0",
-    "zustand": "^5.0.2",
-    "@rork-ai/toolkit-sdk": "0.2.51"
+    "zustand": "^5.0.2"
   },
   "overrides": {
     "react-native-worklets": "~0.6.0"

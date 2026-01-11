@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Linking, NativeModules } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -84,7 +85,7 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.sectionHeader}
           onPress={() => setExpandedSection(expandedSection === 'notifications' ? null : 'notifications')}
           testID="section-notifications"
@@ -95,18 +96,18 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.sectionHeaderTitle}>Notifications</Text>
           </View>
-          <Feather 
+          <Feather
             name="chevron-right"
-            size={20} 
+            size={20}
             color={Material3Colors.light.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'notifications' && styles.chevronExpanded]}
           />
         </TouchableOpacity>
-        
+
         {expandedSection === 'notifications' && (
           <View style={styles.sectionContent}>
             <View style={styles.toggleGroup}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.toggleItem}
                 onPress={() => updateSettings.mutate({ notificationsEnabled: !settings.notificationsEnabled })}
                 testID="toggle-notifications"
@@ -116,9 +117,9 @@ export default function SettingsScreen() {
                 <Switch
                   value={settings.notificationsEnabled}
                   onValueChange={(value) => updateSettings.mutate({ notificationsEnabled: value })}
-                  trackColor={{ 
-                    false: Material3Colors.light.surfaceVariant, 
-                    true: Material3Colors.light.primaryContainer 
+                  trackColor={{
+                    false: Material3Colors.light.surfaceVariant,
+                    true: Material3Colors.light.primaryContainer
                   }}
                   thumbColor={settings.notificationsEnabled ? Material3Colors.light.primary : Material3Colors.light.outline}
                   style={styles.toggleSwitch}
@@ -127,7 +128,7 @@ export default function SettingsScreen() {
 
               <View style={styles.toggleDivider} />
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.toggleItem}
                 onPress={() => updateSettings.mutate({ soundEnabled: !settings.soundEnabled })}
                 testID="toggle-sound"
@@ -137,9 +138,9 @@ export default function SettingsScreen() {
                 <Switch
                   value={settings.soundEnabled}
                   onValueChange={(value) => updateSettings.mutate({ soundEnabled: value })}
-                  trackColor={{ 
-                    false: Material3Colors.light.surfaceVariant, 
-                    true: Material3Colors.light.primaryContainer 
+                  trackColor={{
+                    false: Material3Colors.light.surfaceVariant,
+                    true: Material3Colors.light.primaryContainer
                   }}
                   thumbColor={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.outline}
                   style={styles.toggleSwitch}
@@ -148,7 +149,7 @@ export default function SettingsScreen() {
 
               <View style={styles.toggleDivider} />
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.toggleItem}
                 onPress={() => updateSettings.mutate({ vibrationEnabled: !settings.vibrationEnabled })}
                 testID="toggle-vibration"
@@ -158,18 +159,41 @@ export default function SettingsScreen() {
                 <Switch
                   value={settings.vibrationEnabled}
                   onValueChange={(value) => updateSettings.mutate({ vibrationEnabled: value })}
-                  trackColor={{ 
-                    false: Material3Colors.light.surfaceVariant, 
-                    true: Material3Colors.light.primaryContainer 
+                  trackColor={{
+                    false: Material3Colors.light.surfaceVariant,
+                    true: Material3Colors.light.primaryContainer
                   }}
                   thumbColor={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.outline}
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
+
+              <View style={styles.toggleDivider} />
+
+              <View style={[styles.toggleItem, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 16 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, width: '100%' }}>
+                  <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
+                  <Text style={[styles.toggleLabel, styles.toggleLabelActive]}>Ringer Volume</Text>
+                  <Text style={{ fontSize: 13, color: Material3Colors.light.primary, fontWeight: '600' }}>
+                    {settings.ringerVolume ?? 100}%
+                  </Text>
+                </View>
+                <Slider
+                  style={{ width: '100%', height: 40 }}
+                  minimumValue={10}
+                  maximumValue={100}
+                  step={5}
+                  value={settings.ringerVolume ?? 100}
+                  minimumTrackTintColor={Material3Colors.light.primary}
+                  maximumTrackTintColor={Material3Colors.light.surfaceVariant}
+                  thumbTintColor={Material3Colors.light.primary}
+                  onSlidingComplete={(value) => updateSettings.mutate({ ringerVolume: value })}
+                />
+              </View>
             </View>
 
             {Platform.OS === 'android' && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.ringtoneCard}
                 onPress={async () => {
                   if (!AlarmModule?.openRingtonePicker) {
@@ -208,21 +232,21 @@ export default function SettingsScreen() {
           testID="section-preferences"
         >
           <View style={styles.sectionHeaderLeft}>
-              <View style={styles.sectionIconContainer}>
-                <Feather name="alert-circle" size={20} color={Material3Colors.light.primary} />
-              </View>
-              <Text style={styles.sectionHeaderTitle}>Preferences</Text>
+            <View style={styles.sectionIconContainer}>
+              <Feather name="alert-circle" size={20} color={Material3Colors.light.primary} />
             </View>
-            <Feather 
-              name="chevron-right"
-              size={20} 
-              color={Material3Colors.light.onSurfaceVariant}
-              style={[styles.chevron, expandedSection === 'preferences' && styles.chevronExpanded]}
-            />
+            <Text style={styles.sectionHeaderTitle}>Preferences</Text>
+          </View>
+          <Feather
+            name="chevron-right"
+            size={20}
+            color={Material3Colors.light.onSurfaceVariant}
+            style={[styles.chevron, expandedSection === 'preferences' && styles.chevronExpanded]}
+          />
         </TouchableOpacity>
         {expandedSection === 'preferences' && (
           <View style={styles.sectionContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.preferenceCard}
               onPress={() => router.push('/settings/defaults' as any)}
               testID="open-defaults"
@@ -239,7 +263,7 @@ export default function SettingsScreen() {
               <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.preferenceCard}
               onPress={() => {
                 const next = settings.sortMode === 'creation' ? 'upcoming' : 'creation';
@@ -265,7 +289,7 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.sectionHeader}
           onPress={() => setExpandedSection(expandedSection === 'about' ? null : 'about')}
           testID="section-about"
@@ -276,14 +300,14 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.sectionHeaderTitle}>About</Text>
           </View>
-          <Feather 
+          <Feather
             name="chevron-right"
-            size={20} 
+            size={20}
             color={Material3Colors.light.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'about' && styles.chevronExpanded]}
           />
         </TouchableOpacity>
-        
+
         {expandedSection === 'about' && (
           <View style={styles.sectionContent}>
             <View style={styles.aboutCard}>
@@ -303,7 +327,7 @@ export default function SettingsScreen() {
               >
                 <Text style={styles.feedbackButtonText}>Send Feedback</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.licensesButton}
                 onPress={() => router.push('/settings/licenses' as any)}
                 testID="open-licenses"
@@ -313,7 +337,7 @@ export default function SettingsScreen() {
                 <Feather name="chevron-right" size={16} color={Material3Colors.light.primary} />
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.licensesButton, { marginTop: 10 }]}
                 onPress={() => router.push('/settings/privacy' as any)}
                 testID="open-privacy"
@@ -568,4 +592,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-
+

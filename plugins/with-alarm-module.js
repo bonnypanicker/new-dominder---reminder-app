@@ -716,6 +716,7 @@ class AlarmRingtoneService : Service() {
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceRunning = false
+    private var originalVolume: Int = -1
     
     companion object {
         private const val NOTIFICATION_ID = 9999
@@ -723,7 +724,7 @@ class AlarmRingtoneService : Service() {
         private var serviceInstance: AlarmRingtoneService? = null
         
         fun startAlarmRingtone(context: Context, reminderId: String, title: String, priority: String) {
-            DebugLogger.log("AlarmRingtoneService: startAlarmRingtone called - priority: \$priority")
+            DebugLogger.log("AlarmRingtoneService: startAlarmRingtone called - priority: $priority")
             val intent = Intent(context, AlarmRingtoneService::class.java).apply {
                 action = "app.rork.dominder.START_ALARM_RINGTONE"
                 putExtra("reminderId", reminderId)
@@ -765,14 +766,14 @@ class AlarmRingtoneService : Service() {
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val reminderId = intent.getStringExtra("reminderId") ?: ""
                 
-                DebugLogger.log("AlarmRingtoneService: Starting ringtone for priority: \$priority")
+                DebugLogger.log("AlarmRingtoneService: Starting ringtone for priority: $priority")
                 
                 // Only play for high priority alarms
                 if (priority == "high") {
                     startForegroundService(title, reminderId)
                     startRingtoneAndVibration()
                 } else {
-                    DebugLogger.log("AlarmRingtoneService: Skipping ringtone (priority=\$priority, only high priority plays)")
+                    DebugLogger.log("AlarmRingtoneService: Skipping ringtone (priority=$priority, only high priority plays)")
                     stopSelf()
                 }
             }
@@ -832,8 +833,9 @@ class AlarmRingtoneService : Service() {
             val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val soundEnabled = prefs.getBoolean("ringer_sound_enabled", true)
             val vibrationEnabled = prefs.getBoolean("ringer_vibration_enabled", true)
+            val ringerVolume = prefs.getInt("ringer_volume", 100)
             
-            DebugLogger.log("AlarmRingtoneService: Settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
+            DebugLogger.log("AlarmRingtoneService: Settings - sound: $soundEnabled, vibration: $vibrationEnabled, volume: $ringerVolume%")
             
             // Acquire wake lock for 10 minutes max
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -842,6 +844,19 @@ class AlarmRingtoneService : Service() {
                 "AlarmRingtoneService::WakeLock"
             ).apply {
                 acquire(10 * 60 * 1000L) // 10 minutes
+            }
+
+            // Force Volume Level
+            try {
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+                val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                val targetVolume = (maxVolume * (ringerVolume / 100f)).toInt()
+                
+                DebugLogger.log("AlarmRingtoneService: Setting volume from $originalVolume to $targetVolume (max: $maxVolume)")
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmRingtoneService: Error setting volume: \${e.message}")
             }
             
             // Start ringtone only if sound is enabled
@@ -870,7 +885,7 @@ class AlarmRingtoneService : Service() {
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
             
             val ringtoneUri = if (savedUriString != null) {
-                DebugLogger.log("AlarmRingtoneService: Using saved ringtone: \$savedUriString")
+                DebugLogger.log("AlarmRingtoneService: Using saved ringtone: $savedUriString")
                 Uri.parse(savedUriString)
             } else {
                 DebugLogger.log("AlarmRingtoneService: Using default alarm ringtone")
@@ -886,7 +901,8 @@ class AlarmRingtoneService : Service() {
                     setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH) // SPEECH often cuts through better, or SONIFICATION
+                            .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED) // ByPass Silent Mode
                             .build()
                     )
                 } else {
@@ -910,7 +926,7 @@ class AlarmRingtoneService : Service() {
                 }
                 
                 setOnErrorListener { mp, what, extra ->
-                    DebugLogger.log("AlarmRingtoneService: MediaPlayer error: what=\$what, extra=\$extra")
+                    DebugLogger.log("AlarmRingtoneService: MediaPlayer error: what=$what, extra=$extra")
                     false // Return false to trigger OnCompletionListener
                 }
                 
@@ -975,6 +991,17 @@ class AlarmRingtoneService : Service() {
             }
             mediaPlayer = null
             
+            // Restore Original Volume
+            if (originalVolume != -1) {
+                try {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+                    DebugLogger.log("AlarmRingtoneService: Restored volume to $originalVolume")
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmRingtoneService: Error restoring volume: \${e.message}")
+                }
+            }
+            
             // Stop vibration
             vibrator?.cancel()
             DebugLogger.log("AlarmRingtoneService: Vibration stopped")
@@ -994,7 +1021,8 @@ class AlarmRingtoneService : Service() {
             DebugLogger.log("AlarmRingtoneService: Error stopping ringtone/vibration: \${e.message}")
         }
     }
-    
+}`
+    },
     override fun onDestroy() {
         super.onDestroy()
         DebugLogger.log("AlarmRingtoneService: onDestroy")
@@ -1002,7 +1030,7 @@ class AlarmRingtoneService : Service() {
         serviceInstance = null
     }
     
-    override fun onBind(intent: Intent?): IBinder? {
+    override fun onBind(intent: Intent ?): IBinder ? {
         return null
     }
 }`
@@ -1040,18 +1068,18 @@ import app.rork.dominder_android_reminder_app.R
 import java.text.SimpleDateFormat
 import java.util.*
 
-class AlarmActivity : AppCompatActivity() {
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var reminderId: String? = null
+    class AlarmActivity : AppCompatActivity() {
+    private var wakeLock: PowerManager.WakeLock?= null
+    private var reminderId: String?= null
     private var notificationId: Int = 0
     private var priority: String = "medium"
     private var triggerTimeMs: Long = 0L
-    private var timeUpdateRunnable: Runnable? = null
-    private var timeoutRunnable: Runnable? = null
+    private var timeUpdateRunnable: Runnable?= null
+    private var timeoutRunnable: Runnable?= null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val TIMEOUT_DURATION = 5 * 60 * 1000L // 5 minutes in milliseconds
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle ?) {
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
 
@@ -1059,7 +1087,7 @@ class AlarmActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         // For dark theme (dark background), we want light icons (so isAppearanceLightStatusBars = false)
-        windowInsetsController.isAppearanceLightStatusBars = false 
+        windowInsetsController.isAppearanceLightStatusBars = false
         window.statusBarColor = android.graphics.Color.TRANSPARENT // Let layout draw behind
 
         // --- Wake Lock and Screen On Logic (preserved) ---
@@ -1074,7 +1102,7 @@ class AlarmActivity : AppCompatActivity() {
         priority = intent.getStringExtra("priority") ?: "medium"
         triggerTimeMs = intent.getLongExtra("triggerTime", System.currentTimeMillis())
         notificationId = reminderId?.hashCode() ?: 0
-        
+
         DebugLogger.log("AlarmActivity: Priority = \$priority, triggerTime = \$triggerTimeMs")
 
         if (reminderId == null) {
@@ -1089,7 +1117,7 @@ class AlarmActivity : AppCompatActivity() {
         // --- Update current time display ---
         val currentTimeView: TextView = findViewById(R.id.current_time)
         val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-        
+
         timeUpdateRunnable = object : Runnable {
             override fun run() {
                 currentTimeView.text = timeFormat.format(Date())
@@ -1101,10 +1129,10 @@ class AlarmActivity : AppCompatActivity() {
         // --- Setup 5-minute timeout ---
         timeoutRunnable = Runnable {
             DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
-            
+
             // Stop the ringtone service first
             AlarmRingtoneService.stopAlarmRingtone(this)
-            
+
             // Send missed alarm broadcast for JS (if alive) - with package for Android 14+ compatibility
             val missedIntent = Intent("com.dominder.MISSED_ALARM").apply {
                 setPackage(packageName)
@@ -1114,37 +1142,37 @@ class AlarmActivity : AppCompatActivity() {
             }
             sendBroadcast(missedIntent)
             DebugLogger.log("AlarmActivity: Missed alarm broadcast sent")
-            
+
             // Post Native "Missed Reminder" Notification immediately
             // This ensures the user sees it even if the app process is dead
             postMissedNotification(reminderId, title)
 
             // Cancel the ACTIVE ringing notification to stop the fullscreen/ongoing state
             cancelNotification()
-            
+
             // Finish the activity
             finishAlarmProperly()
         }
-        
+
         handler.postDelayed(timeoutRunnable!!, TIMEOUT_DURATION)
         DebugLogger.log("AlarmActivity: 5-minute timeout scheduled")
 
         // --- Ringtone Service Already Playing ---
         DebugLogger.log("AlarmActivity: Ringtone service should already be playing")
 
-        findViewById<Button>(R.id.snooze_5m).setOnClickListener { handleSnooze(5) }
-        findViewById<Button>(R.id.snooze_10m).setOnClickListener { handleSnooze(10) }
-        findViewById<Button>(R.id.snooze_15m).setOnClickListener { handleSnooze(15) }
-        findViewById<Button>(R.id.snooze_30m).setOnClickListener { handleSnooze(30) }
-        findViewById<Button>(R.id.done_button).setOnClickListener { handleDone() }
+        findViewById < Button > (R.id.snooze_5m).setOnClickListener { handleSnooze(5) }
+        findViewById < Button > (R.id.snooze_10m).setOnClickListener { handleSnooze(10) }
+        findViewById < Button > (R.id.snooze_15m).setOnClickListener { handleSnooze(15) }
+        findViewById < Button > (R.id.snooze_30m).setOnClickListener { handleSnooze(30) }
+        findViewById < Button > (R.id.done_button).setOnClickListener { handleDone() }
     }
 
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
-        
+
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
-        
+
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -1156,7 +1184,7 @@ class AlarmActivity : AppCompatActivity() {
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error saving snooze to SharedPreferences: \${e.message}")
         }
-        
+
         // Keep existing broadcast
         val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
             setPackage(packageName)
@@ -1165,11 +1193,11 @@ class AlarmActivity : AppCompatActivity() {
             putExtra("title", intent.getStringExtra("title") ?: "Reminder")
             putExtra("priority", priority)
         }
-        
+
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
-        
+
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
             finishAlarmProperly()
@@ -1178,10 +1206,10 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: \${reminderId}")
-        
+
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
-        
+
         // NEW: Persist to SharedPreferences immediately
         // IMPORTANT: Save triggerTimeMs (actual alarm time) for accurate history, not current time
         try {
@@ -1194,18 +1222,18 @@ class AlarmActivity : AppCompatActivity() {
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error saving to SharedPreferences: \${e.message}")
         }
-        
+
         // Keep existing broadcast as fallback for when app is running
         val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("triggerTime", triggerTimeMs)
         }
-        
+
         DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.\`package\`}, triggerTime: \${triggerTimeMs}")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Broadcast sent successfully")
-        
+
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
             finishAlarmProperly()
@@ -1239,7 +1267,7 @@ class AlarmActivity : AppCompatActivity() {
             setTurnScreenOn(true)
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             keyguardManager.requestDismissKeyguard(this, null)
-            
+
             // Keep screen on until user action or timeout
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
@@ -1253,28 +1281,28 @@ class AlarmActivity : AppCompatActivity() {
         DebugLogger.log("AlarmActivity: Screen will stay on until user action or timeout")
     }
 
-    private fun postMissedNotification(id: String?, title: String?) {
+    private fun postMissedNotification(id: String ?, title: String ?) {
         if (id == null) return
-        
+
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            
+
             // Create a dedicated channel for missed alarms
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
-                    "missed_alarm_channel",
-                    "Missed Ringer Alarms",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
+                "missed_alarm_channel",
+                "Missed Ringer Alarms",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
                     description = "Notifications for missed ringer reminders"
                     setSound(null, null)
                     enableVibration(false)
                 }
                 notificationManager.createNotificationChannel(channel)
             }
-            
+
             // Create delete action intent
-            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver::class.java).apply {
+            val deleteIntent = Intent(this, MissedAlarmDeleteReceiver:: class.java).apply {
                 action = "com.dominder.DELETE_MISSED_ALARM"
                 putExtra("reminderId", id)
                 putExtra("notificationId", id.hashCode() + 999)
@@ -1285,7 +1313,7 @@ class AlarmActivity : AppCompatActivity() {
                 deleteIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-            
+
             // Create content intent to open app
             val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -1293,9 +1321,9 @@ class AlarmActivity : AppCompatActivity() {
             }
             val contentPendingIntent = if (launchIntent != null) {
                 PendingIntent.getActivity(
-                    this, 
-                    id.hashCode() + 10, 
-                    launchIntent, 
+                    this,
+                    id.hashCode() + 10,
+                    launchIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             } else null
@@ -1310,7 +1338,7 @@ class AlarmActivity : AppCompatActivity() {
                 .setOngoing(true) // Non-swipable
                 .setAutoCancel(false)
                 .addAction(0, "Delete", deletePendingIntent)
-            
+
             if (contentPendingIntent != null) {
                 notifBuilder.setContentIntent(contentPendingIntent)
             }
@@ -1329,25 +1357,25 @@ class AlarmActivity : AppCompatActivity() {
     private fun finishAlarmProperly() {
         try {
             DebugLogger.log("AlarmActivity: Finishing alarm activity properly")
-            
+
             // Method 1: Move task to back before finishing
             // This ensures we don't bring the main app forward if it's backgrounded
             moveTaskToBack(true)
-            
+
             // Method 2: Finish this activity
             finish()
-            
+
             // Method 3: As a final cleanup, exit this process after a delay
             // This ensures the alarm activity process is completely cleaned up
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 try {
                     // Only kill this specific activity's process, not the main app
                     Process.killProcess(Process.myPid())
-                } catch (e: Exception) {
+                } catch(e: Exception) {
                     DebugLogger.log("AlarmActivity: Error killing process: \${e.message}")
                 }
             }, 500)
-            
+
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error in finishAlarmProperly: \${e.message}")
@@ -1361,10 +1389,10 @@ class AlarmActivity : AppCompatActivity() {
         timeUpdateRunnable?.let { handler.removeCallbacks(it) }
         timeoutRunnable?.let { handler.removeCallbacks(it) }
         DebugLogger.log("AlarmActivity: Canceled timeout and time update runnables")
-        
+
         // Stop the ringtone service if it's running
         AlarmRingtoneService.stopAlarmRingtone(this)
-        
+
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()
@@ -1372,7 +1400,7 @@ class AlarmActivity : AppCompatActivity() {
             }
         }
     }
-}`
+} `
     },
     // --- Other files are preserved as they were ---
     {
@@ -1397,7 +1425,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
         val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
-        
+
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
             return
@@ -1410,7 +1438,7 @@ class AlarmReceiver : BroadcastReceiver() {
             DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
             return
         }
-        
+
         // CRITICAL: Check if reminder is already completed (native state)
         val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
         val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
@@ -1418,11 +1446,11 @@ class AlarmReceiver : BroadcastReceiver() {
             DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
             return
         }
-        
+
         // CRITICAL: Record this trigger in native state BEFORE showing alarm
         // This ensures accurate tracking even if app is killed
         recordNativeTrigger(context, reminderId, triggerTime)
-        
+
         // Check if this trigger completes the reminder (count or time based)
         val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
         if (shouldComplete) {
@@ -1438,13 +1466,13 @@ class AlarmReceiver : BroadcastReceiver() {
         DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId, triggerTime: \$triggerTime")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "alarm_channel_v2",
-                "Alarms",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
+            "alarm_channel_v2",
+            "Alarms",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
                 description = "Full screen alarm notifications"
                 setSound(null, null)
                 enableLights(true)
@@ -1453,9 +1481,9 @@ class AlarmReceiver : BroadcastReceiver() {
             }
             notificationManager.createNotificationChannel(channel)
         }
-        
+
         // Intent for the full-screen activity
-        val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
+        val fullScreenIntent = Intent(context, AlarmActivity:: class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
@@ -1471,7 +1499,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         // FIX: Create a content intent for when the user taps the notification itself.
         // This should also open the AlarmActivity.
-        val contentIntent = Intent(context, AlarmActivity::class.java).apply {
+        val contentIntent = Intent(context, AlarmActivity:: class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
             putExtra("priority", priority)
@@ -1501,11 +1529,11 @@ class AlarmReceiver : BroadcastReceiver() {
             // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .build()
-        
+
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
     }
-    
+
     /**
      * Record this trigger in native SharedPreferences.
      * This is the SINGLE SOURCE OF TRUTH for occurrence tracking.
@@ -1513,11 +1541,11 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun recordNativeTrigger(context: Context, reminderId: String, triggerTime: Long) {
         try {
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
+
             // Increment the actual trigger count (this is the authoritative count)
             val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
             val newCount = currentCount + 1
-            
+
             // Get existing trigger history and append this trigger
             val existingHistory = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
             val newHistory = if (existingHistory.isEmpty()) {
@@ -1525,20 +1553,20 @@ class AlarmReceiver : BroadcastReceiver() {
             } else {
                 "\$existingHistory,\$triggerTime"
             }
-            
+
             metaPrefs.edit().apply {
                 putInt("meta_\${reminderId}_actualTriggerCount", newCount)
                 putString("meta_\${reminderId}_triggerHistory", newHistory)
                 putLong("meta_\${reminderId}_lastTriggerTime", triggerTime)
                 apply()
             }
-            
+
             DebugLogger.log("AlarmReceiver: Recorded trigger #\$newCount at \$triggerTime for \$reminderId")
         } catch (e: Exception) {
             DebugLogger.log("AlarmReceiver: Error recording trigger: \${e.message}")
         }
     }
-    
+
     /**
      * Check if this trigger completes the reminder and mark it complete natively if so.
      * Returns true if this is the final occurrence.
@@ -1560,14 +1588,14 @@ class AlarmReceiver : BroadcastReceiver() {
             }
             
             val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-            
+
             // Check count-based completion
             if (untilType == "count") {
                 val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
                 val actualTriggerCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-                
+
                 DebugLogger.log("AlarmReceiver: Count check - actualTriggerCount=\$actualTriggerCount, untilCount=\$untilCount")
-                
+
                 if (actualTriggerCount >= untilCount) {
                     metaPrefs.edit().apply {
                         putBoolean("meta_\${reminderId}_isCompleted", true)
@@ -1578,18 +1606,18 @@ class AlarmReceiver : BroadcastReceiver() {
                     return true
                 }
             }
-            
+
             // Check time-based completion
             if (untilType == "endsAt") {
                 val untilDate = metaPrefs.getString("meta_\${reminderId}_untilDate", "") ?: ""
                 val untilTime = metaPrefs.getString("meta_\${reminderId}_untilTime", "") ?: ""
                 val everyUnit = metaPrefs.getString("meta_\${reminderId}_everyUnit", "minutes") ?: "minutes"
-                
+
                 if (untilDate.isNotEmpty()) {
                     val endBoundary = parseEndBoundaryStatic(untilDate, untilTime, everyUnit)
-                    
+
                     DebugLogger.log("AlarmReceiver: Time check - triggerTime=\$triggerTime, endBoundary=\$endBoundary")
-                    
+
                     // If this trigger is at or past the end boundary, mark complete
                     if (triggerTime >= endBoundary) {
                         metaPrefs.edit().apply {
@@ -1602,7 +1630,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     }
                 }
             }
-            
+
             return false
         } catch (e: Exception) {
             DebugLogger.log("AlarmReceiver: Error checking completion: \${e.message}")
@@ -1638,7 +1666,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         return calendar.timeInMillis
     }
-}`
+} `
     },
     {
         path: 'alarm/RingtonePickerActivity.kt',
@@ -1663,23 +1691,23 @@ import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
 
 class RingtonePickerActivity : AppCompatActivity() {
-    private var selectedUri: Uri? = null
-    private var currentlyPlaying: Ringtone? = null
-    private var customSongUri: Uri? = null
-    private var customSongName: String? = null
+    private var selectedUri: Uri?= null
+    private var currentlyPlaying: Ringtone?= null
+    private var customSongUri: Uri?= null
+    private var customSongName: String?= null
     private val PICK_AUDIO_REQUEST = 2001
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle ?) {
         super.onCreate(savedInstanceState)
-        
+
         // Make status bar seamless/transparent - Android 15+ compatible
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true // Dark icons for light background
-        
+
         // Get status bar height for proper padding
         val statusBarHeight = getStatusBarHeight()
-        
+
         // Main container matching Reminder Defaults design
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1771,7 +1799,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        
+
         // Section title matching defaultsSectionTitle style
         val sectionTitle = TextView(this).apply {
             text = "SELECT TONE"
@@ -1793,8 +1821,8 @@ class RingtonePickerActivity : AppCompatActivity() {
         ringtoneManager.setType(RingtoneManager.TYPE_ALARM)
         val cursor = ringtoneManager.cursor
 
-        val ringtones = mutableListOf<Pair<String, Uri>>()
-        
+        val ringtones = mutableListOf < Pair < String, Uri >> ()
+
         // Add default option
         val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         ringtones.add(Pair("Default Alarm", defaultUri))
@@ -1809,7 +1837,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         // Get currently selected URI
         val currentUriString = intent.getStringExtra("currentUri")
         selectedUri = if (currentUriString != null) Uri.parse(currentUriString) else defaultUri
-        
+
         // Check if current selection is a custom song (not in system ringtones)
         if (currentUriString != null && !currentUriString.contains("internal") && !currentUriString.contains("settings/system")) {
             customSongUri = Uri.parse(currentUriString)
@@ -1840,11 +1868,11 @@ class RingtonePickerActivity : AppCompatActivity() {
             }
         }
         contentLayout.addView(browseButton)
-        
+
         // Show custom song if selected - Simple list item style
         val customSongCard = if (customSongUri != null && customSongName != null) {
             val isSelected = customSongUri == selectedUri
-            
+
             TextView(this).apply {
                 text = "🎵 \${customSongName}"
                 textSize = 16f
@@ -1860,8 +1888,9 @@ class RingtonePickerActivity : AppCompatActivity() {
                 }
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { view ->
-                    stopCurrentRingtone()
+                setOnClickListener {
+                    view ->
+                        stopCurrentRingtone()
                     selectedUri = customSongUri
                     try {
                         currentlyPlaying = RingtoneManager.getRingtone(this@RingtonePickerActivity, customSongUri)
@@ -1870,7 +1899,8 @@ class RingtonePickerActivity : AppCompatActivity() {
                         DebugLogger.log("Error playing custom song preview: \${e.message}")
                     }
                     // Update selection visually - deselect all, select this one
-                    (view.parent as? LinearLayout)?.let { parent ->
+                    (view.parent as ?LinearLayout)?.let {
+                        parent ->
                         for (i in 0 until parent.childCount) {
                             val child = parent.getChildAt(i)
                             // Skip section title and browse button
@@ -1885,14 +1915,15 @@ class RingtonePickerActivity : AppCompatActivity() {
                 }
             }
         } else null
-        
+
         if (customSongCard != null) {
             contentLayout.addView(customSongCard)
         }
 
         // Add each ringtone as a simple list item
-        ringtones.forEach { (title, uri) ->
-            val isSelected = uri == selectedUri
+        ringtones.forEach {
+            (title, uri) ->
+                val isSelected = uri == selectedUri
             
             val ringtoneItem = TextView(this).apply {
                 text = title
@@ -1900,25 +1931,26 @@ class RingtonePickerActivity : AppCompatActivity() {
                 setTextColor(if (isSelected) 0xFF6750A4.toInt() else 0xFF1C1B1F.toInt()) // primary when selected, onSurface otherwise
                 typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
                 setPadding(48, 36, 48, 36) // More padding for easier clicking
-                
+
                 // Simple background - just a subtle highlight when selected
                 setBackgroundColor(if (isSelected) 0xFFE8DEF8.toInt() else 0x00000000.toInt()) // primaryContainer when selected, transparent otherwise
-                
+
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, // Full width for easier clicking
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
                     setMargins(0, 0, 0, 2) // Small gap between items
                 }
-                
+
                 // Make it clear it's clickable
                 isClickable = true
                 isFocusable = true
                 
-                setOnClickListener { view ->
-                    stopCurrentRingtone()
+                setOnClickListener {
+                    view ->
+                        stopCurrentRingtone()
                     selectedUri = uri
-                    
+
                     // Play preview
                     try {
                         currentlyPlaying = RingtoneManager.getRingtone(this@RingtonePickerActivity, uri)
@@ -1926,9 +1958,10 @@ class RingtonePickerActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         DebugLogger.log("Error playing ringtone preview: \${e.message}")
                     }
-                    
+
                     // Update selection visually - deselect all, select this one
-                    (view.parent as? LinearLayout)?.let { parent ->
+                    (view.parent as ?LinearLayout)?.let {
+                        parent ->
                         for (i in 0 until parent.childCount) {
                             val child = parent.getChildAt(i)
                             // Skip section title and browse button
@@ -1942,7 +1975,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                     }
                 }
             }
-            
+
             contentLayout.addView(ringtoneItem)
         }
 
@@ -1990,24 +2023,25 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
     }
     
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent ?) {
         super.onActivityResult(requestCode, resultCode, data)
-        
+
         if (requestCode == PICK_AUDIO_REQUEST && resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
+            data?.data?.let {
+                uri ->
                 try {
                     // Take persistable URI permission
                     contentResolver.takePersistableUriPermission(
                         uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
-                    
+
                     customSongUri = uri
                     customSongName = getFileName(uri)
                     selectedUri = uri
-                    
+
                     DebugLogger.log("RingtonePickerActivity: Selected custom song: \${customSongName}")
-                    
+
                     // Persist immediately so next open shows latest selection without recreate
                     try {
                         val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
@@ -2042,7 +2076,8 @@ class RingtonePickerActivity : AppCompatActivity() {
     private fun getFileName(uri: Uri): String {
         var fileName = "Custom Song"
         try {
-            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            contentResolver.query(uri, null, null, null, null)?.use {
+                cursor ->
                 if (cursor.moveToFirst()) {
                     val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (nameIndex >= 0) {
@@ -2055,7 +2090,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         }
         return fileName
     }
-}`
+} `
     },
     {
         path: 'alarm/MissedAlarmReceiver.kt',
@@ -2073,7 +2108,7 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import app.rork.dominder_android_reminder_app.DebugLogger
 
-class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : BroadcastReceiver() {
+class MissedAlarmReceiver(private val reactContext: ReactApplicationContext): BroadcastReceiver() {
 
     init {
         val filter = IntentFilter("com.dominder.MISSED_ALARM")
@@ -2085,7 +2120,7 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
         DebugLogger.log("MissedAlarmReceiver: Registered broadcast receiver")
     }
 
-    override fun onReceive(context: Context?, intent: Intent?) {
+    override fun onReceive(context: Context ?, intent: Intent ?) {
         if (intent?.action == "com.dominder.MISSED_ALARM") {
             val reminderId = intent.getStringExtra("reminderId") ?: return
             val title = intent.getStringExtra("title") ?: ""
@@ -2103,9 +2138,9 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
         }
     }
 
-    private fun sendEvent(reactContext: ReactContext, eventName: String, params: WritableMap?) {
+    private fun sendEvent(reactContext: ReactContext, eventName: String, params: WritableMap ?) {
         reactContext
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter:: class.java)
             .emit(eventName, params)
     }
 
@@ -2139,16 +2174,16 @@ class MissedAlarmDeleteReceiver : BroadcastReceiver() {
         
         val reminderId = intent.getStringExtra("reminderId") ?: return
         val notificationId = intent.getIntExtra("notificationId", 0)
-        
+
         DebugLogger.log("MissedAlarmDeleteReceiver: Delete action for reminder \$reminderId")
-        
+
         // Cancel the notification
         if (notificationId != 0) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(notificationId)
             DebugLogger.log("MissedAlarmDeleteReceiver: Cancelled notification \$notificationId")
         }
-        
+
         // Mark reminder as deleted in SharedPreferences for JS to pick up
         try {
             val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
@@ -2160,23 +2195,23 @@ class MissedAlarmDeleteReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             DebugLogger.log("MissedAlarmDeleteReceiver: Error saving to SharedPreferences: \${e.message}")
         }
-        
+
         // Try to emit event to React Native if app is running
         try {
             val app = context.applicationContext
             if (app is ReactApplication) {
                 val reactInstanceManager = app.reactNativeHost.reactInstanceManager
                 val reactContext = reactInstanceManager.currentReactContext
-                
+
                 if (reactContext != null) {
                     val params = Arguments.createMap().apply {
                         putString("reminderId", reminderId)
                     }
-                    
+
                     reactContext
-                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter:: class.java)
                         .emit("onMissedAlarmDeleted", params)
-                        
+
                     DebugLogger.log("MissedAlarmDeleteReceiver: Emitted onMissedAlarmDeleted event")
                 } else {
                     DebugLogger.log("MissedAlarmDeleteReceiver: ReactContext is null, deletion saved to SharedPreferences")
@@ -2186,7 +2221,7 @@ class MissedAlarmDeleteReceiver : BroadcastReceiver() {
             DebugLogger.log("MissedAlarmDeleteReceiver: Error emitting event: \${e.message}")
         }
     }
-}`
+} `
     },
     {
         path: 'alarm/AlarmPackage.kt',
@@ -2198,18 +2233,18 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
 class AlarmPackage : ReactPackage {
-    private var missedAlarmReceiver: MissedAlarmReceiver? = null
+    private var missedAlarmReceiver: MissedAlarmReceiver?= null
     
-    override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+    override fun createNativeModules(reactContext: ReactApplicationContext): List < NativeModule > {
         // Initialize the missed alarm receiver
         missedAlarmReceiver = MissedAlarmReceiver(reactContext)
         
         return listOf(AlarmModule(reactContext))
     }
-    override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
+    override fun createViewManagers(reactContext: ReactApplicationContext): List < ViewManager <*, *>> {
         return emptyList()
     }
-}`
+} `
     },
     {
         path: 'RescheduleAlarmsService.kt',
@@ -2227,7 +2262,7 @@ import com.facebook.react.jstasks.HeadlessJsTaskConfig
 import com.facebook.react.ReactApplication
 
 class RescheduleAlarmsService : HeadlessJsTaskService() {
-    override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
+    override fun getTaskConfig(intent: Intent ?): HeadlessJsTaskConfig ? {
         return HeadlessJsTaskConfig(
             "RescheduleAlarms",
             Arguments.createMap(),
@@ -2236,12 +2271,12 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
         )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(intent: Intent ?, flags: Int, startId: Int): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "alarm_reschedule_channel"
             val channelName = "System Maintenance"
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            
+            val notificationManager = getSystemService(NotificationManager:: class.java)
+
             if (notificationManager != null) {
                 val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
                 notificationManager.createNotificationChannel(channel)
@@ -2252,7 +2287,7 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
                     .setSmallIcon(R.mipmap.ic_launcher)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     .build()
-                
+
                 if (Build.VERSION.SDK_INT >= 34) {
                     try {
                         startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -2284,7 +2319,7 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
             return START_NOT_STICKY
         }
     }
-}`
+} `
     },
     {
         path: 'MainApplication.kt',
@@ -2311,13 +2346,13 @@ import expo.modules.ReactNativeHostWrapper
 class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
-        this,
-        object : DefaultReactNativeHost(this) {
-          override fun getPackages(): List<ReactPackage> {
+    this,
+    object : DefaultReactNativeHost(this) {
+    override fun getPackages(): List<ReactPackage> {
             val packages = PackageList(this).packages
-            packages.add(AlarmPackage())
-            return packages
-          }
+        packages.add(AlarmPackage())
+        return packages
+    }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
 
@@ -2325,28 +2360,28 @@ class MainApplication : Application(), ReactApplication {
 
           override val isNewArchEnabled: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
           override val isHermesEnabled: Boolean = BuildConfig.IS_HERMES_ENABLED
-      }
-  )
+}
+)
 
   override val reactHost: ReactHost
     get() = ReactNativeHostWrapper.createReactHost(applicationContext, reactNativeHost)
 
   override fun onCreate() {
-    super.onCreate()
-    SoLoader.init(this, OpenSourceMergedSoMapping)
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      load()
-    }
-    ApplicationLifecycleDispatcher.onApplicationCreate(this)
+        super.onCreate()
+        SoLoader.init(this, OpenSourceMergedSoMapping)
+        if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+            load()
+        }
+        ApplicationLifecycleDispatcher.onApplicationCreate(this)
 
-    // Note: AlarmActionBridge is registered via AndroidManifest.xml
-  }
+        // Note: AlarmActionBridge is registered via AndroidManifest.xml
+    }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
-    super.onConfigurationChanged(newConfig)
-    ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
-  }
-}`
+        super.onConfigurationChanged(newConfig)
+        ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
+    }
+} `
     },
     {
         path: 'MainActivity.kt',
@@ -2367,32 +2402,32 @@ class MainActivity : ReactActivity() {
 
   override fun getMainComponentName(): String = "main"
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    // Enable edge-to-edge
-    WindowCompat.setDecorFitsSystemWindows(window, false)
-    super.onCreate(null)
-  }
+  override fun onCreate(savedInstanceState: Bundle ?) {
+        // Enable edge-to-edge
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        super.onCreate(null)
+    }
 
   override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    setIntent(intent)
-    intent.getStringExtra("reminderId")?.let {
-        DebugLogger.log("MainActivity: Alarm intent received for reminderId=$it")
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra("reminderId")?.let {
+            DebugLogger.log("MainActivity: Alarm intent received for reminderId=$it")
+        }
     }
-  }
 
   override fun createReactActivityDelegate(): ReactActivityDelegate {
-    return ReactActivityDelegateWrapper(
-      this,
-      DefaultNewArchitectureEntryPoint.fabricEnabled,
-      DefaultReactActivityDelegate(
-        this,
-        mainComponentName,
-        DefaultNewArchitectureEntryPoint.fabricEnabled
-      )
-    )
-  }
-}`
+        return ReactActivityDelegateWrapper(
+            this,
+            DefaultNewArchitectureEntryPoint.fabricEnabled,
+            DefaultReactActivityDelegate(
+                this,
+                mainComponentName,
+                DefaultNewArchitectureEntryPoint.fabricEnabled
+            )
+        )
+    }
+} `
     },
     {
         path: 'DebugLogger.kt',
@@ -2406,14 +2441,14 @@ object DebugLogger {
         Log.d(TAG, message)
     }
 
-    fun error(message: String, e: Throwable? = null) {
+    fun error(message: String, e: Throwable ? = null) {
         if (e != null) {
             Log.e(TAG, message, e)
         } else {
             Log.e(TAG, message)
         }
     }
-}`
+} `
     },
     {
         path: 'RescheduleAlarmsWorker.kt',
@@ -2425,11 +2460,11 @@ import android.os.Build
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
-class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
+class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters): Worker(context, workerParams) {
     override fun doWork(): Result {
         val context = applicationContext
-        val serviceIntent = Intent(context, RescheduleAlarmsService::class.java)
-        
+        val serviceIntent = Intent(context, RescheduleAlarmsService:: class.java)
+
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
@@ -2440,7 +2475,7 @@ class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) :
             DebugLogger.error("RescheduleAlarmsWorker: Failed to start service", e)
             return Result.failure()
         }
-        
+
         return Result.success()
     }
 }`
@@ -2458,11 +2493,11 @@ import androidx.work.WorkManager
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val workRequest = OneTimeWorkRequest.Builder(RescheduleAlarmsWorker::class.java).build()
+            val workRequest = OneTimeWorkRequest.Builder(RescheduleAlarmsWorker:: class.java).build()
             WorkManager.getInstance(context).enqueue(workRequest)
         }
     }
-}`
+} `
     },
     {
         path: 'alarm/AlarmModule.kt',
@@ -2485,592 +2520,595 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
 
-class AlarmModule(private val reactContext: ReactApplicationContext) :
+class AlarmModule(private val reactContext: ReactApplicationContext):
     ReactContextBaseJavaModule(reactContext) {
 
-    private var ringtonePickerPromise: Promise? = null
+        private var ringtonePickerPromise: Promise?= null
     private val RINGTONE_PICKER_REQUEST_CODE = 1001
 
     private val activityEventListener = object : BaseActivityEventListener() {
         override fun onActivityResult(
-            activity: Activity?,
+            activity: Activity ?,
             requestCode: Int,
             resultCode: Int,
-            data: Intent?
+            data: Intent ?
         ) {
-            if (requestCode == RINGTONE_PICKER_REQUEST_CODE) {
-                handleRingtonePickerResult(resultCode, data)
+                if (requestCode == RINGTONE_PICKER_REQUEST_CODE) {
+                    handleRingtonePickerResult(resultCode, data)
+                }
             }
         }
-    }
 
     init {
-        reactContext.addActivityEventListener(activityEventListener)
-    }
+            reactContext.addActivityEventListener(activityEventListener)
+        }
 
     override fun getName(): String = "AlarmModule"
 
-    @ReactMethod
-    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {
-        try {
+        @ReactMethod
+    fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String ? = null, promise: Promise ? = null) {
+            try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    DebugLogger.log("AlarmModule: SCHEDULE_EXACT_ALARM permission not granted")
-                    promise?.reject("PERMISSION_DENIED", "SCHEDULE_EXACT_ALARM permission not granted")
-                    return
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (!alarmManager.canScheduleExactAlarms()) {
+                        DebugLogger.log("AlarmModule: SCHEDULE_EXACT_ALARM permission not granted")
+                        promise?.reject("PERMISSION_DENIED", "SCHEDULE_EXACT_ALARM permission not granted")
+                        return
+                    }
                 }
-            }
             
-            val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority ?: "medium")
-            }
+            val intent = Intent(reactContext, AlarmReceiver:: class.java).apply {
+                    action = "app.rork.dominder.ALARM_FIRED"
+                    putExtra("reminderId", reminderId)
+                    putExtra("title", title)
+                    putExtra("priority", priority ?: "medium")
+                }
             
             val pendingIntent = PendingIntent.getBroadcast(
-                reactContext,
-                reminderId.hashCode(),
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            
-            DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
-            
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTime.toLong(),
-                pendingIntent
-            )
-            
-            DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: \${e.message}")
-            promise?.reject("SCHEDULE_ERROR", e.message, e)
-        }
-    }
+                    reactContext,
+                    reminderId.hashCode(),
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
 
-    @ReactMethod
+                DebugLogger.log("AlarmModule: Scheduling alarm broadcast for \$reminderId at \$triggerTime")
+
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime.toLong(),
+                    pendingIntent
+                )
+
+                DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error scheduling alarm: \${e.message}")
+                promise?.reject("SCHEDULE_ERROR", e.message, e)
+            }
+        }
+
+        @ReactMethod
     fun storeReminderMetadata(
-        reminderId: String,
-        repeatType: String,
-        everyIntervalValue: Int,
-        everyIntervalUnit: String,
-        untilType: String,
-        untilCount: Int,
-        untilDate: String,
-        untilTime: String,
-        occurrenceCount: Int,
-        startDate: String,
-        startTime: String,
-        title: String,
-        priority: String,
-        promise: Promise? = null
+            reminderId: String,
+            repeatType: String,
+            everyIntervalValue: Int,
+            everyIntervalUnit: String,
+            untilType: String,
+            untilCount: Int,
+            untilDate: String,
+            untilTime: String,
+            occurrenceCount: Int,
+            startDate: String,
+            startTime: String,
+            title: String,
+            priority: String,
+            promise: Promise ? = null
     ) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("meta_\${reminderId}_repeatType", repeatType)
-                putInt("meta_\${reminderId}_everyValue", everyIntervalValue)
-                putString("meta_\${reminderId}_everyUnit", everyIntervalUnit)
-                putString("meta_\${reminderId}_untilType", untilType)
-                putInt("meta_\${reminderId}_untilCount", untilCount)
-                putString("meta_\${reminderId}_untilDate", untilDate)
-                putString("meta_\${reminderId}_untilTime", untilTime)
-                putInt("meta_\${reminderId}_occurrenceCount", occurrenceCount)
-                putString("meta_\${reminderId}_startDate", startDate)
-                putString("meta_\${reminderId}_startTime", startTime)
-                putString("meta_\${reminderId}_title", title)
-                putString("meta_\${reminderId}_priority", priority)
-                // Initialize native tracking fields (only if not already set to preserve existing state)
-                if (!prefs.contains("meta_\${reminderId}_actualTriggerCount")) {
-                    putInt("meta_\${reminderId}_actualTriggerCount", occurrenceCount)
+                prefs.edit().apply {
+                    putString("meta_\${reminderId}_repeatType", repeatType)
+                    putInt("meta_\${reminderId}_everyValue", everyIntervalValue)
+                    putString("meta_\${reminderId}_everyUnit", everyIntervalUnit)
+                    putString("meta_\${reminderId}_untilType", untilType)
+                    putInt("meta_\${reminderId}_untilCount", untilCount)
+                    putString("meta_\${reminderId}_untilDate", untilDate)
+                    putString("meta_\${reminderId}_untilTime", untilTime)
+                    putInt("meta_\${reminderId}_occurrenceCount", occurrenceCount)
+                    putString("meta_\${reminderId}_startDate", startDate)
+                    putString("meta_\${reminderId}_startTime", startTime)
+                    putString("meta_\${reminderId}_title", title)
+                    putString("meta_\${reminderId}_priority", priority)
+                    // Initialize native tracking fields (only if not already set to preserve existing state)
+                    if (!prefs.contains("meta_\${reminderId}_actualTriggerCount")) {
+                        putInt("meta_\${reminderId}_actualTriggerCount", occurrenceCount)
+                    }
+                    if (!prefs.contains("meta_\${reminderId}_isCompleted")) {
+                        putBoolean("meta_\${reminderId}_isCompleted", false)
+                    }
+                    if (!prefs.contains("meta_\${reminderId}_triggerHistory")) {
+                        putString("meta_\${reminderId}_triggerHistory", "")
+                    }
+                    apply()
                 }
-                if (!prefs.contains("meta_\${reminderId}_isCompleted")) {
-                    putBoolean("meta_\${reminderId}_isCompleted", false)
-                }
-                if (!prefs.contains("meta_\${reminderId}_triggerHistory")) {
-                    putString("meta_\${reminderId}_triggerHistory", "")
-                }
-                apply()
+                DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, everyUnit=\$everyIntervalUnit, occurrenceCount=\$occurrenceCount")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error storing metadata: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
             }
-            DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, everyUnit=\$everyIntervalUnit, occurrenceCount=\$occurrenceCount")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error storing metadata: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
-    fun clearReminderMetadata(reminderId: String, promise: Promise? = null) {
-        try {
+        @ReactMethod
+    fun clearReminderMetadata(reminderId: String, promise: Promise ? = null) {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                remove("meta_\${reminderId}_repeatType")
-                remove("meta_\${reminderId}_everyValue")
-                remove("meta_\${reminderId}_everyUnit")
-                remove("meta_\${reminderId}_untilType")
-                remove("meta_\${reminderId}_untilCount")
-                remove("meta_\${reminderId}_untilDate")
-                remove("meta_\${reminderId}_untilTime")
-                remove("meta_\${reminderId}_occurrenceCount")
-                remove("meta_\${reminderId}_startDate")
-                remove("meta_\${reminderId}_startTime")
-                remove("meta_\${reminderId}_title")
-                remove("meta_\${reminderId}_priority")
-                // Also clear native tracking fields
-                remove("meta_\${reminderId}_actualTriggerCount")
-                remove("meta_\${reminderId}_isCompleted")
-                remove("meta_\${reminderId}_completedAt")
-                remove("meta_\${reminderId}_lastTriggerTime")
-                remove("meta_\${reminderId}_triggerHistory")
-                apply()
+                prefs.edit().apply {
+                    remove("meta_\${reminderId}_repeatType")
+                    remove("meta_\${reminderId}_everyValue")
+                    remove("meta_\${reminderId}_everyUnit")
+                    remove("meta_\${reminderId}_untilType")
+                    remove("meta_\${reminderId}_untilCount")
+                    remove("meta_\${reminderId}_untilDate")
+                    remove("meta_\${reminderId}_untilTime")
+                    remove("meta_\${reminderId}_occurrenceCount")
+                    remove("meta_\${reminderId}_startDate")
+                    remove("meta_\${reminderId}_startTime")
+                    remove("meta_\${reminderId}_title")
+                    remove("meta_\${reminderId}_priority")
+                    // Also clear native tracking fields
+                    remove("meta_\${reminderId}_actualTriggerCount")
+                    remove("meta_\${reminderId}_isCompleted")
+                    remove("meta_\${reminderId}_completedAt")
+                    remove("meta_\${reminderId}_lastTriggerTime")
+                    remove("meta_\${reminderId}_triggerHistory")
+                    apply()
+                }
+                DebugLogger.log("AlarmModule: Cleared metadata for \$reminderId")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error clearing metadata: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
             }
-            DebugLogger.log("AlarmModule: Cleared metadata for \$reminderId")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing metadata: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
-    fun updateOccurrenceCount(reminderId: String, newCount: Int, promise: Promise? = null) {
-        try {
+        @ReactMethod
+    fun updateOccurrenceCount(reminderId: String, newCount: Int, promise: Promise ? = null) {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().putInt("meta_\${reminderId}_occurrenceCount", newCount).apply()
-            DebugLogger.log("AlarmModule: Updated occurrenceCount for \$reminderId to \$newCount")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error updating occurrenceCount: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
+                prefs.edit().putInt("meta_\${reminderId}_occurrenceCount", newCount).apply()
+                DebugLogger.log("AlarmModule: Updated occurrenceCount for \$reminderId to \$newCount")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error updating occurrenceCount: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
+            }
         }
-    }
 
-    /**
-     * Get the native state for a reminder - this is the SINGLE SOURCE OF TRUTH
-     * for occurrence count, completion status, and trigger history.
-     */
-    @ReactMethod
+        /**
+         * Get the native state for a reminder - this is the SINGLE SOURCE OF TRUTH
+         * for occurrence count, completion status, and trigger history.
+         */
+        @ReactMethod
     fun getNativeReminderState(reminderId: String, promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
             
             val result = Arguments.createMap().apply {
-                putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
-                putInt("occurrenceCount", prefs.getInt("meta_\${reminderId}_occurrenceCount", 0))
-                putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
-                putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
-                putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
-                putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
-                putString("repeatType", prefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none")
-                putString("untilType", prefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever")
-                putInt("untilCount", prefs.getInt("meta_\${reminderId}_untilCount", 0))
-            }
-            
-            DebugLogger.log("AlarmModule: getNativeReminderState for \$reminderId: actualTriggerCount=\${result.getInt("actualTriggerCount")}, isCompleted=\${result.getBoolean("isCompleted")}")
-            promise.resolve(result)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting native state: \${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Sync the native state to match JS state (used when JS has more accurate info)
-     */
-    @ReactMethod
-    fun syncNativeState(
-        reminderId: String,
-        actualTriggerCount: Int,
-        isCompleted: Boolean,
-        completedAt: Double,
-        promise: Promise? = null
-    ) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putInt("meta_\${reminderId}_actualTriggerCount", actualTriggerCount)
-                putInt("meta_\${reminderId}_occurrenceCount", actualTriggerCount) // Keep in sync
-                putBoolean("meta_\${reminderId}_isCompleted", isCompleted)
-                if (completedAt > 0) {
-                    putLong("meta_\${reminderId}_completedAt", completedAt.toLong())
-                }
-                apply()
-            }
-            DebugLogger.log("AlarmModule: Synced native state for \$reminderId: count=\$actualTriggerCount, completed=\$isCompleted")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error syncing native state: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Mark a reminder as completed natively
-     */
-    @ReactMethod
-    fun markReminderCompletedNatively(reminderId: String, completedAt: Double, promise: Promise? = null) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putBoolean("meta_\${reminderId}_isCompleted", true)
-                putLong("meta_\${reminderId}_completedAt", completedAt.toLong())
-                apply()
-            }
-            DebugLogger.log("AlarmModule: Marked \$reminderId as completed natively at \$completedAt")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error marking completed: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Get all native reminder states (for bulk sync on app startup)
-     */
-    @ReactMethod
-    fun getAllNativeReminderStates(promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val result = Arguments.createMap()
-            
-            // Find all unique reminder IDs by looking for _repeatType keys
-            val allKeys = prefs.all.keys
-            val reminderIds = mutableSetOf<String>()
-            
-            for (key in allKeys) {
-                if (key.startsWith("meta_") && key.endsWith("_repeatType")) {
-                    val reminderId = key.removePrefix("meta_").removeSuffix("_repeatType")
-                    reminderIds.add(reminderId)
-                }
-            }
-            
-            for (reminderId in reminderIds) {
-                val state = Arguments.createMap().apply {
                     putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
+                    putInt("occurrenceCount", prefs.getInt("meta_\${reminderId}_occurrenceCount", 0))
                     putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
                     putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
                     putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
                     putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
+                    putString("repeatType", prefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none")
+                    putString("untilType", prefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever")
+                    putInt("untilCount", prefs.getInt("meta_\${reminderId}_untilCount", 0))
                 }
-                result.putMap(reminderId, state)
-            }
-            
-            DebugLogger.log("AlarmModule: getAllNativeReminderStates found \${reminderIds.size} reminders")
-            promise.resolve(result)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting all native states: \${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
 
-    @ReactMethod
-    fun cancelAlarm(reminderId: String, promise: Promise? = null) {
-        try {
+                DebugLogger.log("AlarmModule: getNativeReminderState for \$reminderId: actualTriggerCount=\${result.getInt("actualTriggerCount")}, isCompleted=\${result.getBoolean("isCompleted")}")
+                promise.resolve(result)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error getting native state: \${e.message}")
+                promise.reject("ERROR", e.message, e)
+            }
+        }
+
+        /**
+         * Sync the native state to match JS state (used when JS has more accurate info)
+         */
+        @ReactMethod
+    fun syncNativeState(
+            reminderId: String,
+            actualTriggerCount: Int,
+            isCompleted: Boolean,
+            completedAt: Double,
+            promise: Promise ? = null
+    ) {
+            try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+                prefs.edit().apply {
+                    putInt("meta_\${reminderId}_actualTriggerCount", actualTriggerCount)
+                    putInt("meta_\${reminderId}_occurrenceCount", actualTriggerCount) // Keep in sync
+                    putBoolean("meta_\${reminderId}_isCompleted", isCompleted)
+                    if (completedAt > 0) {
+                        putLong("meta_\${reminderId}_completedAt", completedAt.toLong())
+                    }
+                    apply()
+                }
+                DebugLogger.log("AlarmModule: Synced native state for \$reminderId: count=\$actualTriggerCount, completed=\$isCompleted")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error syncing native state: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
+            }
+        }
+
+        /**
+         * Mark a reminder as completed natively
+         */
+        @ReactMethod
+    fun markReminderCompletedNatively(reminderId: String, completedAt: Double, promise: Promise ? = null) {
+            try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+                prefs.edit().apply {
+                    putBoolean("meta_\${reminderId}_isCompleted", true)
+                    putLong("meta_\${reminderId}_completedAt", completedAt.toLong())
+                    apply()
+                }
+                DebugLogger.log("AlarmModule: Marked \$reminderId as completed natively at \$completedAt")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error marking completed: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
+            }
+        }
+
+        /**
+         * Get all native reminder states (for bulk sync on app startup)
+         */
+        @ReactMethod
+    fun getAllNativeReminderStates(promise: Promise) {
+            try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            val result = Arguments.createMap()
+
+            // Find all unique reminder IDs by looking for _repeatType keys
+            val allKeys = prefs.all.keys
+            val reminderIds = mutableSetOf < String > ()
+
+                for (key in allKeys) {
+                    if (key.startsWith("meta_") && key.endsWith("_repeatType")) {
+                    val reminderId = key.removePrefix("meta_").removeSuffix("_repeatType")
+                        reminderIds.add(reminderId)
+                    }
+                }
+
+                for (reminderId in reminderIds) {
+                val state = Arguments.createMap().apply {
+                        putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
+                        putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
+                        putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
+                        putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
+                        putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
+                    }
+                    result.putMap(reminderId, state)
+                }
+
+                DebugLogger.log("AlarmModule: getAllNativeReminderStates found \${reminderIds.size} reminders")
+                promise.resolve(result)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error getting all native states: \${e.message}")
+                promise.reject("ERROR", e.message, e)
+            }
+        }
+
+        @ReactMethod
+    fun cancelAlarm(reminderId: String, promise: Promise ? = null) {
+            try {
             val alarmManager = reactContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
-            val intent = Intent(reactContext, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-            }
-            val pendingIntent = PendingIntent.getBroadcast(
-                reactContext,
-                reminderId.hashCode(),
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            alarmManager.cancel(pendingIntent)
-            pendingIntent.cancel()
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun setReminderPaused(reminderId: String, isPaused: Boolean, promise: Promise? = null) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                if (isPaused) {
-                    putBoolean("paused_\$reminderId", true)
-                } else {
-                    remove("paused_\$reminderId")
+            val intent = Intent(reactContext, AlarmReceiver:: class.java).apply {
+                    action = "app.rork.dominder.ALARM_FIRED"
                 }
-                apply()
+            val pendingIntent = PendingIntent.getBroadcast(
+                    reactContext,
+                    reminderId.hashCode(),
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                promise?.reject("ERROR", e.message, e)
             }
-            DebugLogger.log("AlarmModule: Set reminder \$reminderId paused=\$isPaused")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error setting reminder paused: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
-    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
-        try {
+        @ReactMethod
+    fun setReminderPaused(reminderId: String, isPaused: Boolean, promise: Promise ? = null) {
+            try {
+            val prefs = reactContext.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+                prefs.edit().apply {
+                    if (isPaused) {
+                        putBoolean("paused_\$reminderId", true)
+                    } else {
+                        remove("paused_\$reminderId")
+                    }
+                    apply()
+                }
+                DebugLogger.log("AlarmModule: Set reminder \$reminderId paused=\$isPaused")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error setting reminder paused: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
+            }
+        }
+
+        @ReactMethod
+    fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise ? = null) {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putBoolean("ringer_sound_enabled", soundEnabled)
-                putBoolean("ringer_vibration_enabled", vibrationEnabled)
-                apply()
+                prefs.edit().apply {
+                    putBoolean("ringer_sound_enabled", soundEnabled)
+                    putBoolean("ringer_vibration_enabled", vibrationEnabled)
+                    apply()
+                }
+                DebugLogger.log("AlarmModule: Saved notification settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
+                promise?.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error saving notification settings: \${e.message}")
+                promise?.reject("ERROR", e.message, e)
             }
-            DebugLogger.log("AlarmModule: Saved notification settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error saving notification settings: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun showToast(message: String, duration: Int = 0) {
-        try {
+            try {
             val toastDuration = if (duration == 1) android.widget.Toast.LENGTH_LONG else android.widget.Toast.LENGTH_SHORT
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(reactContext, message, toastDuration).show()
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(reactContext, message, toastDuration).show()
+                }
+                DebugLogger.log("AlarmModule: Toast shown: \$message")
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error showing toast: \${e.message}")
             }
-            DebugLogger.log("AlarmModule: Toast shown: \$message")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error showing toast: \${e.message}")
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun getCompletedAlarms(promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             val completed = Arguments.createMap()
-            
-            prefs.all.forEach { (key, value) ->
+
+                prefs.all.forEach {
+                    (key, value) ->
                 if (key.startsWith("completed_")) {
                     val reminderId = key.removePrefix("completed_")
-                    completed.putString(reminderId, value.toString())
+                        completed.putString(reminderId, value.toString())
+                    }
                 }
+
+                DebugLogger.log("AlarmModule: Retrieved \${completed.toHashMap().size} completed alarms")
+                promise.resolve(completed)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error getting completed alarms: \${e.message}")
+                promise.reject("ERROR", e.message, e)
             }
-            
-            DebugLogger.log("AlarmModule: Retrieved \${completed.toHashMap().size} completed alarms")
-            promise.resolve(completed)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting completed alarms: \${e.message}")
-            promise.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun clearCompletedAlarm(reminderId: String, promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().remove("completed_\${reminderId}").apply()
-            DebugLogger.log("AlarmModule: Cleared completed alarm \${reminderId}")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing completed alarm: \${e.message}")
-            promise.reject("ERROR", e.message, e)
+                prefs.edit().remove("completed_\${reminderId}").apply()
+                DebugLogger.log("AlarmModule: Cleared completed alarm \${reminderId}")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error clearing completed alarm: \${e.message}")
+                promise.reject("ERROR", e.message, e)
+            }
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun getSnoozedAlarms(promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             val snoozed = Arguments.createMap()
-            
-            prefs.all.forEach { (key, value) ->
+
+                prefs.all.forEach {
+                    (key, value) ->
                 if (key.startsWith("snoozed_")) {
                     val reminderId = key.removePrefix("snoozed_")
-                    snoozed.putString(reminderId, value.toString())
+                        snoozed.putString(reminderId, value.toString())
+                    }
                 }
+
+                DebugLogger.log("AlarmModule: Retrieved \${snoozed.toHashMap().size} snoozed alarms")
+                promise.resolve(snoozed)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error getting snoozed alarms: \${e.message}")
+                promise.reject("ERROR", e.message, e)
             }
-            
-            DebugLogger.log("AlarmModule: Retrieved \${snoozed.toHashMap().size} snoozed alarms")
-            promise.resolve(snoozed)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting snoozed alarms: \${e.message}")
-            promise.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun clearSnoozedAlarm(reminderId: String, promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().remove("snoozed_\${reminderId}").apply()
-            DebugLogger.log("AlarmModule: Cleared snoozed alarm \${reminderId}")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing snoozed alarm: \${e.message}")
-            promise.reject("ERROR", e.message, e)
+                prefs.edit().remove("snoozed_\${reminderId}").apply()
+                DebugLogger.log("AlarmModule: Cleared snoozed alarm \${reminderId}")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error clearing snoozed alarm: \${e.message}")
+                promise.reject("ERROR", e.message, e)
+            }
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun getDeletedAlarms(promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             val deleted = Arguments.createMap()
-            
-            prefs.all.forEach { (key, value) ->
+
+                prefs.all.forEach {
+                    (key, value) ->
                 if (key.startsWith("deleted_")) {
                     val reminderId = key.removePrefix("deleted_")
-                    deleted.putString(reminderId, value.toString())
+                        deleted.putString(reminderId, value.toString())
+                    }
                 }
-            }
-            
-            DebugLogger.log("AlarmModule: Retrieved \${deleted.toHashMap().size} deleted alarms")
-            promise.resolve(deleted)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting deleted alarms: \${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
 
-    @ReactMethod
+                DebugLogger.log("AlarmModule: Retrieved \${deleted.toHashMap().size} deleted alarms")
+                promise.resolve(deleted)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error getting deleted alarms: \${e.message}")
+                promise.reject("ERROR", e.message, e)
+            }
+        }
+
+        @ReactMethod
     fun clearDeletedAlarm(reminderId: String, promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().remove("deleted_\${reminderId}").apply()
-            DebugLogger.log("AlarmModule: Cleared deleted alarm \${reminderId}")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing deleted alarm: \${e.message}")
-            promise.reject("ERROR", e.message, e)
+                prefs.edit().remove("deleted_\${reminderId}").apply()
+                DebugLogger.log("AlarmModule: Cleared deleted alarm \${reminderId}")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error clearing deleted alarm: \${e.message}")
+                promise.reject("ERROR", e.message, e)
+            }
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun openRingtonePicker(promise: Promise) {
-        try {
+            try {
             val activity = reactContext.currentActivity
-            if (activity == null) {
-                promise.reject("NO_ACTIVITY", "Activity not available")
-                return
-            }
+                if (activity == null) {
+                    promise.reject("NO_ACTIVITY", "Activity not available")
+                    return
+                }
 
-            if (ringtonePickerPromise != null) {
-                promise.reject("ALREADY_OPEN", "Ringtone picker is already open")
-                return
-            }
+                if (ringtonePickerPromise != null) {
+                    promise.reject("ALREADY_OPEN", "Ringtone picker is already open")
+                    return
+                }
 
-            ringtonePickerPromise = promise
+                ringtonePickerPromise = promise
 
             // Get currently selected ringtone
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
 
             // Use custom themed ringtone picker
-            val intent = Intent(reactContext, RingtonePickerActivity::class.java).apply {
-                putExtra("currentUri", savedUriString)
+            val intent = Intent(reactContext, RingtonePickerActivity:: class.java).apply {
+                    putExtra("currentUri", savedUriString)
+                }
+
+                activity.startActivityForResult(intent, RINGTONE_PICKER_REQUEST_CODE)
+                DebugLogger.log("AlarmModule: Launched custom ringtone picker")
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error opening ringtone picker: \${e.message}")
+                ringtonePickerPromise?.reject("ERROR", e.message, e)
+                ringtonePickerPromise = null
+            }
+        }
+
+    private fun handleRingtonePickerResult(resultCode: Int, data: Intent ?) {
+            if (ringtonePickerPromise == null) {
+                DebugLogger.log("AlarmModule: No promise for ringtone picker result")
+                return
             }
 
-            activity.startActivityForResult(intent, RINGTONE_PICKER_REQUEST_CODE)
-            DebugLogger.log("AlarmModule: Launched custom ringtone picker")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error opening ringtone picker: \${e.message}")
-            ringtonePickerPromise?.reject("ERROR", e.message, e)
-            ringtonePickerPromise = null
-        }
-    }
-
-    private fun handleRingtonePickerResult(resultCode: Int, data: Intent?) {
-        if (ringtonePickerPromise == null) {
-            DebugLogger.log("AlarmModule: No promise for ringtone picker result")
-            return
-        }
-
-        try {
-            if (resultCode == Activity.RESULT_OK && data != null) {
+            try {
+                if (resultCode == Activity.RESULT_OK && data != null) {
                 val uriString = data.getStringExtra("selectedUri")
-                
-                if (uriString != null) {
+
+                    if (uriString != null) {
                     val uri = Uri.parse(uriString)
-                    
+
                     // Save the selected ringtone URI
                     val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-                    prefs.edit().putString("alarm_ringtone_uri", uriString).apply()
-                    
+                        prefs.edit().putString("alarm_ringtone_uri", uriString).apply()
+
                     // Get ringtone title for display
                     val ringtone = RingtoneManager.getRingtone(reactContext, uri)
                     val title = ringtone?.getTitle(reactContext) ?: "Custom Ringtone"
                     
                     val result = Arguments.createMap().apply {
-                        putString("uri", uriString)
-                        putString("title", title)
-                    }
-                    
-                    DebugLogger.log("AlarmModule: Ringtone selected: \$title")
-                    ringtonePickerPromise?.resolve(result)
-                } else {
-                    ringtonePickerPromise?.reject("ERROR", "No URI returned")
-                }
-            } else {
-                ringtonePickerPromise?.reject("CANCELLED", "User cancelled ringtone picker")
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error handling ringtone result: \${e.message}")
-            ringtonePickerPromise?.reject("ERROR", e.message, e)
-        } finally {
-            ringtonePickerPromise = null
-        }
-    }
+                            putString("uri", uriString)
+                            putString("title", title)
+                        }
 
-    @ReactMethod
+                        DebugLogger.log("AlarmModule: Ringtone selected: \$title")
+                        ringtonePickerPromise?.resolve(result)
+                    } else {
+                        ringtonePickerPromise?.reject("ERROR", "No URI returned")
+                    }
+                } else {
+                    ringtonePickerPromise?.reject("CANCELLED", "User cancelled ringtone picker")
+                }
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error handling ringtone result: \${e.message}")
+                ringtonePickerPromise?.reject("ERROR", e.message, e)
+            } finally {
+                ringtonePickerPromise = null
+            }
+        }
+
+        @ReactMethod
     fun getAlarmRingtone(promise: Promise) {
-        try {
+            try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             val savedUriString = prefs.getString("alarm_ringtone_uri", null)
-            
-            if (savedUriString != null) {
+
+                if (savedUriString != null) {
                 val uri = Uri.parse(savedUriString)
                 val ringtone = RingtoneManager.getRingtone(reactContext, uri)
                 val title = ringtone?.getTitle(reactContext) ?: "Custom Ringtone"
                 
                 val result = Arguments.createMap().apply {
-                    putString("uri", savedUriString)
-                    putString("title", title)
-                }
-                promise.resolve(result)
-            } else {
+                        putString("uri", savedUriString)
+                        putString("title", title)
+                    }
+                    promise.resolve(result)
+                } else {
                 val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 val result = Arguments.createMap().apply {
-                    putString("uri", defaultUri.toString())
-                    putString("title", "Default Alarm")
+                        putString("uri", defaultUri.toString())
+                        putString("title", "Default Alarm")
+                    }
+                    promise.resolve(result)
                 }
-                promise.resolve(result)
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error getting ringtone: \${e.message}")
+                promise.reject("ERROR", e.message, e)
             }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting ringtone: \${e.message}")
-            promise.reject("ERROR", e.message, e)
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun finishAffinity() {
-        try {
+            try {
             val activity = reactContext.currentActivity
-            activity?.finishAffinity()
-            DebugLogger.log("AlarmModule: finishAffinity called")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error in finishAffinity: \${e.message}")
+                activity?.finishAffinity()
+                DebugLogger.log("AlarmModule: finishAffinity called")
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error in finishAffinity: \${e.message}")
+            }
         }
-    }
 
-    @ReactMethod
+        @ReactMethod
     fun minimize() {
-        try {
+            try {
             val activity = reactContext.currentActivity
-            activity?.moveTaskToBack(true)
-            DebugLogger.log("AlarmModule: App minimized")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error minimizing app: \${e.message}")
+                activity?.moveTaskToBack(true)
+                DebugLogger.log("AlarmModule: App minimized")
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmModule: Error minimizing app: \${e.message}")
+            }
         }
-    }
-}`
+    }`
     }
 ];
 
@@ -3277,8 +3315,8 @@ const withAppGradle = (config) => {
                 buildGradle = buildGradle.replace(
                     /(\n\s*android\s*{\s*)/,
                     `$1    kotlinOptions {
-        jvmTarget = "17"
-    }
+    jvmTarget = "17"
+}
 `
                 );
             }
@@ -3288,7 +3326,7 @@ const withAppGradle = (config) => {
                     `$1    compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
-    }
+}
 `
                 );
             }
@@ -3297,10 +3335,11 @@ const withAppGradle = (config) => {
                 if (/dependencies\s*{/.test(buildGradle)) {
                     buildGradle = buildGradle.replace(
                         /dependencies\s*{/,
-                        `dependencies {\n    implementation 'com.google.android.material:material:1.11.0'`
+                        `dependencies {
+    \n    implementation 'com.google.android.material:material:1.11.0'`
                     );
                 } else {
-                    buildGradle += `\n\ndependencies {\n    implementation 'com.google.android.material:material:1.11.0'\n}\n`;
+                    buildGradle += `\n\ndependencies { \n    implementation 'com.google.android.material:material:1.11.0'\n } \n`;
                 }
             }
 
@@ -3309,10 +3348,11 @@ const withAppGradle = (config) => {
                 if (/dependencies\s*{/.test(buildGradle)) {
                     buildGradle = buildGradle.replace(
                         /dependencies\s*{/,
-                        `dependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'`
+                        `dependencies {
+        \n    implementation 'androidx.work:work-runtime-ktx:2.9.0'`
                     );
                 } else {
-                    buildGradle += `\n\ndependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n}\n`;
+                    buildGradle += `\n\ndependencies { \n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n } \n`;
                 }
             }
             config.modResults.contents = buildGradle;
