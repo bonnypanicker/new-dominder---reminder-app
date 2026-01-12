@@ -16,7 +16,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   // Modals replaced by routes
   const [currentRingtone, setCurrentRingtone] = useState<string>('Default Alarm');
-  const [expandedSection, setExpandedSection] = useState<string | null>('notifications');
+  const [expandedSection, setExpandedSection] = useState<string | null>('general');
 
   // Load current ringtone on mount
   useEffect(() => {
@@ -87,24 +87,24 @@ export default function SettingsScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={() => setExpandedSection(expandedSection === 'notifications' ? null : 'notifications')}
-          testID="section-notifications"
+          onPress={() => setExpandedSection(expandedSection === 'general' ? null : 'general')}
+          testID="section-general"
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
               <Feather name="bell" size={20} color={Material3Colors.light.primary} />
             </View>
-            <Text style={styles.sectionHeaderTitle}>Notifications</Text>
+            <Text style={styles.sectionHeaderTitle}>General</Text>
           </View>
           <Feather
             name="chevron-right"
             size={20}
             color={Material3Colors.light.onSurfaceVariant}
-            style={[styles.chevron, expandedSection === 'notifications' && styles.chevronExpanded]}
+            style={[styles.chevron, expandedSection === 'general' && styles.chevronExpanded]}
           />
         </TouchableOpacity>
 
-        {expandedSection === 'notifications' && (
+        {expandedSection === 'general' && (
           <View style={styles.sectionContent}>
             <View style={styles.toggleGroup}>
               <TouchableOpacity

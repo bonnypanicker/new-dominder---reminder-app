@@ -1151,17 +1151,13 @@ export default function HomeScreen() {
                           if (!nextDate) return 'Calculating...';
 
                           const timeStr = formatTime(nextDate.toTimeString().slice(0, 5));
-
-                          // Multi-mode: show only time
-                          if (reminder.repeatType === 'every' && reminder.multiSelectEnabled) {
-                            return timeStr;
-                          }
-
                           const dateStr = nextDate.toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           });
+
+                          // Always show date and time for all reminders
                           return `${dateStr} at ${timeStr}`;
                         })()}
                       </Text>
@@ -1236,12 +1232,12 @@ export default function HomeScreen() {
                                 return dates.map(formatDate).join(', ');
                               }
 
-                              // Show first 2, then +N in darker red
-                              const displayDates = dates.slice(0, 2).map(formatDate).join(', ');
+                              // Show first 3, then +N with background
+                              const displayDates = dates.slice(0, 3).map(formatDate).join(', ');
                               return (
                                 <>
                                   {displayDates}{' '}
-                                  <Text style={styles.selectedDatesMoreText}>+{dates.length - 2}</Text>
+                                  <Text style={styles.selectedDatesMoreText}>+{dates.length - 3}</Text>
                                 </>
                               );
                             })()}
@@ -1698,36 +1694,38 @@ export default function HomeScreen() {
             onRequestClose={() => setMultiDatesPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setMultiDatesPopupVisible(false)}>
-              <Pressable style={styles.historyPopupContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.historyPopupContent}>
                 <Text style={styles.historyPopupTitle}>Selected Dates</Text>
                 <Text style={[styles.historyPopupTitle, { fontSize: 14, fontWeight: 'normal', marginBottom: 16 }]}>{multiDatesPopupTitle}</Text>
-                <FlatList
-                  data={multiDatesPopupData}
-                  keyExtractor={(item) => item}
-                  renderItem={({ item }) => {
-                    const [y, m, d] = item.split('-').map(Number);
-                    const dt = new Date(y, m - 1, d);
-                    const dateStr = dt.toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    });
-                    return (
-                      <View style={styles.historyPopupItem}>
-                        <Text style={styles.historyPopupItemText}>
-                          {dateStr}
-                        </Text>
-                      </View>
-                    );
-                  }}
-                  style={styles.historyPopupList}
-                  showsVerticalScrollIndicator={true}
-                />
+                <Pressable onPress={(e) => e.stopPropagation()}>
+                  <FlatList
+                    data={multiDatesPopupData}
+                    keyExtractor={(item) => item}
+                    renderItem={({ item }) => {
+                      const [y, m, d] = item.split('-').map(Number);
+                      const dt = new Date(y, m - 1, d);
+                      const dateStr = dt.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      });
+                      return (
+                        <View style={styles.historyPopupItem}>
+                          <Text style={styles.historyPopupItemText}>
+                            {dateStr}
+                          </Text>
+                        </View>
+                      );
+                    }}
+                    style={styles.historyPopupList}
+                    showsVerticalScrollIndicator={true}
+                  />
+                </Pressable>
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setMultiDatesPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </Pressable>
+              </View>
             </Pressable>
           </Modal>
 
@@ -4125,8 +4123,13 @@ const styles = StyleSheet.create({
   },
   selectedDatesMoreText: {
     fontSize: 12,
-    color: '#B71C1C', // Darker red for +N
-    fontWeight: '600',
+    color: '#8B0000', // Dark red for +N
+    fontWeight: '700',
+    backgroundColor: '#FFEBEE', // Light red background
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   reminderRight: {
     flexDirection: 'row',

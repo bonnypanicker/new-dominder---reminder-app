@@ -562,21 +562,12 @@ export default function CustomizePanel({
 
           onSelectDate={(date) => {
             onUntilDateChange?.(date);
-            // Do not close if using multi-select 'view' mode or if we add multi-select to Ends too?
-            // User said: "In the 'ends' calendar modal visually show all selected dates but should not be selectable."
-            // So for Ends, we might just be picking the End Date? or just setting Time?
-            // "Visually show all selected dates but should not be selectable" -> implied read-only view of start dates?
-
             setUntilCalendarOpen(false);
-            // Open time selector only for Every minutes/hours as per behavior
-            const unit = everyUnit ?? 'hours';
-            const shouldOpenTime = repeatType === 'every' && (unit === 'minutes' || unit === 'hours');
-            if (shouldOpenTime) {
-              try {
-                onOpenUntilTime?.();
-              } catch (e) {
-                console.log('open time after until date error', e);
-              }
+            // Always open time picker when a date is touched (consistent with "Set Time" button)
+            try {
+              onOpenUntilTime?.();
+            } catch (e) {
+              console.log('open time after until date error', e);
             }
           }}
           disablePast={true}
@@ -3017,11 +3008,11 @@ const dropdownModalStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: 'transparent',
-    minHeight: 44,
+    minHeight: 48,
   },
   itemLeft: {
     flexDirection: 'row',
