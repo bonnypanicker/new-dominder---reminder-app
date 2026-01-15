@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform,
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
@@ -17,6 +18,7 @@ export default function SettingsScreen() {
   // Modals replaced by routes
   const [currentRingtone, setCurrentRingtone] = useState<string>('Default Alarm');
   const [expandedSection, setExpandedSection] = useState<string | null>('general');
+  const appVersion = (Constants as any)?.expoConfig?.version ?? (Constants as any)?.manifest?.version;
 
   // Load current ringtone on mount
   useEffect(() => {
@@ -317,7 +319,7 @@ export default function SettingsScreen() {
             <View style={styles.aboutCard}>
               <View style={styles.aboutHeader}>
                 <Text style={styles.aboutAppName}>DoMinder</Text>
-                <Text style={styles.aboutVersion}>v1.0.0</Text>
+                <Text style={styles.aboutVersion}>{appVersion ? `v${appVersion}` : ''}</Text>
               </View>
               <View style={styles.aboutDivider} />
               <TouchableOpacity
