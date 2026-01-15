@@ -214,7 +214,8 @@ export default function HomeScreen() {
   const [multiDatesPopupTitle, setMultiDatesPopupTitle] = useState('');
 
   const openMultiDatesPopup = useCallback((dates: string[], title: string) => {
-    setMultiDatesPopupData(dates);
+    const sorted = [...dates].sort((a, b) => a.localeCompare(b));
+    setMultiDatesPopupData(sorted);
     setMultiDatesPopupTitle(title);
     setMultiDatesPopupVisible(true);
   }, []);
@@ -549,7 +550,8 @@ export default function HomeScreen() {
 
     // Multi-select fields
     setMultiSelectEnabled(reminder.multiSelectEnabled ?? false);
-    setMultiSelectDates(reminder.multiSelectDates ?? []);
+    const sortedDates = [...(reminder.multiSelectDates ?? [])].sort((a, b) => a.localeCompare(b));
+    setMultiSelectDates(sortedDates);
     setMultiSelectDays(reminder.multiSelectDays ?? []);
 
     // Prefill Until fields
@@ -1227,7 +1229,7 @@ export default function HomeScreen() {
                                 return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                               };
 
-                              const dates = reminder.multiSelectDates ?? [];
+                              const dates = [...(reminder.multiSelectDates ?? [])].sort((a, b) => a.localeCompare(b));
                               if (dates.length <= 3) {
                                 return dates.map(formatDate).join(', ');
                               }
@@ -1786,7 +1788,10 @@ export default function HomeScreen() {
             multiSelectEnabled={multiSelectEnabled}
             onMultiSelectEnabledChange={setMultiSelectEnabled}
             multiSelectDates={multiSelectDates}
-            onMultiSelectDatesChange={setMultiSelectDates}
+            onMultiSelectDatesChange={(dates) => {
+              const sorted = [...dates].sort((a, b) => a.localeCompare(b));
+              setMultiSelectDates(sorted);
+            }}
             multiSelectDays={multiSelectDays}
             onMultiSelectDaysChange={setMultiSelectDays}
             onConfirm={() => {
