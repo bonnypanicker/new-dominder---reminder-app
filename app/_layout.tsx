@@ -333,7 +333,13 @@ function AppContent() {
               settings.soundEnabled ?? true,
               settings.vibrationEnabled ?? true
             );
-            console.log('[RootLayout] Initialized notification settings in native');
+
+            // Sync ringer volume
+            if (AlarmModule.saveRingerVolume) {
+              await AlarmModule.saveRingerVolume(settings.ringerVolume ?? 40);
+            }
+
+            console.log('[RootLayout] Initialized notification settings & volume in native');
           }
         }
       } catch (e) {

@@ -947,7 +947,7 @@ class AlarmRingtoneService : Service() {
             }
 
             // Set configured volume
-            val ringerVolume = prefs.getInt("ringer_volume", 100)
+            val ringerVolume = prefs.getInt("ringer_volume", 40)
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
             // Calculate target volume (10-100% -> scale to stream range)
