@@ -92,7 +92,7 @@ export default function SettingsScreen() {
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <Feather name="bell" size={20} color={Material3Colors.light.primary} />
+              <Feather name="sliders" size={20} color={Material3Colors.light.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>General</Text>
           </View>
@@ -129,7 +129,7 @@ export default function SettingsScreen() {
 
             {/* Ringer Mode Subsection */}
             <View style={styles.subsectionHeader}>
-              <Feather name="alert-circle" size={18} color={Material3Colors.light.primary} />
+              <Feather name="bell" size={18} color={Material3Colors.light.primary} />
               <Text style={styles.subsectionTitle}>Ringer Mode</Text>
             </View>
 
@@ -139,7 +139,7 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ soundEnabled: !settings.soundEnabled })}
                 testID="toggle-sound"
               >
-                <Feather name="volume-2" size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="speaker" size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Sound</Text>
                 <Switch
                   value={settings.soundEnabled}
