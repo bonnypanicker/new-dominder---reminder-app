@@ -55,7 +55,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
   }
 
   // Helpers
-  const { getReminders, deleteReminder } = require('./reminder-service');
+  const { getReminders, deleteReminder, permanentlyDeleteReminder } = require('./reminder-service');
 
   // Logic to find existing history item for this reminder
   const historyId = `${reminderId}_hist`;
@@ -86,7 +86,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     // Get the current occurrence count from JS
     let currentOccurred = reminder.occurrenceCount ?? 0;
-    
+
     // If not incrementing (native already did), sync from native to ensure accuracy
     if (!shouldIncrementOccurrence && AlarmModule?.getNativeReminderState) {
       try {
@@ -101,11 +101,11 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         console.log(`[Scheduler] Could not sync from native:`, e);
       }
     }
-    
+
     // For native completions (shouldIncrementOccurrence=false), we DON'T increment here
     // because native already did it. For JS completions, we DO increment.
     const newOccurrenceCount = shouldIncrementOccurrence ? currentOccurred + 1 : currentOccurred;
-    
+
     console.log(`[Scheduler] currentOccurred=${currentOccurred}, shouldIncrement=${shouldIncrementOccurrence}, newOccurrenceCount=${newOccurrenceCount}`);
 
     // Create context for calculating next date with the new occurrence count
@@ -113,15 +113,15 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     // Calculate next occurrence
     const nextDate = calculateNextReminderDate(calcContext as any, new Date());
-    
+
     console.log(`[Scheduler] Next occurrence calculated: ${nextDate ? nextDate.toISOString() : 'null (series ended)'}`);
 
     // Record this completion in history
     const existingHistory = await getHistoryItem();
-    
+
     // Check if this trigger time is already in history (avoid duplicates)
     const alreadyInHistory = existingHistory?.completionHistory?.includes(completedOccurrenceTime);
-    
+
     if (!alreadyInHistory) {
       if (existingHistory) {
         const updatedHistory = {
@@ -169,7 +169,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         isExpired: false,
       };
       await updateReminder(updated as any);
-      
+
       // Sync occurrence count to native for background scheduling
       if (AlarmModule?.updateOccurrenceCount && newOccurrenceCount !== undefined) {
         try {
@@ -179,27 +179,27 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           console.log(`[Scheduler] Failed to sync occurrenceCount to native:`, e);
         }
       }
-      
+
       await notificationService.scheduleReminderByModel(updated as any);
       console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
     } else {
       // Series ended - merge history into main reminder and mark complete
       console.log(`[Scheduler] Series ended for ${reminderId}, marking as completed`);
-      
+
       const finalHistory = await getHistoryItem();
       let historyTimes = finalHistory?.completionHistory || [];
-      
+
       // Add current completion if not already there
       if (!historyTimes.includes(completedOccurrenceTime)) {
         historyTimes.push(completedOccurrenceTime);
       }
-      
+
       // Sort history times
       historyTimes = historyTimes.sort();
 
       // Delete the separate history item if it exists
       if (finalHistory) {
-        await deleteReminder(finalHistory.id);
+        await permanentlyDeleteReminder(finalHistory.id);
       }
 
       const completed = {
@@ -215,7 +215,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       };
       await updateReminder(completed as any);
       await notificationService.cancelAllNotificationsForReminder(reminderId);
-      
+
       // Clear native metadata since reminder is complete
       if (AlarmModule?.clearReminderMetadata) {
         try {
@@ -233,7 +233,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     reminder.wasSnoozed = undefined;
     reminder.lastTriggeredAt = completedOccurrenceTime;
     await updateReminder(reminder);
-    
+
     // Clear native metadata for one-time reminders
     if (AlarmModule?.clearReminderMetadata) {
       try {
