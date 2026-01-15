@@ -44,28 +44,28 @@ export function useCompletedAlarmSync() {
         try {
           const nativeStates = await AlarmModule.getAllNativeReminderStates();
           const stateEntries = Object.entries(nativeStates || {});
-          
+
           if (stateEntries.length > 0) {
             console.log('[AlarmSync] Syncing native states for', stateEntries.length, 'reminders');
-            
+
             for (const [reminderId, state] of stateEntries) {
               const nativeState = state as any;
-              
+
               // ONLY sync occurrence count here - completion is handled via getCompletedAlarms
               // This prevents double-processing when both native state and completed alarms exist
               if (nativeState.actualTriggerCount > 0) {
                 const reminder = await getReminder(reminderId);
                 if (reminder && (reminder.occurrenceCount || 0) < nativeState.actualTriggerCount) {
-                  console.log('[AlarmSync] Syncing occurrenceCount from native:', reminderId, 
+                  console.log('[AlarmSync] Syncing occurrenceCount from native:', reminderId,
                     'JS:', reminder.occurrenceCount, '-> Native:', nativeState.actualTriggerCount);
-                  
+
                   await updateReminder({
                     ...reminder,
                     occurrenceCount: nativeState.actualTriggerCount
                   });
                 }
               }
-              
+
               // Also sync trigger history to JS history if available
               if (nativeState.triggerHistory) {
                 await syncTriggerHistoryToJS(reminderId, nativeState);
@@ -216,28 +216,28 @@ export function useCompletedAlarmSync() {
   const syncTriggerHistoryToJS = async (reminderId: string, nativeState: any) => {
     try {
       if (!nativeState.triggerHistory) return;
-      
+
       const triggerTimes = nativeState.triggerHistory.split(',')
         .map((t: string) => parseInt(t, 10))
         .filter((t: number) => !isNaN(t) && t > 0);
-      
+
       if (triggerTimes.length === 0) return;
-      
+
       const historyId = `${reminderId}_hist`;
       const allReminders = await getReminders();
       const existingHistory = allReminders.find((r: any) => r.id === historyId);
       const mainReminder = await getReminder(reminderId);
-      
+
       if (!mainReminder) return;
-      
+
       // Convert trigger times to ISO strings
       const nativeTriggerISOs = triggerTimes.map((t: number) => new Date(t).toISOString());
-      
+
       if (existingHistory) {
         // Merge native triggers with existing history (avoid duplicates)
         const existingTimes = new Set(existingHistory.completionHistory || []);
         const newTimes = nativeTriggerISOs.filter((t: string) => !existingTimes.has(t));
-        
+
         if (newTimes.length > 0) {
           const mergedHistory = [...(existingHistory.completionHistory || []), ...newTimes].sort();
           await updateReminder({
@@ -247,7 +247,7 @@ export function useCompletedAlarmSync() {
           } as any);
           console.log('[AlarmSync] Merged', newTimes.length, 'native triggers to history for', reminderId);
         }
-      } else if (nativeTriggerISOs.length > 0 && !mainReminder.isCompleted) {
+      } else if (nativeTriggerISOs.length > 0 && !mainReminder.isCompleted && mainReminder.repeatType !== 'none') {
         // Create history item with native triggers
         const historyItem = {
           ...mainReminder,
