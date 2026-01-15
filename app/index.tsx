@@ -4128,9 +4128,9 @@ const styles = StyleSheet.create({
   },
   selectedDatesMoreText: {
     fontSize: 12,
-    color: '#8B0000', // Dark red for +N
+    color: '#374151', // Gray-700
     fontWeight: '700',
-    backgroundColor: '#FFEBEE', // Light red background
+    backgroundColor: '#F3F4F6', // Gray-100
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,

@@ -1551,11 +1551,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 8,
     backgroundColor: 'transparent',
-    minHeight: 28,
+    minHeight: 44,
   },
   inlineDropdownItemLeft: {
     flexDirection: 'row',
@@ -1584,7 +1584,7 @@ const styles = StyleSheet.create({
   },
   inlineUnitDropdownItem: {
     paddingHorizontal: 10,
-    paddingVertical: 2,
+    paddingVertical: 10,
     marginHorizontal: 2,
     marginVertical: 1,
     borderRadius: 6,
