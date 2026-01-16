@@ -1237,6 +1237,9 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
         
+        // Cancel timeout immediately to prevent missed notification
+        timeoutRunnable?.let { handler.removeCallbacks(it) }
+        
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
@@ -1273,6 +1276,9 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: \${reminderId}")
+        
+        // Cancel timeout immediately to prevent missed notification
+        timeoutRunnable?.let { handler.removeCallbacks(it) }
         
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
