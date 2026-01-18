@@ -4,9 +4,9 @@ import { Priority } from '@/types/reminder';
 import { PRIORITY_COLORS } from '@/constants/reminders';
 import { Material3Colors } from '@/constants/colors';
 import { Feather } from '@expo/vector-icons';
-const AlertTriangle = (props: any) => <Feather name="alert-triangle" {...props} />;
 const Bell = (props: any) => <Feather name="bell" {...props} />;
-const Info = (props: any) => <Feather name="info" {...props} />;
+const Moon = (props: any) => <Feather name="moon" {...props} style={[props.style, { marginLeft: 1.5 }]} />;
+const Speaker = (props: any) => <Feather name="volume-2" {...props} style={[props.style, { marginLeft: 0.5 }]} />;
 
 interface PrioritySelectorProps {
   priority: Priority;
@@ -23,12 +23,12 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
     {
       value: 'low',
       label: 'Silent',
-      IconComponent: Info,
+      IconComponent: Moon,
     },
     {
       value: 'high',
       label: 'Ringer',
-      IconComponent: AlertTriangle,
+      IconComponent: Speaker,
     },
   ];
 
@@ -44,9 +44,9 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
               priority === item.value
                 ? [styles.selectedOption, { borderColor: PRIORITY_COLORS[item.value] }]
                 : [
-                    styles.unselectedOption,
-                    { borderColor: Material3Colors.light.outlineVariant },
-                  ],
+                  styles.unselectedOption,
+                  { borderColor: Material3Colors.light.outlineVariant },
+                ],
             ]}
             onPress={() => {
               onPriorityChange(item.value);
