@@ -167,6 +167,28 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
           const isSelectedDate = reminder.multiSelectDates?.includes(dateStr);
           const isSelectedDay = reminder.multiSelectDays?.includes(dayOfWeek);
 
+          // Fix: If count limit reached for TODAY, skip generating occurrences for today
+          // so we keep looking for a FUTURE day (series continuation).
+          if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
+            const occurred = reminder.occurrenceCount ?? 0;
+            if (occurred >= reminder.untilCount) {
+              const fY = fromDate.getFullYear();
+              const fM = fromDate.getMonth();
+              const fD = fromDate.getDate();
+
+              const cY = checkDate.getFullYear();
+              const cM = checkDate.getMonth();
+              const cD = checkDate.getDate();
+
+              const isToday = cY === fY && cM === fM && cD === fD;
+
+              if (isToday) {
+                // Skip today because we're done for the day
+                continue;
+              }
+            }
+          }
+
           if (isSelectedDate || isSelectedDay) {
             // This day is valid. Generate occurrences within window.
             const startWindow = new Date(checkDate);

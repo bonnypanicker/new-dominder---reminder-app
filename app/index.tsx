@@ -1664,7 +1664,7 @@ export default function HomeScreen() {
             onRequestClose={() => setHistoryPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setHistoryPopupVisible(false)}>
-              <Pressable style={styles.historyPopupContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.historyPopupContent} onStartShouldSetResponder={() => true}>
                 <Text style={styles.historyPopupTitle}>History</Text>
                 <FlatList
                   data={historyPopupData}
@@ -1685,7 +1685,7 @@ export default function HomeScreen() {
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setHistoryPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </Pressable>
+              </View>
             </Pressable>
           </Modal>
 
@@ -1696,34 +1696,32 @@ export default function HomeScreen() {
             onRequestClose={() => setMultiDatesPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setMultiDatesPopupVisible(false)}>
-              <View style={styles.historyPopupContent}>
+              <View style={styles.historyPopupContent} onStartShouldSetResponder={() => true}>
                 <Text style={styles.historyPopupTitle}>Selected Dates</Text>
                 <Text style={[styles.historyPopupTitle, { fontSize: 14, fontWeight: 'normal', marginBottom: 16 }]}>{multiDatesPopupTitle}</Text>
-                <Pressable onPress={(e) => e.stopPropagation()}>
-                  <FlatList
-                    data={multiDatesPopupData}
-                    keyExtractor={(item) => item}
-                    renderItem={({ item }) => {
-                      const [y, m, d] = item.split('-').map(Number);
-                      const dt = new Date(y, m - 1, d);
-                      const dateStr = dt.toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      });
-                      return (
-                        <View style={styles.historyPopupItem}>
-                          <Text style={styles.historyPopupItemText}>
-                            {dateStr}
-                          </Text>
-                        </View>
-                      );
-                    }}
-                    style={styles.historyPopupList}
-                    showsVerticalScrollIndicator={true}
-                  />
-                </Pressable>
+                <FlatList
+                  data={multiDatesPopupData}
+                  keyExtractor={(item) => item}
+                  renderItem={({ item }) => {
+                    const [y, m, d] = item.split('-').map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    const dateStr = dt.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    });
+                    return (
+                      <View style={styles.historyPopupItem}>
+                        <Text style={styles.historyPopupItemText}>
+                          {dateStr}
+                        </Text>
+                      </View>
+                    );
+                  }}
+                  style={styles.historyPopupList}
+                  showsVerticalScrollIndicator={true}
+                />
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setMultiDatesPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
@@ -4476,8 +4474,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   historyPopupList: {
-    maxHeight: 300,
-    flexGrow: 0,
+    width: '100%',
+    flexShrink: 1,
   },
   historyPopupItem: {
     paddingVertical: 12,

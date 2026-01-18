@@ -33,7 +33,7 @@ RepeatModeChip.displayName = 'RepeatModeChip';
 
 // Memoized priority option component
 const PriorityOption = React.memo<{
-  priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' };
+  priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' | 'moon' };
   isSelected: boolean;
   onPress: (value: 'standard' | 'silent' | 'ringer') => void;
 }>(({ priority, isSelected, onPress }) => {
@@ -73,8 +73,8 @@ export default function DefaultsScreen() {
 
   const priorities = useMemo(() => [
     { value: 'standard' as const, label: 'Standard', icon: 'bell' as const },
-    { value: 'silent' as const, label: 'Silent', icon: 'volume-2' as const },
-    { value: 'ringer' as const, label: 'Ringer Mode', icon: 'alert-circle' as const },
+    { value: 'silent' as const, label: 'Silent', icon: 'moon' as const },
+    { value: 'ringer' as const, label: 'Ringer Mode', icon: 'volume-2' as const },
   ], []);
 
   if (!settings) return null;
@@ -89,10 +89,10 @@ export default function DefaultsScreen() {
         <Text style={styles.title}>Reminder Defaults</Text>
         <View style={styles.placeholder} />
       </View>
-      
+
       {/* Content */}
-      <ScrollView 
-        style={styles.defaultsList} 
+      <ScrollView
+        style={styles.defaultsList}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -113,7 +113,7 @@ export default function DefaultsScreen() {
 
         {/* Priority Section */}
         <View style={styles.defaultsSection}>
-          <Text style={styles.defaultsSectionTitle}>Default Priority</Text>
+          <Text style={styles.defaultsSectionTitle}>Default Reminder Mode</Text>
           <View style={styles.priorityOptions}>
             {priorities.map((priority) => (
               <PriorityOption
