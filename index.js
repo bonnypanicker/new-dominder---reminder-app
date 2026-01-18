@@ -15,13 +15,13 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         console.log('[onBackgroundEvent] Midnight refresh trigger received');
         // Immediately cancel the trigger notification
         if (notification?.id) {
-          try { await notifee.cancelNotification(notification.id); } catch {}
+          try { await notifee.cancelNotification(notification.id); } catch { }
         }
         const { refreshDisplayedNotifications, scheduleMidnightRefresh } = require('./services/notification-refresh-service');
         // Trigger pending check to catch any missed ringers at midnight
         const { checkAndTriggerPendingNotifications } = require('./services/startup-notification-check');
         await checkAndTriggerPendingNotifications();
-        
+
         await refreshDisplayedNotifications();
         await scheduleMidnightRefresh(); // Schedule next midnight refresh
         return;
@@ -41,7 +41,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       // Get reminder and check if it's an "every" type that needs automatic rescheduling
       const reminderService = require('./services/reminder-service');
       const reminder = await reminderService.getReminder(reminderId);
-      
+
       if (!reminder) {
         console.log(`[onBackgroundEvent] Reminder ${reminderId} not found for delivered event`);
         return;
@@ -57,9 +57,30 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         // Increment occurrence count on delivery (but do not exceed untilCount)
         const occurred = reminder.occurrenceCount ?? 0;
         const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
-        const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount)
-          ? occurred
-          : occurred + 1;
+
+        let nextVal = occurred + 1;
+
+        // Fix for Multi-Select + Every: Reset count if new day (Background)
+        if (reminder.multiSelectEnabled && reminder.repeatType === 'every') {
+          const lastTriggerStr = reminder.lastTriggeredAt;
+          if (lastTriggerStr) {
+            const lastD = new Date(lastTriggerStr);
+            const currD = new Date(triggeredAt);
+            const isSameDay = lastD.getFullYear() === currD.getFullYear() &&
+              lastD.getMonth() === currD.getMonth() &&
+              lastD.getDate() === currD.getDate();
+            if (!isSameDay) {
+              console.log('[onBackgroundEvent] Multi-select new day delivery, resetting occurrence count to 1');
+              nextVal = 1;
+            }
+          } else {
+            // If no lastTriggeredAt, default 1 is correct
+          }
+        }
+
+        const nextOccurCount = hasCountCap && nextVal > (reminder.untilCount)
+          ? (reminder.untilCount)
+          : nextVal;
         const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
 
         const reminderUtils = require('./services/reminder-utils');
@@ -115,7 +136,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     const reminderId = notification.data && notification.data.reminderId;
 
     // Cancel only this notification
-    try { await notifee.cancelNotification(notification.id); } catch {}
+    try { await notifee.cancelNotification(notification.id); } catch { }
 
     if (pressAction.id === 'done') {
       const svc = require('./services/reminder-scheduler');

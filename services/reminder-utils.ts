@@ -157,7 +157,7 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
           // Use setDate for reliable day iteration (handles DST/Timezones better than ms addition)
           const checkDate = new Date(cursor);
           checkDate.setDate(cursor.getDate() + i);
-          
+
           const yyyy = checkDate.getFullYear();
           const month = String(checkDate.getMonth() + 1).padStart(2, '0');
           const dd = String(checkDate.getDate()).padStart(2, '0');
@@ -269,8 +269,32 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
   if (reminder.untilType === 'count' && typeof reminder.untilCount === 'number') {
     const occurred = reminder.occurrenceCount ?? 0;
     if (occurred >= reminder.untilCount) {
-      console.log(`[calculateNextReminderDate] Count cap reached (${occurred}/${reminder.untilCount}), no next occurrence`);
-      return null;
+      let allowFutureDay = false;
+      // Fix for Multi-Select + Every: allow future day candidates even if limit reached for today
+      // This interprets "Ends after X occurrences" as "per day" or "per session" for multi-select
+      if (reminder.multiSelectEnabled && reminder.repeatType === 'every' && candidate) {
+        // Simple same-day check logic without external dependency
+        const cY = candidate.getFullYear();
+        const cM = candidate.getMonth();
+        const cD = candidate.getDate();
+
+        const fY = fromDate.getFullYear();
+        const fM = fromDate.getMonth();
+        const fD = fromDate.getDate();
+
+        // If candidate is strictly in the future day compared to fromDate
+        const isFutureDay = (cY > fY) || (cY === fY && cM > fM) || (cY === fY && cM === fM && cD > fD);
+
+        if (isFutureDay) {
+          console.log(`[calculateNextReminderDate] Count limit reached for TODAY, but candidate is FUTURE day, allowing: ${candidate.toISOString()}`);
+          allowFutureDay = true;
+        }
+      }
+
+      if (!allowFutureDay) {
+        console.log(`[calculateNextReminderDate] Count cap reached (${occurred}/${reminder.untilCount}), no next occurrence`);
+        return null;
+      }
     }
   }
 

@@ -157,8 +157,24 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     if (nextDate) {
       // More occurrences to come - update and reschedule
+
+      let countToSave = newOccurrenceCount;
+      if (reminder.multiSelectEnabled && reminder.repeatType === 'every') {
+        const compTime = new Date(completedOccurrenceTime);
+        const nDate = new Date(nextDate);
+        const isSameDay = compTime.getFullYear() === nDate.getFullYear() &&
+          compTime.getMonth() === nDate.getMonth() &&
+          compTime.getDate() === nDate.getDate();
+
+        if (!isSameDay) {
+          console.log(`[Scheduler] Multi-select day switch (${compTime.toISOString()} -> ${nDate.toISOString()}), resetting next occurrence count to 0`);
+          countToSave = 0;
+        }
+      }
+
       const updated = {
         ...calcContext,
+        occurrenceCount: countToSave,
         nextReminderDate: nextDate.toISOString(),
         lastTriggeredAt: completedOccurrenceTime,
         snoozeUntil: undefined,
@@ -171,10 +187,10 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       await updateReminder(updated as any);
 
       // Sync occurrence count to native for background scheduling
-      if (AlarmModule?.updateOccurrenceCount && newOccurrenceCount !== undefined) {
+      if (AlarmModule?.updateOccurrenceCount && countToSave !== undefined) {
         try {
-          await AlarmModule.updateOccurrenceCount(reminderId, newOccurrenceCount);
-          console.log(`[Scheduler] Synced occurrenceCount ${newOccurrenceCount} to native for ${reminderId}`);
+          await AlarmModule.updateOccurrenceCount(reminderId, countToSave);
+          console.log(`[Scheduler] Synced occurrenceCount ${countToSave} to native for ${reminderId}`);
         } catch (e) {
           console.log(`[Scheduler] Failed to sync occurrenceCount to native:`, e);
         }

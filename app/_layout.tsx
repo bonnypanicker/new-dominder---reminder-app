@@ -188,9 +188,31 @@ function AppContent() {
             // Increment occurrence count on delivery (but do not exceed untilCount)
             const occurred = reminder.occurrenceCount ?? 0;
             const hasCountCap = reminder.untilType === 'count' && typeof reminder.untilCount === 'number';
-            const nextOccurCount = hasCountCap && occurred >= (reminder.untilCount as number)
-              ? occurred
-              : occurred + 1;
+
+            let nextVal = occurred + 1;
+
+            // Fix for Multi-Select + Every: Reset count if new day
+            if (reminder.multiSelectEnabled && reminder.repeatType === 'every') {
+              const lastTriggerStr = reminder.lastTriggeredAt;
+              if (lastTriggerStr) {
+                const lastD = new Date(lastTriggerStr);
+                const currD = new Date(triggeredAt);
+                const isSameDay = lastD.getFullYear() === currD.getFullYear() &&
+                  lastD.getMonth() === currD.getMonth() &&
+                  lastD.getDate() === currD.getDate();
+                if (!isSameDay) {
+                  console.log('[RootLayout] Multi-select new day delivery, resetting occurrence count to 1');
+                  nextVal = 1;
+                }
+              } else {
+                // First ever trigger? (lastTriggeredAt might be null or create date).
+                // If null, nextVal=1 implies 1st. Safe.
+              }
+            }
+
+            const nextOccurCount = hasCountCap && nextVal > (reminder.untilCount as number)
+              ? (reminder.untilCount as number)
+              : nextVal;
             const forCalc = { ...reminder, occurrenceCount: nextOccurCount };
 
             const reminderUtils = require('../services/reminder-utils');
