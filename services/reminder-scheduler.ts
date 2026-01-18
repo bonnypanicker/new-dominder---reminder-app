@@ -20,25 +20,92 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
     return;
   }
 
-  const nextTime = Date.now() + minutes * 60 * 1000;
+  // FIX: For Repeating Reminders, separate Snooze from Series to prevent overwriting
+  if (reminder.repeatType !== 'none') {
+    console.log(`[Scheduler] Snoozing REPEATING reminder ${reminderId}. Splitting Snooze vs Series.`);
 
-  await notificationService.cancelAllNotificationsForReminder(reminderId);
+    const snoozeTime = Date.now() + minutes * 60 * 1000;
+    const shadowId = `${reminderId}_snooze`;
+    const priority = reminder.priority || 'medium';
 
-  reminder.snoozeUntil = new Date(nextTime).toISOString();
-  reminder.wasSnoozed = true;
-  reminder.lastTriggeredAt = new Date().toISOString();
+    // Cancel notifications for the current trigger (cleaning up UI)
+    await notificationService.cancelAllNotificationsForReminder(reminderId);
 
-  await updateReminder(reminder);
-  console.log(`[Scheduler] Snoozed reminder ${reminderId} until ${new Date(nextTime).toISOString()}`);
+    // 1. Schedule "Shadow Snooze" via Native Module
+    if (AlarmModule?.storeReminderMetadata) {
+      try {
+        // Store simplified metadata for the snooze instance (non-repeating)
+        const snoozeDateObj = new Date(snoozeTime);
+        const sDate = snoozeDateObj.toISOString().split('T')[0];
+        const sTime = `${snoozeDateObj.getHours().toString().padStart(2, '0')}:${snoozeDateObj.getMinutes().toString().padStart(2, '0')}`;
 
-  // Refetch to get latest priority and other fields that may have changed
-  const updatedReminder = await getReminder(reminderId);
-  if (!updatedReminder) {
-    console.error(`[Scheduler] Failed to refetch reminder ${reminderId} after snooze update`);
-    return;
+        await AlarmModule.storeReminderMetadata(
+          shadowId,
+          'none', // Repeat 'none' for snooze instance
+          1, 'minutes', 'forever', 0, '', '', // until
+          0, // occurrence
+          sDate,
+          sTime,
+          `Snoozed: ${reminder.title}`,
+          priority,
+          false, '[]', '[]', '', false // multiselect
+        );
+
+        // Schedule the Native Snooze Alarm
+        await AlarmModule.scheduleAlarm(shadowId, snoozeTime, `Snoozed: ${reminder.title}`, priority);
+        console.log(`[Scheduler] Scheduled native shadow snooze ${shadowId} at ${snoozeDateObj.toISOString()}`);
+      } catch (e) {
+        console.error(`[Scheduler] Error scheduling native shadow snooze:`, e);
+      }
+    }
+
+    // 2. Advance the Series immediately
+    const now = new Date();
+    // Update 'lastTriggeredAt' to now so calculation moves forward
+    const calcContext = { ...reminder, lastTriggeredAt: now.toISOString() };
+    const nextDate = calculateNextReminderDate(calcContext as any, now);
+
+    if (nextDate) {
+      const updated = {
+        ...reminder,
+        nextReminderDate: nextDate.toISOString(),
+        lastTriggeredAt: now.toISOString(),
+        snoozeUntil: undefined, // Clear existing snooze if any
+        wasSnoozed: undefined,
+        isActive: true
+      };
+      await updateReminder(updated as any);
+      await notificationService.scheduleReminderByModel(updated as any);
+      console.log(`[Scheduler] Repeater snoozed. Series advanced to ${nextDate.toISOString()}`);
+    } else {
+      // Series ended
+      console.log(`[Scheduler] Repeater snoozed. Series ended.`);
+      const updated = {
+        ...reminder,
+        lastTriggeredAt: now.toISOString(),
+        isActive: false
+      };
+      await updateReminder(updated as any);
+    }
+
+  } else {
+    // Original Logic for One-Off Reminders
+    const nextTime = Date.now() + minutes * 60 * 1000;
+
+    await notificationService.cancelAllNotificationsForReminder(reminderId);
+
+    reminder.snoozeUntil = new Date(nextTime).toISOString();
+    reminder.wasSnoozed = true;
+    reminder.lastTriggeredAt = new Date().toISOString();
+
+    await updateReminder(reminder);
+    console.log(`[Scheduler] Snoozed one-off reminder ${reminderId} until ${new Date(nextTime).toISOString()}`);
+
+    const updatedReminder = await getReminder(reminderId);
+    if (updatedReminder) {
+      await notificationService.scheduleReminderByModel(updatedReminder);
+    }
   }
-
-  await notificationService.scheduleReminderByModel(updatedReminder);
 
   DeviceEventEmitter.emit('remindersChanged');
 }

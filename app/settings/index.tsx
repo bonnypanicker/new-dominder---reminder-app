@@ -131,8 +131,7 @@ export default function SettingsScreen() {
 
             {/* Ringer Mode Subsection */}
             <View style={styles.subsectionHeader}>
-              <Feather name="bell" size={18} color={Material3Colors.light.primary} />
-              <Text style={styles.subsectionTitle}>Ringer Mode</Text>
+              <Text style={[styles.subsectionTitle, { marginLeft: 0 }]}>Ringer Mode</Text>
             </View>
 
             <View style={styles.toggleGroup}>
@@ -239,7 +238,7 @@ export default function SettingsScreen() {
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <Feather name="alert-circle" size={20} color={Material3Colors.light.primary} />
+              <Feather name="check-square" size={20} color={Material3Colors.light.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>Preferences</Text>
           </View>
@@ -258,7 +257,7 @@ export default function SettingsScreen() {
               testID="open-defaults"
             >
               <View style={styles.preferenceIcon}>
-                <Feather name="alert-circle" size={20} color={Material3Colors.light.primary} />
+                <Feather name="check-square" size={20} color={Material3Colors.light.primary} />
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceTitle}>Reminder Defaults</Text>

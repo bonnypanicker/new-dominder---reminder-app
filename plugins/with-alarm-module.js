@@ -269,8 +269,32 @@ class AlarmActionBridge : BroadcastReceiver() {
 
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
-                    // 1. Schedule Native Alarm IMMEDIATELY (Fallback)
-                    scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
+                    // Check if repeating
+                    val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+                    val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
+                    
+                    if (repeatType != "none") {
+                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
+                         
+                         // 1. Schedule Shadow Snooze
+                         val shadowId = reminderId + "_snooze"
+                         
+                         // Store minimal metadata for shadowId so it can ring!
+                         metaPrefs.edit().apply {
+                             putString("meta_\${shadowId}_title", "Snoozed: \${title}")
+                             putString("meta_\${shadowId}_priority", priority)
+                             putString("meta_\${shadowId}_repeatType", "none") // Force none
+                             apply()
+                         }
+                         
+                         scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
+                         
+                         // 2. Advance Series (Schedule Next Regular Occurrence)
+                         scheduleNextOccurrenceIfNeeded(context, reminderId)
+                    } else {
+                         // One-off: Standard overwrite behavior
+                         scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
+                    }
 
                     // 2. Try emit to RN (UI Update)
                     DebugLogger.log("AlarmActionBridge: About to emit alarmSnooze event to React Native")
