@@ -75,7 +75,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
   // with predictive back gestures (android:enableOnBackInvokedCallback="true")
   const handleBackPress = useCallback(() => {
     if (!visible) return false;
-    
+
     if (index > 0) {
       // Go back to previous slide
       lastInteraction.current = 'programmatic';

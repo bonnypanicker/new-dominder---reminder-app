@@ -39,7 +39,8 @@
         "android.permission.USE_EXACT_ALARM",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.VIBRATE",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
