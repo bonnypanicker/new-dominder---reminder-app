@@ -1616,7 +1616,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
 import app.rork.dominder_android_reminder_app.R
@@ -1624,41 +1623,31 @@ import app.rork.dominder_android_reminder_app.R
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         DebugLogger.log("AlarmReceiver: Received broadcast")
+        val reminderId = intent.getStringExtra("reminderId")
+        val title = intent.getStringExtra("title") ?: "Reminder"
+        val priority = intent.getStringExtra("priority") ?: "medium"
+        val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
         
-        // CRITICAL: Acquire wake lock to ensure processing completes even if device is sleeping
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "DoMinder::AlarmReceiverWakeLock"
-        )
-        wakeLock.acquire(60000) // Hold for up to 60 seconds
+        if (reminderId == null) {
+            DebugLogger.log("AlarmReceiver: reminderId is null")
+            return
+        }
         
-        try {
-            val reminderId = intent.getStringExtra("reminderId")
-            val title = intent.getStringExtra("title") ?: "Reminder"
-            val priority = intent.getStringExtra("priority") ?: "medium"
-            val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
-            
-            if (reminderId == null) {
-                DebugLogger.log("AlarmReceiver: reminderId is null")
-                return
-            }
-            
-            // Determine if this is a snooze shadow alarm
-            val isSnoozeAlarm = reminderId.endsWith("_snooze")
-            val parentReminderId = if (isSnoozeAlarm) reminderId.removeSuffix("_snooze") else reminderId
-            
-            DebugLogger.log("AlarmReceiver: reminderId=\$reminderId, isSnooze=\$isSnoozeAlarm, parent=\$parentReminderId")
+        // Determine if this is a snooze shadow alarm
+        val isSnoozeAlarm = reminderId.endsWith("_snooze")
+        val parentReminderId = if (isSnoozeAlarm) reminderId.removeSuffix("_snooze") else reminderId
+        
+        DebugLogger.log("AlarmReceiver: reminderId=\$reminderId, isSnooze=\$isSnoozeAlarm, parent=\$parentReminderId")
 
-            // CRITICAL: Check if reminder is paused before firing
-            val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
-            val isPaused = prefs.getBoolean("paused_\$parentReminderId", false)
-            if (isPaused) {
-                DebugLogger.log("AlarmReceiver: Reminder \$parentReminderId is PAUSED - skipping alarm")
-                return
-            }
-            
-            // CRITICAL: Check if reminder is already completed (native state)
+        // CRITICAL: Check if reminder is paused before firing
+        val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+        val isPaused = prefs.getBoolean("paused_\$parentReminderId", false)
+        if (isPaused) {
+            DebugLogger.log("AlarmReceiver: Reminder \$parentReminderId is PAUSED - skipping alarm")
+            return
+        }
+        
+        // CRITICAL: Check if reminder is already completed (native state)
         val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
         val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
         if (isNativeCompleted) {
@@ -1768,13 +1757,6 @@ class AlarmReceiver : BroadcastReceiver() {
         
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
-        } finally {
-            // Release wake lock
-            if (wakeLock.isHeld) {
-                wakeLock.release()
-                DebugLogger.log("AlarmReceiver: Wake lock released")
-            }
-        }
     }
     
     /**
@@ -2723,23 +2705,13 @@ class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) :
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.work.Constraints
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            // Create constraints that allow work even in restrictive conditions
-            val constraints = Constraints.Builder()
-                .setRequiresBatteryNotLow(false) // Allow even on low battery
-                .setRequiresDeviceIdle(false) // Don't wait for device idle
-                .build()
-            
-            val workRequest = OneTimeWorkRequest.Builder(RescheduleAlarmsWorker::class.java)
-                .setConstraints(constraints)
-                .build()
-            
+            val workRequest = OneTimeWorkRequest.Builder(RescheduleAlarmsWorker::class.java).build()
             WorkManager.getInstance(context).enqueue(workRequest)
         }
     }
