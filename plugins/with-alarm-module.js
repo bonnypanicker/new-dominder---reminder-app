@@ -642,6 +642,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority)
+                putExtra("isSnoozed", true) // CRITICAL: Mark as snoozed so AlarmReceiver doesn't mark it complete
                 addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
@@ -1514,7 +1515,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
+        val isSnoozed = intent.getBooleanExtra("isSnoozed", false)
         val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
+        
+        DebugLogger.log("AlarmReceiver: reminderId=\$reminderId, priority=\$priority, isSnoozed=\$isSnoozed")
         
         if (reminderId == null) {
             DebugLogger.log("AlarmReceiver: reminderId is null")
@@ -1530,21 +1534,26 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         
         // CRITICAL: Check if reminder is already completed (native state)
-        val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-        val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
-        if (isNativeCompleted) {
-            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
-            return
-        }
-        
-        // CRITICAL: Record this trigger in native state BEFORE showing alarm
-        // This ensures accurate tracking even if app is killed
-        recordNativeTrigger(context, reminderId, triggerTime)
-        
-        // Check if this trigger completes the reminder (count or time based)
-        val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-        if (shouldComplete) {
-            DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
+        // BUT skip this check for snoozed alarms since they should always fire
+        if (!isSnoozed) {
+            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
+            if (isNativeCompleted) {
+                DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
+                return
+            }
+            
+            // CRITICAL: Record this trigger in native state BEFORE showing alarm
+            // This ensures accurate tracking even if app is killed
+            recordNativeTrigger(context, reminderId, triggerTime)
+            
+            // Check if this trigger completes the reminder (count or time based)
+            val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
+            if (shouldComplete) {
+                DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
+            }
+        } else {
+            DebugLogger.log("AlarmReceiver: Snoozed alarm - skipping completion checks")
         }
 
         // Start AlarmRingtoneService for high priority reminders
