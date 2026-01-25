@@ -267,32 +267,104 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val priority = intent.getStringExtra("priority") ?: "medium"
 
-                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
+                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: ${reminderId}, minutes: ${snoozeMinutes}")
                 if (reminderId != null) {
                     // Check if repeating
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-                    val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
+                    val repeatType = metaPrefs.getString("meta_${reminderId}_repeatType", "none") ?: "none"
                     
                     if (repeatType != "none") {
-                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
+                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder ${reminderId}. Splitting Snooze vs Series.")
                          
-                         // 1. Schedule Shadow Snooze
+                         // 1. Schedule Shadow Snooze with COMPLETE metadata
                          val shadowId = reminderId + "_snooze"
                          
-                         // Store minimal metadata for shadowId so it can ring!
+                         // Calculate snooze time
+                         val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
+                         val snoozeCal = Calendar.getInstance().apply {
+                             timeInMillis = snoozeTimeMs
+                         }
+                         
+                         // Format date and time
+                         val snoozeDate = String.format(
+                             "%04d-%02d-%02d",
+                             snoozeCal.get(Calendar.YEAR),
+                             snoozeCal.get(Calendar.MONTH) + 1,
+                             snoozeCal.get(Calendar.DAY_OF_MONTH)
+                         )
+                         val snoozeTime = String.format(
+                             "%02d:%02d",
+                             snoozeCal.get(Calendar.HOUR_OF_DAY),
+                             snoozeCal.get(Calendar.MINUTE)
+                         )
+                         
+                         // Store COMPLETE metadata for shadowId
                          metaPrefs.edit().apply {
-                             putString("meta_\${shadowId}_title", "Snoozed: \${title}")
-                             putString("meta_\${shadowId}_priority", priority)
-                             putString("meta_\${shadowId}_repeatType", "none") // Force none
+                             putString("meta_${shadowId}_title", "Snoozed: ${title}")
+                             putString("meta_${shadowId}_priority", priority)
+                             putString("meta_${shadowId}_repeatType", "none") // Force none for snooze
+                             
+                             // CRITICAL: Add date/time metadata
+                             putString("meta_${shadowId}_startDate", snoozeDate)
+                             putString("meta_${shadowId}_startTime", snoozeTime)
+                             
+                             // Add default values for other required fields
+                             putInt("meta_${shadowId}_everyValue", 1)
+                             putString("meta_${shadowId}_everyUnit", "minutes")
+                             putString("meta_${shadowId}_untilType", "forever")
+                             putInt("meta_${shadowId}_untilCount", 0)
+                             putString("meta_${shadowId}_untilDate", "")
+                             putString("meta_${shadowId}_untilTime", "")
+                             putInt("meta_${shadowId}_actualTriggerCount", 0)
+                             putInt("meta_${shadowId}_occurrenceCount", 0)
+                             
+                             // Multi-select defaults
+                             putBoolean("meta_${shadowId}_multiSelectEnabled", false)
+                             putString("meta_${shadowId}_multiSelectDates", "[]")
+                             putString("meta_${shadowId}_multiSelectDays", "[]")
+                             putString("meta_${shadowId}_windowEndTime", "")
+                             putBoolean("meta_${shadowId}_windowEndIsAM", false)
+                             
                              apply()
                          }
                          
-                         scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
+                         DebugLogger.log("AlarmActionBridge: Stored complete metadata for shadow snooze ${shadowId}")
+                         
+                         // Schedule the native alarm
+                         scheduleNativeAlarm(context, shadowId, "Snoozed: ${title}", priority, snoozeMinutes)
                          
                          // 2. Advance Series (Schedule Next Regular Occurrence)
                          scheduleNextOccurrenceIfNeeded(context, reminderId)
                     } else {
                          // One-off: Standard overwrite behavior
+                         DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder ${reminderId}")
+                         
+                         // For one-off reminders, update the metadata with new time
+                         val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
+                         val snoozeCal = Calendar.getInstance().apply {
+                             timeInMillis = snoozeTimeMs
+                         }
+                         
+                         val snoozeDate = String.format(
+                             "%04d-%02d-%02d",
+                             snoozeCal.get(Calendar.YEAR),
+                             snoozeCal.get(Calendar.MONTH) + 1,
+                             snoozeCal.get(Calendar.DAY_OF_MONTH)
+                         )
+                         val snoozeTime = String.format(
+                             "%02d:%02d",
+                             snoozeCal.get(Calendar.HOUR_OF_DAY),
+                             snoozeCal.get(Calendar.MINUTE)
+                         )
+                         
+                         // Update metadata with new snooze time
+                         metaPrefs.edit().apply {
+                             putString("meta_${reminderId}_startDate", snoozeDate)
+                             putString("meta_${reminderId}_startTime", snoozeTime)
+                             apply()
+                         }
+                         
+                         DebugLogger.log("AlarmActionBridge: Updated metadata for one-off snooze")
                          scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
                     }
 
@@ -3462,6 +3534,16 @@ const withAppGradle = (config) => {
                     );
                 } else {
                     buildGradle += `\n\ndependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n}\n`;
+                }
+            }
+
+            // Ensure Kotlin Stdlib (Fix 4: Snooze Reliability)
+            if (!buildGradle.includes('org.jetbrains.kotlin:kotlin-stdlib')) {
+                if (/dependencies\s*{/.test(buildGradle)) {
+                    buildGradle = buildGradle.replace(
+                        /dependencies\s*{/,
+                        `dependencies {\n    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'`
+                    );
                 }
             }
             config.modResults.contents = buildGradle;
