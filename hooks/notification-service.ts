@@ -344,52 +344,50 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
-  const isRinger = reminder.priority === 'high';
+  // UNIFIED SCHEDULING: Use Native AlarmModule for ALL priorities if available
+  // This ensures OnePlus/Chinese ROMs get the benefit of FLAG_RECEIVER_FOREGROUND
+  // and reliable WakeLock handling in AlarmReceiver.
+  const canUseNative = !!(AlarmModule && typeof AlarmModule.scheduleAlarm === 'function');
 
-  if (isRinger) {
-    const canUseNative = !!(AlarmModule && typeof AlarmModule.scheduleAlarm === 'function');
-    if (!canUseNative) {
-      console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
-    } else {
-      try {
-        // Store reminder metadata for native background scheduling
-        if (AlarmModule?.storeReminderMetadata) {
-          await AlarmModule.storeReminderMetadata(
-            reminder.id,
-            reminder.repeatType || 'none',
-            reminder.everyInterval?.value || 1,
-            reminder.everyInterval?.unit || 'minutes',
-            reminder.untilType || 'forever',
-            reminder.untilCount || 0,
-            reminder.untilDate || '',
-            reminder.untilTime || '',
-            reminder.occurrenceCount || 0,
-            reminder.date || '',
-            reminder.time || '',
-            reminder.title,
-            reminder.priority,
-            reminder.multiSelectEnabled ?? false,
-            JSON.stringify(reminder.multiSelectDates ?? []),
-            JSON.stringify(reminder.multiSelectDays ?? []),
-            reminder.windowEndTime ?? '',
-            reminder.windowEndIsAM ?? false
-          );
-          console.log(`[NotificationService] Stored metadata for native alarm ${reminder.id}`);
-        }
-
-        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
-        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
-        return;
-      } catch (e) {
-        console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
+  if (canUseNative) {
+    try {
+      // Store reminder metadata for native background scheduling/recurrence
+      if (AlarmModule?.storeReminderMetadata) {
+        await AlarmModule.storeReminderMetadata(
+          reminder.id,
+          reminder.repeatType || 'none',
+          reminder.everyInterval?.value || 1,
+          reminder.everyInterval?.unit || 'minutes',
+          reminder.untilType || 'forever',
+          reminder.untilCount || 0,
+          reminder.untilDate || '',
+          reminder.untilTime || '',
+          reminder.occurrenceCount || 0,
+          reminder.date || '',
+          reminder.time || '',
+          reminder.title,
+          reminder.priority,
+          reminder.multiSelectEnabled ?? false,
+          JSON.stringify(reminder.multiSelectDates ?? []),
+          JSON.stringify(reminder.multiSelectDays ?? []),
+          reminder.windowEndTime ?? '',
+          reminder.windowEndIsAM ?? false
+        );
+        console.log(`[NotificationService] Stored metadata for native alarm ${reminder.id}`);
       }
+
+      await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
+      console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
+      return;
+    } catch (e) {
+      console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
     }
+  } else {
+    console.warn('[NotificationService] AlarmModule unavailable, falling back to Notifee');
   }
 
   {
-    // Use notifee for medium/low priority OR as fallback for high priority
-    // CRITICAL: Always use alarmManager with allowWhileIdle for exact timing
-    // Even if SCHEDULE_EXACT_ALARM permission is not granted, this gives best-effort exact delivery
+    // Falback: Use notifee if native module is missing or failed
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
       timestamp: when,
@@ -403,7 +401,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
     await notifee.createTriggerNotification(notificationConfig, trigger);
 
-    console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
+    console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id} (Notifee fallback)`);
   }
 }
 
