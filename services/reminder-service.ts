@@ -131,20 +131,8 @@ export async function deleteReminder(id: string): Promise<void> {
 
     if (reminderToDelete) {
       console.log(`Soft deleting reminder: ${id}`);
-      // Cancel all notifications when soft deleting (this also cancels snooze alarms)
+      // Cancel all notifications when soft deleting
       await notificationService.cancelAllNotificationsForReminder(id);
-
-      // CRITICAL: Sync isDeleted to native SharedPreferences so AlarmReceiver can check it
-      // This is a safety net in case the native alarm cancellation doesn't work
-      // We use markReminderCompletedNatively which sets isCompleted=true in native state
-      if (AlarmModule?.markReminderCompletedNatively) {
-        try {
-          await AlarmModule.markReminderCompletedNatively(id, Date.now());
-          console.log(`[ReminderService] Synced deleted state to native for: ${id}`);
-        } catch (e) {
-          console.warn('[ReminderService] Failed to sync deleted state to native:', e);
-        }
-      }
 
       // Mark as deleted
       const updated = reminders.map(r =>
@@ -166,19 +154,8 @@ export async function permanentlyDeleteReminder(id: string): Promise<void> {
 
     if (reminderToDelete) {
       console.log(`Permanently deleting reminder: ${id}`);
-      // Cancel all notifications for permanent deletion (this also cancels snooze alarms)
+      // Cancel all notifications for permanent deletion
       await notificationService.cancelAllNotificationsForReminder(id);
-
-      // CRITICAL: Sync deletion to native SharedPreferences so AlarmReceiver can check it
-      // This is a safety net for any orphaned snooze alarms
-      if (AlarmModule?.markReminderCompletedNatively) {
-        try {
-          await AlarmModule.markReminderCompletedNatively(id, Date.now());
-          console.log(`[ReminderService] Synced permanent deletion to native for: ${id}`);
-        } catch (e) {
-          console.warn('[ReminderService] Failed to sync permanent deletion to native:', e);
-        }
-      }
     }
 
     const updated = reminders.filter(r => r.id !== id);

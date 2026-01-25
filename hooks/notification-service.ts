@@ -446,13 +446,6 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
     if (AlarmModule && typeof AlarmModule.cancelAlarm === 'function') {
       try {
         AlarmModule.cancelAlarm(reminderId);
-
-        // CRITICAL FIX: Also cancel any pending snooze alarm (shadow ID)
-        // When a reminder is snoozed, a shadow alarm with ID "reminderId_snooze" is scheduled
-        // This must be canceled when the reminder is deleted/completed
-        const snoozeId = `${reminderId}_snooze`;
-        AlarmModule.cancelAlarm(snoozeId);
-        console.log(`[NotificationService] Also cancelled snooze alarm for ${snoozeId}`);
       } catch (e) {
         console.warn('[NotificationService] Native cancelAlarm failed, continuing:', e);
       }
@@ -462,8 +455,6 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
     if (AlarmModule?.clearReminderMetadata) {
       try {
         await AlarmModule.clearReminderMetadata(reminderId);
-        // Also clear metadata for snooze shadow
-        await AlarmModule.clearReminderMetadata(`${reminderId}_snooze`);
       } catch (e) {
         console.warn('[NotificationService] Native clearReminderMetadata failed, continuing:', e);
       }
@@ -480,7 +471,7 @@ export async function cancelAllNotificationsForReminder(reminderId: string) {
       }
     }
 
-    console.log(`[NotificationService] Cancelled all notifications (scheduled + displayed + snooze) for reminder ${reminderId}`);
+    console.log(`[NotificationService] Cancelled all notifications (scheduled + displayed) for reminder ${reminderId}`);
   } catch (error) {
     console.error(`[NotificationService] Error cancelling notifications for reminder ${reminderId}:`, error);
   }

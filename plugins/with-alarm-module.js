@@ -266,42 +266,34 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val snoozeMinutes = intent.getIntExtra("snoozeMinutes", 0)
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val priority = intent.getStringExtra("priority") ?: "medium"
-                val alreadyScheduled = intent.getBooleanExtra("alreadyScheduled", false)
 
-                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}, alreadyScheduled: \${alreadyScheduled}")
+                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
                     // Check if repeating
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
                     val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
                     
-                    // Only schedule if not already scheduled by AlarmActivity
-                    if (!alreadyScheduled) {
-                        if (repeatType != "none") {
-                             DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
-                             
-                             // 1. Schedule Shadow Snooze
-                             val shadowId = reminderId + "_snooze"
-                             
-                             // Store minimal metadata for shadowId so it can ring!
-                             metaPrefs.edit().apply {
-                                 putString("meta_\${shadowId}_title", "Snoozed: \${title}")
-                                 putString("meta_\${shadowId}_priority", priority)
-                                 putString("meta_\${shadowId}_repeatType", "none") // Force none
-                                 apply()
-                             }
-                             
-                             scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
-                        } else {
-                             // One-off: Standard overwrite behavior
-                             scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
-                        }
-                    } else {
-                        DebugLogger.log("AlarmActionBridge: Snooze already scheduled by AlarmActivity, skipping native scheduling")
-                    }
-                    
-                    // For repeating reminders, always advance the series (even if snooze was already scheduled)
                     if (repeatType != "none") {
-                        scheduleNextOccurrenceIfNeeded(context, reminderId)
+                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
+                         
+                         // 1. Schedule Shadow Snooze
+                         val shadowId = reminderId + "_snooze"
+                         
+                         // Store minimal metadata for shadowId so it can ring!
+                         metaPrefs.edit().apply {
+                             putString("meta_\${shadowId}_title", "Snoozed: \${title}")
+                             putString("meta_\${shadowId}_priority", priority)
+                             putString("meta_\${shadowId}_repeatType", "none") // Force none
+                             apply()
+                         }
+                         
+                         scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
+                         
+                         // 2. Advance Series (Schedule Next Regular Occurrence)
+                         scheduleNextOccurrenceIfNeeded(context, reminderId)
+                    } else {
+                         // One-off: Standard overwrite behavior
+                         scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
                     }
 
                     // 2. Try emit to RN (UI Update)
@@ -1275,127 +1267,30 @@ class AlarmActivity : AppCompatActivity() {
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
-        val currentReminderId = reminderId ?: return
-        val title = intent.getStringExtra("title") ?: "Reminder"
-        
         // NEW: Persist to SharedPreferences immediately
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             prefs.edit().apply {
-                putString("snoozed_\${currentReminderId}", "\${System.currentTimeMillis()}:\${minutes}")
+                putString("snoozed_\${reminderId}", "\${System.currentTimeMillis()}:\${minutes}")
                 apply()
             }
-            DebugLogger.log("AlarmActivity: Saved snooze to SharedPreferences for \${currentReminderId}")
+            DebugLogger.log("AlarmActivity: Saved snooze to SharedPreferences for \${reminderId}")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error saving snooze to SharedPreferences: \${e.message}")
         }
         
-        // CRITICAL FIX: Schedule the snooze alarm DIRECTLY here before activity finishes
-        // This ensures the alarm is set even if the app process is killed after activity finishes
-        try {
-            val metaPrefs = getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val repeatType = metaPrefs.getString("meta_\${currentReminderId}_repeatType", "none") ?: "none"
-            
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            val triggerTime = System.currentTimeMillis() + (minutes * 60 * 1000L)
-            
-            // Determine the ID to use for the snooze alarm
-            val snoozeId = if (repeatType != "none") {
-                // For repeating reminders, use shadow ID
-                val shadowId = currentReminderId + "_snooze"
-                // Store minimal metadata for shadow
-                metaPrefs.edit().apply {
-                    putString("meta_\${shadowId}_title", "Snoozed: \${title}")
-                    putString("meta_\${shadowId}_priority", priority)
-                    putString("meta_\${shadowId}_repeatType", "none")
-                    apply()
-                }
-                DebugLogger.log("AlarmActivity: Created shadow snooze ID: \${shadowId}")
-                shadowId
-            } else {
-                currentReminderId
-            }
-            
-            val alarmIntent = Intent(this, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", snoozeId)
-                putExtra("title", if (repeatType != "none") "Snoozed: \${title}" else title)
-                putExtra("priority", priority)
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                this,
-                snoozeId.hashCode(),
-                alarmIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            
-            // Check exact alarm permission on Android 12+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    DebugLogger.log("AlarmActivity: Cannot schedule exact alarms, using inexact")
-                    alarmManager.setAndAllowWhileIdle(
-                        android.app.AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                    )
-                } else {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        android.app.AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                    )
-                }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(
-                    android.app.AlarmManager.RTC_WAKEUP,
-                    triggerTime,
-                    pendingIntent
-                )
-            }
-            
-            DebugLogger.log("AlarmActivity: Snooze alarm scheduled directly for \${java.util.Date(triggerTime)}, ID: \${snoozeId}")
-            
-            // For repeating reminders, also schedule next occurrence
-            if (repeatType != "none") {
-                // Send broadcast to handle series advancement (JS will do this if alive, native if not)
-                val advanceIntent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-                    setPackage(packageName)
-                    putExtra("reminderId", currentReminderId)
-                    putExtra("snoozeMinutes", minutes)
-                    putExtra("title", title)
-                    putExtra("priority", priority)
-                    putExtra("alreadyScheduled", true) // Flag so bridge knows not to re-schedule snooze
-                }
-                sendBroadcast(advanceIntent)
-                DebugLogger.log("AlarmActivity: Sent ALARM_SNOOZE broadcast for series advancement")
-            }
-            
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error scheduling snooze alarm directly: \${e.message}")
-            
-            // Fallback to broadcast in case of error
-            val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-                setPackage(packageName)
-                putExtra("reminderId", currentReminderId)
-                putExtra("snoozeMinutes", minutes)
-                putExtra("title", title)
-                putExtra("priority", priority)
-            }
-            sendBroadcast(intent)
+        // Keep existing broadcast
+        val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("snoozeMinutes", minutes)
+            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
+            putExtra("priority", priority)
         }
         
-        // Also send broadcast for JS/UI update (non-critical)
-        val uiIntent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-            setPackage(packageName)
-            putExtra("reminderId", currentReminderId)
-            putExtra("snoozeMinutes", minutes)
-            putExtra("title", title)
-            putExtra("priority", priority)
-            putExtra("alreadyScheduled", true)
-        }
-        sendBroadcast(uiIntent)
-        DebugLogger.log("AlarmActivity: Snooze UI broadcast sent")
+        DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
+        sendBroadcast(intent)
+        DebugLogger.log("AlarmActivity: Snooze broadcast sent")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
@@ -1632,18 +1527,12 @@ class AlarmReceiver : BroadcastReceiver() {
             DebugLogger.log("AlarmReceiver: reminderId is null")
             return
         }
-        
-        // Determine if this is a snooze shadow alarm
-        val isSnoozeAlarm = reminderId.endsWith("_snooze")
-        val parentReminderId = if (isSnoozeAlarm) reminderId.removeSuffix("_snooze") else reminderId
-        
-        DebugLogger.log("AlarmReceiver: reminderId=\$reminderId, isSnooze=\$isSnoozeAlarm, parent=\$parentReminderId")
 
         // CRITICAL: Check if reminder is paused before firing
         val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
-        val isPaused = prefs.getBoolean("paused_\$parentReminderId", false)
+        val isPaused = prefs.getBoolean("paused_\$reminderId", false)
         if (isPaused) {
-            DebugLogger.log("AlarmReceiver: Reminder \$parentReminderId is PAUSED - skipping alarm")
+            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
             return
         }
         
@@ -1653,23 +1542,6 @@ class AlarmReceiver : BroadcastReceiver() {
         if (isNativeCompleted) {
             DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
             return
-        }
-        
-        // CRITICAL FIX: For snooze alarms, also check if the PARENT reminder is deleted/completed
-        // This prevents snoozed alarms from ringing after the user deletes/completes the original reminder
-        if (isSnoozeAlarm) {
-            val parentCompleted = metaPrefs.getBoolean("meta_\${parentReminderId}_isCompleted", false)
-            val parentDeleted = metaPrefs.getBoolean("meta_\${parentReminderId}_isDeleted", false)
-            
-            if (parentCompleted || parentDeleted) {
-                DebugLogger.log("AlarmReceiver: Parent reminder \$parentReminderId is completed/deleted - skipping snooze alarm")
-                // Clean up snooze metadata
-                metaPrefs.edit().apply {
-                    putBoolean("meta_\${reminderId}_isCompleted", true)
-                    apply()
-                }
-                return
-            }
         }
         
         // CRITICAL: Record this trigger in native state BEFORE showing alarm

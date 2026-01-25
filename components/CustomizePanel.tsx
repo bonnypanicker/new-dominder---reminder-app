@@ -545,13 +545,6 @@ export default function CustomizePanel({
           selectedDate={monthlyDate}
           onSelectDate={(date) => {
             setMonthlyDate(date);
-
-            // Construct full date string (YYYY-MM-DD) with the selected day
-            // Use the current selectedDate to preserve year and month
-            const [year, month] = selectedDate.split('-').map(Number);
-            const newDateString = `${year}-${String(month).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-            onDateChange(newDateString);
-
             setMonthlyCalendarOpen(false);
             // Don't dismiss keyboard when selecting date
             // Only dismiss when opening time picker
