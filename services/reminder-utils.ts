@@ -210,6 +210,7 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
             // We need the first one > fromDate
 
             let occurrence = new Date(startWindow);
+            occurrence.setMilliseconds(0); // Ensure milliseconds are zeroed out
             while (occurrence <= endWindow) {
               if (occurrence > fromDate) {
                 foundCandidate = occurrence;
