@@ -129,6 +129,21 @@ export default function CustomizePanel({
     const now = new Date();
     return now.getDate();
   });
+
+  // Sync monthlyDate with selectedDate when it changes
+  useEffect(() => {
+    try {
+      const parts = selectedDate.split('-');
+      if (parts.length >= 3) {
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(d) && d >= 1 && d <= 31) {
+          setMonthlyDate(d);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [selectedDate]);
   const [yearlyCalendarOpen, setYearlyCalendarOpen] = useState<boolean>(false);
   const [untilCalendarOpen, setUntilCalendarOpen] = useState<boolean>(false);
   const [untilCountModalOpen, setUntilCountModalOpen] = useState<boolean>(false);
@@ -546,6 +561,27 @@ export default function CustomizePanel({
           onSelectDate={(date) => {
             setMonthlyDate(date);
             setMonthlyCalendarOpen(false);
+
+            // Update the parent selectedDate so the correct day is used for the reminder
+            try {
+              const parts = selectedDate.split('-');
+              if (parts.length >= 2) {
+                const y = parts[0];
+                const m = parts[1];
+                const d = String(date).padStart(2, '0');
+                onDateChange(`${y}-${m}-${d}`);
+              } else {
+                // Fallback if selectedDate format is unexpected, preserve current year/month
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(date).padStart(2, '0');
+                onDateChange(`${y}-${m}-${d}`);
+              }
+            } catch (e) {
+              console.log('Error updating date string for monthly selection', e);
+            }
+
             // Don't dismiss keyboard when selecting date
             // Only dismiss when opening time picker
             try {
