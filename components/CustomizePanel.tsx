@@ -937,7 +937,15 @@ function CalendarModal({
 
                 // Check if dates should be disabled in End mode when multi-select is active
                 const hasMultiSelectDates = (multiSelectDates && multiSelectDates.length > 0) || (multiSelectDays && multiSelectDays.length > 0);
-                const isDisabledInEndMode = isEndMode && hasMultiSelectDates;
+                
+                // Visual distinction for read-only (End mode) - check this first
+                const isReadOnlySelected = Boolean(isEndMode && (
+                  (currentDateString && multiSelectDates?.includes(currentDateString)) ||
+                  (dayDate && multiSelectDays?.includes(dayDate.getDay()))
+                ));
+                
+                // Disable interaction in End mode when multi-select is active, but NOT for read-only selected dates
+                const isDisabledInEndMode = isEndMode && hasMultiSelectDates && !isReadOnlySelected;
                 const isDisabled = isDateDisabled(val) || isDisabledInEndMode;
 
                 // Determine selection state
@@ -957,12 +965,6 @@ function CalendarModal({
                 // Check if this is today (for ring indicator only, not selection)
                 const isToday = val !== null && year === currentYear && month === currentMonth && val === currentDate;
 
-                // Visual distinction for read-only (End mode)
-                const isReadOnlySelected = isEndMode && (
-                  (currentDateString && multiSelectDates?.includes(currentDateString)) ||
-                  (dayDate && multiSelectDays?.includes(dayDate.getDay()))
-                );
-
                 // Auto-selected by weekday (for ring indicator)
                 const isAutoSelectedByWeekday = multiSelectEnabled && !isEndMode && dayDate && multiSelectDays?.includes(dayDate.getDay()) && !multiSelectDates?.includes(currentDateString!);
 
@@ -975,11 +977,11 @@ function CalendarModal({
                       isReadOnlySelected && calendarStyles.dayCellReadOnly,
                       isAutoSelectedByWeekday && calendarStyles.dayCellAutoSelected,
                       isToday && !isSelected && calendarStyles.dayCellToday,
-                      isDisabled && calendarStyles.dayCellDisabled
+                      isDisabled && !isReadOnlySelected && calendarStyles.dayCellDisabled
                     ]}
-                    disabled={isDisabled}
+                    disabled={isDisabled || isReadOnlySelected}
                     onPress={() => {
-                      if (val && currentDateString && !isDisabled) {
+                      if (val && currentDateString && !isDisabled && !isReadOnlySelected) {
                         if (multiSelectEnabled && !isEndMode) {
                           // Update primary selected date for reference/scrolling?
                           // Actually, let's toggle in array
@@ -1013,7 +1015,7 @@ function CalendarModal({
                       isSelected && calendarStyles.dayTextSelected,
                       isReadOnlySelected && calendarStyles.dayTextReadOnly,
                       isToday && !isSelected && calendarStyles.dayTextToday,
-                      isDisabled && calendarStyles.dayTextDisabled
+                      isDisabled && !isReadOnlySelected && calendarStyles.dayTextDisabled
                     ]}>
                       {val ?? ''}
                     </Text>
