@@ -1552,57 +1552,47 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         // Start AlarmRingtoneService for high priority reminders
-        // Start AlarmRingtoneService ONLY for high priority
         if (priority == "high") {
             DebugLogger.log("AlarmReceiver: Starting AlarmRingtoneService for high priority")
             AlarmRingtoneService.startAlarmRingtone(context, reminderId, title, priority)
         }
 
-        DebugLogger.log("AlarmReceiver: Creating notification for $reminderId, priority: $priority")
+        DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId, triggerTime: \$triggerTime")
         
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        // Define Channel ID based on priority
-        val channelId = when (priority) {
-            "high" -> "alarm_channel_v2"
-            "medium" -> "standard_channel_v2"
-            else -> "silent_channel_v2"
-        }
-        
-        val channelName = when (priority) {
-            "high" -> "Alarms"
-            "medium" -> "Standard Reminders"
-            else -> "Silent Reminders"
-        }
-        
-        val importance = when (priority) {
-            "high" -> NotificationManager.IMPORTANCE_HIGH
-            "medium" -> NotificationManager.IMPORTANCE_DEFAULT
-            else -> NotificationManager.IMPORTANCE_LOW
-        }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, importance).apply {
-                description = "$channelName notifications"
-                if (priority == "high") {
-                    setSound(null, null) // Handled by service or silent for high to avoid dupe
-                    enableLights(true)
-                    enableVibration(true)
-                    setBypassDnd(true)
-                } else if (priority == "medium") {
-                    // Standard sound
-                    enableLights(true)
-                    enableVibration(true)
-                } else {
-                    // Silent
-                    setSound(null, null)
-                    enableVibration(false)
-                }
+            val channel = NotificationChannel(
+                "alarm_channel_v2",
+                "Alarms",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Full screen alarm notifications"
+                setSound(null, null)
+                enableLights(true)
+                enableVibration(true)
+                setBypassDnd(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
         
-        // Content Intent (Open App/Activity)
+        // Intent for the full-screen activity
+        val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
+            putExtra("reminderId", reminderId)
+            putExtra("title", title)
+            putExtra("priority", priority)
+            putExtra("triggerTime", triggerTime)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context,
+            reminderId.hashCode(),
+            fullScreenIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // FIX: Create a content intent for when the user taps the notification itself.
+        // This should also open the AlarmActivity.
         val contentIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("reminderId", reminderId)
             putExtra("title", title)
@@ -1612,73 +1602,30 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
-            reminderId.hashCode() + 1,
+            reminderId.hashCode() + 1, // Use a different request code from fullScreenPendingIntent
             contentIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
-        // Action Buttons Setup (Done / Snooze)
-        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
-            setPackage(context.packageName)
-            putExtra("reminderId", reminderId)
-            putExtra("triggerTime", triggerTime)
-        }
-        val donePendingIntent = PendingIntent.getBroadcast(
-            context, 
-            reminderId.hashCode() + 10, 
-            doneIntent, 
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val snoozeIntent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-            setPackage(context.packageName)
-            putExtra("reminderId", reminderId)
-            putExtra("snoozeMinutes", 10) // Default 10m for quick action
-            putExtra("title", title)
-            putExtra("priority", priority)
-        }
-        val snoozePendingIntent = PendingIntent.getBroadcast(
-            context, 
-            reminderId.hashCode() + 20, 
-            snoozeIntent, 
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
         
-        val builder = NotificationCompat.Builder(context, channelId)
+        val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
             .setSmallIcon(R.drawable.small_icon_noti)
             .setColor(0xFF6750A4.toInt())
             .setColorized(true)
             .setContentTitle(title)
             .setContentText("Reminder")
-            .setPriority(if (priority == "high") NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
-            .setCategory(if (priority == "high") NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
+            // FIX: Add content intent for notification tap handling.
             .setContentIntent(contentPendingIntent)
+            // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
             .setAutoCancel(true)
-            // Add Actions
-            .addAction(0, "Done", donePendingIntent)
-            .addAction(0, "Snooze 10m", snoozePendingIntent)
-            
-        // Full Screen Intent ONLY for High Priority
-        if (priority == "high") {
-            val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority)
-                putExtra("triggerTime", triggerTime)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val fullScreenPendingIntent = PendingIntent.getActivity(
-                context,
-                reminderId.hashCode(),
-                fullScreenIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            builder.setFullScreenIntent(fullScreenPendingIntent, true)
-            builder.setVibrate(longArrayOf(0, 1000, 500, 1000))
-        }
+            // FIX: Add vibration pattern for better user alert.
+            .setVibrate(longArrayOf(0, 1000, 500, 1000))
+            .build()
         
-        notificationManager.notify(reminderId.hashCode(), builder.build())
-        DebugLogger.log("AlarmReceiver: Notification created (Priority: $priority)")
+        notificationManager.notify(reminderId.hashCode(), notification)
+        DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
     }
     
     /**
