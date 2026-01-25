@@ -505,20 +505,7 @@ export default function CustomizePanel({
           selectedDate={selectedDate}
           onSelectDate={(date) => {
             onDateChange(date);
-            // Only close if not multi-selecting
-            if (!multiSelectEnabled) {
-              setCalendarOpen(false);
-              // Keep keyboard as-is on date selection; opening time will handle focus
-              const unit = everyUnit ?? 'hours';
-              const shouldOpenTime = repeatType === 'none' || (repeatType === 'every' && (unit === 'minutes' || unit === 'hours'));
-              if (shouldOpenTime) {
-                try {
-                  onOpenTime?.();
-                } catch (e) {
-                  console.log('open time after calendar date selection error', e);
-                }
-              }
-            }
+            // Don't close modal - let user press "Set Time" or "Cancel"
           }}
           // Multi-select props - only show for 'every' repeat type
           multiSelectEnabled={repeatType === 'every' && multiSelectEnabled}
@@ -530,9 +517,11 @@ export default function CustomizePanel({
           isEndMode={false}
           onSetTime={() => {
             setCalendarOpen(false);
-            onSetTime?.(); // Actually main time input
-            // Or if user wants specific button behavior:
-            try { onOpenTime?.(); } catch (e) { }
+            try {
+              onOpenTime?.();
+            } catch (e) {
+              console.log('open time from Set Time button error', e);
+            }
           }}
         />
 
@@ -542,16 +531,17 @@ export default function CustomizePanel({
           selectedDate={selectedDate}
           onSelectDate={(date) => {
             onDateChange(date);
+            // Don't close modal - let user press "Set Time" or "Cancel"
+          }}
+          hideYear
+          onSetTime={() => {
             setYearlyCalendarOpen(false);
-            // Don't dismiss keyboard when selecting date
-            // Only dismiss when opening time picker
             try {
               onOpenTime?.();
             } catch (e) {
-              console.log('open time after yearly date error', e);
+              console.log('open time from Set Time button error', e);
             }
           }}
-          hideYear
         />
 
         <MonthlyDateModal
@@ -595,16 +585,9 @@ export default function CustomizePanel({
           visible={untilCalendarOpen}
           onClose={() => setUntilCalendarOpen(false)}
           selectedDate={untilDate ?? selectedDate}
-
           onSelectDate={(date) => {
             onUntilDateChange?.(date);
-            setUntilCalendarOpen(false);
-            // Always open time picker when a date is touched (consistent with "Set Time" button)
-            try {
-              onOpenUntilTime?.();
-            } catch (e) {
-              console.log('open time after until date error', e);
-            }
+            // Don't close modal - let user press "Set Time" or "Cancel"
           }}
           disablePast={true}
           // Pass multi-select dates for visualization only
@@ -952,10 +935,15 @@ function CalendarModal({
                 const dateObj = currentDateString ? new Date(year, month, val!) : null;
                 const dayDate = dateObj ? new Date(year, month, val!) : null;
 
-                const isDisabled = isDateDisabled(val);
+                // Check if dates should be disabled in End mode when multi-select is active
+                const hasMultiSelectDates = (multiSelectDates && multiSelectDates.length > 0) || (multiSelectDays && multiSelectDays.length > 0);
+                const isDisabledInEndMode = isEndMode && hasMultiSelectDates;
+                const isDisabled = isDateDisabled(val) || isDisabledInEndMode;
 
                 // Determine selection state
                 const isSelected = isDateDisabled(val) ? false : (
+                  // Check if this is the primary selected date
+                  (currentDateString === selectedDate) ||
                   // In multi-select start mode, verify if in array or matches weekday
                   (multiSelectEnabled && !isEndMode && (
                     (currentDateString && multiSelectDates?.includes(currentDateString)) ||
@@ -1011,8 +999,9 @@ function CalendarModal({
                           // Logic for CalendarModal wrapper says: if (!multiSelectEnabled) setCalendarOpen(false);
                           // So calling onSelectDate IS safe if multiSelectEnabled is true!
                           onSelectDate(currentDateString);
-                        } else {
-                          // Normal mode or End mode (picking single date)
+                        } else if (!isEndMode || !hasMultiSelectDates) {
+                          // Normal mode or End mode without multi-select (picking single date)
+                          // Only allow selection if NOT in End mode with multi-select dates
                           onSelectDate(currentDateString);
                         }
                       }
@@ -1077,18 +1066,48 @@ function CalendarModal({
                 <Text style={calendarStyles.multiSelectLabel}>Multi-select</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
-                <Text style={calendarStyles.footerBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={calendarStyles.footerButtons}>
+                {onSetTime && (
+                  <TouchableOpacity onPress={onSetTime} style={calendarStyles.footerBtn}>
+                    <Text style={calendarStyles.footerBtnTextPrimary}>Set Time</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
+                  <Text style={calendarStyles.footerBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
           {/* Default Footer if Multi-select props are missing (backward compatibility) */}
           {multiSelectEnabled === undefined && (
-            <View style={calendarStyles.footer}>
-              <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
-                <Text style={calendarStyles.footerBtnText}>Cancel</Text>
-              </TouchableOpacity>
+            <View style={calendarStyles.footerMultiSelect}>
+              <View /> {/* Spacer for alignment */}
+              <View style={calendarStyles.footerButtons}>
+                {onSetTime && (
+                  <TouchableOpacity onPress={onSetTime} style={calendarStyles.footerBtn}>
+                    <Text style={calendarStyles.footerBtnTextPrimary}>Set Time</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
+                  <Text style={calendarStyles.footerBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Catch-all Footer: Show Set Time button if provided but no other footer matched */}
+          {multiSelectEnabled === false && !isEndMode && !onMultiSelectEnabledChange && onSetTime && (
+            <View style={calendarStyles.footerMultiSelect}>
+              <View /> {/* Spacer for alignment */}
+              <View style={calendarStyles.footerButtons}>
+                <TouchableOpacity onPress={onSetTime} style={calendarStyles.footerBtn}>
+                  <Text style={calendarStyles.footerBtnTextPrimary}>Set Time</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={calendarStyles.footerBtn} onPress={onClose} testID="calendar-cancel">
+                  <Text style={calendarStyles.footerBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </TouchableOpacity>
