@@ -16,9 +16,9 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
   const updateReminderRef = useRef(updateReminder);
   const processedReminders = useRef(new Map<string, number>());
   const schedulingInProgress = useRef(new Set<string>());
-  
+
   updateReminderRef.current = updateReminder;
-  
+
   useEffect(() => {
     const tick = setInterval(() => setLastTick(Date.now()), 30000);
     return () => clearInterval(tick);
@@ -26,34 +26,34 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
 
   useEffect(() => {
     console.log('[ReminderEngine] Processing reminders, count:', reminders.length);
-    
+
     const now = new Date();
     const nowTimestamp = now.getTime();
-    
+
     for (const reminder of reminders) {
       // Check if reminder should be auto-resumed from pause-until-date
       if (reminder.isPaused && reminder.pauseUntilDate) {
         try {
-          // Parse pause until date and set to end of that day (23:59:59.999)
-          // This means the reminder is paused INCLUDING the selected date
-          // and will auto-resume AFTER that date passes
-          const pauseUntil = new Date(reminder.pauseUntilDate);
-          pauseUntil.setHours(23, 59, 59, 999);
-          
-          if (now > pauseUntil) {
-            // Pause period has ended - automatically resume the reminder
-            console.log(`[ReminderEngine] Auto-resuming reminder ${reminder.id} - pause until ${reminder.pauseUntilDate} has passed`);
+          // Parse pause until date explicitly as local time to avoid UTC shifts
+          const [pY, pM, pD] = reminder.pauseUntilDate.split('-').map(Number);
+          const pauseUntil = new Date(pY, pM - 1, pD);
+          pauseUntil.setHours(0, 0, 0, 0);
+
+          if (now >= pauseUntil) {
+            // Pause period has ended (reached the resume date) - automatically resume
+            console.log(`[ReminderEngine] Auto-resuming reminder ${reminder.id} - reached pause until date ${reminder.pauseUntilDate}`);
             updateReminderRef.current.mutate({
               ...reminder,
               isPaused: false,
               pauseUntilDate: undefined,
             });
-            // Skip this iteration - will be processed on next tick when updates are reflected
+            // Update local map to avoid immediate reprocessing until store updates
+            // but allow it to be picked up in next engine tick
             processedReminders.current.delete(reminder.id);
             continue;
           } else {
-            // Still within pause period
-            console.log(`[ReminderEngine] Reminder ${reminder.id} is paused until ${reminder.pauseUntilDate}`);
+            // Still within pause period (before the resume date)
+            // console.log(`[ReminderEngine] Reminder ${reminder.id} is paused until ${reminder.pauseUntilDate}`);
             processedReminders.current.delete(reminder.id);
             continue;
           }
@@ -62,30 +62,30 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           // If date parsing fails, treat as regular pause
         }
       }
-      
+
       if (!reminder.isActive || reminder.isCompleted || reminder.isPaused) {
         processedReminders.current.delete(reminder.id);
         continue;
       }
-      
+
       const reminderKey = `${reminder.id}-${reminder.date}-${reminder.time}-${reminder.priority}-${reminder.snoozeUntil || ''}-${reminder.nextReminderDate || ''}`;
       const lastProcessedHash = processedReminders.current.get(reminder.id);
       const currentHash = reminderKey.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      
+
       if (lastProcessedHash === currentHash && !schedulingInProgress.current.has(reminder.id)) {
         continue;
       }
-      
+
       if (schedulingInProgress.current.has(reminder.id)) {
         console.log(`[ReminderEngine] Skipping ${reminder.id} - scheduling already in progress`);
         continue;
       }
-      
+
       console.log(`[ReminderEngine] Processing reminder ${reminder.id}, repeatType: ${reminder.repeatType}`);
-      
+
       let nextFireTime: Date | null = null;
       let reminderToSchedule: Reminder = reminder;
-      
+
       if (reminder.snoozeUntil) {
         nextFireTime = new Date(reminder.snoozeUntil);
         console.log(`[ReminderEngine] Reminder ${reminder.id} is snoozed until ${nextFireTime.toISOString()}`);
@@ -94,7 +94,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         console.log(`[ReminderEngine] Reminder ${reminder.id} has nextReminderDate: ${nextFireTime.toISOString()}`);
       } else {
         nextFireTime = calculateNextReminderDate(reminder, now);
-        
+
         if (nextFireTime && reminder.repeatType !== 'none') {
           console.log(`[ReminderEngine] Calculated next fire time for ${reminder.id}: ${nextFireTime.toISOString()}, updating reminder`);
           const updatedModel: Reminder = {
@@ -109,16 +109,16 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           reminderToSchedule = updatedModel;
         }
       }
-      
+
       // CRITICAL FIX: Add latency buffer to prevent race condition between JS and native alarm
       // Wait 45 seconds after scheduled time before JS intervenes, giving native alarm time to fire
       const LATENCY_BUFFER_MS = 45000; // 45 seconds
-      
+
       if (nextFireTime && nextFireTime > now) {
         console.log(`[ReminderEngine] Scheduling notification for reminder ${reminder.id} at ${nextFireTime.toISOString()}`);
-        
+
         schedulingInProgress.current.add(reminder.id);
-        
+
         notificationService.scheduleReminderByModel(reminderToSchedule)
           .then(() => {
             const scheduledKey = `${reminderToSchedule.id}-${reminderToSchedule.date}-${reminderToSchedule.time}-${reminderToSchedule.priority}-${reminderToSchedule.snoozeUntil || ''}-${reminderToSchedule.nextReminderDate || ''}`;
@@ -135,7 +135,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         // Only intervene if fire time is MORE than 45 seconds in the past
         // This gives native AlarmManager time to fire without JS interference
         console.log(`[ReminderEngine] Reminder ${reminder.id} fire time ${nextFireTime.toISOString()} is in the past (beyond ${LATENCY_BUFFER_MS}ms buffer)`);
-        
+
         if (reminder.repeatType === 'none' && !reminder.snoozeUntil) {
           console.log(`[ReminderEngine] Marking one-time reminder ${reminder.id} as expired`);
           updateReminderRef.current.mutate({
@@ -154,7 +154,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
           // Auto-advance repeating reminders (e.g., Every X minutes)
           // For recurring reminders, we need to advance to the next occurrence automatically
           // This ensures that "every X minutes" reminders continue to fire even if user doesn't interact
-          
+
           // Increment occurrence count when auto-advancing past occurrences
           // This ensures count-based "ends after X occurrences" works correctly
           const occurred = reminder.occurrenceCount ?? 0;
@@ -163,29 +163,29 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
             ? occurred
             : occurred + 1;
           const reminderForCalc = { ...reminder, occurrenceCount: nextOccurCount };
-          
+
           let nextDate = calculateNextReminderDate(reminderForCalc, now);
-          
+
           // For 'every' type reminders, if the calculated next date is still in the past,
           // we need to keep advancing until we get a future date
           if (reminder.repeatType === 'every' && reminder.everyInterval && nextDate && nextDate <= now) {
             console.log(`[ReminderEngine] Next calculated date ${nextDate.toISOString()} is still in past, advancing further`);
-            
+
             const interval = reminder.everyInterval;
-            const addMs = interval.unit === 'minutes' 
-              ? interval.value * 60 * 1000 
-              : interval.unit === 'hours' 
-              ? interval.value * 60 * 60 * 1000 
-              : interval.value * 24 * 60 * 60 * 1000;
-            
+            const addMs = interval.unit === 'minutes'
+              ? interval.value * 60 * 1000
+              : interval.unit === 'hours'
+                ? interval.value * 60 * 60 * 1000
+                : interval.value * 24 * 60 * 60 * 1000;
+
             // Calculate how many intervals we need to skip to get to the future
             const timeDiff = now.getTime() - nextDate.getTime();
             const intervalsToSkip = Math.ceil(timeDiff / addMs);
             nextDate = new Date(nextDate.getTime() + (intervalsToSkip * addMs));
-            
+
             console.log(`[ReminderEngine] Advanced ${reminder.id} by ${intervalsToSkip} intervals to ${nextDate.toISOString()}`);
           }
-          
+
           if (nextDate && nextDate > now) {
             const updated = {
               ...reminderForCalc,
@@ -237,7 +237,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         processedReminders.current.delete(reminder.id);
       }
     }
-    
+
     const cleanupInterval = setInterval(() => {
       const staleKeys: string[] = [];
       processedReminders.current.forEach((_, key) => {
@@ -247,7 +247,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
       });
       staleKeys.forEach(key => processedReminders.current.delete(key));
     }, 60000);
-    
+
     return () => clearInterval(cleanupInterval);
   }, [reminders, lastTick]);
 
