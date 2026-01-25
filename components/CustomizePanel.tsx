@@ -550,7 +550,7 @@ export default function CustomizePanel({
           selectedDate={monthlyDate}
           onSelectDate={(date) => {
             setMonthlyDate(date);
-            setMonthlyCalendarOpen(false);
+            // Don't close modal - let user press "Set Time" or "Cancel"
 
             // Update the parent selectedDate so the correct day is used for the reminder
             try {
@@ -571,9 +571,9 @@ export default function CustomizePanel({
             } catch (e) {
               console.log('Error updating date string for monthly selection', e);
             }
-
-            // Don't dismiss keyboard when selecting date
-            // Only dismiss when opening time picker
+          }}
+          onSetTime={() => {
+            setMonthlyCalendarOpen(false);
             try {
               onOpenTime?.();
             } catch (e) {
@@ -1665,9 +1665,10 @@ interface MonthlyDateModalProps {
   onClose: () => void;
   selectedDate: number;
   onSelectDate: (date: number) => void;
+  onSetTime?: () => void;
 }
 
-function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: MonthlyDateModalProps) {
+function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate, onSetTime }: MonthlyDateModalProps) {
   const [showMonthlyPopup, setShowMonthlyPopup] = useState<boolean>(false);
   const [pendingDate, setPendingDate] = useState<number | null>(null);
   const [touchedDate, setTouchedDate] = useState<number | null>(null);
@@ -1776,9 +1777,17 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate }: Mont
               })}
             </View>
             <View style={monthlyStyles.footer}>
-              <TouchableOpacity style={monthlyStyles.footerBtn} onPress={onClose} testID="monthly-cancel">
-                <Text style={monthlyStyles.footerBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              <View /> {/* Spacer for alignment */}
+              <View style={monthlyStyles.footerButtons}>
+                {onSetTime && (
+                  <TouchableOpacity onPress={onSetTime} style={monthlyStyles.footerBtn}>
+                    <Text style={monthlyStyles.footerBtnTextPrimary}>Set Time</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={monthlyStyles.footerBtn} onPress={onClose} testID="monthly-cancel">
+                  <Text style={monthlyStyles.footerBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -2039,7 +2048,13 @@ const monthlyStyles = StyleSheet.create({
   },
   footer: {
     marginTop: 16,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   footerBtn: {
     paddingHorizontal: 12,
@@ -2047,6 +2062,11 @@ const monthlyStyles = StyleSheet.create({
   },
   footerBtnText: {
     color: '#1E3A8A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  footerBtnTextPrimary: {
+    color: '#6366F1',
     fontSize: 14,
     fontWeight: '600',
   },
