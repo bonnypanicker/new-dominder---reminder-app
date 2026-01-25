@@ -357,14 +357,18 @@ class AlarmActionBridge : BroadcastReceiver() {
                              snoozeCal.get(Calendar.MINUTE)
                          )
                          
-                         // Update metadata with new snooze time
+                         // Update metadata with COMPLETE information for snooze
+                         // CRITICAL: Must store priority so AlarmReceiver knows to show fullscreen intent for ringer mode
                          metaPrefs.edit().apply {
                              putString("meta_\${reminderId}_startDate", snoozeDate)
                              putString("meta_\${reminderId}_startTime", snoozeTime)
+                             putString("meta_\${reminderId}_title", title)
+                             putString("meta_\${reminderId}_priority", priority)  // CRITICAL for ringer mode
+                             putString("meta_\${reminderId}_repeatType", "none")
                              apply()
                          }
                          
-                         DebugLogger.log("AlarmActionBridge: Updated metadata for one-off snooze")
+                         DebugLogger.log("AlarmActionBridge: Updated complete metadata for one-off snooze with priority=\${priority}")
                          scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
                     }
 
@@ -748,7 +752,14 @@ class AlarmActionBridge : BroadcastReceiver() {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                  if (!alarmManager.canScheduleExactAlarms()) {
-                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm, skipping native fallback")
+                     DebugLogger.log("AlarmActionBridge: Exact alarm permission denied, using inexact alarm as fallback")
+                     // Fall back to inexact alarm instead of returning - less reliable but will still fire
+                     alarmManager.setAndAllowWhileIdle(
+                         AlarmManager.RTC_WAKEUP,
+                         triggerTime,
+                         pendingIntent
+                     )
+                     DebugLogger.log("AlarmActionBridge: Inexact alarm scheduled for \${triggerTime}")
                      return
                  }
             }
