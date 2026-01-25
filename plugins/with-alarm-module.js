@@ -401,8 +401,17 @@ class AlarmActionBridge : BroadcastReceiver() {
      */
     private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
         try {
+            // Check if this was a shadow snooze ID
+            val originalReminderId = if (reminderId.endsWith("_snooze")) {
+                reminderId.removeSuffix("_snooze")
+            } else {
+                reminderId
+            }
+            
+            DebugLogger.log("AlarmActionBridge: scheduleNextOccurrenceIfNeeded for ID: \${reminderId} (Original: \${originalReminderId})")
+
             val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
+            val repeatType = metaPrefs.getString("meta_\${originalReminderId}_repeatType", "none") ?: "none"
             
             if (repeatType == "none") {
                 DebugLogger.log("AlarmActionBridge: Non-repeating reminder, no next occurrence needed")
@@ -410,42 +419,42 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
             
             // Check if already completed natively
-            val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
+            val isNativeCompleted = metaPrefs.getBoolean("meta_\${originalReminderId}_isCompleted", false)
             if (isNativeCompleted) {
-                DebugLogger.log("AlarmActionBridge: Reminder \$reminderId is already completed natively, not scheduling next")
+                DebugLogger.log("AlarmActionBridge: Reminder \${originalReminderId} is already completed natively, not scheduling next")
                 return
             }
             
-            val everyValue = metaPrefs.getInt("meta_\${reminderId}_everyValue", 1)
-            val everyUnit = metaPrefs.getString("meta_\${reminderId}_everyUnit", "minutes") ?: "minutes"
-            val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-            val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-            val untilDate = metaPrefs.getString("meta_\${reminderId}_untilDate", "") ?: ""
-            val untilTime = metaPrefs.getString("meta_\${reminderId}_untilTime", "") ?: ""
+            val everyValue = metaPrefs.getInt("meta_\${originalReminderId}_everyValue", 1)
+            val everyUnit = metaPrefs.getString("meta_\${originalReminderId}_everyUnit", "minutes") ?: "minutes"
+            val untilType = metaPrefs.getString("meta_\${originalReminderId}_untilType", "forever") ?: "forever"
+            val untilCount = metaPrefs.getInt("meta_\${originalReminderId}_untilCount", 0)
+            val untilDate = metaPrefs.getString("meta_\${originalReminderId}_untilDate", "") ?: ""
+            val untilTime = metaPrefs.getString("meta_\${originalReminderId}_untilTime", "") ?: ""
             // Use actualTriggerCount as the authoritative count (set by AlarmReceiver when alarm fires)
-            val actualTriggerCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-            val startDate = metaPrefs.getString("meta_\${reminderId}_startDate", "") ?: ""
-            val startTime = metaPrefs.getString("meta_\${reminderId}_startTime", "") ?: ""
-            val title = metaPrefs.getString("meta_\${reminderId}_title", "Reminder") ?: "Reminder"
-            val priority = metaPrefs.getString("meta_\${reminderId}_priority", "high") ?: "high"
+            val actualTriggerCount = metaPrefs.getInt("meta_\${originalReminderId}_actualTriggerCount", 0)
+            val startDate = metaPrefs.getString("meta_\${originalReminderId}_startDate", "") ?: ""
+            val startTime = metaPrefs.getString("meta_\${originalReminderId}_startTime", "") ?: ""
+            val title = metaPrefs.getString("meta_\${originalReminderId}_title", "Reminder") ?: "Reminder"
+            val priority = metaPrefs.getString("meta_\${originalReminderId}_priority", "high") ?: "high"
             
             // Multi-select fields
-            val multiSelectEnabled = metaPrefs.getBoolean("meta_\${reminderId}_multiSelectEnabled", false)
-            val multiSelectDates = metaPrefs.getString("meta_\${reminderId}_multiSelectDates", "[]") ?: "[]"
-            val multiSelectDays = metaPrefs.getString("meta_\${reminderId}_multiSelectDays", "[]") ?: "[]"
-            val windowEndTime = metaPrefs.getString("meta_\${reminderId}_windowEndTime", "") ?: ""
-            val windowEndIsAM = metaPrefs.getBoolean("meta_\${reminderId}_windowEndIsAM", false)
+            val multiSelectEnabled = metaPrefs.getBoolean("meta_\${originalReminderId}_multiSelectEnabled", false)
+            val multiSelectDates = metaPrefs.getString("meta_\${originalReminderId}_multiSelectDates", "[]") ?: "[]"
+            val multiSelectDays = metaPrefs.getString("meta_\${originalReminderId}_multiSelectDays", "[]") ?: "[]"
+            val windowEndTime = metaPrefs.getString("meta_\${originalReminderId}_windowEndTime", "") ?: ""
+            val windowEndIsAM = metaPrefs.getBoolean("meta_\${originalReminderId}_windowEndIsAM", false)
             
-            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=\$repeatType, everyValue=\$everyValue, multiSelect=\$multiSelectEnabled, actualTriggerCount=\$actualTriggerCount")
+            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=\${repeatType}, everyValue=\${everyValue}, multiSelect=\${multiSelectEnabled}, actualTriggerCount=\${actualTriggerCount}")
             
             // Check if we've reached the count limit (actualTriggerCount is already incremented by AlarmReceiver)
             if (untilType == "count" && actualTriggerCount >= untilCount) {
-                DebugLogger.log("AlarmActionBridge: Reached occurrence limit (\$actualTriggerCount >= \$untilCount), no more occurrences")
+                DebugLogger.log("AlarmActionBridge: Reached occurrence limit (\${actualTriggerCount} >= \${untilCount}), no more occurrences")
                 // Mark as completed if not already
                 if (!isNativeCompleted) {
                     metaPrefs.edit().apply {
-                        putBoolean("meta_\${reminderId}_isCompleted", true)
-                        putLong("meta_\${reminderId}_completedAt", System.currentTimeMillis())
+                        putBoolean("meta_\${originalReminderId}_isCompleted", true)
+                        putLong("meta_\${originalReminderId}_completedAt", System.currentTimeMillis())
                         apply()
                     }
                 }
@@ -462,8 +471,8 @@ class AlarmActionBridge : BroadcastReceiver() {
                 DebugLogger.log("AlarmActionBridge: No valid next trigger time, reminder has ended")
                 // Mark as completed
                 metaPrefs.edit().apply {
-                    putBoolean("meta_\${reminderId}_isCompleted", true)
-                    putLong("meta_\${reminderId}_completedAt", System.currentTimeMillis())
+                    putBoolean("meta_\${originalReminderId}_isCompleted", true)
+                    putLong("meta_\${originalReminderId}_completedAt", System.currentTimeMillis())
                     apply()
                 }
                 return
@@ -475,10 +484,10 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
             
             // Also sync the occurrenceCount for JS compatibility (legacy field)
-            metaPrefs.edit().putInt("meta_\${reminderId}_occurrenceCount", actualTriggerCount).apply()
+            metaPrefs.edit().putInt("meta_\${originalReminderId}_occurrenceCount", actualTriggerCount).apply()
             
             // Schedule the next alarm
-            scheduleNativeAlarmAtTime(context, reminderId, title, priority, nextTriggerTime)
+            scheduleNativeAlarmAtTime(context, originalReminderId, title, priority, nextTriggerTime)
             DebugLogger.log("AlarmActionBridge: Scheduled next occurrence at \${java.util.Date(nextTriggerTime)}")
             
         } catch (e: Exception) {
@@ -686,6 +695,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority)
+                addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -721,11 +731,12 @@ class AlarmActionBridge : BroadcastReceiver() {
             
             val triggerTime = System.currentTimeMillis() + (minutes * 60 * 1000L)
             
-             val intent = Intent(context, AlarmReceiver::class.java).apply {
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = "app.rork.dominder.ALARM_FIRED"
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority)
+                addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
