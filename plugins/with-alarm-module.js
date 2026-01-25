@@ -267,14 +267,14 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val priority = intent.getStringExtra("priority") ?: "medium"
 
-                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: ${reminderId}, minutes: ${snoozeMinutes}")
+                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
                     // Check if repeating
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-                    val repeatType = metaPrefs.getString("meta_${reminderId}_repeatType", "none") ?: "none"
+                    val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
                     
                     if (repeatType != "none") {
-                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder ${reminderId}. Splitting Snooze vs Series.")
+                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
                          
                          // 1. Schedule Shadow Snooze with COMPLETE metadata
                          val shadowId = reminderId + "_snooze"
@@ -300,44 +300,44 @@ class AlarmActionBridge : BroadcastReceiver() {
                          
                          // Store COMPLETE metadata for shadowId
                          metaPrefs.edit().apply {
-                             putString("meta_${shadowId}_title", "Snoozed: ${title}")
-                             putString("meta_${shadowId}_priority", priority)
-                             putString("meta_${shadowId}_repeatType", "none") // Force none for snooze
+                             putString("meta_\${shadowId}_title", "Snoozed: \${title}")
+                             putString("meta_\${shadowId}_priority", priority)
+                             putString("meta_\${shadowId}_repeatType", "none") // Force none for snooze
                              
                              // CRITICAL: Add date/time metadata
-                             putString("meta_${shadowId}_startDate", snoozeDate)
-                             putString("meta_${shadowId}_startTime", snoozeTime)
+                             putString("meta_\${shadowId}_startDate", snoozeDate)
+                             putString("meta_\${shadowId}_startTime", snoozeTime)
                              
                              // Add default values for other required fields
-                             putInt("meta_${shadowId}_everyValue", 1)
-                             putString("meta_${shadowId}_everyUnit", "minutes")
-                             putString("meta_${shadowId}_untilType", "forever")
-                             putInt("meta_${shadowId}_untilCount", 0)
-                             putString("meta_${shadowId}_untilDate", "")
-                             putString("meta_${shadowId}_untilTime", "")
-                             putInt("meta_${shadowId}_actualTriggerCount", 0)
-                             putInt("meta_${shadowId}_occurrenceCount", 0)
+                             putInt("meta_\${shadowId}_everyValue", 1)
+                             putString("meta_\${shadowId}_everyUnit", "minutes")
+                             putString("meta_\${shadowId}_untilType", "forever")
+                             putInt("meta_\${shadowId}_untilCount", 0)
+                             putString("meta_\${shadowId}_untilDate", "")
+                             putString("meta_\${shadowId}_untilTime", "")
+                             putInt("meta_\${shadowId}_actualTriggerCount", 0)
+                             putInt("meta_\${shadowId}_occurrenceCount", 0)
                              
                              // Multi-select defaults
-                             putBoolean("meta_${shadowId}_multiSelectEnabled", false)
-                             putString("meta_${shadowId}_multiSelectDates", "[]")
-                             putString("meta_${shadowId}_multiSelectDays", "[]")
-                             putString("meta_${shadowId}_windowEndTime", "")
-                             putBoolean("meta_${shadowId}_windowEndIsAM", false)
+                             putBoolean("meta_\${shadowId}_multiSelectEnabled", false)
+                             putString("meta_\${shadowId}_multiSelectDates", "[]")
+                             putString("meta_\${shadowId}_multiSelectDays", "[]")
+                             putString("meta_\${shadowId}_windowEndTime", "")
+                             putBoolean("meta_\${shadowId}_windowEndIsAM", false)
                              
                              apply()
                          }
                          
-                         DebugLogger.log("AlarmActionBridge: Stored complete metadata for shadow snooze ${shadowId}")
+                         DebugLogger.log("AlarmActionBridge: Stored complete metadata for shadow snooze \${shadowId}")
                          
                          // Schedule the native alarm
-                         scheduleNativeAlarm(context, shadowId, "Snoozed: ${title}", priority, snoozeMinutes)
+                         scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
                          
                          // 2. Advance Series (Schedule Next Regular Occurrence)
                          scheduleNextOccurrenceIfNeeded(context, reminderId)
                     } else {
                          // One-off: Standard overwrite behavior
-                         DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder ${reminderId}")
+                         DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder \${reminderId}")
                          
                          // For one-off reminders, update the metadata with new time
                          val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
@@ -359,8 +359,8 @@ class AlarmActionBridge : BroadcastReceiver() {
                          
                          // Update metadata with new snooze time
                          metaPrefs.edit().apply {
-                             putString("meta_${reminderId}_startDate", snoozeDate)
-                             putString("meta_${reminderId}_startTime", snoozeTime)
+                             putString("meta_\${reminderId}_startDate", snoozeDate)
+                             putString("meta_\${reminderId}_startTime", snoozeTime)
                              apply()
                          }
                          
