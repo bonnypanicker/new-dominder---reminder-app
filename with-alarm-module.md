@@ -224,8 +224,6 @@ import app.rork.dominder_android_reminder_app.DebugLogger
 import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.modules.core.DeviceEventManagerModule
-import java.util.Calendar
-import org.json.JSONArray
 
 class AlarmActionBridge : BroadcastReceiver() {
 
@@ -241,19 +239,6 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
-                    // Check if React Native is running
-                    val isReactRunning = isReactContextAvailable(context)
-                    DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
-                    
-                    if (!isReactRunning) {
-                        // App is killed - native handles scheduling next occurrence
-                        DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
-                        scheduleNextOccurrenceIfNeeded(context, reminderId)
-                    } else {
-                        // App is running - JS will handle everything via event
-                        DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
-                    }
-                    
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
                     emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
@@ -267,17 +252,15 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val priority = intent.getStringExtra("priority") ?: "medium"
 
-                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}, priority: \${priority}")
+                DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
-                    // SIMPLIFIED: Just schedule the alarm immediately without metadata checks
-                    // This ensures snooze works even when app is killed and metadata isn't available
-                    DebugLogger.log("AlarmActionBridge: Scheduling snooze alarm immediately")
+                    // 1. Schedule Native Alarm IMMEDIATELY (Fallback)
                     scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
 
-                    // Try emit to RN for UI update (will fail silently if app is killed)
-                    DebugLogger.log("AlarmActionBridge: Attempting to emit alarmSnooze event to React Native")
+                    // 2. Try emit to RN (UI Update)
+                    DebugLogger.log("AlarmActionBridge: About to emit alarmSnooze event to React Native")
                     emitEventToReactNative(context, "alarmSnooze", reminderId, snoozeMinutes)
-                    DebugLogger.log("AlarmActionBridge: Snooze handling completed")
+                    DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
@@ -299,337 +282,6 @@ class AlarmActionBridge : BroadcastReceiver() {
         }
     }
     
-    /**
-     * Schedule the next occurrence for repeating reminders when Done is pressed
-     * while the app is killed. This ensures alarms continue even without JS.
-     * 
-     * IMPORTANT: This uses actualTriggerCount (set by AlarmReceiver) as the source of truth.
-     */
-    private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
-        try {
-            // Check if this was a shadow snooze ID
-            val originalReminderId = if (reminderId.endsWith("_snooze")) {
-                reminderId.removeSuffix("_snooze")
-            } else {
-                reminderId
-            }
-            
-            DebugLogger.log("AlarmActionBridge: scheduleNextOccurrenceIfNeeded for ID: \${reminderId} (Original: \${originalReminderId})")
-
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val repeatType = metaPrefs.getString("meta_\${originalReminderId}_repeatType", "none") ?: "none"
-            
-            if (repeatType == "none") {
-                DebugLogger.log("AlarmActionBridge: Non-repeating reminder, no next occurrence needed")
-                return
-            }
-            
-            // Check if already completed natively
-            val isNativeCompleted = metaPrefs.getBoolean("meta_\${originalReminderId}_isCompleted", false)
-            if (isNativeCompleted) {
-                DebugLogger.log("AlarmActionBridge: Reminder \${originalReminderId} is already completed natively, not scheduling next")
-                return
-            }
-            
-            val everyValue = metaPrefs.getInt("meta_\${originalReminderId}_everyValue", 1)
-            val everyUnit = metaPrefs.getString("meta_\${originalReminderId}_everyUnit", "minutes") ?: "minutes"
-            val untilType = metaPrefs.getString("meta_\${originalReminderId}_untilType", "forever") ?: "forever"
-            val untilCount = metaPrefs.getInt("meta_\${originalReminderId}_untilCount", 0)
-            val untilDate = metaPrefs.getString("meta_\${originalReminderId}_untilDate", "") ?: ""
-            val untilTime = metaPrefs.getString("meta_\${originalReminderId}_untilTime", "") ?: ""
-            // Use actualTriggerCount as the authoritative count (set by AlarmReceiver when alarm fires)
-            val actualTriggerCount = metaPrefs.getInt("meta_\${originalReminderId}_actualTriggerCount", 0)
-            val startDate = metaPrefs.getString("meta_\${originalReminderId}_startDate", "") ?: ""
-            val startTime = metaPrefs.getString("meta_\${originalReminderId}_startTime", "") ?: ""
-            val title = metaPrefs.getString("meta_\${originalReminderId}_title", "Reminder") ?: "Reminder"
-            val priority = metaPrefs.getString("meta_\${originalReminderId}_priority", "high") ?: "high"
-            
-            // Multi-select fields
-            val multiSelectEnabled = metaPrefs.getBoolean("meta_\${originalReminderId}_multiSelectEnabled", false)
-            val multiSelectDates = metaPrefs.getString("meta_\${originalReminderId}_multiSelectDates", "[]") ?: "[]"
-            val multiSelectDays = metaPrefs.getString("meta_\${originalReminderId}_multiSelectDays", "[]") ?: "[]"
-            val windowEndTime = metaPrefs.getString("meta_\${originalReminderId}_windowEndTime", "") ?: ""
-            val windowEndIsAM = metaPrefs.getBoolean("meta_\${originalReminderId}_windowEndIsAM", false)
-            
-            DebugLogger.log("AlarmActionBridge: Metadata - repeatType=\${repeatType}, everyValue=\${everyValue}, multiSelect=\${multiSelectEnabled}, actualTriggerCount=\${actualTriggerCount}")
-            
-            // Check if we've reached the count limit (actualTriggerCount is already incremented by AlarmReceiver)
-            if (untilType == "count" && actualTriggerCount >= untilCount) {
-                DebugLogger.log("AlarmActionBridge: Reached occurrence limit (\${actualTriggerCount} >= \${untilCount}), no more occurrences")
-                // Mark as completed if not already
-                if (!isNativeCompleted) {
-                    metaPrefs.edit().apply {
-                        putBoolean("meta_\${originalReminderId}_isCompleted", true)
-                        putLong("meta_\${originalReminderId}_completedAt", System.currentTimeMillis())
-                        apply()
-                    }
-                }
-                return
-            }
-            
-            // Calculate next trigger time
-            val nextTriggerTime = calculateNextTriggerTime(
-                repeatType, everyValue, everyUnit, untilType, untilDate, untilTime, startDate, startTime,
-                multiSelectEnabled, multiSelectDates, multiSelectDays, windowEndTime, windowEndIsAM
-            )
-            
-            if (nextTriggerTime == null) {
-                DebugLogger.log("AlarmActionBridge: No valid next trigger time, reminder has ended")
-                // Mark as completed
-                metaPrefs.edit().apply {
-                    putBoolean("meta_\${originalReminderId}_isCompleted", true)
-                    putLong("meta_\${originalReminderId}_completedAt", System.currentTimeMillis())
-                    apply()
-                }
-                return
-            }
-            
-            if (nextTriggerTime <= System.currentTimeMillis()) {
-                DebugLogger.log("AlarmActionBridge: Next trigger time is in the past, reminder may have ended")
-                return
-            }
-            
-            // Also sync the occurrenceCount for JS compatibility (legacy field)
-            metaPrefs.edit().putInt("meta_\${originalReminderId}_occurrenceCount", actualTriggerCount).apply()
-            
-            // Schedule the next alarm
-            scheduleNativeAlarmAtTime(context, originalReminderId, title, priority, nextTriggerTime)
-            DebugLogger.log("AlarmActionBridge: Scheduled next occurrence at \${java.util.Date(nextTriggerTime)}")
-            
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error scheduling next occurrence: \${e.message}")
-        }
-    }
-    
-    private fun calculateNextTriggerTime(
-        repeatType: String,
-        everyValue: Int,
-        everyUnit: String,
-        untilType: String,
-        untilDate: String,
-        untilTime: String,
-        startDate: String,
-        startTime: String,
-        multiSelectEnabled: Boolean = false,
-        multiSelectDates: String = "[]",
-        multiSelectDays: String = "[]",
-        windowEndTime: String = "",
-        windowEndIsAM: Boolean = false
-    ): Long? {
-        val now = System.currentTimeMillis()
-        val calendar = Calendar.getInstance()
-        
-        // Parse start date/time
-        var startCal: Calendar? = null
-        if (startDate.isNotEmpty() && startTime.isNotEmpty()) {
-            try {
-                val dateParts = startDate.split("-")
-                val timeParts = startTime.split(":")
-                if (dateParts.size == 3 && timeParts.size == 2) {
-                    val c = Calendar.getInstance()
-                    c.set(Calendar.YEAR, dateParts[0].toInt())
-                    c.set(Calendar.MONTH, dateParts[1].toInt() - 1)
-                    c.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-                    c.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-                    c.set(Calendar.MINUTE, timeParts[1].toInt())
-                    c.set(Calendar.SECOND, 0)
-                    c.set(Calendar.MILLISECOND, 0)
-                    startCal = c
-                }
-            } catch (e: Exception) {
-                DebugLogger.log("AlarmActionBridge: Error parsing start date/time: \${e.message}")
-            }
-        }
-
-        when (repeatType) {
-            "every" -> {
-                // For 'every' type, calculate next aligned occurrence
-                val intervalMs = when (everyUnit) {
-                    "minutes" -> everyValue * 60 * 1000L
-                    "hours" -> everyValue * 60 * 60 * 1000L
-                    else -> everyValue * 60 * 1000L
-                }
-                
-                if (multiSelectEnabled && startCal != null) {
-                    try {
-                         var endH = 23
-                         var endM = 59
-                         if (windowEndTime.isNotEmpty()) {
-                             val parts = windowEndTime.split(":")
-                             if (parts.size == 2) {
-                                 endH = parts[0].toInt()
-                                 endM = parts[1].toInt()
-                             }
-                         }
-                         
-                         val datesArray = JSONArray(multiSelectDates)
-                         val daysArray = JSONArray(multiSelectDays)
-                         val selectedDays = mutableSetOf<Int>()
-                         for(i in 0 until daysArray.length()) selectedDays.add(daysArray.getInt(i))
-                         
-                         val selectedDates = mutableSetOf<String>()
-                         for(i in 0 until datesArray.length()) selectedDates.add(datesArray.getString(i))
-
-                         val startH = startCal.get(Calendar.HOUR_OF_DAY)
-                         val startM = startCal.get(Calendar.MINUTE)
-                         
-                         val cursor = Calendar.getInstance()
-                         cursor.timeInMillis = now
-                         // Start from beginning of today (to cover current day windows)
-                         cursor.set(Calendar.HOUR_OF_DAY, 0)
-                         cursor.set(Calendar.MINUTE, 0)
-                         cursor.set(Calendar.SECOND, 0)
-                         cursor.set(Calendar.MILLISECOND, 0)
-                         
-                         for (i in 0 until 366) { // Look ahead 1 year
-                             val cy = cursor.get(Calendar.YEAR)
-                             val cm = cursor.get(Calendar.MONTH) + 1
-                             val cd = cursor.get(Calendar.DAY_OF_MONTH)
-                             val dateStr = String.format("%04d-%02d-%02d", cy, cm, cd)
-                             val dayOfWeek = cursor.get(Calendar.DAY_OF_WEEK) - 1 
-                             
-                             if (selectedDates.contains(dateStr) || selectedDays.contains(dayOfWeek)) {
-                                 // Explicitly construct window start on this cursor date
-                                 val wStart = Calendar.getInstance()
-                                 wStart.timeInMillis = cursor.timeInMillis
-                                 wStart.set(Calendar.HOUR_OF_DAY, startH)
-                                 wStart.set(Calendar.MINUTE, startM)
-                                 wStart.set(Calendar.SECOND, 0)
-                                 wStart.set(Calendar.MILLISECOND, 0)
-                                 
-                                 // Explicitly construct window end on this cursor date
-                                 val wEnd = Calendar.getInstance()
-                                 wEnd.timeInMillis = cursor.timeInMillis
-                                 wEnd.set(Calendar.HOUR_OF_DAY, endH)
-                                 wEnd.set(Calendar.MINUTE, endM)
-                                 wEnd.set(Calendar.SECOND, 0)
-                                 wEnd.set(Calendar.MILLISECOND, 0)
-                                 
-                                 if (wEnd.before(wStart)) {
-                                     wEnd.add(Calendar.DAY_OF_MONTH, 1)
-                                 }
-                                 
-                                 var occ = wStart.timeInMillis
-                                 while (occ <= wEnd.timeInMillis) {
-                                     if (occ > now) {
-                                         return occ
-                                     }
-                                     occ += intervalMs
-                                 }
-                             }
-                             cursor.add(Calendar.DAY_OF_MONTH, 1)
-                         }
-                         return null
-                    } catch (e: Exception) {
-                        DebugLogger.log("AlarmActionBridge: Error in multi-select calculation: \${e.message}")
-                    }
-                }
-                
-                if (startCal != null) {
-                    val startMs = startCal.timeInMillis
-                    val elapsed = now - startMs
-                    val intervalsPassed = if (elapsed < 0) 0 else (elapsed / intervalMs) + 1
-                    val nextTrigger = startMs + (intervalsPassed * intervalMs)
-                    
-                    if (untilType == "endsAt" && untilDate.isNotEmpty()) {
-                        val endBoundary = parseEndBoundary(untilDate, untilTime, everyUnit)
-                        if (nextTrigger > endBoundary) {
-                            return null
-                        }
-                    }
-                    return nextTrigger
-                }
-                
-                return now + intervalMs
-            }
-            "daily", "weekly", "monthly", "yearly" -> {
-                calendar.timeInMillis = now
-                when (repeatType) {
-                    "daily" -> calendar.add(Calendar.DAY_OF_MONTH, 1)
-                    "weekly" -> calendar.add(Calendar.WEEK_OF_YEAR, 1)
-                    "monthly" -> calendar.add(Calendar.MONTH, 1)
-                    "yearly" -> calendar.add(Calendar.YEAR, 1)
-                }
-                if (startCal != null) {
-                    calendar.set(Calendar.HOUR_OF_DAY, startCal.get(Calendar.HOUR_OF_DAY))
-                    calendar.set(Calendar.MINUTE, startCal.get(Calendar.MINUTE))
-                    calendar.set(Calendar.SECOND, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                }
-                return calendar.timeInMillis
-            }
-            else -> return null
-        }
-    }
-    
-    private fun parseEndBoundary(untilDate: String, untilTime: String, everyUnit: String): Long {
-        val calendar = Calendar.getInstance()
-        try {
-            val dateParts = untilDate.split("-")
-            if (dateParts.size == 3) {
-                calendar.set(Calendar.YEAR, dateParts[0].toInt())
-                calendar.set(Calendar.MONTH, dateParts[1].toInt() - 1)
-                calendar.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-                
-                val isTimeBound = everyUnit == "minutes" || everyUnit == "hours"
-                if (isTimeBound && untilTime.isNotEmpty()) {
-                    val timeParts = untilTime.split(":")
-                    if (timeParts.size == 2) {
-                        calendar.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-                        calendar.set(Calendar.MINUTE, timeParts[1].toInt())
-                        calendar.set(Calendar.SECOND, 0)
-                    }
-                } else {
-                    calendar.set(Calendar.HOUR_OF_DAY, 23)
-                    calendar.set(Calendar.MINUTE, 59)
-                    calendar.set(Calendar.SECOND, 59)
-                }
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error parsing end boundary: \${e.message}")
-        }
-        return calendar.timeInMillis
-    }
-    
-    private fun scheduleNativeAlarmAtTime(context: Context, reminderId: String, title: String, priority: String, triggerTime: Long) {
-        try {
-            DebugLogger.log("AlarmActionBridge: Scheduling native alarm at specific time")
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "app.rork.dominder.ALARM_FIRED"
-                putExtra("reminderId", reminderId)
-                putExtra("title", title)
-                putExtra("priority", priority)
-                addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                reminderId.hashCode(),
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm, skipping")
-                    return
-                }
-            }
-
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTime,
-                pendingIntent
-            )
-            DebugLogger.log("AlarmActionBridge: Native alarm scheduled for \${java.util.Date(triggerTime)}")
-
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error scheduling native alarm: \${e.message}")
-        }
-    }
-    
     private fun scheduleNativeAlarm(context: Context, reminderId: String, title: String, priority: String, minutes: Int) {
         try {
             DebugLogger.log("AlarmActionBridge: Scheduling native fallback alarm")
@@ -637,12 +289,11 @@ class AlarmActionBridge : BroadcastReceiver() {
             
             val triggerTime = System.currentTimeMillis() + (minutes * 60 * 1000L)
             
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
+             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = "app.rork.dominder.ALARM_FIRED"
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority)
-                addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -654,14 +305,7 @@ class AlarmActionBridge : BroadcastReceiver() {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                  if (!alarmManager.canScheduleExactAlarms()) {
-                     DebugLogger.log("AlarmActionBridge: Exact alarm permission denied, using inexact alarm as fallback")
-                     // Fall back to inexact alarm instead of returning - less reliable but will still fire
-                     alarmManager.setAndAllowWhileIdle(
-                         AlarmManager.RTC_WAKEUP,
-                         triggerTime,
-                         pendingIntent
-                     )
-                     DebugLogger.log("AlarmActionBridge: Inexact alarm scheduled for \${triggerTime}")
+                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm, skipping native fallback")
                      return
                  }
             }
@@ -701,26 +345,6 @@ class AlarmActionBridge : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             DebugLogger.log("AlarmActionBridge: Error emitting missed alarm: \${e.message}")
-        }
-    }
-    
-    /**
-     * Check if React Native context is available (app is running).
-     * Used to decide whether native or JS should handle scheduling.
-     */
-    private fun isReactContextAvailable(context: Context): Boolean {
-        return try {
-            val app = context.applicationContext
-            if (app is ReactApplication) {
-                val reactInstanceManager = app.reactNativeHost.reactInstanceManager
-                val reactContext = reactInstanceManager.currentReactContext
-                reactContext != null
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error checking React context: \${e.message}")
-            false
         }
     }
 
@@ -764,7 +388,16 @@ class AlarmActionBridge : BroadcastReceiver() {
                     DebugLogger.log("AlarmActionBridge: ✓✓✓ Event '\${eventName}' emitted successfully! ✓✓✓")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ✗✗✗ ERROR - ReactContext is NULL! ✗✗✗")
-                    DebugLogger.log("AlarmActionBridge: This means React Native is not running or was killed")
+                    DebugLogger.log("AlarmActionBridge: Starting BackgroundActionService to handle '\${eventName}'")
+                    
+                    // Map event name to cleaner action string
+                    val action = when(eventName) {
+                        "alarmDone" -> "done"
+                        "alarmSnooze" -> "snooze"
+                        else -> eventName
+                    }
+                    
+                    startBackgroundService(context, reminderId, action, snoozeMinutes, triggerTime)
                 }
             } else {
                 DebugLogger.log("AlarmActionBridge: ✗✗✗ ERROR - App is NOT ReactApplication! ✗✗✗")
@@ -774,6 +407,29 @@ class AlarmActionBridge : BroadcastReceiver() {
             DebugLogger.log("AlarmActionBridge: ✗✗✗ EXCEPTION in emitEventToReactNative ✗✗✗")
             DebugLogger.log("AlarmActionBridge: Exception: \${e.message}")
             DebugLogger.log("AlarmActionBridge: Stack trace: \${e.stackTraceToString()}")
+        }
+    }
+
+    private fun startBackgroundService(context: Context, reminderId: String, action: String, snoozeMinutes: Int, triggerTime: Long) {
+        try {
+            val serviceIntent = Intent(context, BackgroundActionService::class.java).apply {
+                putExtra("reminderId", reminderId)
+                putExtra("action", action)
+                if (action == "snooze") {
+                    putExtra("snoozeMinutes", snoozeMinutes)
+                }
+                if (triggerTime > 0) {
+                    putExtra("triggerTime", triggerTime)
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            DebugLogger.log("AlarmActionBridge: Started BackgroundActionService")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmActionBridge: Failed to start service: \${e.message}")
         }
     }
 }`
@@ -803,7 +459,6 @@ class AlarmRingtoneService : Service() {
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceRunning = false
-    private var originalVolume: Int = -1
     
     companion object {
         private const val NOTIFICATION_ID = 9999
@@ -965,20 +620,6 @@ class AlarmRingtoneService : Service() {
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             }
-
-            // Set configured volume
-            val ringerVolume = prefs.getInt("ringer_volume", 40)
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            // Calculate target volume (10-100% -> scale to stream range)
-            val targetVolume = (maxVolume * (ringerVolume / 100.0)).toInt()
-            
-            // Save original volume
-            originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
-            
-            // Set new volume
-            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
-            DebugLogger.log("AlarmRingtoneService: Set alarm volume to \$targetVolume (max \$maxVolume, original \$originalVolume, pref \$ringerVolume%)")
             
             // Use MediaPlayer for full song playback with looping
             mediaPlayer = MediaPlayer().apply {
@@ -1089,19 +730,6 @@ class AlarmRingtoneService : Service() {
                 }
             }
             wakeLock = null
-            
-            
-            // Restore original volume
-            if (originalVolume != -1) {
-                try {
-                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
-                    DebugLogger.log("AlarmRingtoneService: Restored alarm volume to \$originalVolume")
-                    originalVolume = -1
-                } catch (e: Exception) {
-                     DebugLogger.log("AlarmRingtoneService: Error restoring volume: \${e.message}")
-                }
-            }
             
             isServiceRunning = false
             
@@ -1257,9 +885,6 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
         
-        // Cancel timeout immediately to prevent missed notification
-        timeoutRunnable?.let { handler.removeCallbacks(it) }
-        
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
@@ -1297,21 +922,17 @@ class AlarmActivity : AppCompatActivity() {
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: \${reminderId}")
         
-        // Cancel timeout immediately to prevent missed notification
-        timeoutRunnable?.let { handler.removeCallbacks(it) }
-        
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
         
         // NEW: Persist to SharedPreferences immediately
-        // IMPORTANT: Save triggerTimeMs (actual alarm time) for accurate history, not current time
         try {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             prefs.edit().apply {
-                putString("completed_\${reminderId}", triggerTimeMs.toString())
+                putString("completed_\${reminderId}", System.currentTimeMillis().toString())
                 apply()
             }
-            DebugLogger.log("AlarmActivity: Saved completion to SharedPreferences for \${reminderId} with triggerTime: \${triggerTimeMs}")
+            DebugLogger.log("AlarmActivity: Saved completion to SharedPreferences for \${reminderId}")
         } catch (e: Exception) {
             DebugLogger.log("AlarmActivity: Error saving to SharedPreferences: \${e.message}")
         }
@@ -1458,8 +1079,16 @@ class AlarmActivity : AppCompatActivity() {
             // Method 2: Finish this activity
             finish()
             
-            // Method 3: Removed process killing to ensure BroadcastReceiver has time to process the SNOOZE/DONE events
-            // The OS will handle process cleanup naturally.
+            // Method 3: As a final cleanup, exit this process after a delay
+            // This ensures the alarm activity process is completely cleaned up
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    // Only kill this specific activity's process, not the main app
+                    Process.killProcess(Process.myPid())
+                } catch (e: Exception) {
+                    DebugLogger.log("AlarmActivity: Error killing process: \${e.message}")
+                }
+            }, 500)
             
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {
@@ -1505,11 +1134,6 @@ import app.rork.dominder_android_reminder_app.R
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        // Acquire a temporary partial wakelock immediately to ensure we can process
-        val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        val wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "DoMinder:AlarmReceiverReceiver")
-        wakeLock.acquire(10000) // Hold for 10 seconds max
-
         DebugLogger.log("AlarmReceiver: Received broadcast")
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
@@ -1521,30 +1145,29 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        // NEW: Start BackgroundActionService to handle delivery logic (e.g. rescheduling)
+        try {
+            val serviceIntent = Intent(context, BackgroundActionService::class.java).apply {
+                putExtra("reminderId", reminderId)
+                putExtra("action", "delivered")
+                putExtra("triggerTime", triggerTime)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            DebugLogger.log("AlarmReceiver: Started BackgroundActionService (delivered)")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmReceiver: Failed to start BackgroundActionService: \${e.message}")
+        }
+
         // CRITICAL: Check if reminder is paused before firing
         val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
         val isPaused = prefs.getBoolean("paused_\$reminderId", false)
         if (isPaused) {
             DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
             return
-        }
-        
-        // CRITICAL: Check if reminder is already completed (native state)
-        val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-        val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
-        if (isNativeCompleted) {
-            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
-            return
-        }
-        
-        // CRITICAL: Record this trigger in native state BEFORE showing alarm
-        // This ensures accurate tracking even if app is killed
-        recordNativeTrigger(context, reminderId, triggerTime)
-        
-        // Check if this trigger completes the reminder (count or time based)
-        val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-        if (shouldComplete) {
-            DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
         }
 
         // Start AlarmRingtoneService for high priority reminders
@@ -1622,139 +1245,6 @@ class AlarmReceiver : BroadcastReceiver() {
         
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
-    }
-    
-    /**
-     * Record this trigger in native SharedPreferences.
-     * This is the SINGLE SOURCE OF TRUTH for occurrence tracking.
-     */
-    private fun recordNativeTrigger(context: Context, reminderId: String, triggerTime: Long) {
-        try {
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            // Increment the actual trigger count (this is the authoritative count)
-            val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-            val newCount = currentCount + 1
-            
-            // Get existing trigger history and append this trigger
-            val existingHistory = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
-            val newHistory = if (existingHistory.isEmpty()) {
-                triggerTime.toString()
-            } else {
-                "\$existingHistory,\$triggerTime"
-            }
-            
-            metaPrefs.edit().apply {
-                putInt("meta_\${reminderId}_actualTriggerCount", newCount)
-                putString("meta_\${reminderId}_triggerHistory", newHistory)
-                putLong("meta_\${reminderId}_lastTriggerTime", triggerTime)
-                apply()
-            }
-            
-            DebugLogger.log("AlarmReceiver: Recorded trigger #\$newCount at \$triggerTime for \$reminderId")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmReceiver: Error recording trigger: \${e.message}")
-        }
-    }
-    
-    /**
-     * Check if this trigger completes the reminder and mark it complete natively if so.
-     * Returns true if this is the final occurrence.
-     */
-    private fun checkAndMarkCompletionNatively(context: Context, reminderId: String, triggerTime: Long): Boolean {
-        try {
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
-            if (repeatType == "none") {
-                // One-time reminder - mark complete after this trigger
-                metaPrefs.edit().apply {
-                    putBoolean("meta_\${reminderId}_isCompleted", true)
-                    putLong("meta_\${reminderId}_completedAt", triggerTime)
-                    apply()
-                }
-                DebugLogger.log("AlarmReceiver: One-time reminder \$reminderId marked complete")
-                return true
-            }
-            
-            val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-            
-            // Check count-based completion
-            if (untilType == "count") {
-                val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-                val actualTriggerCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-                
-                DebugLogger.log("AlarmReceiver: Count check - actualTriggerCount=\$actualTriggerCount, untilCount=\$untilCount")
-                
-                if (actualTriggerCount >= untilCount) {
-                    metaPrefs.edit().apply {
-                        putBoolean("meta_\${reminderId}_isCompleted", true)
-                        putLong("meta_\${reminderId}_completedAt", triggerTime)
-                        apply()
-                    }
-                    DebugLogger.log("AlarmReceiver: Reminder \$reminderId completed by count (\$actualTriggerCount >= \$untilCount)")
-                    return true
-                }
-            }
-            
-            // Check time-based completion
-            if (untilType == "endsAt") {
-                val untilDate = metaPrefs.getString("meta_\${reminderId}_untilDate", "") ?: ""
-                val untilTime = metaPrefs.getString("meta_\${reminderId}_untilTime", "") ?: ""
-                val everyUnit = metaPrefs.getString("meta_\${reminderId}_everyUnit", "minutes") ?: "minutes"
-                
-                if (untilDate.isNotEmpty()) {
-                    val endBoundary = parseEndBoundaryStatic(untilDate, untilTime, everyUnit)
-                    
-                    DebugLogger.log("AlarmReceiver: Time check - triggerTime=\$triggerTime, endBoundary=\$endBoundary")
-                    
-                    // If this trigger is at or past the end boundary, mark complete
-                    if (triggerTime >= endBoundary) {
-                        metaPrefs.edit().apply {
-                            putBoolean("meta_\${reminderId}_isCompleted", true)
-                            putLong("meta_\${reminderId}_completedAt", triggerTime)
-                            apply()
-                        }
-                        DebugLogger.log("AlarmReceiver: Reminder \$reminderId completed by time (trigger >= endBoundary)")
-                        return true
-                    }
-                }
-            }
-            
-            return false
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmReceiver: Error checking completion: \${e.message}")
-            return false
-        }
-    }
-    
-    private fun parseEndBoundaryStatic(untilDate: String, untilTime: String, everyUnit: String): Long {
-        val calendar = java.util.Calendar.getInstance()
-        try {
-            val dateParts = untilDate.split("-")
-            if (dateParts.size == 3) {
-                calendar.set(java.util.Calendar.YEAR, dateParts[0].toInt())
-                calendar.set(java.util.Calendar.MONTH, dateParts[1].toInt() - 1)
-                calendar.set(java.util.Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-                
-                val isTimeBound = everyUnit == "minutes" || everyUnit == "hours"
-                if (isTimeBound && untilTime.isNotEmpty()) {
-                    val timeParts = untilTime.split(":")
-                    if (timeParts.size == 2) {
-                        calendar.set(java.util.Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-                        calendar.set(java.util.Calendar.MINUTE, timeParts[1].toInt())
-                        calendar.set(java.util.Calendar.SECOND, 0)
-                    }
-                } else {
-                    calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
-                    calendar.set(java.util.Calendar.MINUTE, 59)
-                    calendar.set(java.util.Calendar.SECOND, 59)
-                }
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmReceiver: Error parsing end boundary: \${e.message}")
-        }
-        return calendar.timeInMillis
     }
 }`
     },
@@ -2646,7 +2136,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority ?: "medium")
-                addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
             val pendingIntent = PendingIntent.getBroadcast(
@@ -2667,237 +2156,8 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             DebugLogger.log("AlarmModule: Successfully scheduled alarm broadcast")
             promise?.resolve(true)
         } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error scheduling alarm: \${e.message}")
+            DebugLogger.log("AlarmModule: Error scheduling alarm: \$e.message")
             promise?.reject("SCHEDULE_ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun storeReminderMetadata(
-        reminderId: String,
-        repeatType: String,
-        everyIntervalValue: Int,
-        everyIntervalUnit: String,
-        untilType: String,
-        untilCount: Int,
-        untilDate: String,
-        untilTime: String,
-        occurrenceCount: Int,
-        startDate: String,
-        startTime: String,
-        title: String,
-        priority: String,
-        multiSelectEnabled: Boolean,
-        multiSelectDates: String,
-        multiSelectDays: String,
-        windowEndTime: String,
-        windowEndIsAM: Boolean,
-        promise: Promise? = null
-    ) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("meta_\${reminderId}_repeatType", repeatType)
-                putInt("meta_\${reminderId}_everyValue", everyIntervalValue)
-                putString("meta_\${reminderId}_everyUnit", everyIntervalUnit)
-                putString("meta_\${reminderId}_untilType", untilType)
-                putInt("meta_\${reminderId}_untilCount", untilCount)
-                putString("meta_\${reminderId}_untilDate", untilDate)
-                putString("meta_\${reminderId}_untilTime", untilTime)
-                putInt("meta_\${reminderId}_occurrenceCount", occurrenceCount)
-                putString("meta_\${reminderId}_startDate", startDate)
-                putString("meta_\${reminderId}_startTime", startTime)
-                putString("meta_\${reminderId}_title", title)
-                putString("meta_\${reminderId}_priority", priority)
-                
-                // Multi-select fields
-                putBoolean("meta_\${reminderId}_multiSelectEnabled", multiSelectEnabled)
-                putString("meta_\${reminderId}_multiSelectDates", multiSelectDates)
-                putString("meta_\${reminderId}_multiSelectDays", multiSelectDays)
-                putString("meta_\${reminderId}_windowEndTime", windowEndTime)
-                putBoolean("meta_\${reminderId}_windowEndIsAM", windowEndIsAM)
-
-                // Initialize native tracking fields (only if not already set to preserve existing state)
-                if (!prefs.contains("meta_\${reminderId}_actualTriggerCount")) {
-                    putInt("meta_\${reminderId}_actualTriggerCount", occurrenceCount)
-                }
-                if (!prefs.contains("meta_\${reminderId}_isCompleted")) {
-                    putBoolean("meta_\${reminderId}_isCompleted", false)
-                }
-                if (!prefs.contains("meta_\${reminderId}_triggerHistory")) {
-                    putString("meta_\${reminderId}_triggerHistory", "")
-                }
-                apply()
-            }
-            DebugLogger.log("AlarmModule: Stored metadata for \$reminderId - repeatType=\$repeatType, everyValue=\$everyIntervalValue, multiSelect=\$multiSelectEnabled")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error storing metadata: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun clearReminderMetadata(reminderId: String, promise: Promise? = null) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                remove("meta_\${reminderId}_repeatType")
-                remove("meta_\${reminderId}_everyValue")
-                remove("meta_\${reminderId}_everyUnit")
-                remove("meta_\${reminderId}_untilType")
-                remove("meta_\${reminderId}_untilCount")
-                remove("meta_\${reminderId}_untilDate")
-                remove("meta_\${reminderId}_untilTime")
-                remove("meta_\${reminderId}_occurrenceCount")
-                remove("meta_\${reminderId}_startDate")
-                remove("meta_\${reminderId}_startTime")
-                remove("meta_\${reminderId}_title")
-                remove("meta_\${reminderId}_priority")
-                // Also clear native tracking fields
-                remove("meta_\${reminderId}_actualTriggerCount")
-                remove("meta_\${reminderId}_isCompleted")
-                remove("meta_\${reminderId}_completedAt")
-                remove("meta_\${reminderId}_lastTriggerTime")
-                remove("meta_\${reminderId}_triggerHistory")
-                apply()
-            }
-            DebugLogger.log("AlarmModule: Cleared metadata for \$reminderId")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error clearing metadata: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun updateOccurrenceCount(reminderId: String, newCount: Int, promise: Promise? = null) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().putInt("meta_\${reminderId}_occurrenceCount", newCount).apply()
-            DebugLogger.log("AlarmModule: Updated occurrenceCount for \$reminderId to \$newCount")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error updating occurrenceCount: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Get the native state for a reminder - this is the SINGLE SOURCE OF TRUTH
-     * for occurrence count, completion status, and trigger history.
-     */
-    @ReactMethod
-    fun getNativeReminderState(reminderId: String, promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            val result = Arguments.createMap().apply {
-                putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
-                putInt("occurrenceCount", prefs.getInt("meta_\${reminderId}_occurrenceCount", 0))
-                putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
-                putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
-                putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
-                putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
-                putString("repeatType", prefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none")
-                putString("untilType", prefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever")
-                putInt("untilCount", prefs.getInt("meta_\${reminderId}_untilCount", 0))
-            }
-            
-            DebugLogger.log("AlarmModule: getNativeReminderState for \$reminderId: actualTriggerCount=\${result.getInt("actualTriggerCount")}, isCompleted=\${result.getBoolean("isCompleted")}")
-            promise.resolve(result)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting native state: \${e.message}")
-            promise.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Sync the native state to match JS state (used when JS has more accurate info)
-     */
-    @ReactMethod
-    fun syncNativeState(
-        reminderId: String,
-        actualTriggerCount: Int,
-        isCompleted: Boolean,
-        completedAt: Double,
-        promise: Promise? = null
-    ) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putInt("meta_\${reminderId}_actualTriggerCount", actualTriggerCount)
-                putInt("meta_\${reminderId}_occurrenceCount", actualTriggerCount) // Keep in sync
-                putBoolean("meta_\${reminderId}_isCompleted", isCompleted)
-                if (completedAt > 0) {
-                    putLong("meta_\${reminderId}_completedAt", completedAt.toLong())
-                }
-                apply()
-            }
-            DebugLogger.log("AlarmModule: Synced native state for \$reminderId: count=\$actualTriggerCount, completed=\$isCompleted")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error syncing native state: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Mark a reminder as completed natively
-     */
-    @ReactMethod
-    fun markReminderCompletedNatively(reminderId: String, completedAt: Double, promise: Promise? = null) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putBoolean("meta_\${reminderId}_isCompleted", true)
-                putLong("meta_\${reminderId}_completedAt", completedAt.toLong())
-                apply()
-            }
-            DebugLogger.log("AlarmModule: Marked \$reminderId as completed natively at \$completedAt")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error marking completed: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    /**
-     * Get all native reminder states (for bulk sync on app startup)
-     */
-    @ReactMethod
-    fun getAllNativeReminderStates(promise: Promise) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val result = Arguments.createMap()
-            
-            // Find all unique reminder IDs by looking for _repeatType keys
-            val allKeys = prefs.all.keys
-            val reminderIds = mutableSetOf<String>()
-            
-            for (key in allKeys) {
-                if (key.startsWith("meta_") && key.endsWith("_repeatType")) {
-                    val reminderId = key.removePrefix("meta_").removeSuffix("_repeatType")
-                    reminderIds.add(reminderId)
-                }
-            }
-            
-            for (reminderId in reminderIds) {
-                val state = Arguments.createMap().apply {
-                    putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
-                    putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
-                    putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
-                    putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
-                    putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
-                }
-                result.putMap(reminderId, state)
-            }
-            
-            DebugLogger.log("AlarmModule: getAllNativeReminderStates found \${reminderIds.size} reminders")
-            promise.resolve(result)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error getting all native states: \${e.message}")
-            promise.reject("ERROR", e.message, e)
         }
     }
 
@@ -2956,19 +2216,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving notification settings: \${e.message}")
-            promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun saveRingerVolume(volume: Int, promise: Promise? = null) {
-        try {
-            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-            prefs.edit().putInt("ringer_volume", volume).apply()
-            DebugLogger.log("AlarmModule: Saved ringer volume: \$volume")
-            promise?.resolve(true)
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmModule: Error saving ringer volume: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }
@@ -3216,6 +2463,96 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         }
     }
 }`
+    },
+    {
+        path: 'BackgroundActionService.kt',
+        content: `package app.rork.dominder_android_reminder_app
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Intent
+import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.facebook.react.HeadlessJsTaskService
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.jstasks.HeadlessJsTaskConfig
+import com.facebook.react.ReactApplication
+
+class BackgroundActionService : HeadlessJsTaskService() {
+    override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
+        val extras = intent?.extras
+        val data = Arguments.createMap()
+        if (extras != null) {
+            for (key in extras.keySet()) {
+                val value = extras.get(key)
+                if (value is String) data.putString(key, value)
+                if (value is Int) data.putInt(key, value)
+                if (value is Long) data.putDouble(key, value.toDouble())
+                if (value is Boolean) data.putBoolean(key, value)
+            }
+        }
+        return HeadlessJsTaskConfig(
+            "BackgroundActionTask",
+            data,
+            30000L, // 30s timeout
+            true // allowed in foreground
+        )
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "background_action_channel"
+            val channelName = "Background Actions"
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            
+            if (notificationManager != null) {
+                val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
+                notificationManager.createNotificationChannel(channel)
+                
+                val notification = NotificationCompat.Builder(this, channelId)
+                    .setContentTitle("Processing Reminder")
+                    .setContentText("Updating your reminders...")
+                    .setSmallIcon(R.drawable.small_icon_noti)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+                
+                if (Build.VERSION.SDK_INT >= 34) {
+                    try {
+                        startForeground(1002, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                    } catch (e: Exception) {
+                        DebugLogger.error("BackgroundActionService: Failed to start foreground service", e)
+                        stopSelf()
+                    }
+                } else {
+                    startForeground(1002, notification)
+                }
+            }
+        }
+
+        // Ensure React Context is initialized
+        try {
+            val app = application
+            if (app is ReactApplication) {
+                val reactInstanceManager = app.reactNativeHost.reactInstanceManager
+                if (!reactInstanceManager.hasStartedCreatingInitialContext()) {
+                    reactInstanceManager.createReactContextInBackground()
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("BackgroundActionService: Failed to initialize React Context", e)
+        }
+
+        try {
+            return super.onStartCommand(intent, flags, startId)
+        } catch (e: Exception) {
+            DebugLogger.error("BackgroundActionService: Failed to start headless task", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+    }
+}`
     }
 ];
 
@@ -3403,6 +2740,13 @@ const withAlarmManifest = (config) => {
         });
         services.push({
             $: {
+                'android:name': '.BackgroundActionService',
+                'android:exported': 'false',
+                'android:foregroundServiceType': 'dataSync'
+            },
+        });
+        services.push({
+            $: {
                 'android:name': '.alarm.AlarmRingtoneService',
                 'android:exported': 'false',
                 'android:foregroundServiceType': 'mediaPlayback'
@@ -3458,16 +2802,6 @@ const withAppGradle = (config) => {
                     );
                 } else {
                     buildGradle += `\n\ndependencies {\n    implementation 'androidx.work:work-runtime-ktx:2.9.0'\n}\n`;
-                }
-            }
-
-            // Ensure Kotlin Stdlib (Fix 4: Snooze Reliability)
-            if (!buildGradle.includes('org.jetbrains.kotlin:kotlin-stdlib')) {
-                if (/dependencies\s*{/.test(buildGradle)) {
-                    buildGradle = buildGradle.replace(
-                        /dependencies\s*{/,
-                        `dependencies {\n    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'`
-                    );
                 }
             }
             config.modResults.contents = buildGradle;
