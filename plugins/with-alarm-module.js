@@ -1462,16 +1462,8 @@ class AlarmActivity : AppCompatActivity() {
             // Method 2: Finish this activity
             finish()
             
-            // Method 3: As a final cleanup, exit this process after a delay
-            // This ensures the alarm activity process is completely cleaned up
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                try {
-                    // Only kill this specific activity's process, not the main app
-                    Process.killProcess(Process.myPid())
-                } catch (e: Exception) {
-                    DebugLogger.log("AlarmActivity: Error killing process: \${e.message}")
-                }
-            }, 500)
+            // Method 3: Removed process killing to ensure BroadcastReceiver has time to process the SNOOZE/DONE events
+            // The OS will handle process cleanup naturally.
             
             DebugLogger.log("AlarmActivity: Finish sequence initiated")
         } catch (e: Exception) {
