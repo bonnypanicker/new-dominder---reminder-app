@@ -252,6 +252,7 @@ export function calculateNextReminderDate(reminder: Reminder, fromDate: Date = n
       // steps = floor(diff / addMs) + 1
       const steps = Math.floor(diff / addMs) + 1;
       const result = new Date(startBoundary.getTime() + steps * addMs);
+      result.setMilliseconds(0); // Zero out milliseconds to prevent time drift
 
       console.log(`[calculateNextReminderDate] Every ${interval.value} ${interval.unit}, steps=${steps}, next anchored occurrence: ${result.toISOString()}`);
       candidate = result;

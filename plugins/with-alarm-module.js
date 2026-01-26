@@ -740,7 +740,13 @@ class AlarmActionBridge : BroadcastReceiver() {
                     val startMs = startCal.timeInMillis
                     val elapsed = now - startMs
                     val intervalsPassed = if (elapsed < 0) 0 else (elapsed / intervalMs) + 1
-                    val nextTrigger = startMs + (intervalsPassed * intervalMs)
+                    val nextTriggerMs = startMs + (intervalsPassed * intervalMs)
+                    
+                    // Zero out milliseconds to prevent time drift in high-frequency reminders
+                    val nextTriggerCal = Calendar.getInstance()
+                    nextTriggerCal.timeInMillis = nextTriggerMs
+                    nextTriggerCal.set(Calendar.MILLISECOND, 0)
+                    val nextTrigger = nextTriggerCal.timeInMillis
                     
                     if (untilType == "endsAt" && untilDate.isNotEmpty()) {
                         val endBoundary = parseEndBoundary(untilDate, untilTime, everyUnit)
