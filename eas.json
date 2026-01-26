@@ -15,10 +15,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "credentialsSource": "local",
-      "node": "22.12.0",
-      "npm": {
-        "cache": "npm"
-      }
+      "node": "22.12.0"
     },
     "production": {
       "android": {
