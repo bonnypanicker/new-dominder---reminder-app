@@ -241,27 +241,42 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
-                    // CRITICAL: Record trigger AFTER user clicks Done (fixes off-by-one error)
-                    // This ensures user sees the alarm before it counts as "triggered"
-                    recordNativeTrigger(context, reminderId, triggerTime)
+                    // CRITICAL: Check if this is a shadow snooze completion
+                    // Shadow snooze should NOT increment count (it's the completion of a snoozed occurrence)
+                    val isShadowSnooze = reminderId.endsWith("_snooze")
+                    val originalReminderId = if (isShadowSnooze) reminderId.removeSuffix("_snooze") else reminderId
                     
-                    // Check if this trigger completes the reminder
-                    val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-                    if (shouldComplete) {
-                        DebugLogger.log("AlarmActionBridge: Reminder \${reminderId} completed after this trigger")
-                    }
+                    DebugLogger.log("AlarmActionBridge: isShadowSnooze=\${isShadowSnooze}, originalReminderId=\${originalReminderId}")
                     
-                    // Check if React Native is running
-                    val isReactRunning = isReactContextAvailable(context)
-                    DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
-                    
-                    if (!isReactRunning && !shouldComplete) {
-                        // App is killed and reminder not complete - native handles scheduling next occurrence
-                        DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
-                        scheduleNextOccurrenceIfNeeded(context, reminderId)
-                    } else if (isReactRunning) {
-                        // App is running - JS will handle everything via event
-                        DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
+                    // Only record trigger and check completion for NON-shadow snooze
+                    // Shadow snooze completion is just the delayed completion of an already-counted occurrence
+                    if (!isShadowSnooze) {
+                        // CRITICAL: Record trigger AFTER user clicks Done (fixes off-by-one error)
+                        // This ensures user sees the alarm before it counts as "triggered"
+                        recordNativeTrigger(context, reminderId, triggerTime)
+                        
+                        // Check if this trigger completes the reminder
+                        val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
+                        if (shouldComplete) {
+                            DebugLogger.log("AlarmActionBridge: Reminder \${reminderId} completed after this trigger")
+                        }
+                        
+                        // Check if React Native is running
+                        val isReactRunning = isReactContextAvailable(context)
+                        DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
+                        
+                        if (!isReactRunning && !shouldComplete) {
+                            // App is killed and reminder not complete - native handles scheduling next occurrence
+                            DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
+                            scheduleNextOccurrenceIfNeeded(context, reminderId)
+                        } else if (isReactRunning) {
+                            // App is running - JS will handle everything via event
+                            DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
+                        }
+                    } else {
+                        DebugLogger.log("AlarmActionBridge: Shadow snooze completion - NOT incrementing count, just recording completion time")
+                        // For shadow snooze, we still emit the event to JS so it can update history
+                        // but we don't increment count or schedule next occurrence
                     }
                     
                     DebugLogger.log("AlarmActionBridge: About to emit alarmDone event to React Native")
