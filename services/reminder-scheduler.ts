@@ -78,12 +78,13 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
       await notificationService.scheduleReminderByModel(updated as any);
       console.log(`[Scheduler] Repeater snoozed. Series advanced to ${nextDate.toISOString()}`);
     } else {
-      // Series ended
-      console.log(`[Scheduler] Repeater snoozed. Series ended.`);
+      // Series ended normally, but we have a snooze pending
+      console.log(`[Scheduler] Repeater snoozed. Main series ended, but keeping active for snooze.`);
       const updated = {
         ...reminder,
         lastTriggeredAt: now.toISOString(),
-        isActive: false
+        isActive: true, // Keep active for the snooze
+        isCompleted: false // Ensure not marked as completed
       };
       await updateReminder(updated as any);
     }
@@ -130,7 +131,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
   // If this is a shadow snooze completion, add it to the original reminder's history
   if (isShadowSnooze) {
     console.log(`[Scheduler] Processing shadow snooze completion for ${originalReminderId}`);
-    
+
     const completedOccurrenceTime = triggerTimeMs
       ? new Date(triggerTimeMs).toISOString()
       : new Date().toISOString();
@@ -138,7 +139,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     // Add to history if reminder is already completed
     if (reminder.isCompleted) {
       console.log(`[Scheduler] Original reminder ${originalReminderId} is already completed, adding shadow snooze to history`);
-      
+
       const existingHistory = reminder.completionHistory || [];
       if (!existingHistory.includes(completedOccurrenceTime)) {
         const updatedReminder = {
@@ -352,7 +353,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       if (hasPendingShadowSnooze) {
         // Don't mark as complete yet - keep it active but with no next date
         console.log(`[Scheduler] Keeping ${reminderId} active until shadow snooze completes`);
-        
+
         const updated = {
           ...calcContext,
           occurrenceCount: newOccurrenceCount,
@@ -367,7 +368,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         };
         await updateReminder(updated as any);
         await notificationService.cancelAllNotificationsForReminder(reminderId);
-        
+
         console.log(`[Scheduler] Updated ${reminderId} to wait for shadow snooze completion`);
       } else {
         // No pending shadow snooze - mark as complete normally
