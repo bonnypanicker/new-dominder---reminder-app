@@ -84,7 +84,8 @@
 ```
 2:00pm - Alarm fires (occurrence #1)
   ├─ User clicks Snooze 5min
-  ├─ Count incremented: 0 → 1 ✅
+  ├─ Count incremented: 0 → 1 ✅ (counts toward limit)
+  ├─ NOT added to history ✅ (user didn't complete it, just snoozed)
   ├─ Shadow snooze created for 2:05pm
   ├─ Check: count (1) < limit (3) ✅
   └─ Schedule next occurrence: 2:01pm ✅
@@ -92,12 +93,14 @@
 2:01pm - Alarm fires (occurrence #2)
   ├─ User clicks Done
   ├─ Count incremented: 1 → 2 ✅
+  ├─ Added to history ✅ (user completed it)
   ├─ Check: count (2) < limit (3) ✅
   └─ Schedule next occurrence: 2:02pm ✅
 
 2:02pm - Alarm fires (occurrence #3)
   ├─ User clicks Done
   ├─ Count incremented: 2 → 3 ✅
+  ├─ Added to history ✅ (user completed it)
   ├─ Check: count (3) >= limit (3) ✅
   ├─ DON'T schedule next occurrence ✅
   ├─ Check for shadow snooze: EXISTS ✅
@@ -110,12 +113,14 @@
   ├─ User clicks Done
   ├─ Detect: isShadowSnooze = true ✅
   ├─ Get parentReminderId ✅
+  ├─ Added to history ✅ (user completed shadow)
   ├─ Check parent: count (3) >= limit (3) ✅
   ├─ Mark parent as COMPLETE ✅
   ├─ Clean up shadow metadata ✅
   └─ Emit completion event ✅
 
 RESULT: Reminder moves to completed page NOW ✅
+HISTORY: 2:01pm, 2:02pm, 2:05pm ✅ (3 entries - only completed ones, NOT 2:00pm)
 ```
 
 ---
@@ -205,7 +210,7 @@ if (shouldComplete) {
 - ✅ 2:03pm NO ALARM (only 3 occurrences)
 - ✅ 2:05pm shadow snooze fires
 - ✅ After 2:05pm Done, reminder moves to completed page
-- ✅ History shows 4 entries (2:00 snooze, 2:01, 2:02, 2:05)
+- ✅ History shows 3 entries: 2:01pm, 2:02pm, 2:05pm (NOT 2:00pm - it was snoozed, not completed)
 
 ### Test Case 2: Snooze Middle Occurrence
 **Setup:** Every 1 min, 3 occurrences, start 2:00pm

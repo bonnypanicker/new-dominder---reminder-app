@@ -370,27 +370,18 @@ class AlarmActionBridge : BroadcastReceiver() {
                     if (repeatType != "none") {
                          DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
                          
-                         // CRITICAL FIX: Increment count for snoozed occurrence (user saw it, counts as triggered)
+                         // CRITICAL FIX: Increment count for snoozed occurrence (user saw it, counts toward limit)
+                         // BUT don't add to triggerHistory (user didn't complete it, just snoozed)
                          val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
                          val newCount = currentCount + 1
-                         val triggerTime = System.currentTimeMillis()
-                         
-                         // Get existing trigger history and append this snooze trigger
-                         val existingHistory = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
-                         val newHistory = if (existingHistory.isEmpty()) {
-                             triggerTime.toString()
-                         } else {
-                             "\$existingHistory,\$triggerTime"
-                         }
                          
                          metaPrefs.edit().apply {
                              putInt("meta_\${reminderId}_actualTriggerCount", newCount)
-                             putString("meta_\${reminderId}_triggerHistory", newHistory)
-                             putLong("meta_\${reminderId}_lastTriggerTime", triggerTime)
+                             // NOTE: NOT adding to triggerHistory - snooze is not a completion
                              apply()
                          }
                          
-                         DebugLogger.log("AlarmActionBridge: Incremented count to \$newCount for snoozed occurrence")
+                         DebugLogger.log("AlarmActionBridge: Incremented count to \$newCount for snoozed occurrence (NOT added to history)")
                          
                          // Check if we've reached the limit BEFORE creating shadow snooze
                          val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
