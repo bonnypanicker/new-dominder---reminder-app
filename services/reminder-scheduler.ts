@@ -128,9 +128,8 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
   }
 
   // If this is a shadow snooze completion, add it to the original reminder's history
-  // IMPORTANT: Shadow snooze does NOT increment occurrence count (it's the delayed completion of a snoozed occurrence)
   if (isShadowSnooze) {
-    console.log(`[Scheduler] Processing shadow snooze completion for ${originalReminderId} - NOT incrementing count`);
+    console.log(`[Scheduler] Processing shadow snooze completion for ${originalReminderId}`);
     
     const completedOccurrenceTime = triggerTimeMs
       ? new Date(triggerTimeMs).toISOString()
@@ -148,59 +147,23 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           lastTriggeredAt: completedOccurrenceTime
         };
         await updateReminder(updatedReminder as any);
-        console.log(`[Scheduler] Added shadow snooze completion to history at ${completedOccurrenceTime} (count unchanged)`);
+        console.log(`[Scheduler] Added shadow snooze completion to history at ${completedOccurrenceTime}`);
       }
     } else {
-      // Original reminder is still active (waiting for shadow snooze) - now complete it
-      console.log(`[Scheduler] Original reminder ${originalReminderId} was waiting for shadow snooze, now completing it (count unchanged)`);
-      
-      const { getReminders, permanentlyDeleteReminder } = require('./reminder-service');
+      // Original reminder is still active - add to separate history item
       const historyId = `${originalReminderId}_hist`;
+      const { getReminders } = require('./reminder-service');
       const allReminders = await getReminders();
       const existingHistory = allReminders.find((r: any) => r.id === historyId);
 
-      let historyTimes = existingHistory?.completionHistory || [];
-      
-      // Add shadow snooze completion
-      if (!historyTimes.includes(completedOccurrenceTime)) {
-        historyTimes.push(completedOccurrenceTime);
-      }
-      
-      // Sort history times
-      historyTimes = historyTimes.sort();
-
-      // Delete the separate history item if it exists
       if (existingHistory) {
-        await permanentlyDeleteReminder(existingHistory.id);
-      }
-
-      // Now mark the original reminder as complete with full history
-      // IMPORTANT: Keep the same occurrenceCount (shadow snooze doesn't add to count)
-      const completed = {
-        ...reminder,
-        isCompleted: true,
-        isActive: false,
-        snoozeUntil: undefined,
-        wasSnoozed: undefined,
-        lastTriggeredAt: completedOccurrenceTime,
-        nextReminderDate: undefined,
-        completionHistory: historyTimes,
-        parentId: undefined
-        // occurrenceCount stays the same - shadow snooze doesn't increment it
-      };
-      await updateReminder(completed as any);
-      await notificationService.cancelAllNotificationsForReminder(originalReminderId);
-
-      console.log(`[Scheduler] Marked ${originalReminderId} as completed after shadow snooze with ${historyTimes.length} total completions (occurrenceCount: ${reminder.occurrenceCount})`);
-
-      // Clear native metadata for original reminder
-      if (AlarmModule?.clearReminderMetadata) {
-        try {
-          await AlarmModule.clearReminderMetadata(originalReminderId);
-          console.log(`[Scheduler] Cleared native metadata for completed reminder ${originalReminderId}`);
-        } catch (e) {
-          console.log(`[Scheduler] Failed to clear original reminder metadata:`, e);
-        }
+        const updatedHistory = {
+          ...existingHistory,
+          lastTriggeredAt: completedOccurrenceTime,
+          completionHistory: [...(existingHistory.completionHistory || []), completedOccurrenceTime].sort()
+        };
+        await updateReminder(updatedHistory as any);
+        console.log(`[Scheduler] Added shadow snooze to history item at ${completedOccurrenceTime}`);
       }
     }
 
@@ -217,7 +180,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     // Cancel any notifications for the shadow snooze
     await notificationService.cancelAllNotificationsForReminder(reminderId);
 
-    console.log(`[Scheduler] ========== markReminderDone END (shadow snooze - count NOT incremented) ==========`);
+    console.log(`[Scheduler] ========== markReminderDone END (shadow snooze) ==========`);
     DeviceEventEmitter.emit('remindersChanged');
     return;
   }
