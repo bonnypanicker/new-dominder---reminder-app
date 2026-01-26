@@ -269,6 +269,14 @@ class AlarmActionBridge : BroadcastReceiver() {
 
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}, priority: \${priority}")
                 if (reminderId != null) {
+                    // CRITICAL: Check if reminder is paused before scheduling snooze
+                    val pausePrefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+                    val isPaused = pausePrefs.getBoolean("paused_\${reminderId}", false)
+                    if (isPaused) {
+                        DebugLogger.log("AlarmActionBridge: Reminder \${reminderId} is PAUSED - ignoring snooze request")
+                        return
+                    }
+                    
                     // SIMPLIFIED: Just schedule the alarm immediately without metadata checks
                     // This ensures snooze works even when app is killed and metadata isn't available
                     DebugLogger.log("AlarmActionBridge: Scheduling snooze alarm immediately")
@@ -645,9 +653,14 @@ class AlarmActionBridge : BroadcastReceiver() {
                 addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
+            // CRITICAL FIX: Use unique request code for snooze to prevent overwriting repeating reminder's next occurrence
+            // Add 1000000 offset to distinguish snooze alarms from original reminders
+            val requestCode = reminderId.hashCode() + 1000000
+            DebugLogger.log("AlarmActionBridge: Using snooze request code: \$requestCode (original: \${reminderId.hashCode()})")
+            
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
-                reminderId.hashCode(),
+                requestCode,
                 intent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
