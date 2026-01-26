@@ -238,7 +238,7 @@ export default function OnboardingFlow({ visible, onSkip, onComplete }: Onboardi
                         </View>
                         <View style={{ backgroundColor: colors.surfaceVariant + '40', borderRadius: 12, padding: 16 }}>
                           <Text style={{ color: colors.onSurface, fontWeight: '700', fontSize: 15, marginBottom: 4 }}>Ringer Mode</Text>
-                          <Text style={{ color: colors.onSurfaceVariant, fontSize: 13, lineHeight: 18 }}>Full-screen reminder with loud alert so you can&apos;t miss it</Text>
+                          <Text style={{ color: colors.onSurfaceVariant, fontSize: 13, lineHeight: 18 }}>Full-screen reminder with loud alert so you can't miss it</Text>
                         </View>
                       </View>
                     </View>
