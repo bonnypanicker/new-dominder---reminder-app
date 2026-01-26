@@ -370,18 +370,23 @@ class AlarmActionBridge : BroadcastReceiver() {
                     if (repeatType != "none") {
                          DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
                          
-                         // CRITICAL FIX: DO NOT increment count when snoozing
-                         // The count should only increment when the shadow snooze completes (Done is pressed)
-                         // This prevents premature completion of the reminder series
+                         // CRITICAL FIX: Increment count for snoozed occurrence (user saw it, counts toward limit)
+                         // BUT don't add to triggerHistory (user didn't complete it, just snoozed)
                          val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
+                         val newCount = currentCount + 1
                          
-                         DebugLogger.log("AlarmActionBridge: Snoozing occurrence - current count remains at \$currentCount (will increment when shadow snooze completes)")
+                         metaPrefs.edit().apply {
+                             putInt("meta_\${reminderId}_actualTriggerCount", newCount)
+                             // NOTE: NOT adding to triggerHistory - snooze is not a completion
+                             apply()
+                         }
+                         
+                         DebugLogger.log("AlarmActionBridge: Incremented count to \$newCount for snoozed occurrence (NOT added to history)")
                          
                          // Check if we've reached the limit BEFORE creating shadow snooze
-                         // Use currentCount (not incremented) to check if series should continue
                          val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
                          val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-                         val shouldCompleteAfterSnooze = (untilType == "count" && currentCount >= untilCount)
+                         val shouldCompleteAfterSnooze = (untilType == "count" && newCount >= untilCount)
                          
                          // 1. Schedule Shadow Snooze with COMPLETE metadata
                          val shadowId = reminderId + "_snooze"
@@ -446,10 +451,10 @@ class AlarmActionBridge : BroadcastReceiver() {
                          
                          // 2. Advance Series ONLY if not complete after this snooze
                          if (!shouldCompleteAfterSnooze) {
-                             DebugLogger.log("AlarmActionBridge: Scheduling next occurrence (count \$currentCount < limit \$untilCount)")
+                             DebugLogger.log("AlarmActionBridge: Scheduling next occurrence (count \$newCount < limit \$untilCount)")
                              scheduleNextOccurrenceIfNeeded(context, reminderId)
                          } else {
-                             DebugLogger.log("AlarmActionBridge: NOT scheduling next occurrence - limit reached after snooze (count \$currentCount >= limit \$untilCount)")
+                             DebugLogger.log("AlarmActionBridge: NOT scheduling next occurrence - limit reached after snooze (count \$newCount >= limit \$untilCount)")
                              DebugLogger.log("AlarmActionBridge: Reminder will be marked complete AFTER shadow snooze completes")
                          }
                     } else {
@@ -740,13 +745,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                     val startMs = startCal.timeInMillis
                     val elapsed = now - startMs
                     val intervalsPassed = if (elapsed < 0) 0 else (elapsed / intervalMs) + 1
-                    val nextTriggerMs = startMs + (intervalsPassed * intervalMs)
-                    
-                    // Zero out milliseconds to prevent time drift in high-frequency reminders
-                    val nextTriggerCal = Calendar.getInstance()
-                    nextTriggerCal.timeInMillis = nextTriggerMs
-                    nextTriggerCal.set(Calendar.MILLISECOND, 0)
-                    val nextTrigger = nextTriggerCal.timeInMillis
+                    val nextTrigger = startMs + (intervalsPassed * intervalMs)
                     
                     if (untilType == "endsAt" && untilDate.isNotEmpty()) {
                         val endBoundary = parseEndBoundary(untilDate, untilTime, everyUnit)

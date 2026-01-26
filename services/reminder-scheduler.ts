@@ -165,42 +165,6 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         await updateReminder(updatedHistory as any);
         console.log(`[Scheduler] Added shadow snooze to history item at ${completedOccurrenceTime}`);
       }
-      
-      // CRITICAL FIX: Check if parent should now be marked complete
-      // This happens when the series ended but shadow snooze was still pending
-      if (reminder.untilType === 'count' && reminder.untilCount) {
-        const totalCompletions = (existingHistory?.completionHistory?.length || 0) + 1; // +1 for this shadow snooze
-        if (totalCompletions >= reminder.untilCount) {
-          console.log(`[Scheduler] Shadow snooze completion brings total to ${totalCompletions}/${reminder.untilCount} - marking parent complete`);
-          
-          // Merge history into parent and mark complete
-          const finalHistory = existingHistory 
-            ? [...(existingHistory.completionHistory || []), completedOccurrenceTime].sort()
-            : [completedOccurrenceTime];
-          
-          const completedParent = {
-            ...reminder,
-            isCompleted: true,
-            isActive: false,
-            completionHistory: finalHistory,
-            lastTriggeredAt: completedOccurrenceTime,
-            nextReminderDate: undefined,
-            snoozeUntil: undefined,
-            wasSnoozed: undefined,
-            parentId: undefined
-          };
-          
-          await updateReminder(completedParent as any);
-          
-          // Delete the history item
-          if (existingHistory) {
-            const { permanentlyDeleteReminder } = require('./reminder-service');
-            await permanentlyDeleteReminder(historyId);
-          }
-          
-          console.log(`[Scheduler] Marked parent ${originalReminderId} as complete after shadow snooze`);
-        }
-      }
     }
 
     // Clear shadow snooze metadata from native
