@@ -430,7 +430,8 @@ class AlarmActionBridge : BroadcastReceiver() {
      * Schedule the next occurrence for repeating reminders when Done is pressed
      * while the app is killed. This ensures alarms continue even without JS.
      * 
-     * IMPORTANT: This uses actualTriggerCount (set by AlarmReceiver) as the source of truth.
+     * IMPORTANT: This uses actualTriggerCount as the source of truth.
+     * CRITICAL: Checks for pending shadow snooze and accounts for it in count.
      */
     private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
         try {
@@ -480,11 +481,35 @@ class AlarmActionBridge : BroadcastReceiver() {
             
             DebugLogger.log("AlarmActionBridge: Metadata - repeatType=\${repeatType}, everyValue=\${everyValue}, multiSelect=\${multiSelectEnabled}, actualTriggerCount=\${actualTriggerCount}")
             
-            // Check if we've reached the count limit (actualTriggerCount is already incremented by AlarmReceiver)
-            if (untilType == "count" && actualTriggerCount >= untilCount) {
-                DebugLogger.log("AlarmActionBridge: Reached occurrence limit (\${actualTriggerCount} >= \${untilCount}), no more occurrences")
-                // Mark as completed if not already
-                if (!isNativeCompleted) {
+            // CRITICAL FIX: Check if there's a pending shadow snooze
+            // If shadow snooze exists, it will count as one occurrence when completed
+            // So we need to account for it: effectiveCount = actualTriggerCount + 1
+            var hasPendingShadowSnooze = false
+            try {
+                val shadowId = "\${originalReminderId}_snooze"
+                val shadowRepeatType = metaPrefs.getString("meta_\${shadowId}_repeatType", null)
+                if (shadowRepeatType != null) {
+                    // Shadow snooze metadata exists - check if it's completed
+                    val shadowCompleted = metaPrefs.getBoolean("meta_\${shadowId}_isCompleted", false)
+                    if (!shadowCompleted) {
+                        hasPendingShadowSnooze = true
+                        DebugLogger.log("AlarmActionBridge: Found pending shadow snooze \${shadowId}")
+                    }
+                }
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmActionBridge: Error checking for shadow snooze: \${e.message}")
+            }
+            
+            // Calculate effective count: actual count + 1 if shadow snooze pending
+            val effectiveCount = if (hasPendingShadowSnooze) actualTriggerCount + 1 else actualTriggerCount
+            
+            DebugLogger.log("AlarmActionBridge: Count check - actualTriggerCount=\${actualTriggerCount}, hasPendingShadowSnooze=\${hasPendingShadowSnooze}, effectiveCount=\${effectiveCount}, untilCount=\${untilCount}")
+            
+            // Check if we've reached the count limit
+            if (untilType == "count" && effectiveCount >= untilCount) {
+                DebugLogger.log("AlarmActionBridge: Reached occurrence limit (\${effectiveCount} >= \${untilCount}), no more occurrences")
+                // Don't mark as completed if shadow snooze is pending
+                if (!hasPendingShadowSnooze && !isNativeCompleted) {
                     metaPrefs.edit().apply {
                         putBoolean("meta_\${originalReminderId}_isCompleted", true)
                         putLong("meta_\${originalReminderId}_completedAt", System.currentTimeMillis())
