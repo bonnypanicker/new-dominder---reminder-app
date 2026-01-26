@@ -114,10 +114,108 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
   console.log(`[Scheduler] ========== markReminderDone START ==========`);
   console.log(`[Scheduler] reminderId: ${reminderId}, shouldIncrementOccurrence: ${shouldIncrementOccurrence}, triggerTimeMs: ${triggerTimeMs}`);
 
-  let reminder = await getReminder(reminderId);
+  // CRITICAL FIX: Check if this is a shadow snooze completion
+  const isShadowSnooze = reminderId.endsWith('_snooze');
+  const originalReminderId = isShadowSnooze ? reminderId.replace('_snooze', '') : reminderId;
+
+  console.log(`[Scheduler] isShadowSnooze: ${isShadowSnooze}, originalReminderId: ${originalReminderId}`);
+
+  let reminder = await getReminder(isShadowSnooze ? originalReminderId : reminderId);
 
   if (!reminder) {
-    console.log(`[Scheduler] Reminder ${reminderId} not found for marking done.`);
+    console.log(`[Scheduler] Reminder ${isShadowSnooze ? originalReminderId : reminderId} not found for marking done.`);
+    return;
+  }
+
+  // If this is a shadow snooze completion, add it to the original reminder's history
+  if (isShadowSnooze) {
+    console.log(`[Scheduler] Processing shadow snooze completion for ${originalReminderId}`);
+    
+    const completedOccurrenceTime = triggerTimeMs
+      ? new Date(triggerTimeMs).toISOString()
+      : new Date().toISOString();
+
+    // Add to history if reminder is already completed
+    if (reminder.isCompleted) {
+      console.log(`[Scheduler] Original reminder ${originalReminderId} is already completed, adding shadow snooze to history`);
+      
+      const existingHistory = reminder.completionHistory || [];
+      if (!existingHistory.includes(completedOccurrenceTime)) {
+        const updatedReminder = {
+          ...reminder,
+          completionHistory: [...existingHistory, completedOccurrenceTime].sort(),
+          lastTriggeredAt: completedOccurrenceTime
+        };
+        await updateReminder(updatedReminder as any);
+        console.log(`[Scheduler] Added shadow snooze completion to history at ${completedOccurrenceTime}`);
+      }
+    } else {
+      // Original reminder is still active (waiting for shadow snooze) - now complete it
+      console.log(`[Scheduler] Original reminder ${originalReminderId} was waiting for shadow snooze, now completing it`);
+      
+      const { getReminders, permanentlyDeleteReminder } = require('./reminder-service');
+      const historyId = `${originalReminderId}_hist`;
+      const allReminders = await getReminders();
+      const existingHistory = allReminders.find((r: any) => r.id === historyId);
+
+      let historyTimes = existingHistory?.completionHistory || [];
+      
+      // Add shadow snooze completion
+      if (!historyTimes.includes(completedOccurrenceTime)) {
+        historyTimes.push(completedOccurrenceTime);
+      }
+      
+      // Sort history times
+      historyTimes = historyTimes.sort();
+
+      // Delete the separate history item if it exists
+      if (existingHistory) {
+        await permanentlyDeleteReminder(existingHistory.id);
+      }
+
+      // Now mark the original reminder as complete with full history
+      const completed = {
+        ...reminder,
+        isCompleted: true,
+        isActive: false,
+        snoozeUntil: undefined,
+        wasSnoozed: undefined,
+        lastTriggeredAt: completedOccurrenceTime,
+        nextReminderDate: undefined,
+        completionHistory: historyTimes,
+        parentId: undefined
+      };
+      await updateReminder(completed as any);
+      await notificationService.cancelAllNotificationsForReminder(originalReminderId);
+
+      console.log(`[Scheduler] Marked ${originalReminderId} as completed after shadow snooze with ${historyTimes.length} total completions`);
+
+      // Clear native metadata for original reminder
+      if (AlarmModule?.clearReminderMetadata) {
+        try {
+          await AlarmModule.clearReminderMetadata(originalReminderId);
+          console.log(`[Scheduler] Cleared native metadata for completed reminder ${originalReminderId}`);
+        } catch (e) {
+          console.log(`[Scheduler] Failed to clear original reminder metadata:`, e);
+        }
+      }
+    }
+
+    // Clear shadow snooze metadata from native
+    if (AlarmModule?.clearReminderMetadata) {
+      try {
+        await AlarmModule.clearReminderMetadata(reminderId); // Clear with shadow ID
+        console.log(`[Scheduler] Cleared native metadata for shadow snooze ${reminderId}`);
+      } catch (e) {
+        console.log(`[Scheduler] Failed to clear shadow snooze metadata:`, e);
+      }
+    }
+
+    // Cancel any notifications for the shadow snooze
+    await notificationService.cancelAllNotificationsForReminder(reminderId);
+
+    console.log(`[Scheduler] ========== markReminderDone END (shadow snooze) ==========`);
+    DeviceEventEmitter.emit('remindersChanged');
     return;
   }
 
@@ -266,46 +364,87 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       await notificationService.scheduleReminderByModel(updated as any);
       console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
     } else {
-      // Series ended - merge history into main reminder and mark complete
-      console.log(`[Scheduler] Series ended for ${reminderId}, marking as completed`);
+      // Series ended - BUT check if there's a pending shadow snooze
+      console.log(`[Scheduler] Series ended for ${reminderId}, checking for pending shadow snooze...`);
 
-      const finalHistory = await getHistoryItem();
-      let historyTimes = finalHistory?.completionHistory || [];
-
-      // Add current completion if not already there
-      if (!historyTimes.includes(completedOccurrenceTime)) {
-        historyTimes.push(completedOccurrenceTime);
-      }
-
-      // Sort history times
-      historyTimes = historyTimes.sort();
-
-      // Delete the separate history item if it exists
-      if (finalHistory) {
-        await permanentlyDeleteReminder(finalHistory.id);
-      }
-
-      const completed = {
-        ...calcContext,
-        isCompleted: true,
-        isActive: false,
-        snoozeUntil: undefined,
-        wasSnoozed: undefined,
-        lastTriggeredAt: completedOccurrenceTime,
-        nextReminderDate: undefined,
-        completionHistory: historyTimes,
-        parentId: undefined
-      };
-      await updateReminder(completed as any);
-      await notificationService.cancelAllNotificationsForReminder(reminderId);
-
-      // Clear native metadata since reminder is complete
-      if (AlarmModule?.clearReminderMetadata) {
+      // Check if shadow snooze exists in native metadata
+      let hasPendingShadowSnooze = false;
+      if (AlarmModule?.getNativeReminderState) {
         try {
-          await AlarmModule.clearReminderMetadata(reminderId);
-          console.log(`[Scheduler] Cleared native metadata for completed reminder ${reminderId}`);
+          const shadowId = `${reminderId}_snooze`;
+          const shadowState = await AlarmModule.getNativeReminderState(shadowId);
+          if (shadowState && !shadowState.isCompleted) {
+            hasPendingShadowSnooze = true;
+            console.log(`[Scheduler] Found pending shadow snooze ${shadowId}, NOT marking original as complete yet`);
+          }
         } catch (e) {
-          console.log(`[Scheduler] Failed to clear native metadata:`, e);
+          // Shadow snooze doesn't exist or error checking - proceed with completion
+          console.log(`[Scheduler] No pending shadow snooze found or error checking:`, e);
+        }
+      }
+
+      if (hasPendingShadowSnooze) {
+        // Don't mark as complete yet - keep it active but with no next date
+        console.log(`[Scheduler] Keeping ${reminderId} active until shadow snooze completes`);
+        
+        const updated = {
+          ...calcContext,
+          occurrenceCount: newOccurrenceCount,
+          nextReminderDate: undefined, // No more regular occurrences
+          lastTriggeredAt: completedOccurrenceTime,
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          isActive: true, // Keep active
+          isCompleted: false, // NOT complete yet
+          isPaused: false,
+          isExpired: false,
+        };
+        await updateReminder(updated as any);
+        await notificationService.cancelAllNotificationsForReminder(reminderId);
+        
+        console.log(`[Scheduler] Updated ${reminderId} to wait for shadow snooze completion`);
+      } else {
+        // No pending shadow snooze - mark as complete normally
+        console.log(`[Scheduler] No pending shadow snooze, marking ${reminderId} as completed`);
+
+        const finalHistory = await getHistoryItem();
+        let historyTimes = finalHistory?.completionHistory || [];
+
+        // Add current completion if not already there
+        if (!historyTimes.includes(completedOccurrenceTime)) {
+          historyTimes.push(completedOccurrenceTime);
+        }
+
+        // Sort history times
+        historyTimes = historyTimes.sort();
+
+        // Delete the separate history item if it exists
+        if (finalHistory) {
+          await permanentlyDeleteReminder(finalHistory.id);
+        }
+
+        const completed = {
+          ...calcContext,
+          isCompleted: true,
+          isActive: false,
+          snoozeUntil: undefined,
+          wasSnoozed: undefined,
+          lastTriggeredAt: completedOccurrenceTime,
+          nextReminderDate: undefined,
+          completionHistory: historyTimes,
+          parentId: undefined
+        };
+        await updateReminder(completed as any);
+        await notificationService.cancelAllNotificationsForReminder(reminderId);
+
+        // Clear native metadata since reminder is complete
+        if (AlarmModule?.clearReminderMetadata) {
+          try {
+            await AlarmModule.clearReminderMetadata(reminderId);
+            console.log(`[Scheduler] Cleared native metadata for completed reminder ${reminderId}`);
+          } catch (e) {
+            console.log(`[Scheduler] Failed to clear native metadata:`, e);
+          }
         }
       }
     }
