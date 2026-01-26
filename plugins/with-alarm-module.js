@@ -1158,6 +1158,7 @@ import java.util.*
 class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
+    private var title: String = "Reminder"  // Store as instance variable
     private var notificationId: Int = 0
     private var priority: String = "medium"
     private var triggerTimeMs: Long = 0L
@@ -1185,7 +1186,7 @@ class AlarmActivity : AppCompatActivity() {
         setContentView(R.layout.activity_alarm)
 
         reminderId = intent.getStringExtra("reminderId")
-        val title = intent.getStringExtra("title") ?: "Reminder"
+        title = intent.getStringExtra("title") ?: "Reminder"  // Store in instance variable
         priority = intent.getStringExtra("priority") ?: "medium"
         triggerTimeMs = intent.getLongExtra("triggerTime", System.currentTimeMillis())
         notificationId = reminderId?.hashCode() ?: 0
@@ -1280,7 +1281,7 @@ class AlarmActivity : AppCompatActivity() {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
-            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
+            putExtra("title", title)  // Use instance variable, not intent.getStringExtra
             putExtra("priority", priority)
         }
         
