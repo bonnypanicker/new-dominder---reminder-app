@@ -51,27 +51,6 @@ class MissedAlarmService {
     console.log('[MissedAlarmService] Received missed alarm:', data);
     
     try {
-      const { reminderId } = data;
-      
-      // CRITICAL FIX: Check if this reminder was snoozed or has pending shadow snooze
-      // Don't show "missed" notification for snoozed reminders
-      const { getReminder } = require('./reminder-service');
-      const reminder = await getReminder(reminderId);
-      
-      if (reminder) {
-        // Check if reminder has active snooze
-        if (reminder.snoozeUntil || reminder.wasSnoozed || reminder.pendingShadowSnoozeUntil) {
-          console.log('[MissedAlarmService] Skipping missed notification - reminder was snoozed');
-          return;
-        }
-        
-        // Check if reminder is already completed
-        if (reminder.isCompleted) {
-          console.log('[MissedAlarmService] Skipping missed notification - reminder is completed');
-          return;
-        }
-      }
-      
       await this.showMissedNotification(data);
     } catch (error) {
       console.error('[MissedAlarmService] Error showing missed notification:', error);
