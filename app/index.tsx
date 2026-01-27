@@ -1117,6 +1117,8 @@ export default function HomeScreen() {
                         {(() => {
                           const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
                           const getNextDate = () => {
+                            // Check for pending shadow snooze first
+                            if (reminder.pendingShadowSnoozeUntil) return new Date(reminder.pendingShadowSnoozeUntil);
                             if (reminder.snoozeUntil) return new Date(reminder.snoozeUntil);
                             if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
                             const calc = calculateNextReminderDate(reminder);

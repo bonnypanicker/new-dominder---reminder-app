@@ -49,6 +49,7 @@ export interface Reminder {
   ringerSound?: string;
   completionHistory?: string[];
   parentId?: string; // Add explicit parentId since it's used in logic
+  pendingShadowSnoozeUntil?: string; // Track shadow snooze time for UI display
 
   // Multi-select / Window fields
   multiSelectEnabled?: boolean;
