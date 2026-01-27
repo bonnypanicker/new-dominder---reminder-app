@@ -72,6 +72,8 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
         lastTriggeredAt: now.toISOString(),
         snoozeUntil: undefined, // Clear existing snooze if any
         wasSnoozed: undefined,
+        // CRITICAL FIX: Track shadow snooze time
+        pendingShadowSnoozeUntil: new Date(snoozeTime).toISOString(),
         isActive: true
       };
       await updateReminder(updated as any);
@@ -84,7 +86,9 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
         ...reminder,
         lastTriggeredAt: now.toISOString(),
         isActive: true, // Keep active for the snooze
-        isCompleted: false // Ensure not marked as completed
+        isCompleted: false, // Ensure not marked as completed
+        // CRITICAL FIX: Track shadow snooze time
+        pendingShadowSnoozeUntil: new Date(snoozeTime).toISOString()
       };
       await updateReminder(updated as any);
     }
@@ -365,6 +369,8 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           isCompleted: false, // NOT complete yet
           isPaused: false,
           isExpired: false,
+          // Preserve existing pendingShadowSnoozeUntil if present
+          pendingShadowSnoozeUntil: (calcContext as any).pendingShadowSnoozeUntil
         };
         await updateReminder(updated as any);
         await notificationService.cancelAllNotificationsForReminder(reminderId);

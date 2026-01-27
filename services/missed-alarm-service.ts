@@ -50,6 +50,16 @@ class MissedAlarmService {
   private async handleMissedAlarm(data: MissedAlarmData) {
     console.log('[MissedAlarmService] Received missed alarm:', data);
     
+    // CRITICAL FIX: Check if this reminder was snoozed (shadow snooze pending)
+    // If so, ignore the missed alarm notification
+    const { getReminder } = require('./reminder-service');
+    const reminder = await getReminder(data.reminderId);
+    
+    if (reminder && (reminder.snoozeUntil || reminder.pendingShadowSnoozeUntil)) {
+      console.log('[MissedAlarmService] Reminder was snoozed, ignoring missed alarm.');
+      return;
+    }
+
     try {
       await this.showMissedNotification(data);
     } catch (error) {

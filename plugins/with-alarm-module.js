@@ -3017,6 +3017,8 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putString("repeatType", prefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none")
                 putString("untilType", prefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever")
                 putInt("untilCount", prefs.getInt("meta_\${reminderId}_untilCount", 0))
+                // CRITICAL FIX: Expose pending shadow snooze state
+                putBoolean("pendingShadowSnooze", prefs.getBoolean("meta_\${reminderId}_pendingShadowSnooze", false))
             }
             
             DebugLogger.log("AlarmModule: getNativeReminderState for \$reminderId: actualTriggerCount=\${result.getInt("actualTriggerCount")}, isCompleted=\${result.getBoolean("isCompleted")}")
@@ -3690,6 +3692,16 @@ const withAppGradle = (config) => {
         return config;
     });
 };
+
+// ==================================================
+// 5. UPDATED: module.exports
+// ==================================================
+module.exports = (config) => withPlugins(config, [
+    withResourceFiles, // Added first
+    withKotlinFiles,
+    withAlarmManifest,
+    withAppGradle
+]);
 
 // ==================================================
 // 5. UPDATED: module.exports
