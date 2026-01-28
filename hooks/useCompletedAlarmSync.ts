@@ -98,14 +98,10 @@ export function useCompletedAlarmSync() {
         console.log('[AlarmSync] Processing completed alarm:', reminderId, 'at', timestamp);
 
         try {
-          // Check if this is a shadow snooze
-          const isShadowSnooze = reminderId.endsWith('_snooze');
-          const lookupId = isShadowSnooze ? reminderId.replace('_snooze', '') : reminderId;
-
           // Get current reminder state
-          const reminder = await getReminder(lookupId);
+          const reminder = await getReminder(reminderId);
           if (!reminder) {
-            console.log('[AlarmSync] Reminder not found:', lookupId, '(original:', reminderId, ')');
+            console.log('[AlarmSync] Reminder not found:', reminderId);
             await AlarmModule.clearCompletedAlarm(reminderId);
             processedRef.current.add(key);
             continue;
@@ -114,7 +110,6 @@ export function useCompletedAlarmSync() {
           // Native alarm completion -> increment occurrence and schedule next
           // Pass the actual trigger timestamp to ensure history is accurate
           // shouldIncrementOccurrence=false because native already incremented actualTriggerCount
-          // We pass the RAW reminderId (potentially with _snooze) so markReminderDone handles the snooze logic
           await markReminderDone(reminderId, false, triggerTimeMs);
 
           // Clear from SharedPreferences

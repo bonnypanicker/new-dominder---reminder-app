@@ -1053,13 +1053,6 @@ export default function HomeScreen() {
 
                             // If no next date and has end condition, the reminder has ended
                             if (!nextDate && hasEndCondition) {
-                              // CRITICAL FIX: Check for pending shadow snooze
-                              if (reminder.pendingShadowSnoozeUntil) {
-                                const snoozeDate = new Date(reminder.pendingShadowSnoozeUntil);
-                                const timeStr = formatTime(snoozeDate.toTimeString().slice(0, 5));
-                                return `Snoozed until: ${timeStr}`;
-                              }
-
                               const lastDate = (() => {
                                 if (reminder.lastTriggeredAt) return new Date(reminder.lastTriggeredAt);
                                 if (reminder.nextReminderDate) return new Date(reminder.nextReminderDate);
