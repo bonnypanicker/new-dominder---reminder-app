@@ -62,14 +62,7 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
     // 2. Advance the Series immediately
     const now = new Date();
     // Update 'lastTriggeredAt' to now so calculation moves forward
-    // CRITICAL FIX: Increment occurrence count because the current one fired (and was snoozed)
-    // If we don't increment, the series effectively duplicates this index
-    const currentCount = reminder.occurrenceCount ?? 0;
-    const calcContext = {
-      ...reminder,
-      lastTriggeredAt: now.toISOString(),
-      occurrenceCount: currentCount + 1
-    };
+    const calcContext = { ...reminder, lastTriggeredAt: now.toISOString() };
     const nextDate = calculateNextReminderDate(calcContext as any, now);
 
     if (nextDate) {

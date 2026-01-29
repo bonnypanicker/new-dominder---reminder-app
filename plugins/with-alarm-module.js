@@ -1610,10 +1610,10 @@ class AlarmActivity : AppCompatActivity() {
     }
 
     private fun handleSnooze(minutes: Int) {
+        DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
+        
         // Cancel timeout immediately to prevent missed notification
         timeoutRunnable?.let { handler.removeCallbacks(it) }
-        
-        DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
         
         // Stop ringtone service
         AlarmRingtoneService.stopAlarmRingtone(this)
@@ -1642,45 +1642,6 @@ class AlarmActivity : AppCompatActivity() {
         DebugLogger.log("AlarmActivity: Sending ALARM_SNOOZE broadcast")
         sendBroadcast(intent)
         DebugLogger.log("AlarmActivity: Snooze broadcast sent")
-        
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            cancelNotification()
-            finishAlarmProperly()
-        }, 300)
-    }
-
-    private fun handleDone() {
-        // Cancel timeout immediately to prevent missed notification
-        timeoutRunnable?.let { handler.removeCallbacks(it) }
-        
-        DebugLogger.log("AlarmActivity: Done clicked for reminderId: \${reminderId}")
-        
-        // Stop ringtone service
-        AlarmRingtoneService.stopAlarmRingtone(this)
-        
-        // NEW: Persist to SharedPreferences immediately
-        // IMPORTANT: Save triggerTimeMs (actual alarm time) for accurate history, not current time
-        try {
-            val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("completed_\${reminderId}", triggerTimeMs.toString())
-                apply()
-            }
-            DebugLogger.log("AlarmActivity: Saved completion to SharedPreferences for \${reminderId} with triggerTime: \${triggerTimeMs}")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActivity: Error saving to SharedPreferences: \${e.message}")
-        }
-        
-        // Keep existing broadcast as fallback for when app is running
-        val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
-            setPackage(packageName)
-            putExtra("reminderId", reminderId)
-            putExtra("triggerTime", triggerTimeMs)
-        }
-        
-        DebugLogger.log("AlarmActivity: Sending ALARM_DONE broadcast with action: \${intent.action}, package: \${intent.`package`}, triggerTime: \${triggerTimeMs}")
-        sendBroadcast(intent)
-        DebugLogger.log("AlarmActivity: Broadcast sent successfully")
         
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             cancelNotification()
@@ -1880,10 +1841,10 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 }`
-    },,
-// --- Other files are preserved as they were ---
-{
-    path: 'alarm/AlarmReceiver.kt',
+    },
+    // --- Other files are preserved as they were ---
+    {
+        path: 'alarm/AlarmReceiver.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.NotificationChannel
@@ -2011,9 +1972,9 @@ class AlarmReceiver : BroadcastReceiver() {
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
     }
 }`
-},
-{
-    path: 'alarm/RingtonePickerActivity.kt',
+    },
+    {
+        path: 'alarm/RingtonePickerActivity.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.Activity
@@ -2428,9 +2389,9 @@ class RingtonePickerActivity : AppCompatActivity() {
         return fileName
     }
 }`
-},
-{
-    path: 'alarm/MissedAlarmReceiver.kt',
+    },
+    {
+        path: 'alarm/MissedAlarmReceiver.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.content.BroadcastReceiver
@@ -2490,9 +2451,9 @@ class MissedAlarmReceiver(private val reactContext: ReactApplicationContext) : B
         }
     }
 }`
-},
-{
-    path: 'alarm/MissedAlarmDeleteReceiver.kt',
+    },
+    {
+        path: 'alarm/MissedAlarmDeleteReceiver.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.NotificationManager
@@ -2559,9 +2520,9 @@ class MissedAlarmDeleteReceiver : BroadcastReceiver() {
         }
     }
 }`
-},
-{
-    path: 'alarm/AlarmPackage.kt',
+    },
+    {
+        path: 'alarm/AlarmPackage.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import com.facebook.react.ReactPackage
@@ -2582,9 +2543,9 @@ class AlarmPackage : ReactPackage {
         return emptyList()
     }
 }`
-},
-{
-    path: 'RescheduleAlarmsService.kt',
+    },
+    {
+        path: 'RescheduleAlarmsService.kt',
         content: `package app.rork.dominder_android_reminder_app
 
 import android.app.NotificationChannel
@@ -2657,9 +2618,9 @@ class RescheduleAlarmsService : HeadlessJsTaskService() {
         }
     }
 }`
-},
-{
-    path: 'MainApplication.kt',
+    },
+    {
+        path: 'MainApplication.kt',
         content: `package app.rork.dominder_android_reminder_app
 
 import android.app.Application
@@ -2719,9 +2680,9 @@ class MainApplication : Application(), ReactApplication {
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
   }
 }`
-},
-{
-    path: 'MainActivity.kt',
+    },
+    {
+        path: 'MainActivity.kt',
         content: `package app.rork.dominder_android_reminder_app
 
 import android.content.Intent
@@ -2765,9 +2726,9 @@ class MainActivity : ReactActivity() {
     )
   }
 }`
-},
-{
-    path: 'DebugLogger.kt',
+    },
+    {
+        path: 'DebugLogger.kt',
         content: `package app.rork.dominder_android_reminder_app
 
 import android.util.Log
@@ -2786,9 +2747,9 @@ object DebugLogger {
         }
     }
 }`
-},
-{
-    path: 'RescheduleAlarmsWorker.kt',
+    },
+    {
+        path: 'RescheduleAlarmsWorker.kt',
         content: `package app.rork.dominder_android_reminder_app
 
 import android.content.Context
@@ -2816,9 +2777,9 @@ class RescheduleAlarmsWorker(context: Context, workerParams: WorkerParameters) :
         return Result.success()
     }
 }`
-},
-{
-    path: 'BootReceiver.kt',
+    },
+    {
+        path: 'BootReceiver.kt',
         content: `package app.rork.dominder_android_reminder_app
 
 import android.content.BroadcastReceiver
@@ -2835,9 +2796,9 @@ class BootReceiver : BroadcastReceiver() {
         }
     }
 }`
-},
-{
-    path: 'alarm/AlarmModule.kt',
+    },
+    {
+        path: 'alarm/AlarmModule.kt',
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.Activity
@@ -3470,7 +3431,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         }
     }
 }`
-}
+    }
 ];
 
 // ==================================================
