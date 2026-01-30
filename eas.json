@@ -15,10 +15,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "credentialsSource": "local",
-      "node": "22.12.0",
-      "install": {
-        "ciFrozenLockfile": false
-      }
+      "node": "22.12.0"
     },
     "production": {
       "android": {
