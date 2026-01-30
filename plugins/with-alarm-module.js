@@ -479,10 +479,10 @@ class AlarmActionBridge : BroadcastReceiver() {
                          
                          // 2. Advance Series ONLY if not complete after this snooze
                          if (!shouldCompleteAfterSnooze) {
-                             DebugLogger.log("AlarmActionBridge: Scheduling next occurrence (count \$newCount < limit \$untilCount)")
+                             DebugLogger.log("AlarmActionBridge: Scheduling next occurrence (count \$currentCount < limit \$untilCount)")
                              scheduleNextOccurrenceIfNeeded(context, reminderId)
                          } else {
-                             DebugLogger.log("AlarmActionBridge: NOT scheduling next occurrence - limit reached after snooze (count \$newCount >= limit \$untilCount)")
+                             DebugLogger.log("AlarmActionBridge: NOT scheduling next occurrence - limit reached after snooze (count \$currentCount >= limit \$untilCount)")
                              DebugLogger.log("AlarmActionBridge: Reminder will be marked complete AFTER shadow snooze completes")
                          }
                     } else {
