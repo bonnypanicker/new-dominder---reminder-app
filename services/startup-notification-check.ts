@@ -131,6 +131,25 @@ export async function checkAndTriggerPendingNotifications() {
         continue;
       }
 
+      // CRITICAL FIX: Check if reminder has a pending shadow snooze
+      // If so, the series is paused - skip triggering until snooze completes
+      let hasPendingShadowSnooze = false;
+      if (AlarmModule?.getNativeReminderState) {
+        try {
+          const nativeState = await AlarmModule.getNativeReminderState(reminder.id);
+          if (nativeState && nativeState.hasPendingShadowSnooze) {
+            hasPendingShadowSnooze = true;
+            console.log(`[StartupCheck] Reminder ${reminder.id} has pending shadow snooze - skipping trigger`);
+          }
+        } catch (e) {
+          // Native state check failed - continue with normal processing
+        }
+      }
+
+      if (hasPendingShadowSnooze) {
+        continue;
+      }
+
       // Determine the scheduled time
       let scheduledTime: number | null = null;
 

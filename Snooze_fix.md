@@ -21,7 +21,7 @@ Reminder triggers at 2:00pm
 
 
 
-\*If "End time" instead of "Occurrence".
+*If "End time" instead of "Occurrence".
 
 
 
@@ -36,10 +36,12 @@ Reminder triggers at 2:00pm
 
 >Update in completed page reminder card for count and time.Green ring for counter button(reminder completed).
 >Reminder completed.
+>Remove the card from active reminders page.
 >if End time is higher than snoozed time, continue after snoozed time until end time reaches.
 
 If editing requires in android, edit in plugins otherwise it will loose on prebuild.
 
 Fix it efficiently without errors.
-Prebuild and verify.
+Native code should be in sync with JS code. App open state and App closed state should behave the same.NO duplicate reminders, time slip, race conditions etc. (Analyse current state and act accordingly)
+Prebuild and VERIFY that it will meet my conditions.
 
