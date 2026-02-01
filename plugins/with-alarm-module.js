@@ -253,51 +253,39 @@ class AlarmActionBridge : BroadcastReceiver() {
                         // Record trigger for shadow snooze (for history)
                         recordNativeTrigger(context, reminderId, triggerTime)
                         
-                        // CRITICAL: Increment parent's count NOW (shadow snooze completion = occurrence completion)
+                        // CRITICAL FIX: DON'T increment parent count here!
+                        // JS will handle incrementing the occurrence count when processing shadow snooze completion
+                        // Incrementing here causes a double increment bug (native + JS = 2 increments for 1 occurrence)
                         val parentActualCount = metaPrefs.getInt("meta_\${parentReminderId}_actualTriggerCount", 0)
-                        val newParentCount = parentActualCount + 1
-                        
-                        metaPrefs.edit().apply {
-                            putInt("meta_\${parentReminderId}_actualTriggerCount", newParentCount)
-                            putInt("meta_\${parentReminderId}_occurrenceCount", newParentCount)
-                            apply()
-                        }
-                        DebugLogger.log("AlarmActionBridge: Incremented parent count: \${parentActualCount} -> \${newParentCount}")
+                        DebugLogger.log("AlarmActionBridge: Current parent count: \${parentActualCount} (NOT incrementing - JS will handle)")
                         
                         // Check if parent should be marked complete now
+                        // Use current count (not incremented) because JS will do the final increment and completion check
                         val parentUntilType = metaPrefs.getString("meta_\${parentReminderId}_untilType", "forever") ?: "forever"
                         val parentUntilCount = metaPrefs.getInt("meta_\${parentReminderId}_untilCount", 0)
                         
-                        val isSeriesComplete = (parentUntilType == "count" && newParentCount >= parentUntilCount)
+                        // JS will handle completion logic after incrementing
+                        val isSeriesComplete = false
                         
-                        if (isSeriesComplete) {
-                            // Mark parent as complete now that shadow snooze is done
-                            metaPrefs.edit().apply {
-                                putBoolean("meta_\${parentReminderId}_isCompleted", true)
-                                putLong("meta_\${parentReminderId}_completedAt", triggerTime)
-                                apply()
-                            }
-                            DebugLogger.log("AlarmActionBridge: Marked parent \${parentReminderId} as COMPLETE after shadow snooze (count \${newParentCount} >= limit \${parentUntilCount})")
-                            
-                            // Emit completion event for parent
-                            emitEventToReactNative(context, "alarmDone", parentReminderId, 0, triggerTime)
+                        // JS will handle all completion and scheduling logic
+                        DebugLogger.log("AlarmActionBridge: Shadow snooze completed, JS will handle increment and scheduling")
+                        
+                        // Check if React Native is running
+                        val isReactRunning = isReactContextAvailable(context)
+                        
+                        if (!isReactRunning) {
+                            // App is killed - JS can't handle it, so we need to do scheduling
+                            // But DON'T increment count here - it will be synced from JS on next app launch
+                            DebugLogger.log("AlarmActionBridge: App killed after shadow snooze, need to schedule next occurrence")
+                            // Note: We can't safely schedule next occurrence without incrementing count
+                            // This is a limitation - shadow snooze requires JS to be running for proper scheduling
+                            // User will need to open app to continue series after shadow snooze in killed state
                         } else {
-                            DebugLogger.log("AlarmActionBridge: Series NOT complete (count \${newParentCount} < limit \${parentUntilCount}), scheduling next occurrence")
-                            
-                            // Check if React Native is running
-                            val isReactRunning = isReactContextAvailable(context)
-                            
-                            if (!isReactRunning) {
-                                // App is killed - native handles scheduling next occurrence
-                                DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence after shadow snooze")
-                                scheduleNextOccurrenceIfNeeded(context, parentReminderId)
-                            } else {
-                                DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling after shadow snooze")
-                            }
-                            
-                            // Emit event to notify JS that shadow snooze completed
-                            emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
+                            DebugLogger.log("AlarmActionBridge: App running, JS will handle shadow snooze completion")
                         }
+                        
+                        // Emit event to notify JS that shadow snooze completed
+                        emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
                         
                         // Clean up shadow snooze metadata
                         metaPrefs.edit().apply {

@@ -240,21 +240,61 @@ function AppContent() {
 
               console.log(`[RootLayout] Scheduled next occurrence for ${reminderId} at ${nextDate.toISOString()} (foreground)`);
             } else {
-              // No next occurrence (likely due to Until constraints).
-              // Do NOT mark completed yet to avoid cancelling the just-delivered notification.
-              // Persist occurrenceCount and lastTriggeredAt; leave notification visible for user action.
+              // No next occurrence (series ended).
+              // Mark as COMPLETED and move to completed tab
+              console.log(`[RootLayout] Final occurrence reached for ${reminderId} (foreground), marking as completed`);
+              
+              // Get history if it exists
+              const historyId = `${reminderId}_hist`;
+              const allReminders = await reminderService.getReminders();
+              const existingHistory = allReminders.find((r: any) => r.id === historyId);
+              let historyTimes = existingHistory?.completionHistory || [];
+              
+              // Add current trigger time to history
+              if (!historyTimes.includes(triggeredAt)) {
+                historyTimes.push(triggeredAt);
+              }
+              historyTimes = historyTimes.sort();
+              
+              // Delete the separate history item if it exists
+              if (existingHistory) {
+                await reminderService.permanentlyDeleteReminder(historyId);
+              }
+              
+              // Mark as completed with full history
               const finalOccurrenceState = {
                 ...forCalc,
                 nextReminderDate: undefined,
-                lastTriggeredAt: triggeredAt, // Use the scheduled time, not current time
+                lastTriggeredAt: triggeredAt,
                 snoozeUntil: undefined,
                 wasSnoozed: undefined,
-                isActive: true,
-                isCompleted: false,
+                isActive: false,
+                isCompleted: true,
                 isPaused: false,
+                isExpired: false,
+                completionHistory: historyTimes,
+                parentId: undefined
               };
+              
               await reminderService.updateReminder(finalOccurrenceState);
-              console.log(`[RootLayout] Final occurrence reached for ${reminderId} (foreground); left notification visible (no further scheduling)`);
+              
+              // Cancel all notifications and clear native metadata
+              const notificationService = require('../hooks/notification-service');
+              await notificationService.notificationService.cancelAllNotificationsForReminder(reminderId);
+              
+              // Clear native metadata
+              const { NativeModules, Platform } = require('react-native');
+              const AlarmModule = Platform.OS === 'android' ? NativeModules.AlarmModule : null;
+              if (AlarmModule?.clearReminderMetadata) {
+                try {
+                  await AlarmModule.clearReminderMetadata(reminderId);
+                  console.log(`[RootLayout] Cleared native metadata for completed reminder ${reminderId}`);
+                } catch (e) {
+                  console.log(`[RootLayout] Failed to clear native metadata:`, e);
+                }
+              }
+              
+              console.log(`[RootLayout] Marked ${reminderId} as completed and moved to completed tab`);
             }
           }
           return;

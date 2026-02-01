@@ -180,19 +180,20 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       }
 
       // NOW advance the series for next occurrence
-      // Increment occurrence count and calculate next date
+      // CRITICAL FIX: DON'T increment on shadow snooze completion!
+      // Shadow snooze is just a delay of the SAME occurrence, not a new one.
+      // The occurrence was already counted when the original notification was delivered.
       const currentOccurred = reminder.occurrenceCount ?? 0;
-      const newOccurrenceCount = currentOccurred + 1;
-      const calcContext = { ...reminder, occurrenceCount: newOccurrenceCount };
+      const calcContext = { ...reminder, occurrenceCount: currentOccurred };
       const nextDate = calculateNextReminderDate(calcContext as any, new Date());
 
-      console.log(`[Scheduler] Shadow snooze done, occurrence ${currentOccurred} -> ${newOccurrenceCount}, nextDate: ${nextDate ? nextDate.toISOString() : 'null'}`);
+      console.log(`[Scheduler] Shadow snooze done, count stays at ${currentOccurred} (no increment for snooze), nextDate: ${nextDate ? nextDate.toISOString() : 'null'}`);
 
       if (nextDate) {
         // More occurrences - schedule next
         const updated = {
           ...calcContext,
-          occurrenceCount: newOccurrenceCount,
+          occurrenceCount: currentOccurred,
           nextReminderDate: nextDate.toISOString(),
           lastTriggeredAt: completedOccurrenceTime,
           snoozeUntil: undefined, // Clear snooze state
@@ -204,11 +205,11 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         };
         await updateReminder(updated as any);
 
-        // Sync occurrence count to native
+        // Sync occurrence count to native (keep current count, don't increment for snooze)
         if (AlarmModule?.updateOccurrenceCount) {
           try {
-            await AlarmModule.updateOccurrenceCount(originalReminderId, newOccurrenceCount);
-            console.log(`[Scheduler] Synced occurrenceCount ${newOccurrenceCount} to native for ${originalReminderId}`);
+            await AlarmModule.updateOccurrenceCount(originalReminderId, currentOccurred);
+            console.log(`[Scheduler] Synced occurrenceCount ${currentOccurred} to native for ${originalReminderId}`);
           } catch (e) {
             console.log(`[Scheduler] Failed to sync occurrenceCount to native:`, e);
           }
