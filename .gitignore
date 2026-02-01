@@ -38,7 +38,7 @@ yarn-error.*
 credentials.json
 *.txt
 ios/
-android/
+# android/
 !android/app/
 !android/app/src/
 !android/app/src/main/
