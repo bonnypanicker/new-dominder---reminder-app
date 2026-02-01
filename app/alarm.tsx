@@ -81,20 +81,10 @@ export default function AlarmScreen() {
 
   const done = useCallback(async () => {
     console.log('[AlarmScreen] Done pressed for reminder:', reminderId);
-    const origin = getAlarmLaunchOrigin();
-    
-    // CRITICAL FIX: If opened from fullscreen native intent, DON'T process in JS
-    // Native AlarmActivity already sent the broadcast and handled everything
-    if (origin === 'fullscreen' || origin === 'bodytap') {
-      console.log('[AlarmScreen] Fullscreen/bodytap origin - native already handled done, just closing');
-      await closePerOrigin();
-      return;
-    }
-    
-    // Only process in JS if this was opened from in-app navigation
     try {
       if (reminderId) {
         const svc = require('../services/reminder-scheduler');
+        // Native alarm UI -> increment occurrence and schedule next
         await svc.markReminderDone(reminderId, true);
       }
     } catch (e) { 
@@ -105,17 +95,6 @@ export default function AlarmScreen() {
 
   const snooze = (m: number) => async () => {
     console.log('[AlarmScreen] Snooze pressed for', m, 'minutes, reminder:', reminderId);
-    const origin = getAlarmLaunchOrigin();
-    
-    // CRITICAL FIX: If opened from fullscreen native intent, DON'T process in JS
-    // Native AlarmActivity already sent the broadcast and handled everything
-    if (origin === 'fullscreen' || origin === 'bodytap') {
-      console.log('[AlarmScreen] Fullscreen/bodytap origin - native already handled snooze, just closing');
-      await closePerOrigin();
-      return;
-    }
-    
-    // Only process in JS if this was opened from in-app navigation
     try {
       if (reminderId) {
         const svc = require('../services/reminder-scheduler');
