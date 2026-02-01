@@ -22,9 +22,6 @@ interface NativeReminderState {
   repeatType: string;
   untilType: string;
   untilCount: number;
-  // Shadow snooze pause state
-  hasPendingShadowSnooze?: boolean;
-  snoozeEndsAt?: number;
 }
 
 const AlarmModule: {

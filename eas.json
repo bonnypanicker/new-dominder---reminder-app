@@ -14,8 +14,7 @@
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
       },
-      "credentialsSource": "local",
-      "node": "22.12.0"
+      "credentialsSource": "local"
     },
     "production": {
       "android": {

@@ -241,130 +241,15 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
-                    val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-                    
-                    // Check if this is a shadow snooze completing
-                    val isShadowSnooze = metaPrefs.getBoolean("meta_\${reminderId}_isShadowSnooze", false)
-                    val parentReminderId = metaPrefs.getString("meta_\${reminderId}_parentReminderId", null)
-                    
-                    if (isShadowSnooze && parentReminderId != null) {
-                        DebugLogger.log("AlarmActionBridge: Shadow snooze \${reminderId} completed, processing parent \${parentReminderId}")
-                        
-                        // CRITICAL FIX: When shadow snooze completes:
-                        // 1. Increment the parent's trigger count (this was deferred from snooze time)
-                        // 2. Add to trigger history (the actual completion time)
-                        // 3. Clear hasPendingShadowSnooze flag to resume the series
-                        // 4. Schedule next occurrence if series not complete
-                        
-                        val parentCurrentCount = metaPrefs.getInt("meta_\${parentReminderId}_actualTriggerCount", 0)
-                        val parentNewCount = parentCurrentCount + 1
-                        
-                        // Record trigger for PARENT (this is the actual completed occurrence)
-                        val existingHistory = metaPrefs.getString("meta_\${parentReminderId}_triggerHistory", "") ?: ""
-                        val newHistory = if (existingHistory.isEmpty()) {
-                            triggerTime.toString()
-                        } else {
-                            "\$existingHistory,\$triggerTime"
-                        }
-                        
-                        metaPrefs.edit().apply {
-                            putInt("meta_\${parentReminderId}_actualTriggerCount", parentNewCount)
-                            putString("meta_\${parentReminderId}_triggerHistory", newHistory)
-                            putLong("meta_\${parentReminderId}_lastTriggerTime", triggerTime)
-                            // Clear the shadow snooze pause flag to resume the series
-                            remove("meta_\${parentReminderId}_hasPendingShadowSnooze")
-                            remove("meta_\${parentReminderId}_snoozeEndsAt")
-                            apply()
-                        }
-                        
-                        DebugLogger.log("AlarmActionBridge: Updated parent \${parentReminderId} count to \$parentNewCount, added trigger at \$triggerTime to history")
-                        
-                        // Check if parent should be marked complete now
-                        val parentUntilType = metaPrefs.getString("meta_\${parentReminderId}_untilType", "forever") ?: "forever"
-                        val parentUntilCount = metaPrefs.getInt("meta_\${parentReminderId}_untilCount", 0)
-                        
-                        if (parentUntilType == "count" && parentNewCount >= parentUntilCount) {
-                            // Mark parent as complete now that shadow snooze is done
-                            metaPrefs.edit().apply {
-                                putBoolean("meta_\${parentReminderId}_isCompleted", true)
-                                putLong("meta_\${parentReminderId}_completedAt", triggerTime)
-                                apply()
-                            }
-                            DebugLogger.log("AlarmActionBridge: Marked parent \${parentReminderId} as complete after shadow snooze (count \$parentNewCount >= limit \$parentUntilCount)")
-                            
-                            // Emit completion event for parent
-                            emitEventToReactNative(context, "alarmDone", parentReminderId, 0, triggerTime)
-                        } else {
-                            // Series not complete - RESUME by scheduling the next occurrence
-                            DebugLogger.log("AlarmActionBridge: Shadow snooze done, RESUMING series for parent \${parentReminderId}")
-                            scheduleNextOccurrenceIfNeeded(context, parentReminderId)
-                        }
-                        
-                        // Clean up shadow snooze metadata
-                        metaPrefs.edit().apply {
-                            remove("meta_\${reminderId}_title")
-                            remove("meta_\${reminderId}_priority")
-                            remove("meta_\${reminderId}_repeatType")
-                            remove("meta_\${reminderId}_startDate")
-                            remove("meta_\${reminderId}_startTime")
-                            remove("meta_\${reminderId}_everyValue")
-                            remove("meta_\${reminderId}_everyUnit")
-                            remove("meta_\${reminderId}_untilType")
-                            remove("meta_\${reminderId}_untilCount")
-                            remove("meta_\${reminderId}_untilDate")
-                            remove("meta_\${reminderId}_untilTime")
-                            remove("meta_\${reminderId}_actualTriggerCount")
-                            remove("meta_\${reminderId}_occurrenceCount")
-                            remove("meta_\${reminderId}_multiSelectEnabled")
-                            remove("meta_\${reminderId}_multiSelectDates")
-                            remove("meta_\${reminderId}_multiSelectDays")
-                            remove("meta_\${reminderId}_windowEndTime")
-                            remove("meta_\${reminderId}_windowEndIsAM")
-                            remove("meta_\${reminderId}_parentReminderId")
-                            remove("meta_\${reminderId}_isShadowSnooze")
-                            apply()
-                        }
-                        DebugLogger.log("AlarmActionBridge: Cleaned up shadow snooze metadata for \${reminderId}")
-                        
-                        // Emit event for shadow snooze completion (for UI update)
-                        emitEventToReactNative(context, "alarmDone", reminderId, 0, triggerTime)
-                        return
-                    }
-                    
-                    // Regular reminder (not shadow snooze)
-                    // CRITICAL: Record trigger AFTER user clicks Done (fixes off-by-one error)
-                    // This ensures user sees the alarm before it counts as "triggered"
-                    recordNativeTrigger(context, reminderId, triggerTime)
-                    
-                    // Check if this trigger completes the reminder
-                    val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-                    if (shouldComplete) {
-                        DebugLogger.log("AlarmActionBridge: Reminder \${reminderId} completed after this trigger")
-                        
-                        // Check if there's a pending shadow snooze
-                        val shadowId = reminderId + "_snooze"
-                        val hasShadowSnooze = metaPrefs.contains("meta_\${shadowId}_isShadowSnooze")
-                        
-                        if (hasShadowSnooze) {
-                            DebugLogger.log("AlarmActionBridge: Reminder has pending shadow snooze - will complete after shadow fires")
-                            // Don't mark as complete yet - wait for shadow snooze
-                            metaPrefs.edit().apply {
-                                putBoolean("meta_\${reminderId}_isCompleted", false)
-                                putBoolean("meta_\${reminderId}_pendingShadowSnooze", true)
-                                apply()
-                            }
-                        }
-                    }
-                    
                     // Check if React Native is running
                     val isReactRunning = isReactContextAvailable(context)
                     DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
                     
-                    if (!isReactRunning && !shouldComplete) {
-                        // App is killed and reminder not complete - native handles scheduling next occurrence
+                    if (!isReactRunning) {
+                        // App is killed - native handles scheduling next occurrence
                         DebugLogger.log("AlarmActionBridge: App killed, native scheduling next occurrence")
                         scheduleNextOccurrenceIfNeeded(context, reminderId)
-                    } else if (isReactRunning) {
+                    } else {
                         // App is running - JS will handle everything via event
                         DebugLogger.log("AlarmActionBridge: App running, JS will handle scheduling")
                     }
@@ -384,31 +269,12 @@ class AlarmActionBridge : BroadcastReceiver() {
 
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
-                    // CRITICAL: Check if reminder is paused before scheduling snooze
-                    val pausePrefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
-                    val isPaused = pausePrefs.getBoolean("paused_\${reminderId}", false)
-                    if (isPaused) {
-                        DebugLogger.log("AlarmActionBridge: Reminder \${reminderId} is PAUSED - ignoring snooze request")
-                        return
-                    }
-                    
                     // Check if repeating
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
                     val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
                     
                     if (repeatType != "none") {
-                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. PAUSING series until snooze completes.")
-                         
-                         // CRITICAL FIX: Do NOT increment count or advance series when snooze is started
-                         // The count will be incremented when the snooze completes (user presses Done)
-                         // This prevents the 2:01pm, 2:02pm occurrences from firing while 2:00pm snooze is pending
-                         
-                         val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-                         
-                         // Check if we've reached the limit
-                         val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-                         val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-                         val shouldCompleteAfterSnooze = (untilType == "count" && (currentCount + 1) >= untilCount)
+                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
                          
                          // 1. Schedule Shadow Snooze with COMPLETE metadata
                          val shadowId = reminderId + "_snooze"
@@ -459,34 +325,16 @@ class AlarmActionBridge : BroadcastReceiver() {
                              putString("meta_\${shadowId}_windowEndTime", "")
                              putBoolean("meta_\${shadowId}_windowEndIsAM", false)
                              
-                             // CRITICAL: Link shadow to parent for completion tracking
-                             putString("meta_\${shadowId}_parentReminderId", reminderId)
-                             putBoolean("meta_\${shadowId}_isShadowSnooze", true)
-                             
                              apply()
                          }
                          
-                         // CRITICAL FIX: Mark parent as having pending shadow snooze
-                         // This PAUSES the series - no more occurrences until snooze completes
-                         metaPrefs.edit().apply {
-                             putBoolean("meta_\${reminderId}_hasPendingShadowSnooze", true)
-                             putLong("meta_\${reminderId}_snoozeEndsAt", snoozeTimeMs)
-                             apply()
-                         }
+                         DebugLogger.log("AlarmActionBridge: Stored complete metadata for shadow snooze \${shadowId}")
                          
-                         DebugLogger.log("AlarmActionBridge: Stored complete metadata for shadow snooze \${shadowId}, linked to parent \${reminderId}")
-                         DebugLogger.log("AlarmActionBridge: Marked parent \${reminderId} as having pending shadow snooze - series is PAUSED")
-                         
-                         // Schedule the native alarm for shadow snooze
+                         // Schedule the native alarm
                          scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
                          
-                         // CRITICAL FIX: Do NOT schedule next occurrence here!
-                         // The series is PAUSED until the snooze completes.
-                         // When user presses Done on the shadow snooze, THEN we advance the series.
-                         DebugLogger.log("AlarmActionBridge: NOT scheduling next occurrence - series PAUSED until snooze completes")
-                         if (shouldCompleteAfterSnooze) {
-                             DebugLogger.log("AlarmActionBridge: Note: This snooze will complete the series (count \${currentCount + 1} >= limit \$untilCount)")
-                         }
+                         // 2. Advance Series (Schedule Next Regular Occurrence)
+                         scheduleNextOccurrenceIfNeeded(context, reminderId)
                     } else {
                          // One-off: Standard overwrite behavior
                          DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder \${reminderId}")
@@ -900,14 +748,7 @@ class AlarmActionBridge : BroadcastReceiver() {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                  if (!alarmManager.canScheduleExactAlarms()) {
-                     DebugLogger.log("AlarmActionBridge: Exact alarm permission denied, using inexact alarm as fallback")
-                     // Fall back to inexact alarm instead of failing silently
-                     alarmManager.setAndAllowWhileIdle(
-                         AlarmManager.RTC_WAKEUP,
-                         triggerTime,
-                         pendingIntent
-                     )
-                     DebugLogger.log("AlarmActionBridge: Inexact alarm scheduled for \${triggerTime}")
+                     DebugLogger.log("AlarmActionBridge: cannot schedule exact alarm, skipping native fallback")
                      return
                  }
             }
@@ -1021,144 +862,6 @@ class AlarmActionBridge : BroadcastReceiver() {
             DebugLogger.log("AlarmActionBridge: Exception: \${e.message}")
             DebugLogger.log("AlarmActionBridge: Stack trace: \${e.stackTraceToString()}")
         }
-    }
-    
-    /**
-     * Record this trigger in native SharedPreferences.
-     * This is the SINGLE SOURCE OF TRUTH for occurrence tracking.
-     * CRITICAL: Called AFTER user clicks Done (fixes off-by-one error).
-     */
-    private fun recordNativeTrigger(context: Context, reminderId: String, triggerTime: Long) {
-        try {
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            // Increment the actual trigger count (this is the authoritative count)
-            val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-            val newCount = currentCount + 1
-            
-            // Get existing trigger history and append this trigger
-            val existingHistory = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
-            val newHistory = if (existingHistory.isEmpty()) {
-                triggerTime.toString()
-            } else {
-                "\$existingHistory,\$triggerTime"
-            }
-            
-            metaPrefs.edit().apply {
-                putInt("meta_\${reminderId}_actualTriggerCount", newCount)
-                putString("meta_\${reminderId}_triggerHistory", newHistory)
-                putLong("meta_\${reminderId}_lastTriggerTime", triggerTime)
-                apply()
-            }
-            
-            DebugLogger.log("AlarmActionBridge: Recorded trigger #\$newCount at \$triggerTime for \$reminderId")
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error recording trigger: \${e.message}")
-        }
-    }
-    
-    /**
-     * Check if this trigger completes the reminder and mark it complete natively if so.
-     * Returns true if this is the final occurrence.
-     */
-    private fun checkAndMarkCompletionNatively(context: Context, reminderId: String, triggerTime: Long): Boolean {
-        try {
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            
-            val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
-            if (repeatType == "none") {
-                // One-time reminder - mark complete after this trigger
-                metaPrefs.edit().apply {
-                    putBoolean("meta_\${reminderId}_isCompleted", true)
-                    putLong("meta_\${reminderId}_completedAt", triggerTime)
-                    apply()
-                }
-                DebugLogger.log("AlarmActionBridge: One-time reminder \$reminderId marked complete")
-                return true
-            }
-            
-            val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-            
-            // Check count-based completion
-            if (untilType == "count") {
-                val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-                val actualTriggerCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-                
-                DebugLogger.log("AlarmActionBridge: Count check - actualTriggerCount=\$actualTriggerCount, untilCount=\$untilCount")
-                
-                if (actualTriggerCount >= untilCount) {
-                    metaPrefs.edit().apply {
-                        putBoolean("meta_\${reminderId}_isCompleted", true)
-                        putLong("meta_\${reminderId}_completedAt", triggerTime)
-                        apply()
-                    }
-                    DebugLogger.log("AlarmActionBridge: Reminder \$reminderId completed by count (\$actualTriggerCount >= \$untilCount)")
-                    return true
-                }
-            }
-            
-            // Check time-based completion
-            if (untilType == "endsAt") {
-                val untilDate = metaPrefs.getString("meta_\${reminderId}_untilDate", "") ?: ""
-                val untilTime = metaPrefs.getString("meta_\${reminderId}_untilTime", "") ?: ""
-                val everyUnit = metaPrefs.getString("meta_\${reminderId}_everyUnit", "minutes") ?: "minutes"
-                
-                if (untilDate.isNotEmpty()) {
-                    val endBoundary = parseEndBoundaryForCompletion(untilDate, untilTime, everyUnit)
-                    
-                    DebugLogger.log("AlarmActionBridge: Time check - triggerTime=\$triggerTime, endBoundary=\$endBoundary")
-                    
-                    // If this trigger is at or past the end boundary, mark complete
-                    if (triggerTime >= endBoundary) {
-                        metaPrefs.edit().apply {
-                            putBoolean("meta_\${reminderId}_isCompleted", true)
-                            putLong("meta_\${reminderId}_completedAt", triggerTime)
-                            apply()
-                        }
-                        DebugLogger.log("AlarmActionBridge: Reminder \$reminderId completed by time (trigger >= endBoundary)")
-                        return true
-                    }
-                }
-            }
-            
-            return false
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error checking completion: \${e.message}")
-            return false
-        }
-    }
-    
-    /**
-     * Helper function for checkAndMarkCompletionNatively to parse end boundary.
-     * Separate from parseEndBoundary() to avoid confusion.
-     */
-    private fun parseEndBoundaryForCompletion(untilDate: String, untilTime: String, everyUnit: String): Long {
-        val calendar = Calendar.getInstance()
-        try {
-            val dateParts = untilDate.split("-")
-            if (dateParts.size == 3) {
-                calendar.set(Calendar.YEAR, dateParts[0].toInt())
-                calendar.set(Calendar.MONTH, dateParts[1].toInt() - 1)
-                calendar.set(Calendar.DAY_OF_MONTH, dateParts[2].toInt())
-                
-                val isTimeBound = everyUnit == "minutes" || everyUnit == "hours"
-                if (isTimeBound && untilTime.isNotEmpty()) {
-                    val timeParts = untilTime.split(":")
-                    if (timeParts.size == 2) {
-                        calendar.set(Calendar.HOUR_OF_DAY, timeParts[0].toInt())
-                        calendar.set(Calendar.MINUTE, timeParts[1].toInt())
-                        calendar.set(Calendar.SECOND, 0)
-                    }
-                } else {
-                    calendar.set(Calendar.HOUR_OF_DAY, 23)
-                    calendar.set(Calendar.MINUTE, 59)
-                    calendar.set(Calendar.SECOND, 59)
-                }
-            }
-        } catch (e: Exception) {
-            DebugLogger.log("AlarmActionBridge: Error parsing end boundary for completion: \${e.message}")
-        }
-        return calendar.timeInMillis
     }
 }`
     },
@@ -1542,7 +1245,6 @@ import java.util.*
 class AlarmActivity : AppCompatActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var reminderId: String? = null
-    private var title: String = "Reminder"  // ✅ Instance variable
     private var notificationId: Int = 0
     private var priority: String = "medium"
     private var triggerTimeMs: Long = 0L
@@ -1570,7 +1272,7 @@ class AlarmActivity : AppCompatActivity() {
         setContentView(R.layout.activity_alarm)
 
         reminderId = intent.getStringExtra("reminderId")
-        title = intent.getStringExtra("title") ?: "Reminder"  // ✅ Assign to instance variable
+        val title = intent.getStringExtra("title") ?: "Reminder"
         priority = intent.getStringExtra("priority") ?: "medium"
         triggerTimeMs = intent.getLongExtra("triggerTime", System.currentTimeMillis())
         notificationId = reminderId?.hashCode() ?: 0
@@ -1653,7 +1355,7 @@ class AlarmActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
             prefs.edit().apply {
                 putString("snoozed_\${reminderId}", "\${System.currentTimeMillis()}:\${minutes}")
-                commit()  // ✅ Use commit() instead of apply() to ensure data is saved before app is killed
+                apply()
             }
             DebugLogger.log("AlarmActivity: Saved snooze to SharedPreferences for \${reminderId}")
         } catch (e: Exception) {
@@ -1665,7 +1367,7 @@ class AlarmActivity : AppCompatActivity() {
             setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
-            putExtra("title", title)  // ✅ Use instance variable
+            putExtra("title", intent.getStringExtra("title") ?: "Reminder")
             putExtra("priority", priority)
         }
         
@@ -1922,8 +1624,15 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
         
-        // NOTE: Count increment moved to ALARM_DONE handler to fix off-by-one error
-        // User must see the alarm before it counts as "triggered"
+        // CRITICAL: Record this trigger in native state BEFORE showing alarm
+        // This ensures accurate tracking even if app is killed
+        recordNativeTrigger(context, reminderId, triggerTime)
+        
+        // Check if this trigger completes the reminder (count or time based)
+        val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
+        if (shouldComplete) {
+            DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
+        }
 
         // Start AlarmRingtoneService for high priority reminders
         if (priority == "high") {
@@ -2000,6 +1709,139 @@ class AlarmReceiver : BroadcastReceiver() {
         
         notificationManager.notify(reminderId.hashCode(), notification)
         DebugLogger.log("AlarmReceiver: Full-screen notification created and shown")
+    }
+    
+    /**
+     * Record this trigger in native SharedPreferences.
+     * This is the SINGLE SOURCE OF TRUTH for occurrence tracking.
+     */
+    private fun recordNativeTrigger(context: Context, reminderId: String, triggerTime: Long) {
+        try {
+            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            
+            // Increment the actual trigger count (this is the authoritative count)
+            val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
+            val newCount = currentCount + 1
+            
+            // Get existing trigger history and append this trigger
+            val existingHistory = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
+            val newHistory = if (existingHistory.isEmpty()) {
+                triggerTime.toString()
+            } else {
+                "\$existingHistory,\$triggerTime"
+            }
+            
+            metaPrefs.edit().apply {
+                putInt("meta_\${reminderId}_actualTriggerCount", newCount)
+                putString("meta_\${reminderId}_triggerHistory", newHistory)
+                putLong("meta_\${reminderId}_lastTriggerTime", triggerTime)
+                apply()
+            }
+            
+            DebugLogger.log("AlarmReceiver: Recorded trigger #\$newCount at \$triggerTime for \$reminderId")
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmReceiver: Error recording trigger: \${e.message}")
+        }
+    }
+    
+    /**
+     * Check if this trigger completes the reminder and mark it complete natively if so.
+     * Returns true if this is the final occurrence.
+     */
+    private fun checkAndMarkCompletionNatively(context: Context, reminderId: String, triggerTime: Long): Boolean {
+        try {
+            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            
+            val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
+            if (repeatType == "none") {
+                // One-time reminder - mark complete after this trigger
+                metaPrefs.edit().apply {
+                    putBoolean("meta_\${reminderId}_isCompleted", true)
+                    putLong("meta_\${reminderId}_completedAt", triggerTime)
+                    apply()
+                }
+                DebugLogger.log("AlarmReceiver: One-time reminder \$reminderId marked complete")
+                return true
+            }
+            
+            val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
+            
+            // Check count-based completion
+            if (untilType == "count") {
+                val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
+                val actualTriggerCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
+                
+                DebugLogger.log("AlarmReceiver: Count check - actualTriggerCount=\$actualTriggerCount, untilCount=\$untilCount")
+                
+                if (actualTriggerCount >= untilCount) {
+                    metaPrefs.edit().apply {
+                        putBoolean("meta_\${reminderId}_isCompleted", true)
+                        putLong("meta_\${reminderId}_completedAt", triggerTime)
+                        apply()
+                    }
+                    DebugLogger.log("AlarmReceiver: Reminder \$reminderId completed by count (\$actualTriggerCount >= \$untilCount)")
+                    return true
+                }
+            }
+            
+            // Check time-based completion
+            if (untilType == "endsAt") {
+                val untilDate = metaPrefs.getString("meta_\${reminderId}_untilDate", "") ?: ""
+                val untilTime = metaPrefs.getString("meta_\${reminderId}_untilTime", "") ?: ""
+                val everyUnit = metaPrefs.getString("meta_\${reminderId}_everyUnit", "minutes") ?: "minutes"
+                
+                if (untilDate.isNotEmpty()) {
+                    val endBoundary = parseEndBoundaryStatic(untilDate, untilTime, everyUnit)
+                    
+                    DebugLogger.log("AlarmReceiver: Time check - triggerTime=\$triggerTime, endBoundary=\$endBoundary")
+                    
+                    // If this trigger is at or past the end boundary, mark complete
+                    if (triggerTime >= endBoundary) {
+                        metaPrefs.edit().apply {
+                            putBoolean("meta_\${reminderId}_isCompleted", true)
+                            putLong("meta_\${reminderId}_completedAt", triggerTime)
+                            apply()
+                        }
+                        DebugLogger.log("AlarmReceiver: Reminder \$reminderId completed by time (trigger >= endBoundary)")
+                        return true
+                    }
+                }
+            }
+            
+            return false
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmReceiver: Error checking completion: \${e.message}")
+            return false
+        }
+    }
+    
+    private fun parseEndBoundaryStatic(untilDate: String, untilTime: String, everyUnit: String): Long {
+        val calendar = java.util.Calendar.getInstance()
+        try {
+            val dateParts = untilDate.split("-")
+            if (dateParts.size == 3) {
+                calendar.set(java.util.Calendar.YEAR, dateParts[0].toInt())
+                calendar.set(java.util.Calendar.MONTH, dateParts[1].toInt() - 1)
+                calendar.set(java.util.Calendar.DAY_OF_MONTH, dateParts[2].toInt())
+                
+                val isTimeBound = everyUnit == "minutes" || everyUnit == "hours"
+                if (isTimeBound && untilTime.isNotEmpty()) {
+                    val timeParts = untilTime.split(":")
+                    if (timeParts.size == 2) {
+                        calendar.set(java.util.Calendar.HOUR_OF_DAY, timeParts[0].toInt())
+                        calendar.set(java.util.Calendar.MINUTE, timeParts[1].toInt())
+                        calendar.set(java.util.Calendar.SECOND, 0)
+                    }
+                } else {
+                    calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                    calendar.set(java.util.Calendar.MINUTE, 59)
+                    calendar.set(java.util.Calendar.SECOND, 59)
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmReceiver: Error parsing end boundary: \${e.message}")
+        }
+        return calendar.timeInMillis
     }
 }`
     },
@@ -3047,9 +2889,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putString("repeatType", prefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none")
                 putString("untilType", prefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever")
                 putInt("untilCount", prefs.getInt("meta_\${reminderId}_untilCount", 0))
-                // CRITICAL: Include shadow snooze pause state so JS can skip triggering
-                putBoolean("hasPendingShadowSnooze", prefs.getBoolean("meta_\${reminderId}_hasPendingShadowSnooze", false))
-                putDouble("snoozeEndsAt", prefs.getLong("meta_\${reminderId}_snoozeEndsAt", 0L).toDouble())
             }
             
             DebugLogger.log("AlarmModule: getNativeReminderState for \$reminderId: actualTriggerCount=\${result.getInt("actualTriggerCount")}, isCompleted=\${result.getBoolean("isCompleted")}")
@@ -3137,9 +2976,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                     putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
                     putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
                     putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
-                    // Include shadow snooze pause state
-                    putBoolean("hasPendingShadowSnooze", prefs.getBoolean("meta_\${reminderId}_hasPendingShadowSnooze", false))
-                    putDouble("snoozeEndsAt", prefs.getLong("meta_\${reminderId}_snoozeEndsAt", 0L).toDouble())
                 }
                 result.putMap(reminderId, state)
             }

@@ -20,10 +20,9 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
     return;
   }
 
-  // FIX: For Repeating Reminders, PAUSE the series while snooze is pending
-  // Do NOT advance to the next occurrence until the snooze completes
+  // FIX: For Repeating Reminders, separate Snooze from Series to prevent overwriting
   if (reminder.repeatType !== 'none') {
-    console.log(`[Scheduler] Snoozing REPEATING reminder ${reminderId}. PAUSING series until snooze completes.`);
+    console.log(`[Scheduler] Snoozing REPEATING reminder ${reminderId}. Splitting Snooze vs Series.`);
 
     const snoozeTime = Date.now() + minutes * 60 * 1000;
     const shadowId = `${reminderId}_snooze`;
@@ -60,19 +59,34 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
       }
     }
 
-    // 2. CRITICAL FIX: Mark the reminder as having a pending snooze
-    // Do NOT advance the series yet - this happens when snooze completes
-    const updated = {
-      ...reminder,
-      snoozeUntil: new Date(snoozeTime).toISOString(),
-      wasSnoozed: true,
-      lastTriggeredAt: new Date().toISOString(),
-      // Keep isActive true, but series is effectively paused
-      isActive: true
-    };
-    await updateReminder(updated as any);
-    console.log(`[Scheduler] Marked repeating reminder ${reminderId} as snoozed until ${new Date(snoozeTime).toISOString()}`);
-    console.log(`[Scheduler] Series is PAUSED - next occurrence will be scheduled when snooze completes`);
+    // 2. Advance the Series immediately
+    const now = new Date();
+    // Update 'lastTriggeredAt' to now so calculation moves forward
+    const calcContext = { ...reminder, lastTriggeredAt: now.toISOString() };
+    const nextDate = calculateNextReminderDate(calcContext as any, now);
+
+    if (nextDate) {
+      const updated = {
+        ...reminder,
+        nextReminderDate: nextDate.toISOString(),
+        lastTriggeredAt: now.toISOString(),
+        snoozeUntil: undefined, // Clear existing snooze if any
+        wasSnoozed: undefined,
+        isActive: true
+      };
+      await updateReminder(updated as any);
+      await notificationService.scheduleReminderByModel(updated as any);
+      console.log(`[Scheduler] Repeater snoozed. Series advanced to ${nextDate.toISOString()}`);
+    } else {
+      // Series ended
+      console.log(`[Scheduler] Repeater snoozed. Series ended.`);
+      const updated = {
+        ...reminder,
+        lastTriggeredAt: now.toISOString(),
+        isActive: false
+      };
+      await updateReminder(updated as any);
+    }
 
   } else {
     // Original Logic for One-Off Reminders
@@ -100,162 +114,10 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
   console.log(`[Scheduler] ========== markReminderDone START ==========`);
   console.log(`[Scheduler] reminderId: ${reminderId}, shouldIncrementOccurrence: ${shouldIncrementOccurrence}, triggerTimeMs: ${triggerTimeMs}`);
 
-  // CRITICAL FIX: Check if this is a shadow snooze completion
-  const isShadowSnooze = reminderId.endsWith('_snooze');
-  const originalReminderId = isShadowSnooze ? reminderId.replace('_snooze', '') : reminderId;
-
-  console.log(`[Scheduler] isShadowSnooze: ${isShadowSnooze}, originalReminderId: ${originalReminderId}`);
-
-  let reminder = await getReminder(isShadowSnooze ? originalReminderId : reminderId);
+  let reminder = await getReminder(reminderId);
 
   if (!reminder) {
-    console.log(`[Scheduler] Reminder ${isShadowSnooze ? originalReminderId : reminderId} not found for marking done.`);
-    return;
-  }
-
-  // If this is a shadow snooze completion, handle specially to resume the series
-  if (isShadowSnooze) {
-    console.log(`[Scheduler] Processing shadow snooze completion for ${originalReminderId}`);
-    console.log(`[Scheduler] This will: clear snooze, increment count, add to history, and resume series`);
-
-    const completedOccurrenceTime = triggerTimeMs
-      ? new Date(triggerTimeMs).toISOString()
-      : new Date().toISOString();
-
-    // Increment occurrence count (this was deferred from when snooze was started)
-    const currentOccurrenceCount = reminder.occurrenceCount ?? 0;
-    const newOccurrenceCount = currentOccurrenceCount + 1;
-    console.log(`[Scheduler] Incrementing occurrence count: ${currentOccurrenceCount} -> ${newOccurrenceCount}`);
-
-    // Get or create history item
-    const { getReminders, addReminder: addRem } = require('./reminder-service');
-    const historyId = `${originalReminderId}_hist`;
-    const allReminders = await getReminders();
-    const existingHistory = allReminders.find((r: any) => r.id === historyId);
-
-    // Add to history
-    if (existingHistory) {
-      const updatedHistory = {
-        ...existingHistory,
-        lastTriggeredAt: completedOccurrenceTime,
-        completionHistory: [...(existingHistory.completionHistory || []), completedOccurrenceTime].sort()
-      };
-      await updateReminder(updatedHistory as any);
-      console.log(`[Scheduler] Added shadow snooze completion to history at ${completedOccurrenceTime}`);
-    } else {
-      // Create new history item
-      const historyItem = {
-        ...reminder,
-        id: historyId,
-        parentId: originalReminderId,
-        isCompleted: true,
-        isActive: false,
-        snoozeUntil: undefined,
-        wasSnoozed: undefined,
-        lastTriggeredAt: completedOccurrenceTime,
-        completionHistory: [completedOccurrenceTime],
-        createdAt: new Date().toISOString(),
-        nextReminderDate: undefined,
-        notificationId: undefined
-      };
-      await addRem(historyItem as any);
-      console.log(`[Scheduler] Created history item with trigger at ${completedOccurrenceTime}`);
-    }
-
-    // Calculate next occurrence to resume the series
-    const reminderWithUpdatedCount = {
-      ...reminder,
-      occurrenceCount: newOccurrenceCount,
-      snoozeUntil: undefined,
-      wasSnoozed: undefined,
-      lastTriggeredAt: completedOccurrenceTime
-    };
-    const nextDate = calculateNextReminderDate(reminderWithUpdatedCount as any, new Date());
-
-    if (nextDate) {
-      // More occurrences to come - resume the series
-      const updated = {
-        ...reminderWithUpdatedCount,
-        nextReminderDate: nextDate.toISOString(),
-        isActive: true,
-        isCompleted: false,
-        isExpired: false,
-        isPaused: false
-      };
-      await updateReminder(updated as any);
-
-      // Sync occurrence count to native
-      if (AlarmModule?.updateOccurrenceCount) {
-        try {
-          await AlarmModule.updateOccurrenceCount(originalReminderId, newOccurrenceCount);
-          console.log(`[Scheduler] Synced occurrenceCount ${newOccurrenceCount} to native for ${originalReminderId}`);
-        } catch (e) {
-          console.log(`[Scheduler] Failed to sync occurrenceCount to native:`, e);
-        }
-      }
-
-      // Schedule the next occurrence
-      await notificationService.scheduleReminderByModel(updated as any);
-      console.log(`[Scheduler] Shadow snooze complete. Series RESUMED - next occurrence at ${nextDate.toISOString()}`);
-    } else {
-      // Series ended after this snooze
-      console.log(`[Scheduler] Shadow snooze complete. Series ENDED.`);
-
-      // Merge history into main reminder and mark complete
-      const finalHistory = existingHistory || { completionHistory: [] };
-      let historyTimes = finalHistory.completionHistory || [];
-      if (!historyTimes.includes(completedOccurrenceTime)) {
-        historyTimes.push(completedOccurrenceTime);
-      }
-      historyTimes = historyTimes.sort();
-
-      // Delete the separate history item if it exists
-      if (existingHistory) {
-        const { permanentlyDeleteReminder } = require('./reminder-service');
-        await permanentlyDeleteReminder(existingHistory.id);
-      }
-
-      const completed = {
-        ...reminder,
-        occurrenceCount: newOccurrenceCount,
-        isCompleted: true,
-        isActive: false,
-        snoozeUntil: undefined,
-        wasSnoozed: undefined,
-        lastTriggeredAt: completedOccurrenceTime,
-        nextReminderDate: undefined,
-        completionHistory: historyTimes,
-        parentId: undefined
-      };
-      await updateReminder(completed as any);
-      await notificationService.cancelAllNotificationsForReminder(originalReminderId);
-
-      // Clear native metadata
-      if (AlarmModule?.clearReminderMetadata) {
-        try {
-          await AlarmModule.clearReminderMetadata(originalReminderId);
-          console.log(`[Scheduler] Cleared native metadata for completed reminder ${originalReminderId}`);
-        } catch (e) {
-          console.log(`[Scheduler] Failed to clear native metadata:`, e);
-        }
-      }
-    }
-
-    // Clear shadow snooze metadata from native
-    if (AlarmModule?.clearReminderMetadata) {
-      try {
-        await AlarmModule.clearReminderMetadata(reminderId); // Clear with shadow ID
-        console.log(`[Scheduler] Cleared native metadata for shadow snooze ${reminderId}`);
-      } catch (e) {
-        console.log(`[Scheduler] Failed to clear shadow snooze metadata:`, e);
-      }
-    }
-
-    // Cancel any notifications for the shadow snooze
-    await notificationService.cancelAllNotificationsForReminder(reminderId);
-
-    console.log(`[Scheduler] ========== markReminderDone END (shadow snooze) ==========`);
-    DeviceEventEmitter.emit('remindersChanged');
+    console.log(`[Scheduler] Reminder ${reminderId} not found for marking done.`);
     return;
   }
 
@@ -404,87 +266,46 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       await notificationService.scheduleReminderByModel(updated as any);
       console.log(`[Scheduler] Rescheduled ${reminderId} for ${nextDate.toISOString()}`);
     } else {
-      // Series ended - BUT check if there's a pending shadow snooze
-      console.log(`[Scheduler] Series ended for ${reminderId}, checking for pending shadow snooze...`);
+      // Series ended - merge history into main reminder and mark complete
+      console.log(`[Scheduler] Series ended for ${reminderId}, marking as completed`);
 
-      // Check if shadow snooze exists in native metadata
-      let hasPendingShadowSnooze = false;
-      if (AlarmModule?.getNativeReminderState) {
-        try {
-          const shadowId = `${reminderId}_snooze`;
-          const shadowState = await AlarmModule.getNativeReminderState(shadowId);
-          if (shadowState && !shadowState.isCompleted) {
-            hasPendingShadowSnooze = true;
-            console.log(`[Scheduler] Found pending shadow snooze ${shadowId}, NOT marking original as complete yet`);
-          }
-        } catch (e) {
-          // Shadow snooze doesn't exist or error checking - proceed with completion
-          console.log(`[Scheduler] No pending shadow snooze found or error checking:`, e);
-        }
+      const finalHistory = await getHistoryItem();
+      let historyTimes = finalHistory?.completionHistory || [];
+
+      // Add current completion if not already there
+      if (!historyTimes.includes(completedOccurrenceTime)) {
+        historyTimes.push(completedOccurrenceTime);
       }
 
-      if (hasPendingShadowSnooze) {
-        // Don't mark as complete yet - keep it active but with no next date
-        console.log(`[Scheduler] Keeping ${reminderId} active until shadow snooze completes`);
+      // Sort history times
+      historyTimes = historyTimes.sort();
 
-        const updated = {
-          ...calcContext,
-          occurrenceCount: newOccurrenceCount,
-          nextReminderDate: undefined, // No more regular occurrences
-          lastTriggeredAt: completedOccurrenceTime,
-          snoozeUntil: undefined,
-          wasSnoozed: undefined,
-          isActive: true, // Keep active
-          isCompleted: false, // NOT complete yet
-          isPaused: false,
-          isExpired: false,
-        };
-        await updateReminder(updated as any);
-        await notificationService.cancelAllNotificationsForReminder(reminderId);
+      // Delete the separate history item if it exists
+      if (finalHistory) {
+        await permanentlyDeleteReminder(finalHistory.id);
+      }
 
-        console.log(`[Scheduler] Updated ${reminderId} to wait for shadow snooze completion`);
-      } else {
-        // No pending shadow snooze - mark as complete normally
-        console.log(`[Scheduler] No pending shadow snooze, marking ${reminderId} as completed`);
+      const completed = {
+        ...calcContext,
+        isCompleted: true,
+        isActive: false,
+        snoozeUntil: undefined,
+        wasSnoozed: undefined,
+        lastTriggeredAt: completedOccurrenceTime,
+        nextReminderDate: undefined,
+        completionHistory: historyTimes,
+        parentId: undefined
+      };
+      await updateReminder(completed as any);
+      await notificationService.cancelAllNotificationsForReminder(reminderId);
 
-        const finalHistory = await getHistoryItem();
-        let historyTimes = finalHistory?.completionHistory || [];
-
-        // Add current completion if not already there
-        if (!historyTimes.includes(completedOccurrenceTime)) {
-          historyTimes.push(completedOccurrenceTime);
-        }
-
-        // Sort history times
-        historyTimes = historyTimes.sort();
-
-        // Delete the separate history item if it exists
-        if (finalHistory) {
-          await permanentlyDeleteReminder(finalHistory.id);
-        }
-
-        const completed = {
-          ...calcContext,
-          isCompleted: true,
-          isActive: false,
-          snoozeUntil: undefined,
-          wasSnoozed: undefined,
-          lastTriggeredAt: completedOccurrenceTime,
-          nextReminderDate: undefined,
-          completionHistory: historyTimes,
-          parentId: undefined
-        };
-        await updateReminder(completed as any);
-        await notificationService.cancelAllNotificationsForReminder(reminderId);
-
-        // Clear native metadata since reminder is complete
-        if (AlarmModule?.clearReminderMetadata) {
-          try {
-            await AlarmModule.clearReminderMetadata(reminderId);
-            console.log(`[Scheduler] Cleared native metadata for completed reminder ${reminderId}`);
-          } catch (e) {
-            console.log(`[Scheduler] Failed to clear native metadata:`, e);
-          }
+      // Clear native metadata since reminder is complete
+      if (AlarmModule?.clearReminderMetadata) {
+        try {
+          await AlarmModule.clearReminderMetadata(reminderId);
+          console.log(`[Scheduler] Cleared native metadata for completed reminder ${reminderId}`);
+        } catch (e) {
+          console.log(`[Scheduler] Failed to clear native metadata:`, e);
         }
       }
     }
