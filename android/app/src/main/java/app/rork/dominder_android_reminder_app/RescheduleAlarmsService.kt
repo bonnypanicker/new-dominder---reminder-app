@@ -1,0 +1,72 @@
+package app.rork.dominder_android_reminder_app
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.facebook.react.HeadlessJsTaskService
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.jstasks.HeadlessJsTaskConfig
+import com.facebook.react.ReactApplication
+
+class RescheduleAlarmsService : HeadlessJsTaskService() {
+    override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
+        return HeadlessJsTaskConfig(
+            "RescheduleAlarms",
+            Arguments.createMap(),
+            30000L, // timeout for the task (30s)
+            true // allowed in foreground
+        )
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "alarm_reschedule_channel"
+            val channelName = "System Maintenance"
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            
+            if (notificationManager != null) {
+                val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
+                notificationManager.createNotificationChannel(channel)
+                
+                val notification = NotificationCompat.Builder(this, channelId)
+                    .setContentTitle("Updating Reminders")
+                    .setContentText("Rescheduling your alarms...")
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+                
+                if (Build.VERSION.SDK_INT >= 34) {
+                    try {
+                        startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                    } catch (e: Exception) {
+                        DebugLogger.error("RescheduleAlarmsService: Failed to start foreground service", e)
+                        stopSelf()
+                    }
+                } else {
+                    startForeground(1001, notification)
+                }
+            }
+        }
+
+        // Ensure React Context is initialized to avoid CatalystInstance not available errors
+        try {
+            val reactInstanceManager = (application as ReactApplication).reactNativeHost.reactInstanceManager
+            if (!reactInstanceManager.hasStartedCreatingInitialContext()) {
+                reactInstanceManager.createReactContextInBackground()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("RescheduleAlarmsService: Failed to initialize React Context", e)
+        }
+
+        try {
+            return super.onStartCommand(intent, flags, startId)
+        } catch (e: Exception) {
+            DebugLogger.error("RescheduleAlarmsService: Failed to start headless task", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+    }
+}
