@@ -1512,7 +1512,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
-        val isSnooze = intent.getBooleanExtra("isSnooze", false)
+        var isSnooze = intent.getBooleanExtra("isSnooze", false)
         val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
         
         if (reminderId == null) {
