@@ -29,24 +29,21 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   };
   await updateReminder(updated);
 
-  // Schedule alarm at snooze time using ORIGINAL ID
-  if (AlarmModule?.scheduleAlarm) {
+  const hasNativeAlarm = !!AlarmModule?.scheduleAlarm;
+  if (AlarmModule?.setSnoozeUntil) {
     try {
-      // Update snoozeUntil in native metadata
-      if (AlarmModule.setSnoozeUntil) {
-        await AlarmModule.setSnoozeUntil(reminderId, snoozeTime);
-      }
-      
-      // Schedule the alarm with original ID
-      await AlarmModule.scheduleAlarm(
-        reminderId, 
-        snoozeTime, 
-        reminder.title, 
-        reminder.priority
-      );
-      console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
+      await AlarmModule.setSnoozeUntil(reminderId, snoozeTime);
     } catch (e) {
-      console.error(`[Scheduler] Error scheduling snooze:`, e);
+      console.error(`[Scheduler] Error setting native snooze metadata:`, e);
+    }
+  }
+
+  if (!hasNativeAlarm || reminder.priority !== 'high') {
+    try {
+      await notificationService.scheduleReminderByModel(updated as any);
+      console.log(`[Scheduler] Scheduled snooze notification for ${reminderId} at ${snoozeEndDate.toISOString()}`);
+    } catch (e) {
+      console.error(`[Scheduler] Error scheduling snooze notification:`, e);
     }
   }
 
