@@ -9,97 +9,44 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   console.log(`[Scheduler] Snoozing reminder ${reminderId} for ${minutes} minutes`);
 
   const reminder = await getReminder(reminderId);
-
-  if (!reminder) {
-    console.log(`[Scheduler] Reminder ${reminderId} not found for snooze.`);
+  if (!reminder || reminder.isCompleted) {
+    console.log(`[Scheduler] Reminder ${reminderId} not found or completed, skipping snooze.`);
     return;
   }
 
-  if (reminder.isCompleted) {
-    console.log(`[Scheduler] Reminder ${reminderId} is already completed, skipping snooze.`);
-    return;
-  }
+  const snoozeTime = Date.now() + minutes * 60 * 1000;
+  const snoozeEndDate = new Date(snoozeTime);
 
-  // FIX: For Repeating Reminders, separate Snooze from Series to prevent overwriting
-  if (reminder.repeatType !== 'none') {
-    console.log(`[Scheduler] Snoozing REPEATING reminder ${reminderId}. Splitting Snooze vs Series.`);
+  // Cancel current notifications
+  await notificationService.cancelAllNotificationsForReminder(reminderId);
 
-    const snoozeTime = Date.now() + minutes * 60 * 1000;
-    const shadowId = `${reminderId}_snooze`;
-    const priority = reminder.priority || 'medium';
+  // Update reminder with snooze state
+  const updated = {
+    ...reminder,
+    snoozeUntil: snoozeEndDate.toISOString(),
+    wasSnoozed: true,
+    isActive: true
+  };
+  await updateReminder(updated);
 
-    // Cancel notifications for the current trigger (cleaning up UI)
-    await notificationService.cancelAllNotificationsForReminder(reminderId);
-
-    // 1. Schedule "Shadow Snooze" via Native Module
-    if (AlarmModule?.storeReminderMetadata) {
-      try {
-        // Store simplified metadata for the snooze instance (non-repeating)
-        const snoozeDateObj = new Date(snoozeTime);
-        const sDate = snoozeDateObj.toISOString().split('T')[0];
-        const sTime = `${snoozeDateObj.getHours().toString().padStart(2, '0')}:${snoozeDateObj.getMinutes().toString().padStart(2, '0')}`;
-
-        await AlarmModule.storeReminderMetadata(
-          shadowId,
-          'none', // Repeat 'none' for snooze instance
-          1, 'minutes', 'forever', 0, '', '', // until
-          0, // occurrence
-          sDate,
-          sTime,
-          `Snoozed: ${reminder.title}`,
-          priority,
-          false, '[]', '[]', '', false // multiselect
-        );
-
-        // Schedule the Native Snooze Alarm
-        await AlarmModule.scheduleAlarm(shadowId, snoozeTime, `Snoozed: ${reminder.title}`, priority);
-        console.log(`[Scheduler] Scheduled native shadow snooze ${shadowId} at ${snoozeDateObj.toISOString()}`);
-      } catch (e) {
-        console.error(`[Scheduler] Error scheduling native shadow snooze:`, e);
+  // Schedule alarm at snooze time using ORIGINAL ID
+  if (AlarmModule?.scheduleAlarm) {
+    try {
+      // Update snoozeUntil in native metadata
+      if (AlarmModule.setSnoozeUntil) {
+        await AlarmModule.setSnoozeUntil(reminderId, snoozeTime);
       }
-    }
-
-    // 2. Set Snooze State (Pause Series)
-    // We update the reminder to show "Snoozed" state but keep the original schedule until the snooze is done.
-    
-    // Calculate what the "next occurrence after snooze" should be
-    const snoozeEndDate = new Date(snoozeTime);
-    // Temporarily set lastTriggeredAt to snooze time to calculate next occurrence from there
-    const calcContext = { ...reminder, lastTriggeredAt: snoozeEndDate.toISOString() };
-    const nextAfterSnooze = calculateNextReminderDate(calcContext as any, snoozeEndDate);
-
-    const updated = {
-      ...reminder,
-      snoozeUntil: snoozeEndDate.toISOString(),
-      wasSnoozed: true,
-      // Keep series paused - next occurrence is AFTER snooze ends
-      nextReminderDate: nextAfterSnooze ? nextAfterSnooze.toISOString() : undefined,
-      // DO NOT update lastTriggeredAt yet - that happens when snooze fires
-      isActive: true
-    };
-    await updateReminder(updated as any);
-    await notificationService.cancelAllNotificationsForReminder(reminderId);
-    console.log(`[Scheduler] Repeater snoozed. Series PAUSED until ${snoozeEndDate.toISOString()}. Next occurrence: ${nextAfterSnooze?.toISOString()}`);
-    
-    // Notify UI of change
-    DeviceEventEmitter.emit('remindersChanged');
-
-  } else {
-    // Original Logic for One-Off Reminders
-    const nextTime = Date.now() + minutes * 60 * 1000;
-
-    await notificationService.cancelAllNotificationsForReminder(reminderId);
-
-    reminder.snoozeUntil = new Date(nextTime).toISOString();
-    reminder.wasSnoozed = true;
-    reminder.lastTriggeredAt = new Date().toISOString();
-
-    await updateReminder(reminder);
-    console.log(`[Scheduler] Snoozed one-off reminder ${reminderId} until ${new Date(nextTime).toISOString()}`);
-
-    const updatedReminder = await getReminder(reminderId);
-    if (updatedReminder) {
-      await notificationService.scheduleReminderByModel(updatedReminder);
+      
+      // Schedule the alarm with original ID
+      await AlarmModule.scheduleAlarm(
+        reminderId, 
+        snoozeTime, 
+        reminder.title, 
+        reminder.priority
+      );
+      console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
+    } catch (e) {
+      console.error(`[Scheduler] Error scheduling snooze:`, e);
     }
   }
 
@@ -107,18 +54,11 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
 }
 
 export async function markReminderDone(reminderId: string, shouldIncrementOccurrence: boolean = true, triggerTimeMs?: number) {
-  console.log(`[Scheduler] ========== markReminderDone START ==========`);
-  console.log(`[Scheduler] reminderId: ${reminderId}, shouldIncrementOccurrence: ${shouldIncrementOccurrence}, triggerTimeMs: ${triggerTimeMs}`);
+  console.log(`[Scheduler] markReminderDone: ${reminderId}`);
 
-  // Handle Shadow Snooze IDs (e.g. "123_snooze" -> "123")
-  let actualId = reminderId;
-  let isShadowSnooze = false;
-  if (reminderId.endsWith('_snooze')) {
-    actualId = reminderId.replace('_snooze', '');
-    isShadowSnooze = true;
-    console.log(`[Scheduler] Detected Shadow Snooze ID. Resolved to parent: ${actualId}`);
-  }
-
+  // Direct use - no shadow ID resolution needed
+  const actualId = reminderId;
+  
   let reminder = await getReminder(actualId);
 
   if (!reminder) {
@@ -126,12 +66,14 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     return;
   }
 
-  // If this was a shadow snooze completion, force increment because the Native side 
-  // incremented the SHADOW count, not the PARENT count.
-  // We need to catch up the parent count.
-  if (isShadowSnooze) {
-     console.log(`[Scheduler] Completing a Shadow Snooze. Forcing occurrence increment.`);
-     shouldIncrementOccurrence = true;
+  // Check if this was a snoozed alarm completing
+  const wasSnoozeCompletion = reminder.wasSnoozed === true;
+  
+  if (wasSnoozeCompletion) {
+    console.log(`[Scheduler] Snoozed alarm completing for ${actualId}`);
+    // Clear snooze state
+    reminder.snoozeUntil = undefined;
+    reminder.wasSnoozed = undefined;
   }
 
   // Helpers

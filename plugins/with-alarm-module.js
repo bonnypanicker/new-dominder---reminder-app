@@ -268,123 +268,26 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val priority = intent.getStringExtra("priority") ?: "medium"
 
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
+                
                 if (reminderId != null) {
-                    // Fix 5: Set processing flag to prevent race conditions with JS sync
-                    val actionPrefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
-                    val processingKey = "processing_snooze_\${reminderId}"
-                    actionPrefs.edit().putBoolean(processingKey, true).apply()
-
-                    // Check if repeating
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-                    val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
+                    val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
                     
-                    if (repeatType != "none") {
-                         DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
-                         
-                         // 1. Schedule Shadow Snooze with COMPLETE metadata
-                         val shadowId = reminderId + "_snooze"
-                         
-                         // Calculate snooze time
-                         val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
-                         val snoozeCal = Calendar.getInstance().apply {
-                             timeInMillis = snoozeTimeMs
-                         }
-                         
-                         // Format date and time
-                         val snoozeDate = String.format(
-                             "%04d-%02d-%02d",
-                             snoozeCal.get(Calendar.YEAR),
-                             snoozeCal.get(Calendar.MONTH) + 1,
-                             snoozeCal.get(Calendar.DAY_OF_MONTH)
-                         )
-                         val snoozeTime = String.format(
-                             "%02d:%02d",
-                             snoozeCal.get(Calendar.HOUR_OF_DAY),
-                             snoozeCal.get(Calendar.MINUTE)
-                         )
-                         
-                         // Store COMPLETE metadata for shadowId
-                         metaPrefs.edit().apply {
-                             putString("meta_\${shadowId}_title", "Snoozed: \${title}")
-                             putString("meta_\${shadowId}_priority", priority)
-                             putString("meta_\${shadowId}_repeatType", "none") // Force none for snooze
-                             
-                             // CRITICAL: Add date/time metadata
-                             putString("meta_\${shadowId}_startDate", snoozeDate)
-                             putString("meta_\${shadowId}_startTime", snoozeTime)
-                             
-                             // Add default values for other required fields
-                             putInt("meta_\${shadowId}_everyValue", 1)
-                             putString("meta_\${shadowId}_everyUnit", "minutes")
-                             putString("meta_\${shadowId}_untilType", "forever")
-                             putInt("meta_\${shadowId}_untilCount", 0)
-                             putString("meta_\${shadowId}_untilDate", "")
-                             putString("meta_\${shadowId}_untilTime", "")
-                             putInt("meta_\${shadowId}_actualTriggerCount", 0)
-                             putInt("meta_\${shadowId}_occurrenceCount", 0)
-                             
-                             // Multi-select defaults
-                             putBoolean("meta_\${shadowId}_multiSelectEnabled", false)
-                             putString("meta_\${shadowId}_multiSelectDates", "[]")
-                             putString("meta_\${shadowId}_multiSelectDays", "[]")
-                             putString("meta_\${shadowId}_windowEndTime", "")
-                             putBoolean("meta_\${shadowId}_windowEndIsAM", false)
-                             
-                             apply()
-                         }
-                         
-                         DebugLogger.log("AlarmActionBridge: Stored complete metadata for shadow snooze \${shadowId}")
-                         
-                         // Schedule the native alarm
-                         scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
-                         
-                         // 2. Advance Series (Schedule Next Regular Occurrence)
-                         // FIX: Do NOT schedule next occurrence immediately. Pause series until snooze is done.
-                         // This prevents the "next" occurrence (e.g. 2:01 PM) from firing while snoozed (2:00-2:05 PM).
-                         DebugLogger.log("AlarmActionBridge: Repeating reminder snoozed. Series PAUSED until shadow snooze completes.")
-                         // scheduleNextOccurrenceIfNeeded(context, reminderId) -> REMOVED
-                    } else {
-                         // One-off: Standard overwrite behavior
-                         DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder \${reminderId}")
-                         
-                         // For one-off reminders, update the metadata with new time
-                         val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
-                         val snoozeCal = Calendar.getInstance().apply {
-                             timeInMillis = snoozeTimeMs
-                         }
-                         
-                         val snoozeDate = String.format(
-                             "%04d-%02d-%02d",
-                             snoozeCal.get(Calendar.YEAR),
-                             snoozeCal.get(Calendar.MONTH) + 1,
-                             snoozeCal.get(Calendar.DAY_OF_MONTH)
-                         )
-                         val snoozeTime = String.format(
-                             "%02d:%02d",
-                             snoozeCal.get(Calendar.HOUR_OF_DAY),
-                             snoozeCal.get(Calendar.MINUTE)
-                         )
-                         
-                         // Update metadata with new snooze time
-                         metaPrefs.edit().apply {
-                             putString("meta_\${reminderId}_startDate", snoozeDate)
-                             putString("meta_\${reminderId}_startTime", snoozeTime)
-                             apply()
-                         }
-                         
-                         DebugLogger.log("AlarmActionBridge: Updated metadata for one-off snooze")
-                         scheduleNativeAlarm(context, reminderId, title, priority, snoozeMinutes)
+                    // Set snoozeUntil on the ORIGINAL reminder's metadata
+                    metaPrefs.edit().apply {
+                        putLong("meta_\${reminderId}_snoozeUntil", snoozeTimeMs)
+                        putBoolean("meta_\${reminderId}_wasSnoozed", true)
+                        apply()
                     }
-
-                    // 2. Try emit to RN (UI Update)
-                    DebugLogger.log("AlarmActionBridge: About to emit alarmSnooze event to React Native")
+                    
+                    // Schedule alarm for ORIGINAL reminderId at snooze time
+                    // Note: This overwrites any existing alarm for this ID due to same requestCode
+                    scheduleNativeAlarmAtTime(context, reminderId, title, priority, snoozeTimeMs, true)
+                    
+                    DebugLogger.log("AlarmActionBridge: Snoozed \${reminderId} until \${java.util.Date(snoozeTimeMs)}")
+                    
+                    // Emit to JS for UI update
                     emitEventToReactNative(context, "alarmSnooze", reminderId, snoozeMinutes)
-                    DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
-
-                    // Fix 5: Clear processing flag
-                    actionPrefs.edit().remove(processingKey).apply()
-                } else {
-                    DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
             }
             "com.dominder.MISSED_ALARM" -> {
@@ -412,12 +315,8 @@ class AlarmActionBridge : BroadcastReceiver() {
      */
     private fun scheduleNextOccurrenceIfNeeded(context: Context, reminderId: String) {
         try {
-            // Check if this was a shadow snooze ID
-            val originalReminderId = if (reminderId.endsWith("_snooze")) {
-                reminderId.removeSuffix("_snooze")
-            } else {
-                reminderId
-            }
+            // Direct use - no suffix checking needed
+            val originalReminderId = reminderId
             
             DebugLogger.log("AlarmActionBridge: scheduleNextOccurrenceIfNeeded for ID: \${reminderId} (Original: \${originalReminderId})")
 
@@ -696,9 +595,9 @@ class AlarmActionBridge : BroadcastReceiver() {
         return calendar.timeInMillis
     }
     
-    private fun scheduleNativeAlarmAtTime(context: Context, reminderId: String, title: String, priority: String, triggerTime: Long) {
+    private fun scheduleNativeAlarmAtTime(context: Context, reminderId: String, title: String, priority: String, triggerTime: Long, isSnooze: Boolean = false) {
         try {
-            DebugLogger.log("AlarmActionBridge: Scheduling native alarm at specific time")
+            DebugLogger.log("AlarmActionBridge: Scheduling native alarm at specific time (isSnooze=\$isSnooze)")
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             
             val intent = Intent(context, AlarmReceiver::class.java).apply {
@@ -706,6 +605,7 @@ class AlarmActionBridge : BroadcastReceiver() {
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority)
+                putExtra("isSnooze", isSnooze)
                 addFlags(Intent.FLAG_RECEIVER_FOREGROUND) // CRITICAL: For OnePlus/Chinese ROMs to treat as foreground
             }
             
@@ -1612,6 +1512,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val reminderId = intent.getStringExtra("reminderId")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val priority = intent.getStringExtra("priority") ?: "medium"
+        val isSnooze = intent.getBooleanExtra("isSnooze", false)
         val triggerTime = System.currentTimeMillis() // Capture the actual trigger time
         
         if (reminderId == null) {
@@ -1619,30 +1520,42 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // CRITICAL: Check if reminder is paused before firing
-        val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
-        val isPaused = prefs.getBoolean("paused_\$reminderId", false)
-        if (isPaused) {
-            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
-            return
-        }
-        
-        // CRITICAL: Check if reminder is already completed (native state)
-        val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-        val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
-        if (isNativeCompleted) {
-            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
-            return
-        }
-        
-        // CRITICAL: Record this trigger in native state BEFORE showing alarm
-        // This ensures accurate tracking even if app is killed
-        recordNativeTrigger(context, reminderId, triggerTime)
-        
-        // Check if this trigger completes the reminder (count or time based)
-        val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-        if (shouldComplete) {
-            DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
+        if (isSnooze) {
+            DebugLogger.log("AlarmReceiver: Processing SNOOZE alarm for \$reminderId - skipping occurrence increment")
+            
+            // Clear snooze flags since we're now triggering
+            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            metaPrefs.edit().apply {
+                remove("meta_\${reminderId}_snoozeUntil")
+                putBoolean("meta_\${reminderId}_wasSnoozed", false)
+                apply()
+            }
+        } else {
+            // CRITICAL: Check if reminder is paused before firing (only for regular alarms)
+            val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+            val isPaused = prefs.getBoolean("paused_\$reminderId", false)
+            if (isPaused) {
+                DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
+                return
+            }
+            
+            // CRITICAL: Check if reminder is already completed (native state)
+            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
+            if (isNativeCompleted) {
+                DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
+                return
+            }
+            
+            // CRITICAL: Record this trigger in native state BEFORE showing alarm
+            // This ensures accurate tracking even if app is killed
+            recordNativeTrigger(context, reminderId, triggerTime)
+            
+            // Check if this trigger completes the reminder (count or time based)
+            val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
+            if (shouldComplete) {
+                DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
+            }
         }
 
         // Start AlarmRingtoneService for high priority reminders
@@ -2890,6 +2803,40 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error updating occurrenceCount: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun setSnoozeUntil(reminderId: String, snoozeUntil: Double, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putLong("meta_\${reminderId}_snoozeUntil", snoozeUntil.toLong())
+                putBoolean("meta_\${reminderId}_wasSnoozed", true)
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Set snoozeUntil for \$reminderId to \${snoozeUntil.toLong()}")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error setting snoozeUntil: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun clearSnoozeUntil(reminderId: String, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                remove("meta_\${reminderId}_snoozeUntil")
+                putBoolean("meta_\${reminderId}_wasSnoozed", false)
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Cleared snoozeUntil for \$reminderId")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error clearing snoozeUntil: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }
