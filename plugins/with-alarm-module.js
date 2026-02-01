@@ -272,31 +272,11 @@ class AlarmActionBridge : BroadcastReceiver() {
                 if (reminderId != null) {
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
                     val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
-                    val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-                    val historyRaw = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
-                    val historyParts = historyRaw.split(",").filter { it.isNotBlank() }.toMutableList()
-                    val newCount = if (currentCount > 0) currentCount - 1 else 0
-                    if (currentCount > 0 && historyParts.isNotEmpty()) {
-                        historyParts.removeAt(historyParts.size - 1)
-                    }
-                    val newHistory = historyParts.joinToString(",")
-                    val lastTriggerTime = historyParts.lastOrNull()?.toLongOrNull()
                     
+                    // Set snoozeUntil on the ORIGINAL reminder's metadata
                     metaPrefs.edit().apply {
-                        if (currentCount > 0) {
-                            putInt("meta_\${reminderId}_actualTriggerCount", newCount)
-                            putString("meta_\${reminderId}_triggerHistory", newHistory)
-                            if (lastTriggerTime != null) {
-                                putLong("meta_\${reminderId}_lastTriggerTime", lastTriggerTime)
-                            } else {
-                                remove("meta_\${reminderId}_lastTriggerTime")
-                            }
-                        }
                         putLong("meta_\${reminderId}_snoozeUntil", snoozeTimeMs)
                         putBoolean("meta_\${reminderId}_wasSnoozed", true)
-                        putBoolean("meta_\${reminderId}_countOnSnooze", true)
-                        putBoolean("meta_\${reminderId}_isCompleted", false)
-                        remove("meta_\${reminderId}_completedAt")
                         apply()
                     }
                     
@@ -1540,25 +1520,23 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        // Check native meta for snooze status (fallback if intent extra is missing)
+        val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+        val wasSnoozed = metaPrefs.getBoolean("meta_\${reminderId}_wasSnoozed", false)
+        
+        if (wasSnoozed) {
+            DebugLogger.log("AlarmReceiver: Detected SNOOZE from native meta for \$reminderId")
+            isSnooze = true
+        }
+
         if (isSnooze) {
             DebugLogger.log("AlarmReceiver: Processing SNOOZE alarm for \$reminderId - skipping occurrence increment")
             
             // Clear snooze flags since we're now triggering
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
             metaPrefs.edit().apply {
                 remove("meta_\${reminderId}_snoozeUntil")
                 putBoolean("meta_\${reminderId}_wasSnoozed", false)
                 apply()
-            }
-
-            val shouldCountOnSnooze = metaPrefs.getBoolean("meta_\${reminderId}_countOnSnooze", false)
-            if (shouldCountOnSnooze) {
-                recordNativeTrigger(context, reminderId, triggerTime)
-                val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-                if (shouldComplete) {
-                    DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
-                }
-                metaPrefs.edit().putBoolean("meta_\${reminderId}_countOnSnooze", false).apply()
             }
         } else {
             // CRITICAL: Check if reminder is paused before firing (only for regular alarms)
@@ -1619,7 +1597,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("title", title)
             putExtra("priority", priority)
             putExtra("triggerTime", triggerTime)
-            putExtra("isSnooze", isSnooze)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -1636,7 +1613,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("title", title)
             putExtra("priority", priority)
             putExtra("triggerTime", triggerTime)
-            putExtra("isSnooze", isSnooze)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
@@ -2976,9 +2952,10 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 val state = Arguments.createMap().apply {
                     putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
                     putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
-                    putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
-                    putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
-                    putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
+                    putDouble("completedAt", prefs.getLong("meta_${reminderId}_completedAt", 0L).toDouble())
+                    putDouble("lastTriggerTime", prefs.getLong("meta_${reminderId}_lastTriggerTime", 0L).toDouble())
+                    putString("triggerHistory", prefs.getString("meta_${reminderId}_triggerHistory", "") ?: "")
+                    putDouble("snoozeUntil", prefs.getLong("meta_${reminderId}_snoozeUntil", 0L).toDouble())
                 }
                 result.putMap(reminderId, state)
             }

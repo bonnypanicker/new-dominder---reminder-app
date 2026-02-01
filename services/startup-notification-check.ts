@@ -54,6 +54,21 @@ export async function checkAndTriggerPendingNotifications() {
 
     // --- NEW: Sync native state (snooze/completed) ---
     const { AlarmModule } = NativeModules;
+    let nativeStates: Record<string, any> = {};
+    
+    // Fetch pending snoozed alarms from native side (DoMinderAlarmActions)
+    // These are snoozes performed via Native UI that JS hasn't processed yet
+    let pendingSnoozes: Record<string, string> = {};
+    if (AlarmModule && AlarmModule.getSnoozedAlarms) {
+        try {
+            pendingSnoozes = await AlarmModule.getSnoozedAlarms();
+            if (Object.keys(pendingSnoozes).length > 0) {
+                console.log('[StartupCheck] Found pending native snoozes:', pendingSnoozes);
+            }
+        } catch (e) {
+            console.log('[StartupCheck] Could not get snoozed alarms:', e);
+        }
+    }
     
     if (AlarmModule) {
         try {
@@ -61,7 +76,7 @@ export async function checkAndTriggerPendingNotifications() {
             // Completions are handled by useCompletedAlarmSync to avoid double-processing.
             
             // Get native reminder states for accurate occurrence tracking
-            let nativeStates: Record<string, any> = {};
+            // let nativeStates: Record<string, any> = {}; // Moved to top scope
             if (AlarmModule.getAllNativeReminderStates) {
                 try {
                     nativeStates = await AlarmModule.getAllNativeReminderStates();
@@ -134,15 +149,48 @@ export async function checkAndTriggerPendingNotifications() {
       // Determine the scheduled time
       let scheduledTime: number | null = null;
       
-      if (reminder.snoozeUntil) {
-        scheduledTime = new Date(reminder.snoozeUntil).getTime();
-      } else if (reminder.nextReminderDate) {
-        scheduledTime = new Date(reminder.nextReminderDate).getTime();
-      } else {
-        // Calculate from date/time fields
-        const [year, month, day] = reminder.date.split('-').map(Number);
-        const [hours, minutes] = reminder.time.split(':').map(Number);
-        scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
+      // CHECK 1: Pending Native Snooze (highest priority)
+      if (pendingSnoozes[reminder.id]) {
+        try {
+            const parts = pendingSnoozes[reminder.id].split(':');
+            if (parts.length === 2) {
+                const snoozeTimestamp = parseInt(parts[0], 10);
+                const snoozeMinutes = parseInt(parts[1], 10);
+                const newSnoozeTime = snoozeTimestamp + (snoozeMinutes * 60 * 1000);
+                
+                if (!isNaN(newSnoozeTime)) {
+                    scheduledTime = newSnoozeTime;
+                    reminder.snoozeUntil = new Date(newSnoozeTime).toISOString();
+                    console.log(`[StartupCheck] Using PENDING NATIVE snooze for ${reminder.id}: ${reminder.snoozeUntil}`);
+                }
+            }
+        } catch (e) {
+            console.error(`[StartupCheck] Error parsing native snooze for ${reminder.id}:`, e);
+        }
+      }
+
+      // CHECK 1.5: Native Meta Snooze (fallback if pending cleared but not synced to JS yet)
+       if (!scheduledTime && nativeStates[reminder.id]?.snoozeUntil) {
+           const nativeSnoozeTime = nativeStates[reminder.id].snoozeUntil;
+           if (nativeSnoozeTime > 0) {
+               scheduledTime = nativeSnoozeTime;
+               reminder.snoozeUntil = new Date(nativeSnoozeTime).toISOString();
+               console.log(`[StartupCheck] Using NATIVE META snooze for ${reminder.id}: ${reminder.snoozeUntil}`);
+           }
+       }
+
+       // CHECK 2: Existing JS State
+      if (!scheduledTime) {
+          if (reminder.snoozeUntil) {
+            scheduledTime = new Date(reminder.snoozeUntil).getTime();
+          } else if (reminder.nextReminderDate) {
+            scheduledTime = new Date(reminder.nextReminderDate).getTime();
+          } else {
+            // Calculate from date/time fields
+            const [year, month, day] = reminder.date.split('-').map(Number);
+            const [hours, minutes] = reminder.time.split(':').map(Number);
+            scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
+          }
       }
 
       if (!scheduledTime) {
