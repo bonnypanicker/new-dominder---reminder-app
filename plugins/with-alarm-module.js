@@ -250,8 +250,11 @@ class AlarmActionBridge : BroadcastReceiver() {
                     if (isShadowSnooze && parentReminderId != null) {
                         DebugLogger.log("AlarmActionBridge: Shadow snooze \${reminderId} completed, checking parent \${parentReminderId}")
                         
-                        // Record trigger for shadow snooze
-                        recordNativeTrigger(context, reminderId, triggerTime)
+                        // 1. Record trigger for PARENT (increment parent count, add to history)
+                        recordNativeTrigger(context, parentReminderId, triggerTime)
+                        
+                        // 2. Clear pending snooze flag
+                        metaPrefs.edit().remove("meta_\${parentReminderId}_hasPendingSnooze").apply()
                         
                         // Check if parent should be marked complete now
                         val parentUntilType = metaPrefs.getString("meta_\${parentReminderId}_untilType", "forever") ?: "forever"
@@ -269,6 +272,10 @@ class AlarmActionBridge : BroadcastReceiver() {
                             
                             // Emit completion event for parent
                             emitEventToReactNative(context, "alarmDone", parentReminderId, 0, triggerTime)
+                        } else {
+                            // 3. Schedule next occurrence (Resuming series)
+                            DebugLogger.log("AlarmActionBridge: Parent not complete, scheduling next occurrence")
+                            scheduleNextOccurrenceIfNeeded(context, parentReminderId)
                         }
                         
                         // Clean up shadow snooze metadata
@@ -370,23 +377,19 @@ class AlarmActionBridge : BroadcastReceiver() {
                     if (repeatType != "none") {
                          DebugLogger.log("AlarmActionBridge: Snoozing REPEATING reminder \${reminderId}. Splitting Snooze vs Series.")
                          
-                         // CRITICAL FIX: Increment count for snoozed occurrence (user saw it, counts toward limit)
-                         // BUT don't add to triggerHistory (user didn't complete it, just snoozed)
-                         val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
-                         val newCount = currentCount + 1
-                         
-                         metaPrefs.edit().apply {
-                             putInt("meta_\${reminderId}_actualTriggerCount", newCount)
-                             // NOTE: NOT adding to triggerHistory - snooze is not a completion
-                             apply()
-                         }
-                         
-                         DebugLogger.log("AlarmActionBridge: Incremented count to \$newCount for snoozed occurrence (NOT added to history)")
-                         
-                         // Check if we've reached the limit BEFORE creating shadow snooze
-                         val untilType = metaPrefs.getString("meta_\${reminderId}_untilType", "forever") ?: "forever"
-                         val untilCount = metaPrefs.getInt("meta_\${reminderId}_untilCount", 0)
-                         val shouldCompleteAfterSnooze = (untilType == "count" && newCount >= untilCount)
+                          // CRITICAL FIX: SNOOZE LOGIC
+                          // 1. Do NOT increment count yet (wait for completion)
+                          // 2. Set hasPendingSnooze flag on parent
+                          
+                          val currentCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
+                          
+                          metaPrefs.edit().apply {
+                              // Mark parent as having a pending snooze
+                              putBoolean("meta_\${reminderId}_hasPendingSnooze", true)
+                              apply()
+                          }
+                          
+                          DebugLogger.log("AlarmActionBridge: Set hasPendingSnooze=true for parent \${reminderId}, currentCount=$currentCount")
                          
                          // 1. Schedule Shadow Snooze with COMPLETE metadata
                          val shadowId = reminderId + "_snooze"
@@ -449,14 +452,9 @@ class AlarmActionBridge : BroadcastReceiver() {
                          // Schedule the native alarm
                          scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
                          
-                         // 2. Advance Series ONLY if not complete after this snooze
-                         if (!shouldCompleteAfterSnooze) {
-                             DebugLogger.log("AlarmActionBridge: Scheduling next occurrence (count \$newCount < limit \$untilCount)")
-                             scheduleNextOccurrenceIfNeeded(context, reminderId)
-                         } else {
-                             DebugLogger.log("AlarmActionBridge: NOT scheduling next occurrence - limit reached after snooze (count \$newCount >= limit \$untilCount)")
-                             DebugLogger.log("AlarmActionBridge: Reminder will be marked complete AFTER shadow snooze completes")
-                         }
+                          // 2. PAUSE SERIES: Do NOT schedule next occurrence.
+                          // It will be scheduled when the Shadow Snooze is marked DONE.
+                          DebugLogger.log("AlarmActionBridge: Pausing series for \${reminderId} until shadow snooze completes")
                     } else {
                          // One-off: Standard overwrite behavior
                          DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder \${reminderId}")
