@@ -81,15 +81,35 @@ export async function checkAndTriggerPendingNotifications() {
           allReminders = allReminders.map((reminder: Reminder) => {
             const nativeState = nativeStates[reminder.id];
             if (nativeState) {
+              let changed = false;
+              let updates: Partial<Reminder> = {};
+
               // Sync occurrence count if native has higher count
               // This ensures JS has accurate count before any processing
               if (nativeState.actualTriggerCount > (reminder.occurrenceCount || 0)) {
                 console.log(`[StartupCheck] Syncing occurrenceCount for ${reminder.id}: ${reminder.occurrenceCount} -> ${nativeState.actualTriggerCount}`);
+                updates.occurrenceCount = nativeState.actualTriggerCount;
+                changed = true;
+              }
+
+              // CRITICAL FIX: Sync snooze time from native if pending
+              if (nativeState.hasPendingShadowSnooze && nativeState.snoozeEndsAt > 0) {
+                const nativeSnoozeIso = new Date(nativeState.snoozeEndsAt).toISOString();
+                const jsSnoozeTime = reminder.snoozeUntil ? new Date(reminder.snoozeUntil).getTime() : 0;
+                const diff = Math.abs(jsSnoozeTime - nativeState.snoozeEndsAt);
+
+                if (!reminder.snoozeUntil || diff > 1000) {
+                  console.log(`[StartupCheck] Syncing snoozeUntil from native for ${reminder.id}: ${reminder.snoozeUntil} -> ${nativeSnoozeIso}`);
+                  updates.snoozeUntil = nativeSnoozeIso;
+                  updates.wasSnoozed = true;
+                  updates.isActive = true;
+                  changed = true;
+                }
+              }
+
+              if (changed) {
                 stateChanged = true;
-                return {
-                  ...reminder,
-                  occurrenceCount: nativeState.actualTriggerCount
-                };
+                return { ...reminder, ...updates };
               }
             }
             return reminder;

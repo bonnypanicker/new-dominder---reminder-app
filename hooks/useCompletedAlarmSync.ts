@@ -55,13 +55,42 @@ export function useCompletedAlarmSync() {
               // This prevents double-processing when both native state and completed alarms exist
               if (nativeState.actualTriggerCount > 0) {
                 const reminder = await getReminder(reminderId);
-                if (reminder && (reminder.occurrenceCount || 0) < nativeState.actualTriggerCount) {
+                const currentOccurred = reminder?.occurrenceCount || 0;
+
+                let shouldUpdate = false;
+                let updates: any = {};
+
+                if (reminder && currentOccurred < nativeState.actualTriggerCount) {
                   console.log('[AlarmSync] Syncing occurrenceCount from native:', reminderId,
                     'JS:', reminder.occurrenceCount, '-> Native:', nativeState.actualTriggerCount);
 
+                  updates.occurrenceCount = nativeState.actualTriggerCount;
+                  shouldUpdate = true;
+                }
+
+                // CRITICAL FIX: Sync snooze time from native if pending
+                if (reminder && nativeState.hasPendingShadowSnooze && nativeState.snoozeEndsAt > 0) {
+                  const nativeSnoozeIso = new Date(nativeState.snoozeEndsAt).toISOString();
+
+                  // Only update if JS snooze time is missing or significantly different (>1s)
+                  const jsSnoozeTime = reminder.snoozeUntil ? new Date(reminder.snoozeUntil).getTime() : 0;
+                  const diff = Math.abs(jsSnoozeTime - nativeState.snoozeEndsAt);
+
+                  if (!reminder.snoozeUntil || diff > 1000) {
+                    console.log('[AlarmSync] Syncing snoozeUntil from native:', reminderId,
+                      'JS:', reminder.snoozeUntil, '-> Native:', nativeSnoozeIso);
+
+                    updates.snoozeUntil = nativeSnoozeIso;
+                    updates.wasSnoozed = true;
+                    updates.isActive = true; // Ensure active
+                    shouldUpdate = true;
+                  }
+                }
+
+                if (shouldUpdate && reminder) {
                   await updateReminder({
                     ...reminder,
-                    occurrenceCount: nativeState.actualTriggerCount
+                    ...updates
                   });
                 }
               }
