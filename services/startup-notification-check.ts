@@ -37,16 +37,16 @@ export async function checkAndTriggerPendingNotifications() {
         ongoing: true,
         autoCancel: false,
         progress: {
-          indeterminate: true,
+            indeterminate: true,
         },
       },
     });
 
     console.log('[StartupCheck] Checking for pending notifications and rescheduling all active reminders...');
-
+    
     const reminderService = require('./reminder-service');
     let allReminders = await reminderService.getReminders();
-
+    
     if (!allReminders || allReminders.length === 0) {
       console.log('[StartupCheck] No reminders to check');
       return;
@@ -54,56 +54,56 @@ export async function checkAndTriggerPendingNotifications() {
 
     // --- NEW: Sync native state (snooze/completed) ---
     const { AlarmModule } = NativeModules;
-
+    
     if (AlarmModule) {
-      try {
-        // NOTE: We only sync occurrence counts here, NOT completions.
-        // Completions are handled by useCompletedAlarmSync to avoid double-processing.
-
-        // Get native reminder states for accurate occurrence tracking
-        let nativeStates: Record<string, any> = {};
-        if (AlarmModule.getAllNativeReminderStates) {
-          try {
-            nativeStates = await AlarmModule.getAllNativeReminderStates();
-          } catch (e) {
-            console.log('[StartupCheck] Could not get native states:', e);
-          }
-        }
-
-        const nativeStateCount = Object.keys(nativeStates || {}).length;
-
-        if (nativeStateCount > 0) {
-          console.log(`[StartupCheck] Syncing occurrence counts from ${nativeStateCount} native states`);
-
-          let stateChanged = false;
-
-          // Apply native state changes - ONLY occurrence counts, not completions
-          allReminders = allReminders.map((reminder: Reminder) => {
-            const nativeState = nativeStates[reminder.id];
-            if (nativeState) {
-              // Sync occurrence count if native has higher count
-              // This ensures JS has accurate count before any processing
-              if (nativeState.actualTriggerCount > (reminder.occurrenceCount || 0)) {
-                console.log(`[StartupCheck] Syncing occurrenceCount for ${reminder.id}: ${reminder.occurrenceCount} -> ${nativeState.actualTriggerCount}`);
-                stateChanged = true;
-                return {
-                  ...reminder,
-                  occurrenceCount: nativeState.actualTriggerCount
-                };
-              }
+        try {
+            // NOTE: We only sync occurrence counts here, NOT completions.
+            // Completions are handled by useCompletedAlarmSync to avoid double-processing.
+            
+            // Get native reminder states for accurate occurrence tracking
+            let nativeStates: Record<string, any> = {};
+            if (AlarmModule.getAllNativeReminderStates) {
+                try {
+                    nativeStates = await AlarmModule.getAllNativeReminderStates();
+                } catch (e) {
+                    console.log('[StartupCheck] Could not get native states:', e);
+                }
             }
-            return reminder;
-          });
+            
+            const nativeStateCount = Object.keys(nativeStates || {}).length;
+            
+            if (nativeStateCount > 0) {
+                console.log(`[StartupCheck] Syncing occurrence counts from ${nativeStateCount} native states`);
 
-          // Save updated state back to storage if needed
-          if (stateChanged) {
-            await reminderService.saveReminders(allReminders);
-            console.log('[StartupCheck] Persisted synced occurrence counts to storage');
-          }
+                let stateChanged = false;
+
+                // Apply native state changes - ONLY occurrence counts, not completions
+                allReminders = allReminders.map((reminder: Reminder) => {
+                    const nativeState = nativeStates[reminder.id];
+                    if (nativeState) {
+                        // Sync occurrence count if native has higher count
+                        // This ensures JS has accurate count before any processing
+                        if (nativeState.actualTriggerCount > (reminder.occurrenceCount || 0)) {
+                            console.log(`[StartupCheck] Syncing occurrenceCount for ${reminder.id}: ${reminder.occurrenceCount} -> ${nativeState.actualTriggerCount}`);
+                            stateChanged = true;
+                            return {
+                                ...reminder,
+                                occurrenceCount: nativeState.actualTriggerCount
+                            };
+                        }
+                    }
+                    return reminder;
+                });
+
+                // Save updated state back to storage if needed
+                if (stateChanged) {
+                     await reminderService.saveReminders(allReminders);
+                     console.log('[StartupCheck] Persisted synced occurrence counts to storage');
+                }
+            }
+        } catch (e) {
+            console.error('[StartupCheck] Error syncing native state:', e);
         }
-      } catch (e) {
-        console.error('[StartupCheck] Error syncing native state:', e);
-      }
     }
     // --- END NEW LOGIC ---
 
@@ -133,7 +133,7 @@ export async function checkAndTriggerPendingNotifications() {
 
       // Determine the scheduled time
       let scheduledTime: number | null = null;
-
+      
       if (reminder.snoozeUntil) {
         scheduledTime = new Date(reminder.snoozeUntil).getTime();
       } else if (reminder.nextReminderDate) {
@@ -146,14 +146,14 @@ export async function checkAndTriggerPendingNotifications() {
       }
 
       if (!scheduledTime) {
-        console.log(`[StartupCheck] Could not determine scheduled time for ${reminder.id}`);
-        continue;
+          console.log(`[StartupCheck] Could not determine scheduled time for ${reminder.id}`);
+          continue;
       }
 
       // Check if the notification time has passed
       const timeDiff = now - scheduledTime;
       console.log(`[StartupCheck] Reminder ${reminder.id}: scheduled=${new Date(scheduledTime).toISOString()}, diff=${timeDiff}ms`);
-
+      
       if (timeDiff > 0) {
         // Notification time has passed - trigger it!
         const isRinger = reminder.priority === 'high';
@@ -161,26 +161,8 @@ export async function checkAndTriggerPendingNotifications() {
 
         // For ringer reminders older than 5 minutes, show "missed" instead of ringing
         if (isRinger && timeDiff > missedThreshold) {
-          // CRITICAL: Check if there's a pending snooze for this reminder
-          // If user snoozed, they already acknowledged it - don't show missed
-          let hasPendingSnooze = false;
-          if (AlarmModule?.getNativeReminderState) {
-            try {
-              const shadowId = `${reminder.id}_snooze`;
-              const shadowState = await AlarmModule.getNativeReminderState(shadowId);
-              if (shadowState && !shadowState.isCompleted) {
-                hasPendingSnooze = true;
-                console.log(`[StartupCheck] Reminder ${reminder.id} has pending shadow snooze, skipping missed`);
-              }
-            } catch (e) {
-              // No shadow snooze exists
-            }
-          }
-
-          if (!hasPendingSnooze) {
-            expiredRingerReminders.push(reminder);
-            console.log(`[StartupCheck] -> Classified as MISSED RINGER (>5m): ${reminder.id}`);
-          }
+          expiredRingerReminders.push(reminder);
+          console.log(`[StartupCheck] -> Classified as MISSED RINGER (>5m): ${reminder.id}`);
         } else {
           // ALL overdue reminders get triggered (standard, silent, or recent ringer)
           overdueReminders.push(reminder);
@@ -236,9 +218,9 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
   for (const reminder of reminders) {
     try {
       console.log(`[StartupCheck] Triggering pending notification for: ${reminder.id}`);
-
+      
       const isRinger = reminder.priority === 'high';
-
+      
       // Get scheduled time for display
       let scheduledTime: number;
       if (reminder.snoozeUntil) {
@@ -304,7 +286,7 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
         // Cancel original notification if it exists
         try {
           await notifee.cancelNotification(`rem-${reminder.id}`);
-        } catch { }
+        } catch {}
 
         await notifee.displayNotification({
           id: `missed-${reminder.id}`,
@@ -353,18 +335,18 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
 function formatSmartDateTime(when: number): string {
   const reminderDate = new Date(when);
   const now = new Date();
-
+  
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const reminderStart = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
   const yesterdayStart = new Date(todayStart);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-
+  
   const timeStr = reminderDate.toLocaleString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
   });
-
+  
   if (reminderStart.getTime() === todayStart.getTime()) {
     return `Today ${timeStr}`;
   } else if (reminderStart.getTime() === yesterdayStart.getTime()) {
