@@ -53,6 +53,48 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   DeviceEventEmitter.emit('remindersChanged');
 }
 
+export async function rescheduleReminderByIdAt(reminderId: string, snoozeUntilMs: number) {
+  console.log(`[Scheduler] Snoozing reminder ${reminderId} until ${new Date(snoozeUntilMs).toISOString()}`);
+
+  const reminder = await getReminder(reminderId);
+  if (!reminder || reminder.isCompleted) {
+    console.log(`[Scheduler] Reminder ${reminderId} not found or completed, skipping snooze.`);
+    return;
+  }
+
+  const snoozeEndDate = new Date(snoozeUntilMs);
+
+  await notificationService.cancelAllNotificationsForReminder(reminderId);
+
+  const updated = {
+    ...reminder,
+    snoozeUntil: snoozeEndDate.toISOString(),
+    wasSnoozed: true,
+    isActive: true
+  };
+  await updateReminder(updated);
+
+  if (AlarmModule?.scheduleAlarm) {
+    try {
+      if (AlarmModule.setSnoozeUntil) {
+        await AlarmModule.setSnoozeUntil(reminderId, snoozeUntilMs);
+      }
+      
+      await AlarmModule.scheduleAlarm(
+        reminderId, 
+        snoozeUntilMs, 
+        reminder.title, 
+        reminder.priority
+      );
+      console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
+    } catch (e) {
+      console.error(`[Scheduler] Error scheduling snooze:`, e);
+    }
+  }
+
+  DeviceEventEmitter.emit('remindersChanged');
+}
+
 export async function markReminderDone(reminderId: string, shouldIncrementOccurrence: boolean = true, triggerTimeMs?: number) {
   console.log(`[Scheduler] markReminderDone: ${reminderId}`);
 

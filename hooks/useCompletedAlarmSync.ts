@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AppState, NativeModules, Platform, DeviceEventEmitter } from 'react-native';
-import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
+import { markReminderDone, rescheduleReminderByIdAt } from '@/services/reminder-scheduler';
 import { deleteReminder, getReminder, updateReminder, addReminder, getReminders } from '@/services/reminder-service';
 
 const { AlarmModule } = NativeModules;
@@ -143,13 +143,15 @@ export function useCompletedAlarmSync() {
           // Parse timestamp:minutes format
           const [timestamp, minutesStr] = (data as string).split(':');
           const minutes = parseInt(minutesStr, 10);
+          const snoozeAt = parseInt(timestamp, 10);
 
-          if (isNaN(minutes)) {
+          if (isNaN(minutes) || isNaN(snoozeAt)) {
             console.error('[AlarmSync] Invalid snooze minutes for:', reminderId);
             await AlarmModule.clearSnoozedAlarm(reminderId);
             continue;
           }
 
+          const snoozeUntilMs = snoozeAt + (minutes * 60 * 1000);
           console.log('[AlarmSync] Processing snoozed alarm:', reminderId, 'for', minutes, 'minutes');
 
           // Snooze in the store
@@ -161,7 +163,7 @@ export function useCompletedAlarmSync() {
              continue;
           }
 
-          await rescheduleReminderById(reminderId, minutes);
+          await rescheduleReminderByIdAt(reminderId, snoozeUntilMs);
 
           // Clear from SharedPreferences
           await AlarmModule.clearSnoozedAlarm(reminderId);
