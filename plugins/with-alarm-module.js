@@ -269,6 +269,11 @@ class AlarmActionBridge : BroadcastReceiver() {
 
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 if (reminderId != null) {
+                    // Fix 5: Set processing flag to prevent race conditions with JS sync
+                    val actionPrefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+                    val processingKey = "processing_snooze_\${reminderId}"
+                    actionPrefs.edit().putBoolean(processingKey, true).apply()
+
                     // Check if repeating
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
                     val repeatType = metaPrefs.getString("meta_\${reminderId}_repeatType", "none") ?: "none"
@@ -375,6 +380,9 @@ class AlarmActionBridge : BroadcastReceiver() {
                     DebugLogger.log("AlarmActionBridge: About to emit alarmSnooze event to React Native")
                     emitEventToReactNative(context, "alarmSnooze", reminderId, snoozeMinutes)
                     DebugLogger.log("AlarmActionBridge: emitEventToReactNative call completed")
+
+                    // Fix 5: Clear processing flag
+                    actionPrefs.edit().remove(processingKey).apply()
                 } else {
                     DebugLogger.log("AlarmActionBridge: ERROR - reminderId is NULL!")
                 }
@@ -2717,6 +2725,19 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun getName(): String = "AlarmModule"
+
+    // NEW: Add method to check processing flag
+    @ReactMethod
+    fun checkProcessingFlag(reminderId: String, promise: Promise) {
+        try {
+            val context = reactApplicationContext.applicationContext
+            val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+            val isProcessing = prefs.getBoolean("processing_snooze_\${reminderId}", false)
+            promise.resolve(isProcessing)
+        } catch (e: Exception) {
+            promise.reject("CHECK_ERROR", e.message)
+        }
+    }
 
     @ReactMethod
     fun scheduleAlarm(reminderId: String, title: String, triggerTime: Double, priority: String? = null, promise: Promise? = null) {

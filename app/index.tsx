@@ -1051,6 +1051,11 @@ export default function HomeScreen() {
                             };
                             const nextDate = getNextDate();
 
+                            if (reminder.snoozeUntil) {
+                              const timeStr = formatTime(new Date(reminder.snoozeUntil).toTimeString().slice(0, 5));
+                              return `Snoozed until: ${timeStr}`;
+                            }
+
                             // If no next date and has end condition, the reminder has ended
                             if (!nextDate && hasEndCondition) {
                               const lastDate = (() => {
@@ -1123,6 +1128,11 @@ export default function HomeScreen() {
                             return calc ?? null;
                           };
                           const nextDate = getNextDate();
+
+                          if (reminder.snoozeUntil) {
+                            const timeStr = formatTime(new Date(reminder.snoozeUntil).toTimeString().slice(0, 5));
+                            return `Snoozed until: ${timeStr}`;
+                          }
 
                           // If no next date and has end condition, the reminder has ended - show last occurrence
                           if (!nextDate && hasEndCondition) {

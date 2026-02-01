@@ -153,6 +153,14 @@ export function useCompletedAlarmSync() {
           console.log('[AlarmSync] Processing snoozed alarm:', reminderId, 'for', minutes, 'minutes');
 
           // Snooze in the store
+          
+          // Fix 5: Check if native is currently processing this snooze to avoid race condition
+          const isBeingProcessedNatively = await AlarmModule.checkProcessingFlag?.(reminderId);
+          if (isBeingProcessedNatively) {
+             console.log('[AlarmSync] Snooze being processed by native, skipping JS processing');
+             continue;
+          }
+
           await rescheduleReminderById(reminderId, minutes);
 
           // Clear from SharedPreferences

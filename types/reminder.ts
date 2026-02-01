@@ -58,7 +58,7 @@ export interface Reminder {
   windowEndIsAM?: boolean;
 
   // Transient fields
-  pendingShadowSnoozeUntil?: string; // Track shadow snooze time for UI
+  // pendingShadowSnoozeUntil?: string; // REMOVED - using standard snoozeUntil
   snoozeClearing?: boolean;
   notificationUpdating?: boolean;
 }

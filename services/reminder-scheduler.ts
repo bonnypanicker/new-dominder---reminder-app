@@ -59,21 +59,27 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
       }
     }
 
-    // 2. Set Pending Shadow Snooze State (Do NOT advance series yet)
+    // 2. Set Snooze State (Pause Series)
     // We update the reminder to show "Snoozed" state but keep the original schedule until the snooze is done.
-    // This prevents the "next" occurrence (e.g. 2:01 PM) from firing while snoozed (2:00-2:05 PM).
     
+    // Calculate what the "next occurrence after snooze" should be
+    const snoozeEndDate = new Date(snoozeTime);
+    // Temporarily set lastTriggeredAt to snooze time to calculate next occurrence from there
+    const calcContext = { ...reminder, lastTriggeredAt: snoozeEndDate.toISOString() };
+    const nextAfterSnooze = calculateNextReminderDate(calcContext as any, snoozeEndDate);
+
     const updated = {
       ...reminder,
-      // Store the snooze time for UI display
-      pendingShadowSnoozeUntil: new Date(snoozeTime).toISOString(),
-      // We don't change nextReminderDate yet, effectively pausing the series.
-      // The UI should prioritize pendingShadowSnoozeUntil.
+      snoozeUntil: snoozeEndDate.toISOString(),
+      wasSnoozed: true,
+      // Keep series paused - next occurrence is AFTER snooze ends
+      nextReminderDate: nextAfterSnooze ? nextAfterSnooze.toISOString() : undefined,
+      // DO NOT update lastTriggeredAt yet - that happens when snooze fires
       isActive: true
     };
     await updateReminder(updated as any);
     await notificationService.cancelAllNotificationsForReminder(reminderId);
-    console.log(`[Scheduler] Repeater snoozed. Series PAUSED until shadow snooze ${shadowId} completes.`);
+    console.log(`[Scheduler] Repeater snoozed. Series PAUSED until ${snoozeEndDate.toISOString()}. Next occurrence: ${nextAfterSnooze?.toISOString()}`);
     
     // Notify UI of change
     DeviceEventEmitter.emit('remindersChanged');
@@ -153,7 +159,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     reminder.isCompleted = true;
     reminder.snoozeUntil = undefined;
     reminder.wasSnoozed = undefined;
-    reminder.pendingShadowSnoozeUntil = undefined; // Clear shadow state
+    // reminder.pendingShadowSnoozeUntil = undefined; // REMOVED
     reminder.lastTriggeredAt = completedOccurrenceTime;
     await updateReminder(reminder);
   } else if (reminder.repeatType && reminder.repeatType !== 'none') {
@@ -162,8 +168,9 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     // Get the current occurrence count from JS
     let currentOccurred = reminder.occurrenceCount ?? 0;
 
-    // If not incrementing (native already did), sync from native to ensure accuracy
-    if (!shouldIncrementOccurrence && AlarmModule?.getNativeReminderState) {
+    // Fix 6: Always sync from native before processing to ensure accuracy
+    // Native is the source of truth for Ringer alarms
+    if (AlarmModule?.getNativeReminderState) {
       try {
         const nativeState = await AlarmModule.getNativeReminderState(actualId);
         if (nativeState && nativeState.actualTriggerCount > currentOccurred) {
@@ -254,7 +261,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         lastTriggeredAt: completedOccurrenceTime,
         snoozeUntil: undefined,
         wasSnoozed: undefined,
-        pendingShadowSnoozeUntil: undefined, // Clear shadow state
+        // pendingShadowSnoozeUntil: undefined, // REMOVED
         isActive: true,
         isCompleted: false,
         isPaused: false,
@@ -300,7 +307,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         isActive: false,
         snoozeUntil: undefined,
         wasSnoozed: undefined,
-        pendingShadowSnoozeUntil: undefined, // Clear shadow state
+        // pendingShadowSnoozeUntil: undefined, // REMOVED
         lastTriggeredAt: completedOccurrenceTime,
         nextReminderDate: undefined,
         completionHistory: historyTimes,
