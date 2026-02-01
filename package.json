@@ -3,9 +3,9 @@
   "main": "index.js",
   "version": "1.0.0",
   "scripts": {
-    "start": "bunx rork start -p ijvqabpwsfu6udyj06711 --tunnel",
-    "start-web": "bunx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",
-    "start-web-dev": "DEBUG=expo* bunx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",
+    "start": "npx rork start -p ijvqabpwsfu6udyj06711 --tunnel",
+    "start-web": "npx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",
+    "start-web-dev": "DEBUG=expo* npx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",
     "lint": "expo lint",
     "android": "expo run:android",
     "ios": "expo run:ios"
