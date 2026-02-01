@@ -334,7 +334,10 @@ class AlarmActionBridge : BroadcastReceiver() {
                          scheduleNativeAlarm(context, shadowId, "Snoozed: \${title}", priority, snoozeMinutes)
                          
                          // 2. Advance Series (Schedule Next Regular Occurrence)
-                         scheduleNextOccurrenceIfNeeded(context, reminderId)
+                         // FIX: Do NOT schedule next occurrence immediately. Pause series until snooze is done.
+                         // This prevents the "next" occurrence (e.g. 2:01 PM) from firing while snoozed (2:00-2:05 PM).
+                         DebugLogger.log("AlarmActionBridge: Repeating reminder snoozed. Series PAUSED until shadow snooze completes.")
+                         // scheduleNextOccurrenceIfNeeded(context, reminderId) -> REMOVED
                     } else {
                          // One-off: Standard overwrite behavior
                          DebugLogger.log("AlarmActionBridge: Snoozing ONE-OFF reminder \${reminderId}")
