@@ -2952,10 +2952,10 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 val state = Arguments.createMap().apply {
                     putInt("actualTriggerCount", prefs.getInt("meta_\${reminderId}_actualTriggerCount", 0))
                     putBoolean("isCompleted", prefs.getBoolean("meta_\${reminderId}_isCompleted", false))
-                    putDouble("completedAt", prefs.getLong("meta_${reminderId}_completedAt", 0L).toDouble())
-                    putDouble("lastTriggerTime", prefs.getLong("meta_${reminderId}_lastTriggerTime", 0L).toDouble())
-                    putString("triggerHistory", prefs.getString("meta_${reminderId}_triggerHistory", "") ?: "")
-                    putDouble("snoozeUntil", prefs.getLong("meta_${reminderId}_snoozeUntil", 0L).toDouble())
+                    putDouble("completedAt", prefs.getLong("meta_\${reminderId}_completedAt", 0L).toDouble())
+                    putDouble("lastTriggerTime", prefs.getLong("meta_\${reminderId}_lastTriggerTime", 0L).toDouble())
+                    putString("triggerHistory", prefs.getString("meta_\${reminderId}_triggerHistory", "") ?: "")
+                    putDouble("snoozeUntil", prefs.getLong("meta_\${reminderId}_snoozeUntil", 0L).toDouble())
                 }
                 result.putMap(reminderId, state)
             }
