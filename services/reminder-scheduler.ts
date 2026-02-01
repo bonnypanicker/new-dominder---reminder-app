@@ -1,7 +1,7 @@
 import { DeviceEventEmitter, NativeModules, Platform } from 'react-native';
 import { notificationService } from '../hooks/notification-service';
 import { calculateNextReminderDate } from '../services/reminder-utils';
-import { getReminder, updateReminder, addReminder } from './reminder-service';
+import { getReminder, updateReminder, addReminder, getReminders, permanentlyDeleteReminder } from './reminder-service';
 
 const AlarmModule = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
@@ -61,7 +61,6 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
 
     // 2. PAUSE the series (DON'T advance yet) - wait for shadow snooze completion
     // Set snoozeUntil to mark that series is paused, and clear nextReminderDate to prevent scheduling
-    const now = new Date();
     const updated = {
       ...reminder,
       snoozeUntil: new Date(snoozeTime).toISOString(),
@@ -97,6 +96,16 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
 export async function markReminderDone(reminderId: string, shouldIncrementOccurrence: boolean = true, triggerTimeMs?: number) {
   console.log(`[Scheduler] ========== markReminderDone START ==========`);
   console.log(`[Scheduler] reminderId: ${reminderId}, shouldIncrementOccurrence: ${shouldIncrementOccurrence}, triggerTimeMs: ${triggerTimeMs}`);
+
+
+
+  // Logic to find existing history item for this reminder
+  const historyId = `${reminderId.replace('_snooze', '')}_hist`;
+
+  const getHistoryItem = async () => {
+    const allReminders = await getReminders();
+    return allReminders.find((r: any) => r.id === historyId);
+  };
 
   // CRITICAL FIX: Check if this is a shadow snooze completion
   const isShadowSnooze = reminderId.endsWith('_snooze');
@@ -138,7 +147,6 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
       console.log(`[Scheduler] Shadow snooze completed for active reminder, advancing series`);
       
       const historyId = `${originalReminderId}_hist`;
-      const { getReminders } = require('./reminder-service');
       const allReminders = await getReminders();
       const existingHistory = allReminders.find((r: any) => r.id === historyId);
 
@@ -267,17 +275,6 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     DeviceEventEmitter.emit('remindersChanged');
     return;
   }
-
-  // Helpers
-  const { getReminders, deleteReminder, permanentlyDeleteReminder } = require('./reminder-service');
-
-  // Logic to find existing history item for this reminder
-  const historyId = `${reminderId}_hist`;
-
-  const getHistoryItem = async () => {
-    const allReminders = await getReminders();
-    return allReminders.find((r: any) => r.id === historyId);
-  };
 
   if (reminder.repeatType === 'none') {
     await notificationService.cancelAllNotificationsForReminder(reminderId);
