@@ -279,6 +279,39 @@ class AlarmActionBridge : BroadcastReceiver() {
                         putBoolean("meta_\${reminderId}_wasSnoozed", true)
                         apply()
                     }
+
+                    try {
+                        val actualCount = metaPrefs.getInt("meta_\${reminderId}_actualTriggerCount", 0)
+                        if (actualCount > 0) {
+                            val historyStr = metaPrefs.getString("meta_\${reminderId}_triggerHistory", "") ?: ""
+                            val historyList = historyStr.split(",").filter { it.isNotBlank() }.toMutableList()
+                            if (historyList.isNotEmpty()) {
+                                historyList.removeAt(historyList.size - 1)
+                            }
+
+                            val newCount = actualCount - 1
+                            val newHistory = historyList.joinToString(",")
+                            val newLastTrigger = historyList.lastOrNull()?.toLongOrNull() ?: 0L
+
+                            metaPrefs.edit().apply {
+                                putInt("meta_\${reminderId}_actualTriggerCount", newCount)
+                                putInt("meta_\${reminderId}_occurrenceCount", newCount)
+                                putString("meta_\${reminderId}_triggerHistory", newHistory)
+                                if (newLastTrigger > 0L) {
+                                    putLong("meta_\${reminderId}_lastTriggerTime", newLastTrigger)
+                                } else {
+                                    remove("meta_\${reminderId}_lastTriggerTime")
+                                }
+                                putBoolean("meta_\${reminderId}_isCompleted", false)
+                                remove("meta_\${reminderId}_completedAt")
+                                apply()
+                            }
+
+                            DebugLogger.log("AlarmActionBridge: Rolled back trigger count for snooze of \${reminderId} -> \${newCount}")
+                        }
+                    } catch (e: Exception) {
+                        DebugLogger.log("AlarmActionBridge: Error rolling back trigger count for snooze: \${e.message}")
+                    }
                     
                     // Schedule alarm for ORIGINAL reminderId at snooze time
                     // Note: This overwrites any existing alarm for this ID due to same requestCode
@@ -1530,7 +1563,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         if (isSnooze) {
-            DebugLogger.log("AlarmReceiver: Processing SNOOZE alarm for \$reminderId - skipping occurrence increment")
+            DebugLogger.log("AlarmReceiver: Processing SNOOZE alarm for \$reminderId")
             
             // Clear snooze flags since we're now triggering
             metaPrefs.edit().apply {
@@ -1538,32 +1571,31 @@ class AlarmReceiver : BroadcastReceiver() {
                 putBoolean("meta_\${reminderId}_wasSnoozed", false)
                 apply()
             }
-        } else {
-            // CRITICAL: Check if reminder is paused before firing (only for regular alarms)
-            val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
-            val isPaused = prefs.getBoolean("paused_\$reminderId", false)
-            if (isPaused) {
-                DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
-                return
-            }
-            
-            // CRITICAL: Check if reminder is already completed (native state)
-            val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
-            val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
-            if (isNativeCompleted) {
-                DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
-                return
-            }
-            
-            // CRITICAL: Record this trigger in native state BEFORE showing alarm
-            // This ensures accurate tracking even if app is killed
-            recordNativeTrigger(context, reminderId, triggerTime)
-            
-            // Check if this trigger completes the reminder (count or time based)
-            val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
-            if (shouldComplete) {
-                DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
-            }
+        }
+
+        // CRITICAL: Check if reminder is paused before firing
+        val prefs = context.getSharedPreferences("DoMinderPausedReminders", Context.MODE_PRIVATE)
+        val isPaused = prefs.getBoolean("paused_\$reminderId", false)
+        if (isPaused) {
+            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
+            return
+        }
+        
+        // CRITICAL: Check if reminder is already completed (native state)
+        val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
+        if (isNativeCompleted) {
+            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is already COMPLETED natively - skipping alarm")
+            return
+        }
+        
+        // CRITICAL: Record this trigger in native state BEFORE showing alarm
+        // This ensures accurate tracking even if app is killed
+        recordNativeTrigger(context, reminderId, triggerTime)
+        
+        // Check if this trigger completes the reminder (count or time based)
+        val shouldComplete = checkAndMarkCompletionNatively(context, reminderId, triggerTime)
+        if (shouldComplete) {
+            DebugLogger.log("AlarmReceiver: This is the FINAL occurrence for \$reminderId")
         }
 
         // Start AlarmRingtoneService for high priority reminders
