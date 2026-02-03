@@ -170,7 +170,23 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     // For native completions (shouldIncrementOccurrence=false), we DON'T increment here
     // because native already did it. For JS completions, we DO increment.
-    const newOccurrenceCount = shouldIncrementOccurrence ? currentOccurred + 1 : currentOccurred;
+    
+    // Fix: Prevent double counting for Native Ringer Snooze completions (Android High Priority)
+    // For these, Native AlarmReceiver increments actualTriggerCount on fire, and we sync it above.
+    // If we increment again here, we get a double count.
+    let shouldActuallyIncrement = shouldIncrementOccurrence;
+    if (shouldIncrementOccurrence && wasSnoozeCompletion) {
+      const isNativeRinger = Platform.OS === 'android' && reminder.priority === 'high';
+      // Ensure Native Module is actually present (not web/dev client without native)
+      const hasNativeModule = !!AlarmModule;
+      
+      if (isNativeRinger && hasNativeModule) {
+        console.log(`[Scheduler] Native Ringer Snooze completion - skipping JS increment (already synced from Native)`);
+        shouldActuallyIncrement = false;
+      }
+    }
+
+    const newOccurrenceCount = shouldActuallyIncrement ? currentOccurred + 1 : currentOccurred;
 
     console.log(`[Scheduler] currentOccurred=${currentOccurred}, shouldIncrement=${shouldIncrementOccurrence}, newOccurrenceCount=${newOccurrenceCount}`);
 
