@@ -151,6 +151,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     // Get the current occurrence count from JS
     let currentOccurred = reminder.occurrenceCount ?? 0;
+    let shouldIncrement = shouldIncrementOccurrence;
 
     // Fix 6: Always sync from native before processing to ensure accuracy
     // Native is the source of truth for Ringer alarms
@@ -163,6 +164,9 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
           // Update reminder with synced count
           reminder = { ...reminder, occurrenceCount: currentOccurred };
         }
+        if (nativeState && shouldIncrement && nativeState.actualTriggerCount >= currentOccurred) {
+          shouldIncrement = false;
+        }
       } catch (e) {
         console.log(`[Scheduler] Could not sync from native:`, e);
       }
@@ -170,9 +174,9 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
     // For native completions (shouldIncrementOccurrence=false), we DON'T increment here
     // because native already did it. For JS completions, we DO increment.
-    const newOccurrenceCount = shouldIncrementOccurrence ? currentOccurred + 1 : currentOccurred;
+    const newOccurrenceCount = shouldIncrement ? currentOccurred + 1 : currentOccurred;
 
-    console.log(`[Scheduler] currentOccurred=${currentOccurred}, shouldIncrement=${shouldIncrementOccurrence}, newOccurrenceCount=${newOccurrenceCount}`);
+    console.log(`[Scheduler] currentOccurred=${currentOccurred}, shouldIncrement=${shouldIncrement}, newOccurrenceCount=${newOccurrenceCount}`);
 
     // Create context for calculating next date with the new occurrence count
     const calcContext = { ...reminder, occurrenceCount: newOccurrenceCount };
