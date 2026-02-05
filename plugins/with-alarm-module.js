@@ -1571,6 +1571,14 @@ class AlarmReceiver : BroadcastReceiver() {
                 putBoolean("meta_\${reminderId}_wasSnoozed", false)
                 apply()
             }
+
+            try {
+                val actionPrefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+                actionPrefs.edit().remove("snoozed_\${reminderId}").apply()
+                DebugLogger.log("AlarmReceiver: Cleared pending snooze action for \$reminderId")
+            } catch (e: Exception) {
+                DebugLogger.log("AlarmReceiver: Error clearing pending snooze action: \${e.message}")
+            }
         }
 
         // CRITICAL: Check if reminder is paused before firing
