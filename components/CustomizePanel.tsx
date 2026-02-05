@@ -20,6 +20,7 @@ interface CustomizePanelProps {
   onDateChange: (date: string) => void;
   onOpenTime?: () => void;
   displayTime: string;
+  use24HourFormat?: boolean;
   everyValue?: number;
   everyUnit?: EveryUnit;
   onEveryChange?: (value: number, unit: EveryUnit) => void;
@@ -61,6 +62,7 @@ export default function CustomizePanel({
   onDateChange,
   onOpenTime,
   displayTime,
+  use24HourFormat,
   everyValue,
   everyUnit,
   onEveryChange,
@@ -187,9 +189,18 @@ export default function CustomizePanel({
     const [hoursStr, minutesStr] = untilTime.split(':');
     const hours = Number(hoursStr);
     const minutes = Number(minutesStr);
+    if (use24HourFormat) {
+      let hour24 = hours;
+      if (!untilIsAM && hours !== 12) {
+        hour24 = hours + 12;
+      } else if (untilIsAM && hours === 12) {
+        hour24 = 0;
+      }
+      return `${hour24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
     const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${untilIsAM ? 'AM' : 'PM'}`;
-  }, [untilTime, untilIsAM]);
+  }, [untilTime, untilIsAM, use24HourFormat]);
 
   const untilValueLabel = useMemo(() => {
     if (untilType === 'endsAt') {

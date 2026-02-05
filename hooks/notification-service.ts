@@ -63,6 +63,12 @@ if (Platform.OS === 'android') {
   }
 }
 
+let use24HourFormatCache = false;
+
+export function setNotificationTimeFormat(use24HourFormat: boolean) {
+  use24HourFormatCache = use24HourFormat;
+}
+
 function formatSmartDateTime(when: number): string {
   const reminderDate = new Date(when);
   const now = new Date();
@@ -76,7 +82,7 @@ function formatSmartDateTime(when: number): string {
   const timeStr = reminderDate.toLocaleString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: !use24HourFormatCache
   });
 
   if (reminderStart.getTime() === todayStart.getTime()) {
@@ -91,7 +97,7 @@ function formatSmartDateTime(when: number): string {
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: !use24HourFormatCache
     });
   }
 }

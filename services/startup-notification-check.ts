@@ -1,4 +1,5 @@
 import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, NativeModules } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { createNotificationConfig } from '../hooks/notification-service';
@@ -305,6 +306,7 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
  */
 async function showExpiredRingerNotifications(reminders: Reminder[]) {
   try {
+    const use24HourFormat = await getUse24HourFormat();
     // Ensure channel exists
     const channelId = 'missed-alarm-v1';
     await notifee.createChannel({
@@ -328,7 +330,7 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
           scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
         }
 
-        const timeText = formatSmartDateTime(scheduledTime);
+        const timeText = formatSmartDateTime(scheduledTime, use24HourFormat);
         const body = `${reminder.title}\n${timeText}`;
 
         // Cancel original notification if it exists
@@ -377,10 +379,23 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
   }
 }
 
+async function getUse24HourFormat(): Promise<boolean> {
+  try {
+    const stored = await AsyncStorage.getItem('dominder_settings');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed?.use24HourFormat === true;
+    }
+  } catch (e) {
+    console.log('[StartupCheck] Error reading settings:', e);
+  }
+  return false;
+}
+
 /**
  * Format time for notification display
  */
-function formatSmartDateTime(when: number): string {
+function formatSmartDateTime(when: number, use24HourFormat: boolean): string {
   const reminderDate = new Date(when);
   const now = new Date();
   
@@ -392,7 +407,7 @@ function formatSmartDateTime(when: number): string {
   const timeStr = reminderDate.toLocaleString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: !use24HourFormat
   });
   
   if (reminderStart.getTime() === todayStart.getTime()) {
@@ -406,7 +421,7 @@ function formatSmartDateTime(when: number): string {
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: !use24HourFormat
     });
   }
 }
