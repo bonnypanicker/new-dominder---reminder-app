@@ -291,32 +291,6 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.preferenceCard}
-              onPress={() => updateSettings.mutate({ use24HourFormat: !settings.use24HourFormat })}
-              testID="toggle-24h-format"
-            >
-              <View style={styles.preferenceIcon}>
-                <Feather name="clock" size={20} color={Material3Colors.light.primary} />
-              </View>
-              <View style={styles.preferenceContent}>
-                <Text style={styles.preferenceTitle}>24‑Hour Time</Text>
-                <Text style={styles.preferenceValue}>
-                  {settings.use24HourFormat ? 'On' : 'Off'}
-                </Text>
-              </View>
-              <Switch
-                value={settings.use24HourFormat}
-                onValueChange={(value) => updateSettings.mutate({ use24HourFormat: value })}
-                trackColor={{
-                  false: Material3Colors.light.surfaceVariant,
-                  true: Material3Colors.light.primaryContainer
-                }}
-                thumbColor={settings.use24HourFormat ? Material3Colors.light.primary : Material3Colors.light.outline}
-                style={styles.toggleSwitch}
-              />
-            </TouchableOpacity>
           </View>
         )}
 

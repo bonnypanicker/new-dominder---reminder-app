@@ -1,5 +1,4 @@
 import { DeviceEventEmitter, NativeModules, Platform, NativeEventEmitter } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native';
 import { deleteReminder } from './reminder-service';
 
@@ -11,35 +10,6 @@ interface MissedAlarmData {
 
 interface MissedAlarmDeletedData {
   reminderId: string;
-}
-
-const SETTINGS_STORAGE_KEY = 'dominder_settings';
-
-function to24HourTime(value: string): string | null {
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
-  if (!match) return null;
-  const hour = parseInt(match[1], 10);
-  const minute = match[2];
-  const period = match[3].toUpperCase();
-  if (Number.isNaN(hour)) return null;
-  let hour24 = hour % 12;
-  if (period === 'PM') {
-    hour24 += 12;
-  }
-  return `${hour24.toString().padStart(2, '0')}:${minute}`;
-}
-
-async function getUse24HourFormat(): Promise<boolean> {
-  try {
-    const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed?.use24HourFormat === true;
-    }
-  } catch (e) {
-    console.log('[MissedAlarmService] Error reading settings:', e);
-  }
-  return false;
 }
 
 class MissedAlarmService {
@@ -131,10 +101,8 @@ class MissedAlarmService {
         sound: 'default',
       });
 
-      const use24HourFormat = await getUse24HourFormat();
-      const formattedTime = use24HourFormat ? to24HourTime(time) : time;
-      const body = formattedTime 
-        ? `${title}\n${formattedTime}`
+      const body = time 
+        ? `${title}\n${time}`
         : title;
 
       await notifee.displayNotification({

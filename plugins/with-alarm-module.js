@@ -1194,7 +1194,6 @@ class AlarmActivity : AppCompatActivity() {
     private var triggerTimeMs: Long = 0L
     private var timeUpdateRunnable: Runnable? = null
     private var timeoutRunnable: Runnable? = null
-    private var userActionTaken: Boolean = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val TIMEOUT_DURATION = 5 * 60 * 1000L // 5 minutes in milliseconds
 
@@ -1247,10 +1246,6 @@ class AlarmActivity : AppCompatActivity() {
 
         // --- Setup 5-minute timeout ---
         timeoutRunnable = Runnable {
-            if (userActionTaken) {
-                DebugLogger.log("AlarmActivity: Timeout reached but user action already taken, skipping missed alarm")
-                return@Runnable
-            }
             DebugLogger.log("AlarmActivity: 5-minute timeout reached, sending missed alarm broadcast")
             
             // Stop the ringtone service first
@@ -1292,7 +1287,6 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleSnooze(minutes: Int) {
         DebugLogger.log("AlarmActivity: Snoozing for \${minutes} minutes, reminderId: \${reminderId}")
-        userActionTaken = true
         
         // Cancel timeout immediately to prevent missed notification
         timeoutRunnable?.let { handler.removeCallbacks(it) }
@@ -1333,7 +1327,6 @@ class AlarmActivity : AppCompatActivity() {
 
     private fun handleDone() {
         DebugLogger.log("AlarmActivity: Done clicked for reminderId: \${reminderId}")
-        userActionTaken = true
         
         // Cancel timeout immediately to prevent missed notification
         timeoutRunnable?.let { handler.removeCallbacks(it) }

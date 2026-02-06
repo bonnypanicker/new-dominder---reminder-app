@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RepeatType } from '@/types/reminder';
 
-import { notificationService, setNotificationTimeFormat } from '@/hooks/notification-service';
+import { notificationService } from '@/hooks/notification-service';
 
 const SETTINGS_STORAGE_KEY = 'dominder_settings';
 
@@ -11,7 +11,6 @@ export interface AppSettings {
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   darkMode: boolean;
-  use24HourFormat: boolean;
   sortMode: 'creation' | 'upcoming';
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
@@ -23,7 +22,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   soundEnabled: true,
   vibrationEnabled: true,
   darkMode: false,
-  use24HourFormat: false,
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
@@ -38,15 +36,11 @@ export const useSettings = () => {
         const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          const merged = { ...DEFAULT_SETTINGS, ...parsed };
-          setNotificationTimeFormat(merged.use24HourFormat === true);
-          return merged;
+          return { ...DEFAULT_SETTINGS, ...parsed };
         }
-        setNotificationTimeFormat(DEFAULT_SETTINGS.use24HourFormat);
         return DEFAULT_SETTINGS;
       } catch (error) {
         console.error('Error loading settings:', error);
-        setNotificationTimeFormat(DEFAULT_SETTINGS.use24HourFormat);
         return DEFAULT_SETTINGS;
       }
     },
@@ -108,10 +102,6 @@ export const useUpdateSettings = () => {
               console.log('Failed to save ringer volume to native:', e);
             }
           }
-        }
-
-        if (typeof variables.use24HourFormat === 'boolean') {
-          setNotificationTimeFormat(variables.use24HourFormat);
         }
       } catch (e) {
         console.log('Post-settings toggle side effects failed');
