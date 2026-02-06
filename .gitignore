@@ -51,3 +51,4 @@ android/
 .rork
 .env
 rork-eslint.config.js
+core

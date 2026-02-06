@@ -4,7 +4,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import notifee from '@notifee/react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { getAlarmLaunchOrigin, clearAlarmLaunchOrigin } from '../services/alarm-context';
-import { useSettings } from '@/hooks/settings-store';
 
 const { AlarmModule } = NativeModules;
 
@@ -12,7 +11,6 @@ export default function AlarmScreen() {
   useKeepAwake();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { data: settings } = useSettings();
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('Reminder');
 
@@ -108,24 +106,23 @@ export default function AlarmScreen() {
     await closePerOrigin();
   };
 
-  const getCurrentTime = useCallback(() => {
-    const use24HourFormat = settings?.use24HourFormat === true;
+  const getCurrentTime = () => {
     const now = new Date();
     return now.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit',
-      hour12: !use24HourFormat 
+      hour12: true 
     });
-  }, [settings?.use24HourFormat]);
+  };
 
-  const [currentTime, setCurrentTime] = useState(() => getCurrentTime());
+  const [currentTime, setCurrentTime] = useState(getCurrentTime());
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(getCurrentTime());
     }, 1000);
     return () => clearInterval(interval);
-  }, [getCurrentTime]);
+  }, []);
 
   return (
     <View style={{ 
