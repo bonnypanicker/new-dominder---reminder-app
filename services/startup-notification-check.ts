@@ -69,6 +69,18 @@ export async function checkAndTriggerPendingNotifications() {
             console.log('[StartupCheck] Could not get snoozed alarms:', e);
         }
     }
+
+    let pendingCompletions: Record<string, string> = {};
+    if (AlarmModule && AlarmModule.getCompletedAlarms) {
+        try {
+            pendingCompletions = await AlarmModule.getCompletedAlarms();
+            if (Object.keys(pendingCompletions).length > 0) {
+                console.log('[StartupCheck] Found pending completions:', Object.keys(pendingCompletions));
+            }
+        } catch (e) {
+            console.log('[StartupCheck] Could not get completed alarms:', e);
+        }
+    }
     
     if (AlarmModule) {
         try {
@@ -145,6 +157,10 @@ export async function checkAndTriggerPendingNotifications() {
         console.log(`[StartupCheck] Notification already displayed for: ${reminder.id} (Skipping)`);
         continue;
       }
+      if (pendingCompletions[reminder.id]) {
+        console.log(`[StartupCheck] Reminder ${reminder.id} has pending completion, skipping`);
+        continue;
+      }
 
       // Determine the scheduled time
       let scheduledTime: number | null = null;
@@ -209,6 +225,15 @@ export async function checkAndTriggerPendingNotifications() {
 
         // For ringer reminders older than 5 minutes, show "missed" instead of ringing
         if (isRinger && timeDiff > missedThreshold) {
+          const nativeState = nativeStates[reminder.id];
+          if (nativeState?.lastTriggerTime > 0) {
+            const timeSinceLastTrigger = now - nativeState.lastTriggerTime;
+            if (timeSinceLastTrigger < 10 * 60 * 1000) {
+              remindersToReschedule.push(reminder);
+              console.log(`[StartupCheck] -> Recent native trigger (${timeSinceLastTrigger}ms), rescheduling: ${reminder.id}`);
+              continue;
+            }
+          }
           expiredRingerReminders.push(reminder);
           console.log(`[StartupCheck] -> Classified as MISSED RINGER (>5m): ${reminder.id}`);
         } else {
