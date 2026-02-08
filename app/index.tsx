@@ -2839,6 +2839,15 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
   const SNAP_DURATION = 200; // Duration of snap animation in ms
   const VALUE_UPDATE_THROTTLE = 100; // Throttle value updates during drag
 
+  const maybeToggleAmPmForRotation = useCallback((prevRotation: number, nextRotation: number) => {
+    if (!use24HourFormat) return;
+    const prev = (prevRotation % 360 + 360) % 360;
+    const next = (nextRotation % 360 + 360) % 360;
+    if ((prev > 330 && next < 30) || (prev < 30 && next > 330)) {
+      setCurrentAMPM((prevValue) => !prevValue);
+    }
+  }, [use24HourFormat]);
+
   useEffect(() => {
     return () => {
       if (decayAnimation.current) {
@@ -2947,8 +2956,12 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
       lastAngle.current = degrees;
 
       // Apply delta to current rotation to avoid jumping to touch
+      const prevRotation = rotationRef.current;
       rotationRef.current = (rotationRef.current + delta + 360) % 360;
       const r = rotationRef.current % 360;
+      if (activeSection === 'hour') {
+        maybeToggleAmPmForRotation(prevRotation, rotationRef.current);
+      }
       setRotation(r);
 
       // Throttle value updates to avoid re-renders during drag
@@ -2984,8 +2997,11 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
           const hourStep = 360 / 12;
           const snappedRotation = Math.round(r / hourStep) * hourStep;
 
-          // Update rotation immediately
+          const prevRotation = rotationRef.current;
           rotationRef.current = snappedRotation;
+          if (activeSection === 'hour') {
+            maybeToggleAmPmForRotation(prevRotation, rotationRef.current);
+          }
           setRotation(snappedRotation);
           const hourIndex = Math.round(snappedRotation / hourStep) % 12;
           const newHour = hourIndex === 0 ? 12 : hourIndex;
@@ -3047,8 +3063,12 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
               return;
             }
 
+            const prevRotation = rotationRef.current;
             rotationRef.current = (rotationRef.current + currentVelocity + 360) % 360;
             const r = rotationRef.current % 360;
+            if (activeSection === 'hour') {
+              maybeToggleAmPmForRotation(prevRotation, rotationRef.current);
+            }
             setRotation(r);
 
             // Only update values every 6 frames (approximately every 100ms) to reduce jitter
