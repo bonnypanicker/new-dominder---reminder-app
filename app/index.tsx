@@ -90,6 +90,11 @@ export default function HomeScreen() {
   const { data: reminders = [], isLoading } = useReminders();
   const { data: settings } = useSettings();
   const use24HourFormat = settings?.use24HourFormat ?? false;
+  const weekStartDay = settings?.weekStartDay ?? 0;
+  const weekdayOrder = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => (weekStartDay + i) % 7);
+  }, [weekStartDay]);
+  const weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const updateReminder = useUpdateReminder();
   const deleteReminder = useDeleteReminder();
   const bulkDeleteReminders = useBulkDeleteReminders();
@@ -1107,8 +1112,7 @@ export default function HomeScreen() {
                         <Text style={styles.reminderNextOccurrence}>{endsLabel}</Text>
                       )}
                       <View style={styles.dailyDaysContainer}>
-                        {[0, 1, 2, 3, 4, 5, 6].map((day) => {
-                          const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+                        {weekdayOrder.map((day) => {
                           const selectedDays = (reminder.repeatDays && reminder.repeatDays.length > 0) ? reminder.repeatDays : [0, 1, 2, 3, 4, 5, 6];
                           const dayActive = selectedDays.includes(day);
                           return (
@@ -1123,7 +1127,7 @@ export default function HomeScreen() {
                                 styles.dailyDayText,
                                 dayActive && styles.dailyDayTextActive
                               ]}>
-                                {dayLetters[day]}
+                                {weekdayLetters[day]}
                               </Text>
                             </View>
                           );
@@ -1223,8 +1227,7 @@ export default function HomeScreen() {
                       {/* Show day discs when days are selected */}
                       {reminder.multiSelectDays && reminder.multiSelectDays.length > 0 && (
                         <View style={styles.dailyDaysContainer}>
-                          {[0, 1, 2, 3, 4, 5, 6].map((day) => {
-                            const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+                          {weekdayOrder.map((day) => {
                             const dayActive = reminder.multiSelectDays!.includes(day);
                             return (
                               <View
@@ -1238,7 +1241,7 @@ export default function HomeScreen() {
                                   styles.dailyDayText,
                                   dayActive && styles.dailyDayTextActive
                                 ]}>
-                                  {dayLetters[day]}
+                                  {weekdayLetters[day]}
                                 </Text>
                               </View>
                             );
@@ -2168,6 +2171,7 @@ export default function HomeScreen() {
           setPauseUntilReminder(null);
         }}
         selectedDate={selectedDate}
+        weekStartDay={weekStartDay}
         onSelectDate={handlePauseUntilDate}
         disablePast={true}
         hideYear={false}

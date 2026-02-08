@@ -6,6 +6,8 @@ import { notificationService } from '@/hooks/notification-service';
 
 const SETTINGS_STORAGE_KEY = 'dominder_settings';
 
+export type WeekStartDay = 0 | 1 | 5 | 6;
+
 export interface AppSettings {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
@@ -16,6 +18,7 @@ export interface AppSettings {
   defaultPriority: 'standard' | 'silent' | 'ringer';
   ringerVolume: number;
   use24HourFormat: boolean;
+  weekStartDay: WeekStartDay;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -28,6 +31,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultPriority: 'standard',
   ringerVolume: 40,
   use24HourFormat: false,
+  weekStartDay: 0,
 };
 
 export const useSettings = () => {

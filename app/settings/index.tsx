@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform, Linking, NativeModules } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { Material3Colors } from '@/constants/colors';
-import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
+import { useSettings, useUpdateSettings, WeekStartDay } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
 import Slider from '@react-native-community/slider';
 
@@ -39,23 +39,6 @@ export default function SettingsScreen() {
     loadRingtone();
   }, []);
 
-  if (isLoading || !settings) {
-    return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
-            <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Settings</Text>
-          <View style={styles.placeholder} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading settings...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const getRepeatModeLabel = (mode: RepeatType): string => {
     switch (mode) {
       case 'none': return 'Once';
@@ -77,6 +60,35 @@ export default function SettingsScreen() {
       default: return 'Standard';
     }
   };
+
+  const weekStartOptions = useMemo(() => ([
+    { value: 0 as WeekStartDay, label: 'Sunday' },
+    { value: 1 as WeekStartDay, label: 'Monday' },
+    { value: 5 as WeekStartDay, label: 'Friday' },
+    { value: 6 as WeekStartDay, label: 'Saturday' },
+  ]), []);
+
+  const getWeekStartLabel = (value: WeekStartDay): string => {
+    const option = weekStartOptions.find((opt) => opt.value === value);
+    return option?.label ?? 'Sunday';
+  };
+
+  if (isLoading || !settings) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
+            <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Settings</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading settings...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -273,6 +285,33 @@ export default function SettingsScreen() {
                 />
               </TouchableOpacity>
             </View>
+            <View style={styles.preferenceCard}>
+              <View style={styles.preferenceIcon}>
+                <Feather name="calendar" size={20} color={Material3Colors.light.primary} />
+              </View>
+              <View style={styles.preferenceContent}>
+                <Text style={styles.preferenceTitle}>1st day of the week</Text>
+                <View style={styles.weekStartOptions}>
+                  {weekStartOptions.map((option) => {
+                    const isSelected = settings.weekStartDay === option.value;
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[styles.weekStartOption, isSelected && styles.weekStartOptionSelected]}
+                        onPress={() => updateSettings.mutate({ weekStartDay: option.value })}
+                        testID={`week-start-${option.value}`}
+                      >
+                        <Text style={[styles.weekStartOptionText, isSelected && styles.weekStartOptionTextSelected]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text style={styles.preferenceValue}>{getWeekStartLabel(settings.weekStartDay)}</Text>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={styles.preferenceCard}
               onPress={() => router.push('/settings/defaults' as any)}
@@ -523,6 +562,34 @@ const styles = StyleSheet.create({
   preferenceValue: {
     fontSize: 13,
     color: Material3Colors.light.onSurfaceVariant,
+  },
+  weekStartOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  weekStartOption: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Material3Colors.light.outlineVariant,
+  },
+  weekStartOptionSelected: {
+    backgroundColor: Material3Colors.light.primaryContainer,
+    borderColor: Material3Colors.light.primary,
+  },
+  weekStartOptionText: {
+    fontSize: 12,
+    color: Material3Colors.light.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  weekStartOptionTextSelected: {
+    color: Material3Colors.light.primary,
+    fontWeight: '600',
   },
   sortToggle: {
     paddingHorizontal: 12,

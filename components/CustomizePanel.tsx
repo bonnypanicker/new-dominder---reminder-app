@@ -5,6 +5,7 @@ import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { Material3Colors } from '@/constants/colors';
+import { useSettings, WeekStartDay } from '@/hooks/settings-store';
 
 const CalendarIcon = (props: any) => <Feather name="calendar" {...props} />;
 const ChevronRight = (props: any) => <Feather name="chevron-right" {...props} />;
@@ -93,6 +94,17 @@ export default function CustomizePanel({
   const dateAnchorRef = useRef<View>(null);
   const unitAnchorRef = useRef<View>(null);
   const untilAnchorRef = useRef<View>(null);
+  const { data: settings } = useSettings();
+  const weekStartDay: WeekStartDay = (settings?.weekStartDay ?? 0) as WeekStartDay;
+
+  const rotateArray = <T,>(arr: T[], start: number): T[] => {
+    const s = ((start % arr.length) + arr.length) % arr.length;
+    return [...arr.slice(s), ...arr.slice(0, s)];
+  };
+
+  const rotatedDaysOfWeek = useMemo(() => {
+    return rotateArray(DAYS_OF_WEEK, weekStartDay);
+  }, [weekStartDay]);
 
   // Local state for inline dropdowns
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -424,7 +436,7 @@ export default function CustomizePanel({
                 { marginHorizontal: 0, paddingHorizontal: 0 },
                 isLandscape && { justifyContent: 'center' }
               ]}>
-                {DAYS_OF_WEEK.map((day) => (
+                {rotatedDaysOfWeek.map((day) => (
                   <TouchableOpacity
                     key={day.value}
                     style={[
@@ -511,6 +523,7 @@ export default function CustomizePanel({
           visible={calendarOpen}
           onClose={() => setCalendarOpen(false)}
           selectedDate={selectedDate}
+          weekStartDay={weekStartDay}
           onSelectDate={(date) => {
             onDateChange(date);
             // Don't close modal - let user press "Set Time" or "Cancel"
@@ -537,6 +550,7 @@ export default function CustomizePanel({
           visible={yearlyCalendarOpen}
           onClose={() => setYearlyCalendarOpen(false)}
           selectedDate={selectedDate}
+          weekStartDay={weekStartDay}
           onSelectDate={(date) => {
             onDateChange(date);
             // Don't close modal - let user press "Set Time" or "Cancel"
@@ -593,6 +607,7 @@ export default function CustomizePanel({
           visible={untilCalendarOpen}
           onClose={() => setUntilCalendarOpen(false)}
           selectedDate={untilDate ?? selectedDate}
+          weekStartDay={weekStartDay}
           onSelectDate={(date) => {
             onUntilDateChange?.(date);
             // Don't close modal - let user press "Set Time" or "Cancel"
@@ -682,6 +697,7 @@ interface CalendarModalProps {
   visible: boolean;
   onClose: () => void;
   selectedDate: string;
+  weekStartDay?: WeekStartDay;
   onSelectDate: (date: string) => void;
   hideYear?: boolean;
   disablePast?: boolean;
@@ -701,6 +717,7 @@ function CalendarModal({
   visible,
   onClose,
   selectedDate,
+  weekStartDay = 0,
   onSelectDate,
   hideYear = false,
   disablePast = true,
@@ -742,12 +759,18 @@ function CalendarModal({
   const currentMonth = today.getMonth();
   const currentDate = today.getDate();
 
+  const weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const weekdayOrder = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => (weekStartDay + i) % 7);
+  }, [weekStartDay]);
+
   const daysMatrix = useMemo(() => {
     const firstDay = new Date(year, month, 1);
     const startWeekday = firstDay.getDay();
+    const offset = (startWeekday - weekStartDay + 7) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const weeks: Array<Array<number | null>> = [];
-    let current = 1 - startWeekday;
+    let current = 1 - offset;
     for (let w = 0; w < 6; w++) {
       const row: Array<number | null> = [];
       for (let i = 0; i < 7; i++) {
@@ -761,10 +784,10 @@ function CalendarModal({
       weeks.push(row);
     }
     return weeks;
-  }, [month, year]);
+  }, [month, year, weekStartDay]);
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const weekdays = weekdayOrder.map((day) => weekdayLetters[day]);
 
   // Check if a date is in the past
   const isDateDisabled = (dayVal: number | null): boolean => {
@@ -897,7 +920,8 @@ function CalendarModal({
 
           <View style={calendarStyles.weekdaysRow}>
             {weekdays.map((w, index) => {
-              const isActive = multiSelectDays?.includes(index);
+              const dayValue = weekdayOrder[index];
+              const isActive = multiSelectDays?.includes(dayValue);
               const hasDatesSelected = multiSelectDates && multiSelectDates.length > 0;
               const isDisabled = !multiSelectEnabled || isEndMode || hasDatesSelected;
 
@@ -912,14 +936,14 @@ function CalendarModal({
                   ]}
                   onPress={() => {
                     if (multiSelectDays && onMultiSelectDaysChange) {
-                      if (multiSelectDays.includes(index)) {
-                        onMultiSelectDaysChange(multiSelectDays.filter(d => d !== index));
+                      if (multiSelectDays.includes(dayValue)) {
+                        onMultiSelectDaysChange(multiSelectDays.filter(d => d !== dayValue));
                       } else {
                         // Clear dates when selecting days (mutual exclusivity)
                         if (onMultiSelectDatesChange) {
                           onMultiSelectDatesChange([]);
                         }
-                        onMultiSelectDaysChange([...multiSelectDays, index]);
+                        onMultiSelectDaysChange([...multiSelectDays, dayValue]);
                       }
                     }
                   }}
