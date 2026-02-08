@@ -1,7 +1,7 @@
 {
   "name": "expo-app",
   "main": "index.js",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "scripts": {
     "start": "npx rork start -p ijvqabpwsfu6udyj06711 --tunnel",
     "start-web": "npx rork start -p ijvqabpwsfu6udyj06711 --web --tunnel",

@@ -2,7 +2,7 @@
   "expo": {
     "name": "DoMinder",
     "slug": "dominder-android-reminder-app",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -21,7 +21,7 @@
       "usesIcloudStorage": true
     },
     "android": {
-      "versionCode": 60,
+      "versionCode": 61,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
