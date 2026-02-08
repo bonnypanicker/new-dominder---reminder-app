@@ -2755,21 +2755,23 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
   const [activeSection, setActiveSection] = useState<'hour' | 'minute'>('hour');
   useEffect(() => {
     if (!visible) return;
-    // Reset to dial mode when opening the time picker
     setShowManualEntry(false);
     setManualTimeInput('');
     try {
       const [h, m] = selectedTime.split(':').map(Number);
       const hour12 = (h % 12 === 0 ? 12 : h % 12);
+      const minuteValue = Number.isFinite(m) ? m : 0;
       setCurrentHour(hour12);
-      setCurrentMinute(Number.isFinite(m) ? m : 0);
+      setCurrentMinute(minuteValue);
       setCurrentAMPM(isAM);
 
-      // Set initial rotation based on selected time
       const hourStep = 360 / 12;
-      const initialRotation = ((hour12 === 12 ? 0 : hour12) * hourStep) % 360;
-      setRotation(initialRotation);
-      rotationRef.current = initialRotation;
+      const minuteStep = 360 / 60;
+      const targetRotation = activeSection === 'hour'
+        ? (((hour12 === 12 ? 0 : hour12) * hourStep) % 360)
+        : ((minuteValue * minuteStep) % 360);
+      setRotation(targetRotation);
+      rotationRef.current = targetRotation;
     } catch (e) {
       console.log('sync selectedTime to dial failed', e);
     }
@@ -2777,7 +2779,8 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
 
   // Separate effect to handle rotation ONLY when actively switching sections
   useEffect(() => {
-    if (!visible || isDragging.current) return; // Don't update if dragging
+    if (!visible || isDragging.current) return;
+    if (decayAnimation.current || snapAnimation.current) return;
 
     const hourStep = 360 / 12;
     const minuteStep = 360 / 60;
@@ -2785,12 +2788,11 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
       ? (((currentHour === 12 ? 0 : currentHour) * hourStep) % 360)
       : ((currentMinute * minuteStep) % 360);
 
-    // Only update if rotation actually changed
     if (Math.abs(rotationRef.current - targetRotation) > 0.1) {
       setRotation(targetRotation);
       rotationRef.current = targetRotation;
     }
-  }, [visible, activeSection]); // Remove currentHour and currentMinute to prevent jitter
+  }, [visible, activeSection, currentHour, currentMinute]);
 
   // Opacity control to prevent flashing
   useEffect(() => {
@@ -3351,6 +3353,13 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                           }
                           setShowManualEntry(false);
                           setManualTimeInput('');
+                          const hourStep = 360 / 12;
+                          const minuteStep = 360 / 60;
+                          const targetRotation = activeSection === 'hour'
+                            ? (((hour12 === 12 ? 0 : hour12) * hourStep) % 360)
+                            : ((inputMinute * minuteStep) % 360);
+                          rotationRef.current = targetRotation;
+                          setRotation(targetRotation);
                         } else if (manualTimeInput.trim() !== '') {
                           Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
                         }
@@ -3387,6 +3396,13 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                             setCurrentMinute(inputMinute);
                             setShowManualEntry(false);
                             setManualTimeInput('');
+                            const hourStep = 360 / 12;
+                            const minuteStep = 360 / 60;
+                            const targetRotation = activeSection === 'hour'
+                              ? (((hour12 === 12 ? 0 : hour12) * hourStep) % 360)
+                              : ((inputMinute * minuteStep) % 360);
+                            rotationRef.current = targetRotation;
+                            setRotation(targetRotation);
                           } else if (manualTimeInput.trim() !== '') {
                             Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
                           }
@@ -3535,6 +3551,13 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                         }
                         setShowManualEntry(false);
                         setManualTimeInput('');
+                        const hourStep = 360 / 12;
+                        const minuteStep = 360 / 60;
+                        const targetRotation = activeSection === 'hour'
+                          ? (((hour12 === 12 ? 0 : hour12) * hourStep) % 360)
+                          : ((inputMinute * minuteStep) % 360);
+                        rotationRef.current = targetRotation;
+                        setRotation(targetRotation);
                       } else if (manualTimeInput.trim() !== '') {
                         Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
                       }
@@ -3574,6 +3597,13 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                           }
                           setShowManualEntry(false);
                           setManualTimeInput('');
+                          const hourStep = 360 / 12;
+                          const minuteStep = 360 / 60;
+                          const targetRotation = activeSection === 'hour'
+                            ? (((hour12 === 12 ? 0 : hour12) * hourStep) % 360)
+                            : ((inputMinute * minuteStep) % 360);
+                          rotationRef.current = targetRotation;
+                          setRotation(targetRotation);
                         } else if (manualTimeInput.trim() !== '') {
                           Alert.alert('Invalid Time', 'Please enter time in HH:MM format (24-hour)');
                         }
