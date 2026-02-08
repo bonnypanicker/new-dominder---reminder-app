@@ -2850,6 +2850,16 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
     }
   }, [use24HourFormat]);
 
+  const getHourFromRotation = useCallback((rotationValue: number) => {
+    const hourStep = 360 / 12;
+    const normalized = (rotationValue % 360 + 360) % 360;
+    let hourIndex = Math.round(normalized / hourStep) % 12;
+    if (use24HourFormat && hourIndex === 0 && normalized >= 360 - hourStep / 2) {
+      hourIndex = 11;
+    }
+    return hourIndex === 0 ? 12 : hourIndex;
+  }, [use24HourFormat]);
+
   useEffect(() => {
     return () => {
       if (decayAnimation.current) {
@@ -2972,9 +2982,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
           framePending.current = false;
           const currentRotation = rotationRef.current % 360;
           if (activeSection === 'hour') {
-            const hourStep = 360 / 12;
-            const hourIndex = Math.round(currentRotation / hourStep) % 12;
-            const newHour = hourIndex === 0 ? 12 : hourIndex;
+            const newHour = getHourFromRotation(currentRotation);
             if (newHour !== currentHour) {
               setCurrentHour(newHour);
             }
@@ -3005,8 +3013,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
             maybeToggleAmPmForRotation(prevRotation, rotationRef.current);
           }
           setRotation(snappedRotation);
-          const hourIndex = Math.round(snappedRotation / hourStep) % 12;
-          const newHour = hourIndex === 0 ? 12 : hourIndex;
+          const newHour = getHourFromRotation(snappedRotation);
           setCurrentHour(newHour);
 
           // Auto-switch to minutes after a short delay
@@ -3057,8 +3064,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                 const snappedRotation = Math.round(r / hourStep) * hourStep;
                 rotationRef.current = snappedRotation;
                 setRotation(snappedRotation);
-                const hourIndex = Math.round(snappedRotation / hourStep) % 12;
-                const newHour = hourIndex === 0 ? 12 : hourIndex;
+                const newHour = getHourFromRotation(snappedRotation);
                 setCurrentHour(newHour);
               } else {
                 const minuteStep = 360 / 60;
@@ -3083,9 +3089,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
             frameCount++;
             if (frameCount % 6 === 0) {
               if (activeSection === 'hour') {
-                const hourStep = 360 / 12;
-                const hourIndex = Math.round(r / hourStep) % 12;
-                const newHour = hourIndex === 0 ? 12 : hourIndex;
+                const newHour = getHourFromRotation(r);
                 if (newHour !== currentHour) setCurrentHour(newHour);
               } else {
                 const minuteStep = 360 / 60;
