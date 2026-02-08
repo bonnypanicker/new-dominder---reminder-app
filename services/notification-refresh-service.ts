@@ -80,6 +80,11 @@ export async function refreshDisplayedNotifications() {
         if (!notification || !notification.id || !notification.data?.reminderId) continue;
 
         const reminderId = notification.data.reminderId as string;
+        const isMissedNotification = notification.data?.type === 'missed' || notification.id.startsWith('missed-');
+        if (isMissedNotification) {
+          console.log(`[NotificationRefresh] Suppressed refresh for missed notification ${notification.id} (${reminderId})`);
+          continue;
+        }
         
         // Only update reminder notifications (those with timestamp in android config)
         const timestamp = notification.android?.timestamp;
