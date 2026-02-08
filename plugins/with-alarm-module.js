@@ -2664,6 +2664,7 @@ import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.BaseActivityEventListener
