@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated, LayoutChangeEvent, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated, LayoutChangeEvent, FlatList, NativeModules } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
 import { useSettings } from '@/hooks/settings-store';
@@ -34,6 +35,7 @@ const CheckSquare = (props: any) => <Feather name="check-square" {...props} />;
 const Repeat = (props: any) => <Feather name="repeat" {...props} />;
 const HelpCircle = (props: any) => <Feather name="help-circle" {...props} />;
 const Keyboard = (props: any) => <MaterialIcons name="keyboard" {...props} />;
+const Speaker = (props: any) => <Feather name="volume-2" {...props} />;
 
 // Debounce helper to batch rapid updates and prevent flickering
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -95,6 +97,7 @@ export default function HomeScreen() {
   const permanentlyDeleteReminder = usePermanentlyDeleteReminder();
   const restoreReminder = useRestoreReminder();
   const [showCreatePopup, setShowCreatePopup] = useState<boolean>(false);
+  const [draftReminderId, setDraftReminderId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'deleted'>('active');
 
@@ -541,6 +544,7 @@ export default function HomeScreen() {
 
   const openEdit = useCallback((reminder: Reminder) => {
     setEditingReminder(reminder);
+    setDraftReminderId(reminder.id);
     setTitle(reminder.title);
     setPriority(reminder.priority);
     setRepeatType(reminder.repeatType);
@@ -1756,7 +1760,10 @@ export default function HomeScreen() {
 
           <CreateReminderPopup
             visible={showCreatePopup}
-            onClose={() => setShowCreatePopup(false)}
+            onClose={() => {
+              setShowCreatePopup(false);
+              setDraftReminderId(null);
+            }}
             title={title}
             onTitleChange={setTitle}
             selectedTime={selectedTime}
@@ -1770,6 +1777,7 @@ export default function HomeScreen() {
             onRepeatTypeChange={setRepeatType}
             repeatDays={repeatDays}
             onRepeatDaysChange={setRepeatDays}
+            reminderId={editingReminder?.id ?? draftReminderId}
             everyValue={everyValue}
             everyUnit={everyUnit}
             onEveryChange={(value, unit) => {
@@ -2009,8 +2017,9 @@ export default function HomeScreen() {
                 return;
               }
 
+              const reminderId = draftReminderId ?? Date.now().toString();
               const newReminder: Reminder = {
-                id: Date.now().toString(),
+                id: reminderId,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 title: title.trim(),
@@ -2061,6 +2070,7 @@ export default function HomeScreen() {
                 onSuccess: () => {
                   // Close popup immediately
                   setShowCreatePopup(false);
+                  setDraftReminderId(null);
 
                   // Scroll to top to show newly added reminder
                   setTimeout(() => {
@@ -2120,6 +2130,7 @@ export default function HomeScreen() {
             style={styles.createAlarmButton}
             onPress={() => {
               setEditingReminder(null);
+              setDraftReminderId(Date.now().toString());
               setTitle('');
               const defaultPriority = settings?.defaultPriority ?? 'standard';
               const mappedPriority: Priority = defaultPriority === 'standard' ? 'medium' : defaultPriority === 'silent' ? 'low' : 'high';
@@ -2142,6 +2153,7 @@ export default function HomeScreen() {
               setShowCreatePopup(true);
             }}
             testID="fab-create-reminder"
+            accessibilityLabel="fab-create-reminder"
           >
             <Plus size={32} color="white" />
           </TouchableOpacity>
@@ -2173,6 +2185,7 @@ interface CreateReminderPopupProps {
   onClose: () => void;
   title: string;
   onTitleChange: (title: string) => void;
+  reminderId?: string | null;
   selectedTime: string;
   isAM: boolean;
   untilTime: string;
@@ -2221,6 +2234,7 @@ function CreateReminderPopup({
   onClose,
   title,
   onTitleChange,
+  reminderId,
   selectedTime,
   isAM,
   untilTime,
@@ -2267,6 +2281,11 @@ function CreateReminderPopup({
   const [isReady, setIsReady] = useState(false);
   const titleInputRef = useRef<TextInput>(null);
   const shouldAutoFocusOnCreate = false;
+  const { AlarmModule } = NativeModules as any;
+  const enableRingerToneSelector = !!(((Constants as any)?.expoConfig?.extra ?? (Constants as any)?.manifest?.extra)?.enableRingerToneSelector);
+  const [selectedToneUri, setSelectedToneUri] = useState<string | null>(null);
+  const [defaultToneUri, setDefaultToneUri] = useState<string | null>(null);
+  const showSpeaker = enableRingerToneSelector && Platform.OS === 'android' && priority === 'high' && !!reminderId;
 
 
 
@@ -2347,6 +2366,31 @@ function CreateReminderPopup({
     }
   }, [visible, mode, shouldAutoFocusOnCreate]);
 
+  useEffect(() => {
+    if (!showSpeaker || !reminderId) {
+      setSelectedToneUri(null);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        if (AlarmModule?.getDefaultAlarmUri) {
+          const uri = await AlarmModule.getDefaultAlarmUri();
+          if (active) setDefaultToneUri(uri ?? null);
+        }
+        if (AlarmModule?.getRingerModeReminderTone) {
+          const stored = await AlarmModule.getRingerModeReminderTone(reminderId);
+          if (active) setSelectedToneUri(stored ?? null);
+        }
+      } catch (e) {
+        console.log('[CreateReminderPopup] Failed to load reminder tone', e);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [showSpeaker, reminderId, AlarmModule]);
+
   // Create scaled styles for small screens
   const scaledStyles = useMemo(() => ({
     popup: {
@@ -2393,7 +2437,30 @@ function CreateReminderPopup({
       ...createPopupStyles.customizeContent,
       marginBottom: 6 * scaleFactor,
     },
+    rightButtons: {
+      ...createPopupStyles.rightButtons,
+      gap: 8 * scaleFactor,
+    },
+    leftButtonSlot: {
+      ...createPopupStyles.leftButtonSlot,
+      width: 32 * scaleFactor,
+      height: 32 * scaleFactor,
+    },
+    ringerToneButton: {
+      ...createPopupStyles.ringerToneButton,
+      width: 24 * scaleFactor,
+      height: 24 * scaleFactor,
+      borderRadius: 12 * scaleFactor,
+    },
+    ringerToneDot: {
+      ...createPopupStyles.ringerToneDot,
+      width: 4 * scaleFactor,
+      height: 4 * scaleFactor,
+      borderRadius: 2 * scaleFactor,
+    },
   }), [scaleFactor]);
+
+  const isCustomTone = !!selectedToneUri && !!defaultToneUri && selectedToneUri !== defaultToneUri;
 
   if (!visible) return null;
 
@@ -2554,19 +2621,62 @@ function CreateReminderPopup({
             <View
               style={scaledStyles.buttonContainer}
             >
-              <TouchableOpacity style={scaledStyles.cancelButton} onPress={onClose} testID="cancel-create">
-                <Text style={scaledStyles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[scaledStyles.createButton, isLoading && createPopupStyles.createButtonDisabled]}
-                onPress={onConfirm}
-                disabled={isLoading}
-                testID="confirm-create"
-              >
-                <Text style={scaledStyles.createButtonText}>
-                  {isLoading ? (mode === 'edit' ? 'Rescheduling...' : 'Creating...') : (mode === 'edit' ? 'Reschedule' : 'Create')}
-                </Text>
-              </TouchableOpacity>
+              <View style={scaledStyles.leftButtonSlot}>
+                {showSpeaker && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        const openPicker = AlarmModule?.openRingtonePickerForReminder ?? AlarmModule?.openRingtonePicker;
+                        if (!openPicker) {
+                          console.log('[CreateReminderPopup] Ringtone picker not available');
+                          return;
+                        }
+                        const result = AlarmModule?.openRingtonePickerForReminder
+                          ? await AlarmModule.openRingtonePickerForReminder(selectedToneUri ?? null)
+                          : await AlarmModule.openRingtonePicker();
+                        const uri: string | null = result?.uri ?? null;
+                        const keyId = reminderId;
+                        if (uri && keyId && AlarmModule?.setRingerModeReminderTone) {
+                          await AlarmModule.setRingerModeReminderTone(keyId, uri);
+                        }
+                        setSelectedToneUri(uri);
+                      } catch (error: any) {
+                        if (error?.code !== 'CANCELLED') {
+                          console.error('[CreateReminderPopup] Error selecting ringtone:', error);
+                        }
+                      }
+                    }}
+                    accessibilityLabel="ringer-tone-selector"
+                    testID="ringer-tone-selector"
+                    style={scaledStyles.ringerToneButton}
+                  >
+                    <Speaker size={14 * scaleFactor} color={Material3Colors.light.onSurfaceVariant} />
+                    {isCustomTone && (
+                      <View
+                        style={[scaledStyles.ringerToneDot, { right: 6, top: 2, backgroundColor: Material3Colors.light.primary }]}
+                        accessibilityLabel="ringer-tone-selector-dot"
+                        testID="ringer-tone-selector-dot"
+                        accessible
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={scaledStyles.rightButtons}>
+                <TouchableOpacity style={scaledStyles.cancelButton} onPress={onClose} testID="cancel-create">
+                  <Text style={scaledStyles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[scaledStyles.createButton, isLoading && createPopupStyles.createButtonDisabled]}
+                  onPress={onConfirm}
+                  disabled={isLoading}
+                  testID="confirm-create"
+                >
+                  <Text style={scaledStyles.createButtonText}>
+                    {isLoading ? (mode === 'edit' ? 'Rescheduling...' : 'Creating...') : (mode === 'edit' ? 'Reschedule' : 'Create')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </Pressable>
         </Pressable>
@@ -2669,16 +2779,36 @@ const createPopupStyles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 8,
     paddingTop: 8,
     zIndex: 5,
   },
+  leftButtonSlot: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   rightButtons: {
     flexDirection: 'row',
     gap: 8,
+  },
+  ringerToneButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Material3Colors.light.surfaceVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringerToneDot: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   cancelButton: {
     paddingHorizontal: 16,

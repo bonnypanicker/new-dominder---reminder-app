@@ -19,6 +19,8 @@ export default function SettingsScreen() {
   const [currentRingtone, setCurrentRingtone] = useState<string>('Default Alarm');
   const [expandedSection, setExpandedSection] = useState<string | null>('general');
   const appVersion = (Constants as any)?.expoConfig?.version ?? (Constants as any)?.manifest?.version;
+  const localization = (Constants as any)?.expoConfig?.extra?.localization ?? (Constants as any)?.manifest?.extra?.localization;
+  const alarmToneLabel = localization?.alarmToneLabel ?? 'Default Alarm Tone';
 
   // Load current ringtone on mount
   useEffect(() => {
@@ -222,7 +224,7 @@ export default function SettingsScreen() {
                   <Feather name="music" size={20} color={Material3Colors.light.primary} />
                 </View>
                 <View style={styles.ringtoneContent}>
-                  <Text style={styles.ringtoneTitle}>Alarm Tone</Text>
+                  <Text style={styles.ringtoneTitle}>{alarmToneLabel}</Text>
                   <Text style={styles.ringtoneValue}>{currentRingtone}</Text>
                 </View>
                 <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />

@@ -39,6 +39,8 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
         {priorities.map((item) => (
           <TouchableOpacity
             key={item.value}
+            testID={`priority-option-${item.value}`}
+            accessibilityLabel={`priority-option-${item.value}`}
             style={[
               styles.option,
               priority === item.value

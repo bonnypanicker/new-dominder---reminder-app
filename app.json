@@ -56,6 +56,18 @@
       "./plugins/with-permissions-cleanup.js",
       "./plugins/with-ringtone-picker-style.js",
       [
+        "./plugins/with-ringer-tone-selector-ui.js",
+        {
+          "enableRingerToneSelector": true
+        }
+      ],
+      [
+        "./plugins/with-settings-localization.js",
+        {
+          "alarmToneLabel": "Default Alarm Tone"
+        }
+      ],
+      [
         "expo-router",
         {
           "origin": "https://rork.com/"
