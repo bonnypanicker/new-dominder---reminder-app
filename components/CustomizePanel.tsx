@@ -2387,6 +2387,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
   const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // State for opacity control to prevent flashing
   const [isPositioned, setIsPositioned] = React.useState(false);
@@ -2570,6 +2571,8 @@ function InlineUnitDropdown({ visible, anchor, unit, units, getUnitLabel, onChan
   const dropdownWidth = 140;
   const itemHeight = 44;
   const dropdownHeight = units.length * itemHeight + 16;
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Add positioning state for opacity control
   const [isPositioned, setIsPositioned] = React.useState(false);
@@ -2739,6 +2742,8 @@ function UntilDropdownModal({ visible, anchor, untilType, options, getLabel, onC
   const dropdownWidth = 180;
   const itemHeight = 44;
   const dropdownHeight = options.length * itemHeight + 12;
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isPositioned, setIsPositioned] = React.useState(false);
   const [containerOffset, setContainerOffset] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);

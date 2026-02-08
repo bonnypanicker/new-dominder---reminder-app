@@ -33,9 +33,8 @@ function withCustomRingtonePickerTheme(config) {
           const customTheme = `
     <!-- Custom theme for RingtonePickerActivity with seamless status bar -->
     <style name="Theme.RingtonePicker" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Make status bar completely transparent and seamless -->
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
         
         <!-- Remove scroll bars globally for this activity -->
         <item name="android:scrollbars">none</item>
