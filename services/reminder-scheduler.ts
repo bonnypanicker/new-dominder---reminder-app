@@ -29,26 +29,16 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   };
   await updateReminder(updated);
 
-  // Schedule alarm at snooze time using ORIGINAL ID
-  if (AlarmModule?.scheduleAlarm) {
+  if (AlarmModule?.setSnoozeUntil) {
     try {
-      // Update snoozeUntil in native metadata
-      if (AlarmModule.setSnoozeUntil) {
-        await AlarmModule.setSnoozeUntil(reminderId, snoozeTime);
-      }
-      
-      // Schedule the alarm with original ID
-      await AlarmModule.scheduleAlarm(
-        reminderId, 
-        snoozeTime, 
-        reminder.title, 
-        reminder.priority
-      );
-      console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
+      await AlarmModule.setSnoozeUntil(reminderId, snoozeTime);
     } catch (e) {
-      console.error(`[Scheduler] Error scheduling snooze:`, e);
+      console.error(`[Scheduler] Error setting native snoozeUntil:`, e);
     }
   }
+
+  await notificationService.scheduleReminderByModel(updated);
+  console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
 
   DeviceEventEmitter.emit('remindersChanged');
 }
@@ -74,23 +64,16 @@ export async function rescheduleReminderByIdAt(reminderId: string, snoozeUntilMs
   };
   await updateReminder(updated);
 
-  if (AlarmModule?.scheduleAlarm) {
+  if (AlarmModule?.setSnoozeUntil) {
     try {
-      if (AlarmModule.setSnoozeUntil) {
-        await AlarmModule.setSnoozeUntil(reminderId, snoozeUntilMs);
-      }
-      
-      await AlarmModule.scheduleAlarm(
-        reminderId, 
-        snoozeUntilMs, 
-        reminder.title, 
-        reminder.priority
-      );
-      console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
+      await AlarmModule.setSnoozeUntil(reminderId, snoozeUntilMs);
     } catch (e) {
-      console.error(`[Scheduler] Error scheduling snooze:`, e);
+      console.error(`[Scheduler] Error setting native snoozeUntil:`, e);
     }
   }
+
+  await notificationService.scheduleReminderByModel(updated);
+  console.log(`[Scheduler] Scheduled snooze for ${reminderId} at ${snoozeEndDate.toISOString()}`);
 
   DeviceEventEmitter.emit('remindersChanged');
 }
