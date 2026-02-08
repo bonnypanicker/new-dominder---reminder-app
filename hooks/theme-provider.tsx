@@ -3,7 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings } from '@/hooks/settings-store';
 import * as SystemUI from 'expo-system-ui';
-import { Platform } from 'react-native';
+import { Platform, LayoutAnimation } from 'react-native';
 
 export type ThemeColors = typeof Material3Colors.light;
 
@@ -19,6 +19,12 @@ export const [ThemeProvider, useTheme] = createContextHook<ThemeContextValue>(()
   const value = useMemo<ThemeContextValue>(() => {
     const colors = isDark ? Material3Colors.dark : Material3Colors.light;
     return { colors, isDark };
+  }, [isDark]);
+
+  useEffect(() => {
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+    } catch {}
   }, [isDark]);
 
   useEffect(() => {

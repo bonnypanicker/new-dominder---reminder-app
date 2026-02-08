@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput,
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
-import { Material3Colors } from '@/constants/colors';
+import { useThemeColors } from '@/hooks/theme-provider';
 import { useSettings, WeekStartDay } from '@/hooks/settings-store';
 
 const CalendarIcon = (props: any) => <Feather name="calendar" {...props} />;
@@ -95,6 +95,8 @@ export default function CustomizePanel({
   const unitAnchorRef = useRef<View>(null);
   const untilAnchorRef = useRef<View>(null);
   const { data: settings } = useSettings();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const weekStartDay: WeekStartDay = (settings?.weekStartDay ?? 0) as WeekStartDay;
 
   const rotateArray = <T,>(arr: T[], start: number): T[] => {
@@ -411,9 +413,9 @@ export default function CustomizePanel({
                   onPress={() => { onOpenTime?.(); }}
                   testID="daily-time-button"
                 >
-                  <Feather name="clock" size={16} color="#111827" />
+                  <Feather name="clock" size={16} color={colors.onSurface} />
                   <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{displayTime}</Text>
-                  <Feather name="chevron-down" size={16} color="#111827" />
+                  <Feather name="chevron-down" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -472,11 +474,11 @@ export default function CustomizePanel({
                   style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
                   onPress={() => { setMonthlyCalendarOpen(true); }}
                 >
-                  <MaterialIcons name="calendar-today" size={16} color="#111827" />
+                  <MaterialIcons name="calendar-today" size={16} color={colors.onSurface} />
                   <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>
                     Day {monthlyDate} • {displayTime}
                   </Text>
-                  <Feather name="chevron-down" size={16} color="#111827" />
+                  <Feather name="chevron-down" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -493,9 +495,9 @@ export default function CustomizePanel({
                   style={[styles.menuButton, { paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }]}
                   onPress={() => { setYearlyCalendarOpen(true); }}
                 >
-                  <MaterialIcons name="calendar-today" size={16} color="#111827" />
+                  <MaterialIcons name="calendar-today" size={16} color={colors.onSurface} />
                   <Text style={[styles.menuButtonText, { fontSize: 14 * scaleFactor }]}>{`${formattedSelectedDateNoYear} • ${displayTime}`}</Text>
-                  <Feather name="chevron-down" size={16} color="#111827" />
+                  <Feather name="chevron-down" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -732,6 +734,8 @@ function CalendarModal({
   onSetTime
 }: CalendarModalProps) {
   const [isReady, setIsReady] = useState(false);
+  const colors = useThemeColors();
+  const calendarStyles = useMemo(() => createCalendarStyles(colors), [colors]);
   // Safely parse expected YYYY-MM-DD; fallback to today if malformed
   const now = new Date();
   const parts = (selectedDate || '').split('-');
@@ -865,7 +869,7 @@ function CalendarModal({
                 testID="prev-year"
                 disabled={!canGoPrevYear()}
               >
-                <Feather name="chevron-left" size={16} color={canGoPrevYear() ? "#111827" : "#D1D5DB"} />
+                <Feather name="chevron-left" size={16} color={canGoPrevYear() ? colors.onSurface : colors.outlineVariant} />
                 <Text style={[calendarStyles.navText, !canGoPrevYear() && calendarStyles.navTextDisabled]}>Year</Text>
               </TouchableOpacity>
             ) : (
@@ -886,7 +890,7 @@ function CalendarModal({
                 testID="prev-month"
                 disabled={!canGoPrevMonth()}
               >
-                <Feather name="chevron-left" size={20} color={canGoPrevMonth() ? "#111827" : "#D1D5DB"} />
+                <Feather name="chevron-left" size={20} color={canGoPrevMonth() ? colors.onSurface : colors.outlineVariant} />
               </TouchableOpacity>
               <Text style={calendarStyles.titleText}>{hideYear ? monthNames[month] : `${monthNames[month]} ${year}`}</Text>
               <TouchableOpacity
@@ -900,7 +904,7 @@ function CalendarModal({
                 }}
                 testID="next-month"
               >
-                <Feather name="chevron-right" size={20} color="#111827" />
+                <Feather name="chevron-right" size={20} color={colors.onSurface} />
               </TouchableOpacity>
             </View>
             {!hideYear ? (
@@ -910,7 +914,7 @@ function CalendarModal({
                 testID="next-year"
               >
                 <Text style={calendarStyles.navText}>Year</Text>
-                <Feather name="chevron-right" size={16} color="#111827" />
+                <Feather name="chevron-right" size={16} color={colors.onSurface} />
               </TouchableOpacity>
             ) : (
               <View style={{ width: 76 }} />
@@ -1067,7 +1071,7 @@ function CalendarModal({
                   onPress={() => onMultiSelectEnabledChange(!multiSelectEnabled)}
                 >
                   <View style={calendarStyles.checkboxChecked}>
-                    <Feather name="check" size={14} color="white" />
+                    <Feather name="check" size={14} color={colors.onPrimary} />
                   </View>
                   <Text style={calendarStyles.multiSelectLabel}>Multi-select</Text>
                 </TouchableOpacity>
@@ -1152,6 +1156,8 @@ function CalendarModal({
 
 const UnitDropdownButton = React.forwardRef<View, { unit: EveryUnit; onChange: (unit: EveryUnit) => void; onOpenDropdown: (coords: AnchorRect) => void }>(
   ({ unit, onChange, onOpenDropdown }, ref) => {
+    const colors = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const getUnitLabel = (u: EveryUnit) => {
       return u.charAt(0).toUpperCase() + u.slice(1);
     };
@@ -1174,7 +1180,7 @@ const UnitDropdownButton = React.forwardRef<View, { unit: EveryUnit; onChange: (
         testID="every-unit-button"
       >
         <Text style={styles.unitButtonText}>{getUnitLabel(unit)}</Text>
-        <Feather name="chevron-down" size={14} color="#111827" />
+        <Feather name="chevron-down" size={14} color={colors.onSurface} />
       </TouchableOpacity>
     );
   }
@@ -1183,6 +1189,8 @@ UnitDropdownButton.displayName = 'UnitDropdownButton';
 
 const UntilTypeButton = React.forwardRef<View, { untilType: UntilType; getLabel: (u: UntilType) => string; valueLabel?: string; onOpenDropdown: (coords: AnchorRect) => void }>(
   ({ untilType, getLabel, valueLabel, onOpenDropdown }, ref) => {
+    const colors = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const measureButton = () => {
       try {
         (ref as any)?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
@@ -1210,7 +1218,7 @@ const UntilTypeButton = React.forwardRef<View, { untilType: UntilType; getLabel:
         testID="until-type-button"
       >
         <Text style={styles.unitButtonText}>{displayText}</Text>
-        <Feather name="chevron-down" size={14} color="#111827" />
+        <Feather name="chevron-down" size={14} color={colors.onSurface} />
       </TouchableOpacity>
     );
   }
@@ -1332,7 +1340,7 @@ function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChang
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 0,
@@ -1342,7 +1350,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.onSurface,
     marginBottom: 0,
     height: 0,
   },
@@ -1360,7 +1368,7 @@ const styles = StyleSheet.create({
   },
   topRowLabel: {
     fontSize: 14,
-    color: '#374151',
+    color: colors.onSurface,
     fontWeight: '600',
   },
   menuWrapper: {
@@ -1377,12 +1385,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
   },
   menuButtonText: {
-    color: '#111827',
+    color: colors.onSurface,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1390,11 +1398,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 44,
     right: 0,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
+    borderColor: colors.outlineVariant,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -1409,7 +1417,7 @@ const styles = StyleSheet.create({
   },
   dropdownItemText: {
     fontSize: 14,
-    color: '#111827',
+    color: colors.onSurface,
   },
   repeatOptionsContainer: {
     flexDirection: 'row',
@@ -1424,24 +1432,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     alignItems: 'center',
     justifyContent: 'center',
   },
   repeatOptionSelected: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   repeatOptionText: {
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
   },
   repeatOptionTextSelected: {
-    color: 'white',
+    color: colors.onPrimary,
   },
   daysContainer: {
     marginTop: 6,
@@ -1458,7 +1466,7 @@ const styles = StyleSheet.create({
   dailySectionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.onSurface,
   },
   daysRow: {
     flexDirection: 'row',
@@ -1477,20 +1485,20 @@ const styles = StyleSheet.create({
   },
   everyText: {
     fontSize: 14,
-    color: '#374151',
+    color: colors.onSurface,
     fontWeight: '600',
   },
   everyInput: {
     width: 40,
     height: 32,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     borderRadius: 8,
     textAlign: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingVertical: 4,
     paddingHorizontal: 6,
-    color: '#000000',
+    color: colors.onSurface,
     fontWeight: 'bold',
   },
   unitButton: {
@@ -1500,12 +1508,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
   },
   unitButtonText: {
-    color: '#111827',
+    color: colors.onSurface,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1516,12 +1524,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
     borderWidth: 1,
-    borderColor: '#1E3A8A',
+    borderColor: colors.primary,
   },
   unitButtonTextSelected: {
-    color: 'white',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1529,11 +1537,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 38,
     right: 0,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
+    borderColor: colors.outlineVariant,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -1553,10 +1561,10 @@ const styles = StyleSheet.create({
   },
   unitDropdownModalAbsolute: {
     position: 'absolute',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     overflow: 'hidden',
     paddingVertical: 4,
     zIndex: 999999,
@@ -1569,51 +1577,51 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   unitDropdownItemSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   unitDropdownItemText: {
     fontSize: 14,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
   },
   unitDropdownItemTextSelected: {
-    color: '#111827',
+    color: colors.onSurface,
     fontWeight: '600',
   },
   dayButtonCompact: {
     flex: 1,
     aspectRatio: 1,
     borderRadius: 999,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 0, // Allow shrinking
   },
   dayButtonCompactSelected: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   dayButtonCompactText: {
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     fontSize: 14,
     fontWeight: '700',
   },
   dayButtonCompactTextSelected: {
-    color: 'white',
+    color: colors.onPrimary,
   },
   timeButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     alignItems: 'center',
   },
   timeButtonText: {
-    color: '#111827',
+    color: colors.onSurface,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1628,12 +1636,12 @@ const styles = StyleSheet.create({
   },
   inlineDropdownContent: {
     position: 'absolute',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingVertical: 2,
     paddingHorizontal: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     overflow: 'visible',
   },
   inlineDropdownItem: {
@@ -1653,21 +1661,21 @@ const styles = StyleSheet.create({
   },
   inlineDropdownItemText: {
     fontSize: 14,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
   },
   inlineDropdownDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.outlineVariant,
     marginHorizontal: 8,
     marginVertical: 2,
   },
   inlineUnitDropdownContent: {
     position: 'absolute',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     overflow: 'hidden',
     paddingVertical: 2,
   },
@@ -1679,15 +1687,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   inlineUnitDropdownItemSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   inlineUnitDropdownItemText: {
     fontSize: 14,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
   },
   inlineUnitDropdownItemTextSelected: {
-    color: '#111827',
+    color: colors.onSurface,
     fontWeight: '600',
   },
 });
@@ -1705,6 +1713,8 @@ function MonthlyDateModal({ visible, onClose, selectedDate, onSelectDate, onSetT
   const [pendingDate, setPendingDate] = useState<number | null>(null);
   const [touchedDate, setTouchedDate] = useState<number | null>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const colors = useThemeColors();
+  const monthlyStyles = useMemo(() => createMonthlyStyles(colors), [colors]);
 
   const daysGrid = useMemo(() => {
     const days: number[] = [];
@@ -1847,6 +1857,8 @@ interface MonthlyOptionsPopupProps {
 
 function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }: MonthlyOptionsPopupProps) {
   const [isReady, setIsReady] = useState<boolean>(false);
+  const colors = useThemeColors();
+  const monthlyPopupStyles = useMemo(() => createMonthlyPopupStyles(colors), [colors]);
 
   useEffect(() => {
     if (!visible) {
@@ -1889,7 +1901,7 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
           onPress={(e) => e.stopPropagation()}
         >
           <View style={monthlyPopupStyles.header}>
-            <Feather name="alert-triangle" size={24} color="#F59E0B" />
+            <Feather name="alert-triangle" size={24} color={colors.warning} />
             <Text style={monthlyPopupStyles.title}>Monthly Reminder Options</Text>
           </View>
 
@@ -1932,7 +1944,7 @@ function MonthlyOptionsPopup({ visible, selectedDate, onClose, onSelectOption }:
   );
 }
 
-const monthlyPopupStyles = StyleSheet.create({
+const createMonthlyPopupStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -1941,12 +1953,12 @@ const monthlyPopupStyles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     width: '100%',
     maxWidth: 400,
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
@@ -1961,12 +1973,12 @@ const monthlyPopupStyles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.onSurface,
     flex: 1,
   },
   description: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     lineHeight: 20,
     marginBottom: 20,
   },
@@ -1978,18 +1990,18 @@ const monthlyPopupStyles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surfaceVariant,
   },
   optionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.onSurface,
     marginBottom: 4,
   },
   optionDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     lineHeight: 18,
   },
   footer: {
@@ -2000,13 +2012,13 @@ const monthlyPopupStyles = StyleSheet.create({
     paddingVertical: 8,
   },
   cancelButtonText: {
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     fontSize: 14,
     fontWeight: '500',
   },
 });
 
-const monthlyStyles = StyleSheet.create({
+const createMonthlyStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -2015,12 +2027,12 @@ const monthlyStyles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     width: '100%',
     maxWidth: 360,
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -2030,7 +2042,7 @@ const monthlyStyles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.onSurface,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -2048,30 +2060,30 @@ const monthlyStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayCellSelected: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
   },
   dayCellToday: {
     borderWidth: 1,
-    borderColor: '#6366F1',
+    borderColor: colors.tertiary,
   },
   dayCellTouched: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
     transform: [{ scale: 0.95 }],
   },
   dayText: {
-    color: '#111827',
+    color: colors.onSurface,
     fontSize: 14,
     fontWeight: '600',
   },
   dayTextSelected: {
-    color: 'white',
+    color: colors.onPrimary,
   },
   dayTextToday: {
-    color: '#4F46E5',
+    color: colors.tertiary,
     fontWeight: '700',
   },
   dayTextTouched: {
-    color: 'white',
+    color: colors.onPrimary,
   },
   footer: {
     marginTop: 16,
@@ -2088,80 +2100,18 @@ const monthlyStyles = StyleSheet.create({
     paddingVertical: 8,
   },
   footerBtnText: {
-    color: '#1E3A8A',
+    color: colors.onSurfaceVariant,
     fontSize: 14,
     fontWeight: '600',
   },
   footerBtnTextPrimary: {
-    color: '#6366F1',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
 });
 
-const actionSheetStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 24,
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 24,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 8,
-  },
-  sheetTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  itemRowFirst: {
-    marginTop: 4,
-  },
-  itemText: {
-    fontSize: 16,
-    color: '#111827',
-    fontWeight: '500',
-  },
-  itemTextSelected: {
-    color: '#1E3A8A',
-    fontWeight: '700',
-  },
-  checkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#1E3A8A',
-  },
-});
-
-const calendarStyles = StyleSheet.create({
+const createCalendarStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -2170,12 +2120,12 @@ const calendarStyles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     width: '100%',
     maxWidth: 360,
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -2185,7 +2135,7 @@ const calendarStyles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.onSurface,
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -2205,7 +2155,7 @@ const calendarStyles = StyleSheet.create({
   titleText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.onSurface,
     textAlign: 'center',
     flexShrink: 1,
   },
@@ -2216,21 +2166,21 @@ const calendarStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     flexShrink: 0,
   },
   navText: {
     fontSize: 12,
-    color: '#111827',
+    color: colors.onSurface,
     fontWeight: '500',
   },
   navButtonDisabled: {
     opacity: 0.5,
   },
   navTextDisabled: {
-    color: '#D1D5DB',
+    color: colors.outlineVariant,
   },
   weekdaysRow: {
     flexDirection: 'row',
@@ -2244,26 +2194,26 @@ const calendarStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   weekdayCellSelectable: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: 6,
   },
   weekdayCellActive: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 6,
   },
   weekday: {
     width: 36,
     textAlign: 'center',
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     fontSize: 12,
     fontWeight: '600',
   },
   weekdayActive: {
-    color: 'white',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   weekdayDisabled: {
-    color: '#D1D5DB',
+    color: colors.outlineVariant,
     opacity: 0.5,
   },
   weekRow: {
@@ -2279,39 +2229,39 @@ const calendarStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayCellSelected: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
   },
   dayCellReadOnly: {
-    backgroundColor: '#E0E7FF',
+    backgroundColor: colors.surfaceContainerHigh,
   },
   dayCellAutoSelected: {
     borderWidth: 2,
-    borderColor: '#1E40AF',
+    borderColor: colors.primary,
   },
   dayCellToday: {
     borderWidth: 1,
-    borderColor: '#6366F1',
+    borderColor: colors.tertiary,
   },
   dayCellDisabled: {
     opacity: 0.3,
   },
   dayText: {
-    color: '#111827',
+    color: colors.onSurface,
     fontSize: 14,
     fontWeight: '600',
   },
   dayTextSelected: {
-    color: 'white',
+    color: colors.onPrimary,
   },
   dayTextReadOnly: {
-    color: '#1E3A8A',
+    color: colors.primary,
   },
   dayTextToday: {
-    color: '#4F46E5',
+    color: colors.tertiary,
     fontWeight: '700',
   },
   dayTextDisabled: {
-    color: '#D1D5DB',
+    color: colors.outlineVariant,
   },
   footerMultiSelect: {
     marginTop: 16,
@@ -2319,7 +2269,7 @@ const calendarStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.surfaceVariant,
     paddingTop: 12,
   },
   multiSelectCheckbox: {
@@ -2332,8 +2282,8 @@ const calendarStyles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#4F46E5',
-    backgroundColor: '#4F46E5',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2342,12 +2292,12 @@ const calendarStyles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
-    backgroundColor: 'white',
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surface,
   },
   multiSelectLabel: {
     fontSize: 14,
-    color: '#111827',
+    color: colors.onSurface,
     fontWeight: '500',
   },
   footerButtons: {
@@ -2363,12 +2313,12 @@ const calendarStyles = StyleSheet.create({
     paddingVertical: 8,
   },
   footerBtnText: {
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     fontSize: 14,
     fontWeight: '600',
   },
   footerBtnTextPrimary: {
-    color: '#4F46E5',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2385,6 +2335,8 @@ interface DropdownAnchorProps {
 }
 
 const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, open, onOpen, onToggle, onMeasure }, ref) => {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const measureNow = () => {
     try {
       (ref as any)?.current?.measureInWindow?.((x: number, y: number, width: number, height: number) => {
@@ -2409,9 +2361,9 @@ const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, ope
         if (open) measureNow();
       }}
     >
-      <MaterialIcons name="calendar-today" size={16} color="#111827" />
+      <MaterialIcons name="calendar-today" size={16} color={colors.onSurface} />
       <Text style={styles.menuButtonText}>{label}</Text>
-      <Feather name="chevron-down" size={16} color="#111827" />
+      <Feather name="chevron-down" size={16} color={colors.onSurface} />
     </TouchableOpacity>
   );
 });
@@ -2434,6 +2386,7 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
   // Calculate dropdown dimensions
   const dropdownWidth = 220;
   const dropdownHeight = hideTomorrow ? 120 : 180;
+  const colors = useThemeColors();
 
   // State for opacity control to prevent flashing
   const [isPositioned, setIsPositioned] = React.useState(false);
@@ -2561,10 +2514,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           onPress={onToday}
         >
           <View style={styles.inlineDropdownItemLeft}>
-            <Feather name="clock" size={16} color="#111827" />
+            <Feather name="clock" size={16} color={colors.onSurface} />
             <Text style={styles.inlineDropdownItemText}>Today</Text>
           </View>
-          <Feather name="chevron-right" size={16} color="#6B7280" />
+          <Feather name="chevron-right" size={16} color={colors.onSurfaceVariant} />
         </TouchableOpacity>
         {!hideTomorrow && (
           <>
@@ -2575,10 +2528,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
               onPress={onTomorrow}
             >
               <View style={styles.inlineDropdownItemLeft}>
-                <Feather name="clock" size={16} color="#111827" />
+                <Feather name="clock" size={16} color={colors.onSurface} />
                 <Text style={styles.inlineDropdownItemText}>Tomorrow</Text>
               </View>
-              <Feather name="chevron-right" size={16} color="#6B7280" />
+              <Feather name="chevron-right" size={16} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
           </>
         )}
@@ -2589,10 +2542,10 @@ function InlineDropdown({ visible, onClose, anchor, onToday, onTomorrow, onCusto
           onPress={onCustom}
         >
           <View style={styles.inlineDropdownItemLeft}>
-            <MaterialIcons name="calendar-today" size={16} color="#111827" />
+            <MaterialIcons name="calendar-today" size={16} color={colors.onSurface} />
             <Text style={styles.inlineDropdownItemText}>Custom date…</Text>
           </View>
-          <Feather name="chevron-right" size={16} color="#6B7280" />
+          <Feather name="chevron-right" size={16} color={colors.onSurfaceVariant} />
         </TouchableOpacity>
       </View>
     </>
@@ -2914,6 +2867,10 @@ interface UntilCountModalProps {
 
 function UntilCountModal({ visible, onClose, countValue, onSubmit }: UntilCountModalProps) {
   const [temp, setTemp] = useState<string>(String(countValue));
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const dropdownModalStyles = useMemo(() => createDropdownModalStyles(colors), [colors]);
+  const calendarStyles = useMemo(() => createCalendarStyles(colors), [colors]);
 
   useEffect(() => {
     if (visible) setTemp(String(countValue));
@@ -2924,10 +2881,10 @@ function UntilCountModal({ visible, onClose, countValue, onSubmit }: UntilCountM
       <View style={[dropdownModalStyles.overlayAbsolute, { justifyContent: 'center', alignItems: 'center' }]}>
         <TouchableOpacity activeOpacity={1} style={{
           width: 260,
-          backgroundColor: Material3Colors.light.surfaceContainerLow,
+          backgroundColor: colors.surfaceContainerLow,
           borderRadius: 16,
           padding: 12,
-          shadowColor: Material3Colors.light.shadow,
+          shadowColor: colors.shadow,
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.24,
           shadowRadius: 20,
@@ -2980,6 +2937,8 @@ interface DropdownModalProps {
 
 function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom, hideTomorrow = false }: DropdownModalProps) {
   const [layout, setLayout] = React.useState<{ width: number; height: number } | null>(null);
+  const colors = useThemeColors();
+  const dropdownModalStyles = useMemo(() => createDropdownModalStyles(colors), [colors]);
 
   // Early return after all hooks have been called
   if (!visible || !anchor) return null;
@@ -3047,10 +3006,10 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
             onPress={onToday}
           >
             <View style={dropdownModalStyles.itemLeft}>
-              <Feather name="clock" size={16} color={Material3Colors.light.primary} />
+              <Feather name="clock" size={16} color={colors.primary} />
               <Text style={dropdownModalStyles.itemText}>Today</Text>
             </View>
-            <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+            <Feather name="chevron-right" size={16} color={colors.onSurfaceVariant} />
           </TouchableOpacity>
           {!hideTomorrow && (
             <>
@@ -3061,10 +3020,10 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
                 onPress={onTomorrow}
               >
                 <View style={dropdownModalStyles.itemLeft}>
-                  <Feather name="clock" size={16} color={Material3Colors.light.primary} />
+                  <Feather name="clock" size={16} color={colors.primary} />
                   <Text style={dropdownModalStyles.itemText}>Tomorrow</Text>
                 </View>
-                <Feather name="chevron-right" size={16} color={Material3Colors.light.onSurfaceVariant} />
+                <Feather name="chevron-right" size={16} color={colors.onSurfaceVariant} />
               </TouchableOpacity>
             </>
           )}
@@ -3075,10 +3034,10 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
             onPress={onCustom}
           >
             <View style={dropdownModalStyles.itemLeft}>
-              <CalendarIcon size={16} color={Material3Colors.light.primary} />
+              <CalendarIcon size={16} color={colors.primary} />
               <Text style={dropdownModalStyles.itemText}>Custom date…</Text>
             </View>
-            <ChevronRight size={16} color={Material3Colors.light.onSurfaceVariant} />
+            <ChevronRight size={16} color={colors.onSurfaceVariant} />
           </TouchableOpacity>
         </View>
       </View>
@@ -3086,7 +3045,7 @@ function DropdownModal({ visible, onClose, anchor, onToday, onTomorrow, onCustom
   );
 }
 
-const dropdownModalStyles = StyleSheet.create({
+const createDropdownModalStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   overlayAbsolute: {
     position: 'absolute',
     top: 0,
@@ -3098,12 +3057,12 @@ const dropdownModalStyles = StyleSheet.create({
   },
   dropdownAbsolute: {
     position: 'absolute',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
     zIndex: 999999,
     // Ensure dropdown is never clipped
     overflow: 'visible',
@@ -3125,12 +3084,12 @@ const dropdownModalStyles = StyleSheet.create({
   },
   itemText: {
     fontSize: 14,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
   },
   divider: {
     height: 1,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     marginHorizontal: 8,
     marginVertical: 4,
   },

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Platform, Pressable } from 'react-native';
 import Animated, { 
   useSharedValue, 
@@ -7,8 +7,8 @@ import Animated, {
   withSpring,
   runOnJS 
 } from 'react-native-reanimated';
-import { Material3Colors } from '@/constants/colors';
 import { Portal } from '@/components/Portal';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 interface ToastProps {
   message: string;
@@ -22,6 +22,8 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(-100);
   const [isReady, setIsReady] = useState(false);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const hideToast = React.useCallback(() => {
     console.log('[Toast] hide');
@@ -62,17 +64,17 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
     }
   }, [visible, duration, hideToast, opacity, translateY]);
 
-  const backgroundColor = type === 'error' 
-    ? Material3Colors.light.errorContainer
+  const backgroundColor = type === 'error'
+    ? colors.errorContainer
     : type === 'success'
-    ? Material3Colors.light.primaryContainer
-    : Material3Colors.light.surfaceVariant;
+    ? colors.successContainer
+    : colors.surfaceVariant;
 
   const textColor = type === 'error'
-    ? Material3Colors.light.onErrorContainer
+    ? colors.onErrorContainer
     : type === 'success'
-    ? Material3Colors.light.onPrimaryContainer
-    : Material3Colors.light.onSurfaceVariant;
+    ? colors.onSuccessContainer
+    : colors.onSurfaceVariant;
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -108,7 +110,7 @@ export default function Toast({ message, visible, duration = 3000, onHide, type 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   portalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
@@ -132,7 +134,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     elevation: 999,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,

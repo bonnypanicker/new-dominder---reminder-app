@@ -10,8 +10,8 @@ import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, use
 import { useSettings } from '@/hooks/settings-store';
 import { calculateNextReminderDate } from '@/services/reminder-utils';
 import { CHANNEL_IDS } from '@/services/channels';
-import { PRIORITY_COLORS } from '@/constants/reminders';
-import { Material3Colors } from '@/constants/colors';
+import { getPriorityColor } from '@/constants/reminders';
+import { useThemeColors } from '@/hooks/theme-provider';
 import { Reminder, Priority, RepeatType, EveryUnit } from '@/types/reminder';
 import PrioritySelector from '@/components/PrioritySelector';
 import CustomizePanel, { CalendarModal } from '@/components/CustomizePanel';
@@ -89,12 +89,14 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { data: reminders = [], isLoading } = useReminders();
   const { data: settings } = useSettings();
+  const colors = useThemeColors();
   const use24HourFormat = settings?.use24HourFormat ?? false;
   const weekStartDay = settings?.weekStartDay ?? 0;
   const weekdayOrder = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => (weekStartDay + i) % 7);
   }, [weekStartDay]);
   const weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const updateReminder = useUpdateReminder();
   const deleteReminder = useDeleteReminder();
   const bulkDeleteReminders = useBulkDeleteReminders();
@@ -873,13 +875,13 @@ export default function HomeScreen() {
                     onPress={() => handleCardPress(reminder)}
                   >
                     {isSelected ? (
-                      <CheckSquare size={20} color={Material3Colors.light.primary} />
+                      <CheckSquare size={20} color={colors.primary} />
                     ) : (
-                      <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                      <Square size={20} color={colors.onSurfaceVariant} />
                     )}
                   </TouchableOpacity>
                 )}
-                <View style={[styles.priorityBarCompact, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+                <View style={[styles.priorityBarCompact, { backgroundColor: getPriorityColor(colors, reminder.priority) }]} />
                 <Text style={styles.reminderTitleCompact} numberOfLines={1} ellipsizeMode="tail">
                   {reminder.title}
                 </Text>
@@ -941,7 +943,7 @@ export default function HomeScreen() {
                 {reminder.repeatType === 'every' && reminder.everyInterval && (
                   <>
                     <Text style={styles.compactSeparator}>•</Text>
-                    <Text style={{ fontSize: 11, color: Material3Colors.light.onSurfaceVariant, fontWeight: '600' }}>
+                    <Text style={{ fontSize: 11, color: colors.onSurfaceVariant, fontWeight: '600' }}>
                       {reminder.everyInterval.value}
                       {reminder.everyInterval.unit === 'minutes' ? 'm' : reminder.everyInterval.unit === 'hours' ? 'h' : 'd'}
                     </Text>
@@ -1003,20 +1005,20 @@ export default function HomeScreen() {
                   onPress={() => handleCardPress(reminder)}
                 >
                   {isSelected ? (
-                    <CheckSquare size={20} color={Material3Colors.light.primary} />
+                    <CheckSquare size={20} color={colors.primary} />
                   ) : (
-                    <Square size={20} color={Material3Colors.light.onSurfaceVariant} />
+                    <Square size={20} color={colors.onSurfaceVariant} />
                   )}
                 </TouchableOpacity>
               )}
-              <View style={[styles.priorityBar, { backgroundColor: PRIORITY_COLORS[reminder.priority] }]} />
+              <View style={[styles.priorityBar, { backgroundColor: getPriorityColor(colors, reminder.priority) }]} />
               <View style={styles.reminderInfo}>
                 <Text style={styles.reminderTitle}>{reminder.title}</Text>
                 <View style={styles.reminderMeta}>
                   {/* Only show clock icon and fixed time for Weekly and Custom */}
                   {(reminder.repeatType === 'weekly' || reminder.repeatType === 'custom') && (
                     <>
-                      <Clock size={14} color={Material3Colors.light.onSurfaceVariant} />
+                      <Clock size={14} color={colors.onSurfaceVariant} />
                       <Text style={styles.reminderTime}>{formatTime(reminder.time)}</Text>
                       <Text style={styles.metaSeparator}>•</Text>
                     </>
@@ -1036,7 +1038,7 @@ export default function HomeScreen() {
                   {/* For Once reminders - show date and time with clock icon like Monthly/Yearly */}
                   {reminder.repeatType === 'none' && !reminder.isCompleted && (
                     <View style={styles.nextOccurrenceContainer}>
-                      <Clock size={14} color={Material3Colors.light.primary} />
+                      <Clock size={14} color={colors.primary} />
                       <Text style={styles.reminderNextOccurrenceLarge}>
                         {(() => {
                           const [year, month, day] = reminder.date.split('-').map(Number);
@@ -1061,7 +1063,7 @@ export default function HomeScreen() {
                   {reminder.repeatType === 'daily' && !reminder.isCompleted && (
                     <>
                       <View style={styles.nextOccurrenceContainer}>
-                        <Clock size={14} color={Material3Colors.light.primary} />
+                        <Clock size={14} color={colors.primary} />
                         <Text style={styles.reminderNextOccurrenceLarge}>
                           {(() => {
                             const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
@@ -1138,7 +1140,7 @@ export default function HomeScreen() {
                   {/* For Monthly, Yearly, and Every - show next occurrence with clock icon */}
                   {(reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every') && !reminder.isCompleted && (
                     <View style={styles.nextOccurrenceContainer}>
-                      <Clock size={14} color={Material3Colors.light.primary} />
+                      <Clock size={14} color={colors.primary} />
                       <Text style={styles.reminderNextOccurrenceLarge}>
                         {(() => {
                           const hasEndCondition = reminder.untilType === 'count' || reminder.untilType === 'endsAt';
@@ -1297,20 +1299,20 @@ export default function HomeScreen() {
                       {/* 2. Snoozed badge (for all types) */}
                       {reminder.snoozeUntil && isActive && !reminder.isCompleted && (
                         <View style={styles.snoozedBadgeInline}>
-                          <Clock size={10} color={Material3Colors.light.tertiary} />
+                          <Clock size={10} color={colors.tertiary} />
                           <Text style={styles.snoozedTextInline}>Snoozed</Text>
                         </View>
                       )}
                       {/* 3. Paused badge (moved here from outside) */}
                       {reminder.isPaused && isActive && !reminder.isCompleted && (
                         <View style={styles.pausedBadgeInline}>
-                          <PauseCircle size={10} color={Material3Colors.light.tertiary} />
+                          <PauseCircle size={10} color={colors.tertiary} />
                           <Text style={styles.pausedTextInline}>Paused</Text>
                         </View>
                       )}
                       {/* 4. Repeating icon (for repeating types only) */}
                       {(reminder.repeatType === 'daily' || reminder.repeatType === 'monthly' || reminder.repeatType === 'yearly' || reminder.repeatType === 'every') && (
-                        <Repeat size={12} color={Material3Colors.light.primary} style={{ alignSelf: 'center' }} />
+                        <Repeat size={12} color={colors.primary} style={{ alignSelf: 'center' }} />
                       )}
                     </View>
                   )}
@@ -1379,7 +1381,7 @@ export default function HomeScreen() {
                       }}
                       testID={`resume-button-${reminder.id}`}
                     >
-                      <PlayCircle size={20} color={Material3Colors.light.primary} />
+                      <PlayCircle size={20} color={colors.primary} />
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
@@ -1404,7 +1406,7 @@ export default function HomeScreen() {
                       delayLongPress={300}
                       testID={`pause-button-${reminder.id}`}
                     >
-                      <PauseCircle size={20} color="#E57373" />
+                      <PauseCircle size={20} color={colors.error} />
                     </TouchableOpacity>
                   )
                 )}
@@ -1417,7 +1419,7 @@ export default function HomeScreen() {
                   }}
                   testID={`done-button-${reminder.id}`}
                 >
-                  <CheckCircle size={20} color="white" />
+                  <CheckCircle size={20} color={colors.onPrimary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1476,7 +1478,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <View style={styles.loadingContainer}>
-          <Clock size={48} color={Material3Colors.light.primary} />
+          <Clock size={48} color={colors.primary} />
           <Text style={styles.loadingText}>Loading reminders...</Text>
         </View>
       </SafeAreaView>
@@ -1492,11 +1494,11 @@ export default function HomeScreen() {
             <View style={styles.headerActions}>
               {Platform.OS === 'web' && (
                 <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
-                  <HelpCircle size={20} color={Material3Colors.light.onSurfaceVariant} />
+                  <HelpCircle size={20} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings' as any)}>
-                <Settings size={20} color={Material3Colors.light.onSurfaceVariant} />
+                <Settings size={20} color={colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1553,7 +1555,7 @@ export default function HomeScreen() {
                   left: indicatorX,
                   width: indicatorWidth,
                   height: 3,
-                  backgroundColor: Material3Colors.light.primary,
+                  backgroundColor: colors.primary,
                   borderTopLeftRadius: 3,
                   borderTopRightRadius: 3,
                 }}
@@ -1568,7 +1570,7 @@ export default function HomeScreen() {
                 style={styles.closeSelectionButton}
                 onPress={exitSelectionMode}
               >
-                <X size={20} color={Material3Colors.light.onSurface} />
+                <X size={20} color={colors.onSurface} />
               </TouchableOpacity>
               <Text style={styles.selectionCount}>
                 {selectedReminders.size} selected
@@ -1585,7 +1587,7 @@ export default function HomeScreen() {
                           disabled={selectedReminders.size === 0}
                           testID="bulk-done"
                         >
-                          <CheckCircle size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.primary} />
+                          <CheckCircle size={16} color={selectedReminders.size === 0 ? colors.outline : colors.primary} />
                         </TouchableOpacity>
                       )}
 
@@ -1595,7 +1597,7 @@ export default function HomeScreen() {
                         disabled={selectedReminders.size === 0}
                         testID="bulk-delete"
                       >
-                        <Trash2 size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.error} />
+                        <Trash2 size={16} color={selectedReminders.size === 0 ? colors.outline : colors.error} />
                       </TouchableOpacity>
 
                       {scope === 'active' && (
@@ -1605,7 +1607,7 @@ export default function HomeScreen() {
                           disabled={selectedReminders.size === 0}
                           testID="bulk-pause"
                         >
-                          <PauseCircle size={16} color={selectedReminders.size === 0 ? Material3Colors.light.outline : Material3Colors.light.onSurfaceVariant} />
+                          <PauseCircle size={16} color={selectedReminders.size === 0 ? colors.outline : colors.onSurfaceVariant} />
                         </TouchableOpacity>
                       )}
 
@@ -1614,7 +1616,7 @@ export default function HomeScreen() {
                         onPress={selectAll}
                         testID="bulk-select-all"
                       >
-                        <CheckSquare size={16} color={Material3Colors.light.primary} />
+                        <CheckSquare size={16} color={colors.primary} />
                       </TouchableOpacity>
                     </>
                   );
@@ -1658,7 +1660,7 @@ export default function HomeScreen() {
               <View style={styles.emptyState}>
                 {activeTab === 'active' ? (
                   <>
-                    <Clock size={64} color={Material3Colors.light.outline} />
+                    <Clock size={64} color={colors.outline} />
                     <Text style={styles.emptyTitle}>No Active Reminders</Text>
                     <Text style={styles.emptyDescription}>
                       Tap (+) button to create a reminder
@@ -1666,7 +1668,7 @@ export default function HomeScreen() {
                   </>
                 ) : activeTab === 'completed' ? (
                   <>
-                    <CheckCircle size={64} color={Material3Colors.light.outline} />
+                    <CheckCircle size={64} color={colors.outline} />
                     <Text style={styles.emptyTitle}>No Completed Reminders</Text>
                     <Text style={styles.emptyDescription}>
                       Completed reminders will appear here
@@ -1674,7 +1676,7 @@ export default function HomeScreen() {
                   </>
                 ) : (
                   <>
-                    <Trash2 size={64} color={Material3Colors.light.outline} />
+                    <Trash2 size={64} color={colors.outline} />
                     <Text style={styles.emptyTitle}>No Deleted Reminders</Text>
                     <Text style={styles.emptyDescription}>
                       Deleted reminders will appear here
@@ -2158,7 +2160,7 @@ export default function HomeScreen() {
             testID="fab-create-reminder"
             accessibilityLabel="fab-create-reminder"
           >
-            <Plus size={32} color="white" />
+            <Plus size={32} color={colors.onPrimary} />
           </TouchableOpacity>
         </View>
       )}
@@ -2283,6 +2285,8 @@ function CreateReminderPopup({
   const [popupHeight, setPopupHeight] = useState<number>(480);
   const [scaleFactor, setScaleFactor] = useState<number>(1);
   const [isReady, setIsReady] = useState(false);
+  const colors = useThemeColors();
+  const createPopupStyles = useMemo(() => buildPopupStyles(colors), [colors]);
   const titleInputRef = useRef<TextInput>(null);
   const shouldAutoFocusOnCreate = false;
   const { AlarmModule } = NativeModules as any;
@@ -2462,7 +2466,7 @@ function CreateReminderPopup({
       height: 4 * scaleFactor,
       borderRadius: 2 * scaleFactor,
     },
-  }), [scaleFactor]);
+  }), [createPopupStyles, scaleFactor]);
 
   const isCustomTone = !!selectedToneUri && !!defaultToneUri && selectedToneUri !== defaultToneUri;
 
@@ -2538,7 +2542,7 @@ function CreateReminderPopup({
                         ref={titleInputRef}
                         style={scaledStyles.titleInput}
                         placeholder="Enter reminder"
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={colors.onSurfaceVariant}
                         value={title}
                         onChangeText={onTitleChange}
                         onFocus={() => {
@@ -2654,10 +2658,10 @@ function CreateReminderPopup({
                     testID="ringer-tone-selector"
                     style={scaledStyles.ringerToneButton}
                   >
-                    <Speaker size={14 * scaleFactor} color={Material3Colors.light.onSurfaceVariant} />
+                    <Speaker size={14 * scaleFactor} color={colors.onSurfaceVariant} />
                     {isCustomTone && (
                       <View
-                        style={[scaledStyles.ringerToneDot, { right: 6, top: 2, backgroundColor: Material3Colors.light.primary }]}
+                        style={[scaledStyles.ringerToneDot, { right: 6, top: 2, backgroundColor: colors.primary }]}
                         accessibilityLabel="ringer-tone-selector-dot"
                         testID="ringer-tone-selector-dot"
                         accessible
@@ -2706,7 +2710,7 @@ function CreateReminderPopup({
   );
 }
 
-const createPopupStyles = StyleSheet.create({
+const buildPopupStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -2715,7 +2719,7 @@ const createPopupStyles = StyleSheet.create({
     padding: 16,
   },
   popup: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 12,
     paddingBottom: 12,
@@ -2723,7 +2727,7 @@ const createPopupStyles = StyleSheet.create({
     maxWidth: 480,
     maxHeight: '90%',
     elevation: 8,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -2746,27 +2750,27 @@ const createPopupStyles = StyleSheet.create({
   },
   titleInput: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.outlineVariant,
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
-    color: '#333333',
-    backgroundColor: '#FFFFFF',
+    color: colors.onSurface,
+    backgroundColor: colors.surface,
   },
   timeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 12,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.outlineVariant,
   },
   timeButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333333',
+    color: colors.onSurface,
   },
   plusButtonWrapper: {
     zIndex: 50,
@@ -2778,7 +2782,7 @@ const createPopupStyles = StyleSheet.create({
     justifyContent: 'center',
     width: 32,
     height: 32,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: 16,
   },
   buttonContainer: {
@@ -2804,7 +2808,7 @@ const createPopupStyles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2821,7 +2825,7 @@ const createPopupStyles = StyleSheet.create({
   createButton: {
     paddingHorizontal: 16,
     paddingVertical: 6,
-    backgroundColor: Material3Colors.light.primary,
+    backgroundColor: colors.primary,
     borderRadius: 6,
   },
   createButtonDisabled: {
@@ -2830,12 +2834,12 @@ const createPopupStyles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
   },
   createButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
 });
 
@@ -2869,6 +2873,8 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
     return width > height;
   });
   const [isReady, setIsReady] = useState(false);
+  const colors = useThemeColors();
+  const timeSelectorStyles = useMemo(() => buildTimeSelectorStyles(colors), [colors]);
   const displayHour = (() => {
     if (!use24HourFormat) return currentHour;
     let hour24 = currentHour;
@@ -3390,7 +3396,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
             {
               height: tickLength,
               width: tickWidth,
-              backgroundColor: isMainTick ? '#374151' : '#D1D5DB',
+              backgroundColor: isMainTick ? colors.onSurfaceVariant : colors.outlineVariant,
               transform: [
                 { translateX: -tickWidth / 2 },
                 { translateY: -tickLength / 2 },
@@ -3552,7 +3558,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                           }
                         }}
                         placeholder="HH:MM"
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={colors.onSurfaceVariant}
                         keyboardType="numeric"
                         maxLength={5}
                         autoFocus
@@ -3633,7 +3639,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                     }}
                     testID="keyboard-button"
                   >
-                    <Keyboard size={16} color="#6B7280" />
+                    <Keyboard size={16} color={colors.onSurfaceVariant} />
                   </TouchableOpacity>
                   <View style={timeSelectorStyles.rightButtons}>
                     <TouchableOpacity style={timeSelectorStyles.cancelButton} onPress={onClose}>
@@ -3753,7 +3759,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                         }
                       }}
                       placeholder="HH:MM"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={colors.onSurfaceVariant}
                       keyboardType="numeric"
                       maxLength={5}
                       autoFocus
@@ -3853,7 +3859,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                   }}
                   testID="keyboard-button"
                 >
-                  <Keyboard size={16} color="#6B7280" />
+                  <Keyboard size={16} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
                 <View style={timeSelectorStyles.rightButtons}>
                   <TouchableOpacity style={timeSelectorStyles.cancelButton} onPress={onClose}>
@@ -3872,7 +3878,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
   );
 }
 
-const timeSelectorStyles = StyleSheet.create({
+const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -3881,12 +3887,12 @@ const timeSelectorStyles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     width: '100%',
     maxWidth: 360,
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -3901,11 +3907,11 @@ const timeSelectorStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: 12,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
   },
   timeSection: {
     paddingHorizontal: 16,
@@ -3915,24 +3921,24 @@ const timeSelectorStyles = StyleSheet.create({
     alignItems: 'center',
   },
   activeSectionLeft: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
   },
   activeSectionRight: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
   },
   timeSectionText: {
     fontSize: 28,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
   },
   activeTimeSectionText: {
-    color: 'white',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   timeSeparator: {
     fontSize: 28,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     marginHorizontal: 4,
   },
   discContainer: {
@@ -3956,12 +3962,12 @@ const timeSelectorStyles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surfaceContainerHigh,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
   },
   tickMark: {
     position: 'absolute',
@@ -3995,7 +4001,7 @@ const timeSelectorStyles = StyleSheet.create({
     top: 4,
     width: 4,
     height: 18,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
   ampmContainer: {
@@ -4009,22 +4015,22 @@ const timeSelectorStyles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F3F4F6',
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surfaceVariant,
     minWidth: 60,
     alignItems: 'center',
   },
   selectedAMPM: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   ampmText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
   },
   selectedAMPMText: {
-    color: 'white',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   buttonContainer: {
@@ -4033,7 +4039,7 @@ const timeSelectorStyles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.outlineVariant,
   },
   rightButtons: {
     flexDirection: 'row',
@@ -4043,11 +4049,11 @@ const timeSelectorStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.outlineVariant,
   },
   manualEntryContainer: {
     flex: 1,
@@ -4058,13 +4064,13 @@ const timeSelectorStyles = StyleSheet.create({
   manualTimeInput: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.onSurface,
     textAlign: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderWidth: 2,
-    borderColor: '#1E3A8A',
+    borderColor: colors.primary,
     borderRadius: 8,
     minWidth: 120,
   },
@@ -4075,27 +4081,27 @@ const timeSelectorStyles = StyleSheet.create({
   confirmButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
     borderRadius: 8,
   },
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
   },
   confirmButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'white',
+    color: colors.onPrimary,
   },
 });
 
 
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -4103,9 +4109,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 8,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
     elevation: 2,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -4113,7 +4119,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '400',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     letterSpacing: 0,
   },
   headerActions: {
@@ -4127,7 +4133,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
   },
   bottomContainer: {
     position: 'absolute',
@@ -4143,19 +4149,19 @@ const styles = StyleSheet.create({
   createAlarmButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.primary,
+    backgroundColor: colors.primary,
     width: 64,
     height: 64,
     borderRadius: 32,
     elevation: 6,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
   },
 
   metroTabContainer: {
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   metroTabContent: {
     paddingHorizontal: 24,
@@ -4172,34 +4178,34 @@ const styles = StyleSheet.create({
   metroTabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     opacity: 0.5,
     textTransform: 'uppercase',
   },
   metroTabTextActive: {
     fontSize: 17,
     fontWeight: '300',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     opacity: 1,
     letterSpacing: 0,
   },
   metroTabCount: {
     fontSize: 9,
     fontWeight: '600',
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     marginLeft: 1,
     marginTop: -2,
     opacity: 0.7,
   },
   metroTabCountActive: {
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontSize: 10,
     marginTop: -3,
     opacity: 1,
   },
   metroTabDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: Material3Colors.light.outlineVariant,
+    backgroundColor: colors.outlineVariant,
     opacity: 0.7,
   },
 
@@ -4217,7 +4223,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   emptyState: {
     flex: 1,
@@ -4229,11 +4235,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '400',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   emptyDescription: {
     fontSize: 16,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
     paddingHorizontal: 40,
     lineHeight: 24,
@@ -4242,15 +4248,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   reminderCard: {
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: colors.outlineVariant,
     marginHorizontal: 20,
     marginVertical: 2,
     // ✅ Android GPU optimizations
     elevation: 0.5,  // Minimal elevation
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 0.3 },
     shadowOpacity: 0.08,
     shadowRadius: 1,
@@ -4258,9 +4264,9 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   selectedCard: {
-    backgroundColor: Material3Colors.light.surfaceContainer,
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 2,
-    borderColor: Material3Colors.light.primary,
+    borderColor: colors.primary,
   },
   reminderContent: {
     flexDirection: 'row',
@@ -4288,7 +4294,7 @@ const styles = StyleSheet.create({
   reminderTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     lineHeight: 22,
   },
   reminderMeta: {
@@ -4298,34 +4304,34 @@ const styles = StyleSheet.create({
   },
   reminderTime: {
     fontSize: 14,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
   metaSeparator: {
     fontSize: 14,
-    color: Material3Colors.light.outline,
+    color: colors.outline,
   },
   repeatBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
   },
   repeatBadgeText: {
     fontSize: 12,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   multiBadge: {
-    backgroundColor: Material3Colors.light.secondaryContainer,
+    backgroundColor: colors.secondaryContainer,
   },
   pausedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Material3Colors.light.tertiaryContainer,
+    backgroundColor: colors.tertiaryContainer,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -4333,7 +4339,7 @@ const styles = StyleSheet.create({
   },
   pausedText: {
     fontSize: 11,
-    color: Material3Colors.light.onTertiaryContainer,
+    color: colors.onTertiaryContainer,
     fontWeight: '600',
   },
   reminderDetails: {
@@ -4341,45 +4347,45 @@ const styles = StyleSheet.create({
   },
   reminderDate: {
     fontSize: 13,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
   reminderDays: {
     fontSize: 13,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
   reminderNextOccurrence: {
     fontSize: 12,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 2,
   },
   nextReminderText: {
     fontSize: 12,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '500',
     fontStyle: 'italic',
     marginTop: 4,
   },
   snoozeUntilText: {
     fontSize: 12,
-    color: Material3Colors.light.tertiary,
+    color: colors.tertiary,
     fontWeight: '500',
     fontStyle: 'italic',
     marginTop: 4,
   },
   selectedDatesText: {
     fontSize: 12,
-    color: '#D32F2F',
+    color: colors.error,
     fontWeight: '500',
     marginTop: 4,
   },
   selectedDatesMoreText: {
     fontSize: 12,
-    color: '#374151', // Gray-700
+    color: colors.onSurface,
     fontWeight: '700',
-    backgroundColor: '#F3F4F6', // Gray-100
+    backgroundColor: colors.surfaceVariant,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -4394,7 +4400,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFEBEE',
+    backgroundColor: colors.errorContainer,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -4402,7 +4408,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -4410,7 +4416,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -4418,7 +4424,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -4426,12 +4432,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
   },
   notificationBadge: {
-    backgroundColor: Material3Colors.light.secondaryContainer,
+    backgroundColor: colors.secondaryContainer,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -4441,7 +4447,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Material3Colors.light.errorContainer,
+    backgroundColor: colors.errorContainer,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -4449,14 +4455,14 @@ const styles = StyleSheet.create({
   },
   expiredText: {
     fontSize: 11,
-    color: Material3Colors.light.onErrorContainer,
+    color: colors.onErrorContainer,
     fontWeight: '600',
   },
   snoozedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Material3Colors.light.tertiaryContainer,
+    backgroundColor: colors.tertiaryContainer,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -4465,35 +4471,35 @@ const styles = StyleSheet.create({
   },
   snoozedText: {
     fontSize: 11,
-    color: Material3Colors.light.onTertiaryContainer,
+    color: colors.onTertiaryContainer,
     fontWeight: '600',
   },
   snoozedBadgeInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: Material3Colors.light.tertiaryContainer,
+    backgroundColor: colors.tertiaryContainer,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
   },
   snoozedTextInline: {
     fontSize: 11,
-    color: Material3Colors.light.onTertiaryContainer,
+    color: colors.onTertiaryContainer,
     fontWeight: '600',
   },
   pausedBadgeInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: Material3Colors.light.tertiaryContainer,
+    backgroundColor: colors.tertiaryContainer,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
   },
   pausedTextInline: {
     fontSize: 11,
-    color: Material3Colors.light.onTertiaryContainer,
+    color: colors.onTertiaryContainer,
     fontWeight: '600',
   },
   selectionBar: {
@@ -4501,9 +4507,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     borderBottomWidth: 1,
-    borderBottomColor: Material3Colors.light.outlineVariant,
+    borderBottomColor: colors.outlineVariant,
   },
   closeSelectionButton: {
     width: 32,
@@ -4516,7 +4522,7 @@ const styles = StyleSheet.create({
   selectionCount: {
     fontSize: 14,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     flex: 1,
   },
   selectionActions: {
@@ -4530,12 +4536,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   selectAllText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -4552,20 +4558,20 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     justifyContent: 'center',
     alignItems: 'center',
   },
   dailyDayDiscActive: {
-    backgroundColor: '#C8D57A',
+    backgroundColor: colors.successContainer,
   },
   dailyDayText: {
     fontSize: 10,
     fontWeight: '600',
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   dailyDayTextActive: {
-    color: Material3Colors.light.primary,
+    color: colors.onSuccessContainer,
   },
   nextOccurrenceContainer: {
     flexDirection: 'row',
@@ -4575,7 +4581,7 @@ const styles = StyleSheet.create({
   },
   reminderNextOccurrenceLarge: {
     fontSize: 14,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
   repeatBadgeBottom: {
@@ -4598,14 +4604,14 @@ const styles = StyleSheet.create({
 
   // Compact card styles for completed and deleted reminders
   reminderCardCompact: {
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: colors.outlineVariant,
     marginHorizontal: 20,
     marginVertical: 2,
     elevation: 0.5,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 0.5 },
     shadowOpacity: 0.06,
     shadowRadius: 1,
@@ -4634,25 +4640,25 @@ const styles = StyleSheet.create({
   reminderTitleCompact: {
     fontSize: 14,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     flexShrink: 1,
     minWidth: 0,
   },
   compactSeparator: {
     fontSize: 12,
-    color: Material3Colors.light.outline,
+    color: colors.outline,
     marginHorizontal: 0,
     flexShrink: 0,
   },
   reminderTimeCompact: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
     flexShrink: 0,
   },
   reminderDateCompact: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
     flexShrink: 0,
   },
@@ -4664,12 +4670,12 @@ const styles = StyleSheet.create({
   },
   repeatBadgeTextCompact: {
     fontSize: 10,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   everyDurationCompact: {
     fontSize: 11,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '600',
     marginLeft: 4,
     flexShrink: 0,
@@ -4680,25 +4686,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: Material3Colors.light.surfaceContainer,
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: colors.outlineVariant,
     minWidth: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   historyBadgeFinal: {
     backgroundColor: 'transparent',
-    borderColor: '#4CAF50', // Green Ring
+    borderColor: colors.success,
     borderWidth: 1.5,
   },
   historyBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   historyBadgeTextFinal: {
-    color: '#4CAF50',
+    color: colors.success,
   },
   // Popup Styles
   historyPopupOverlay: {
@@ -4709,7 +4715,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   historyPopupContent: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -4721,7 +4727,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     textAlign: 'center',
   },
   historyPopupList: {
@@ -4731,22 +4737,22 @@ const styles = StyleSheet.create({
   historyPopupItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Material3Colors.light.outlineVariant,
+    borderBottomColor: colors.outlineVariant,
   },
   historyPopupItemText: {
     fontSize: 16,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     textAlign: 'center',
   },
   closeHistoryButton: {
     marginTop: 16,
     paddingVertical: 12,
-    backgroundColor: Material3Colors.light.surfaceContainer,
+    backgroundColor: colors.surfaceContainer,
     borderRadius: 20,
     alignItems: 'center',
   },
   closeHistoryButtonText: {
     fontWeight: '600',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
   },
 });

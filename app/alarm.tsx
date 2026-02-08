@@ -5,6 +5,7 @@ import notifee from '@notifee/react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { getAlarmLaunchOrigin, clearAlarmLaunchOrigin } from '../services/alarm-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 const { AlarmModule } = NativeModules;
 
@@ -15,6 +16,7 @@ export default function AlarmScreen() {
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('Reminder');
   const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
+  const colors = useThemeColors();
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -148,7 +150,7 @@ export default function AlarmScreen() {
   return (
     <View style={{ 
       flex: 1, 
-      backgroundColor: '#1C1B1F',
+      backgroundColor: colors.background,
       paddingHorizontal: 24,
       paddingTop: 48,
       paddingBottom: 32
@@ -156,7 +158,7 @@ export default function AlarmScreen() {
       {/* Header */}
       <View style={{ alignItems: 'center', marginBottom: 16 }}>
         <Text style={{ 
-          color: '#D0BCFF', 
+          color: colors.primary, 
           fontSize: 14, 
           fontWeight: '500',
           letterSpacing: 0.5,
@@ -167,7 +169,7 @@ export default function AlarmScreen() {
       {/* Reminder Title */}
       <View style={{ alignItems: 'center', marginBottom: 48 }}>
         <Text style={{ 
-          color: '#E6E1E5', 
+          color: colors.onSurface, 
           fontSize: 28, 
           fontWeight: '400',
           textAlign: 'center',
@@ -178,7 +180,7 @@ export default function AlarmScreen() {
       {/* Center Time Display */}
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 48 }}>
         <Text style={{ 
-          color: '#D0BCFF', 
+          color: colors.primary, 
           fontSize: 72, 
           fontWeight: '300',
           letterSpacing: -2
@@ -188,7 +190,7 @@ export default function AlarmScreen() {
       {/* Snooze Buttons */}
       <View style={{ marginBottom: 24 }}>
         <Text style={{ 
-          color: '#CAC4D0', 
+          color: colors.onSurfaceVariant, 
           fontSize: 12, 
           fontWeight: '500',
           textAlign: 'center',
@@ -204,14 +206,14 @@ export default function AlarmScreen() {
                 paddingVertical: 12,
                 paddingHorizontal: 20,
                 borderRadius: 20,
-                backgroundColor: pressed ? '#3E3742' : '#2B2930',
+                backgroundColor: pressed ? colors.surfaceVariant : colors.surfaceContainerHigh,
                 borderWidth: 1,
-                borderColor: '#49454F',
+                borderColor: colors.outlineVariant,
                 minWidth: 70,
                 alignItems: 'center'
               })}>
               <Text style={{ 
-                color: '#D0BCFF', 
+                color: colors.primary, 
                 fontSize: 14,
                 fontWeight: '500'
               }}>{m}m</Text>
@@ -226,15 +228,15 @@ export default function AlarmScreen() {
         style={({ pressed }) => ({
           paddingVertical: 20,
           borderRadius: 28,
-          backgroundColor: pressed ? '#7F56D9' : '#6750A4',
+          backgroundColor: pressed ? colors.primaryContainer : colors.primary,
           elevation: 3,
-          shadowColor: '#000',
+          shadowColor: colors.shadow,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.3,
           shadowRadius: 4
         })}>
         <Text style={{ 
-          color: '#FFFFFF', 
+          color: colors.onPrimary, 
           fontSize: 16, 
           fontWeight: '600', 
           textAlign: 'center',

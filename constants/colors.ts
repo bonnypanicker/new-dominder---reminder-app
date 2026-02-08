@@ -52,6 +52,24 @@ export const Material3Colors = {
     inverseSurface: '#313033',
     inverseOnSurface: '#F4EFF4',
     inversePrimary: '#D0BCFF',
+    
+    // Success
+    success: '#2E7D32',
+    onSuccess: '#FFFFFF',
+    successContainer: '#C8E6C9',
+    onSuccessContainer: '#1B5E20',
+    
+    // Warning
+    warning: '#ED6C02',
+    onWarning: '#FFFFFF',
+    warningContainer: '#FFE0B2',
+    onWarningContainer: '#3D2A00',
+    
+    // Accent (alias to tertiary for consistency)
+    accent: '#7D5260',
+    onAccent: '#FFFFFF',
+    accentContainer: '#FFD8E4',
+    onAccentContainer: '#31111D',
   },
   dark: {
     // Primary
@@ -105,6 +123,24 @@ export const Material3Colors = {
     inverseSurface: '#E6E1E5',
     inverseOnSurface: '#313033',
     inversePrimary: '#6750A4',
+    
+    // Success
+    success: '#81C995',
+    onSuccess: '#003314',
+    successContainer: '#1B5E20',
+    onSuccessContainer: '#C8E6C9',
+    
+    // Warning
+    warning: '#F9B775',
+    onWarning: '#4B2E00',
+    warningContainer: '#5B3F00',
+    onWarningContainer: '#FFD8B2',
+    
+    // Accent (alias to tertiary for consistency)
+    accent: '#EFB8C8',
+    onAccent: '#492532',
+    accentContainer: '#633B48',
+    onAccentContainer: '#FFD8E4',
   },
 };
 

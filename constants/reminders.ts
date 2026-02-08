@@ -1,4 +1,5 @@
 import { SnoozeOption } from '@/types/reminder';
+import { Material3Colors } from '@/constants/colors';
 
 export const SNOOZE_OPTIONS: SnoozeOption[] = [
   { label: '5m', minutes: 5 },
@@ -12,6 +13,24 @@ export const PRIORITY_COLORS = {
   high: '#EF4444', // Red (Ringer) - restored to previous color
   medium: '#FFA500', // Light Orange (Standard)
   low: '#10B981', // Green (Silent)
+};
+
+export const getPriorityColor = (
+  colors: typeof Material3Colors.light,
+  priority: 'high' | 'medium' | 'low'
+) => {
+  if (priority === 'high') return colors.error;
+  if (priority === 'medium') return colors.warning;
+  return colors.success;
+};
+
+export const getPriorityOnColor = (
+  colors: typeof Material3Colors.light,
+  priority: 'high' | 'medium' | 'low'
+) => {
+  if (priority === 'high') return colors.onError;
+  if (priority === 'medium') return colors.onWarning;
+  return colors.onSuccess;
 };
 
 export const DAYS_OF_WEEK = [

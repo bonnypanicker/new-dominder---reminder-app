@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet, DeviceEventEmitter, Platform, View } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { ThemeProvider } from "@/hooks/theme-provider";
+import { ThemeProvider, useTheme } from "@/hooks/theme-provider";
 import { useSettings } from '@/hooks/settings-store';
 import { StatusBar } from "expo-status-bar";
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
@@ -410,7 +410,7 @@ function AppContent() {
       <ErrorBoundary>
         <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
           <ReminderEngineProvider>
-            <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
+            <DynamicStatusBar />
             <RootLayoutNav />
           </ReminderEngineProvider>
         </GestureHandlerRootView>
@@ -430,3 +430,8 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 });
+
+function DynamicStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor="transparent" translucent={true} />;
+}

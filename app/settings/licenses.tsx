@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Material3Colors } from '@/constants/colors';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 export default function LicensesScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const licenses = [
     { name: 'React Native', version: '0.79.6', license: 'MIT', copyright: 'Copyright (c) Meta Platforms, Inc.' },
     { name: 'Expo', version: '~53.0.23', license: 'MIT', copyright: 'Copyright (c) 2015-present 650 Industries, Inc.' },
@@ -29,7 +31,7 @@ export default function LicensesScreen() {
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="licenses-back">
-          <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
+          <Feather name="arrow-left" size={24} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Open Source Licenses</Text>
         <View style={styles.placeholder} />
@@ -57,10 +59,10 @@ export default function LicensesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -68,12 +70,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   backButton: {
     width: 40,
@@ -95,17 +97,17 @@ const styles = StyleSheet.create({
   },
   licensesIntroText: {
     fontSize: 14,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     lineHeight: 20,
   },
   licenseItem: {
     marginHorizontal: 24,
     marginVertical: 8,
     padding: 16,
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 12,
     elevation: 1,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -119,12 +121,12 @@ const styles = StyleSheet.create({
   licenseName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   licenseVersion: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    color: colors.onSurfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -132,12 +134,12 @@ const styles = StyleSheet.create({
   licenseLicense: {
     fontSize: 14,
     fontWeight: '500',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     marginBottom: 4,
   },
   licenseCopyright: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     marginBottom: 4,
   },
 });

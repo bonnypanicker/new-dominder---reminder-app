@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Priority } from '@/types/reminder';
-import { PRIORITY_COLORS } from '@/constants/reminders';
-import { Material3Colors } from '@/constants/colors';
+import { getPriorityColor, getPriorityOnColor } from '@/constants/reminders';
+import { useThemeColors } from '@/hooks/theme-provider';
 import { Feather } from '@expo/vector-icons';
 const Bell = (props: any) => <Feather name="bell" {...props} />;
 const Moon = (props: any) => <Feather name="moon" {...props} style={[props.style, { marginLeft: 1.5 }]} />;
@@ -14,6 +14,9 @@ interface PrioritySelectorProps {
 }
 
 export default function PrioritySelector({ priority, onPriorityChange }: PrioritySelectorProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const priorities: { value: Priority; label: string; IconComponent: any }[] = [
     {
       value: 'medium',
@@ -44,10 +47,10 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
             style={[
               styles.option,
               priority === item.value
-                ? [styles.selectedOption, { borderColor: PRIORITY_COLORS[item.value] }]
+                ? [styles.selectedOption, { borderColor: getPriorityColor(colors, item.value) }]
                 : [
                   styles.unselectedOption,
-                  { borderColor: Material3Colors.light.outlineVariant },
+                  { borderColor: colors.outlineVariant },
                 ],
             ]}
             onPress={() => {
@@ -58,13 +61,13 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
               style={[
                 styles.iconContainer,
                 {
-                  backgroundColor: PRIORITY_COLORS[item.value],
+                  backgroundColor: getPriorityColor(colors, item.value),
                   opacity: priority === item.value ? 1 : 0.7,
                   transform: priority === item.value ? [{ scale: 1.15 }] : [{ scale: 1 }],
                 },
               ]}
             >
-              <item.IconComponent size={14} color="white" />
+              <item.IconComponent size={14} color={getPriorityOnColor(colors, item.value)} />
             </View>
             <Text
               style={[
@@ -81,14 +84,15 @@ export default function PrioritySelector({ priority, onPriorityChange }: Priorit
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
   container: {
     backgroundColor: 'transparent',
   },
   title: {
     fontSize: 14,
     fontWeight: '500',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     marginBottom: 8,
   },
   optionsContainer: {
@@ -106,17 +110,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedOption: {
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     elevation: 6,
-    shadowColor: Material3Colors.light.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
     borderWidth: 2.5,
   },
   unselectedOption: {
-    backgroundColor: Material3Colors.light.surfaceVariant,
-    borderColor: Material3Colors.light.outline,
+    backgroundColor: colors.surfaceVariant,
+    borderColor: colors.outline,
     opacity: 1,
     borderWidth: 1.5,
   },
@@ -132,12 +136,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   selectedLabel: {
-    color: Material3Colors.light.onPrimaryContainer,
+    color: colors.onPrimaryContainer,
     fontWeight: '700',
     fontSize: 12,
   },
   unselectedLabel: {
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
     fontSize: 11,
   },

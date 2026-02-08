@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { notificationService } from '@/hooks/notification-service';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 export default function NotificationsDebug() {
   const [init, setInit] = useState<boolean>(false);
@@ -9,6 +10,8 @@ export default function NotificationsDebug() {
   const [errors, setErrors] = useState<string[]>([]);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [scheduledCount, setScheduledCount] = useState<number>(0);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   useEffect(() => {
     const run = async () => {
@@ -90,10 +93,10 @@ export default function NotificationsDebug() {
     <ScrollView contentContainerStyle={styles.container} testID="notifications-debug">
       <Stack.Screen options={{ title: 'Notifications Debug' }} />
       <Text style={styles.h1}>Platform: {Platform.OS}</Text>
-      <Text>Init: {String(init)}</Text>
-      <Text>Permission: {String(hasPermission)}</Text>
-      <Text>Status: {status}</Text>
-      <Text>Scheduled: {scheduledCount}</Text>
+      <Text style={styles.text}>Init: {String(init)}</Text>
+      <Text style={styles.text}>Permission: {String(hasPermission)}</Text>
+      <Text style={styles.text}>Status: {status}</Text>
+      <Text style={styles.text}>Scheduled: {scheduledCount}</Text>
       <View style={styles.row}>
         <TouchableOpacity style={styles.btn} onPress={testImmediate} testID="btn-schedule-10s">
           <Text style={styles.btnText}>Schedule in 10s</Text>
@@ -119,13 +122,14 @@ export default function NotificationsDebug() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 16, gap: 12, backgroundColor: '#fff' },
-  h1: { fontSize: 18, fontWeight: '700' as const },
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
+  container: { flexGrow: 1, padding: 16, gap: 12, backgroundColor: colors.background },
+  h1: { fontSize: 18, fontWeight: '700' as const, color: colors.onSurface },
+  text: { color: colors.onSurface },
   row: { flexDirection: 'row', gap: 12 },
-  btn: { backgroundColor: '#111827', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
-  btnText: { color: '#fff', fontWeight: '600' as const },
-  errors: { marginTop: 12, backgroundColor: '#FEF2F2', borderRadius: 8, padding: 12 },
-  errorText: { color: '#991B1B' },
-  note: { marginTop: 16, color: '#4B5563' },
+  btn: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  btnText: { color: colors.onPrimary, fontWeight: '600' as const },
+  errors: { marginTop: 12, backgroundColor: colors.errorContainer, borderRadius: 8, padding: 12 },
+  errorText: { color: colors.onErrorContainer },
+  note: { marginTop: 16, color: colors.onSurfaceVariant },
 });

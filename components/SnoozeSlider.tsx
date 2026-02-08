@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, PanResponder, Dimensions } from 'react-native';
 import { SNOOZE_OPTIONS } from '@/constants/reminders';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 interface SnoozeSliderProps {
   onSnooze: (minutes: number) => void;
@@ -14,6 +15,8 @@ const BUTTON_SIZE = 60;
 export default function SnoozeSlider({ onSnooze, onCancel }: SnoozeSliderProps) {
   const [dragPosition, setDragPosition] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState(5);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -74,7 +77,7 @@ export default function SnoozeSlider({ onSnooze, onCancel }: SnoozeSliderProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     padding: 20,
     alignItems: 'center',
@@ -82,13 +85,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.onSurface,
     marginBottom: 8,
   },
   minutesText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1E3A8A',
+    color: colors.primary,
     marginBottom: 30,
   },
   sliderContainer: {
@@ -100,13 +103,13 @@ const styles = StyleSheet.create({
   sliderTrack: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: BUTTON_SIZE / 2,
     justifyContent: 'center',
     paddingLeft: 20,
   },
   sliderLabel: {
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -114,12 +117,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: colors.primary,
     borderRadius: BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -132,7 +135,7 @@ const styles = StyleSheet.create({
   },
   quickOptionsTitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
     marginBottom: 12,
   },
   quickOptionsContainer: {
@@ -142,13 +145,13 @@ const styles = StyleSheet.create({
   quickOption: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: 16,
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.onSurfaceVariant,
   },
   quickOptionSelected: {
-    backgroundColor: '#1E3A8A',
-    color: 'white',
+    backgroundColor: colors.primary,
+    color: colors.onPrimary,
   },
 });

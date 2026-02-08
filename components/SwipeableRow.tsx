@@ -1,10 +1,11 @@
-import React, { useRef, useCallback, useState, memo } from 'react';
+import React, { useRef, useCallback, useMemo, useState, memo } from 'react';
 import { StyleSheet, View, Text, Animated, Dimensions, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Reminder } from '@/types/reminder';
 import { useRenderTracking, animationConflictDetector, performanceMonitor } from '@/utils/debugUtils';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
@@ -40,6 +41,8 @@ const SwipeableRow = memo(function SwipeableRow({
   const heightAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const hasLayoutMeasured = useRef(false);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Register this swipeable
   const setRef = useCallback((ref: Swipeable | null) => {
@@ -73,8 +76,8 @@ const SwipeableRow = memo(function SwipeableRow({
 
     return (
       <Animated.View style={[styles.rightAction, { transform: [{ translateX }, { scale }], opacity }]}>
-        <Trash2 size={24} color="white" />
-        <Text style={styles.actionText}>Delete</Text>
+        <Trash2 size={24} color={colors.onError} />
+        <Text style={[styles.actionText, styles.actionTextDelete]}>Delete</Text>
       </Animated.View>
     );
   }, [onSwipeRight]);
@@ -108,11 +111,16 @@ const SwipeableRow = memo(function SwipeableRow({
         { transform: [{ translateX }, { scale }], opacity }
       ]}>
         {leftActionType === 'delete' ? (
-          <Trash2 size={24} color="white" />
+          <Trash2 size={24} color={colors.onError} />
         ) : (
-          <CheckCircle size={24} color="white" />
+          <CheckCircle size={24} color={colors.onSuccess} />
         )}
-        <Text style={styles.actionText}>{leftActionType === 'delete' ? 'Delete' : 'Complete'}</Text>
+        <Text style={[
+          styles.actionText,
+          leftActionType === 'delete' ? styles.actionTextDelete : styles.actionTextComplete
+        ]}>
+          {leftActionType === 'delete' ? 'Delete' : 'Complete'}
+        </Text>
       </Animated.View>
     );
   }, [onSwipeLeft, leftActionType]);
@@ -278,13 +286,13 @@ const SwipeableRow = memo(function SwipeableRow({
 
 export default SwipeableRow;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   cardContainer: {
     backgroundColor: 'transparent',
     overflow: 'visible',
   },
   rightAction: {
-    backgroundColor: '#F44336',
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
@@ -294,7 +302,7 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   leftAction: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
@@ -304,12 +312,17 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   leftActionDelete: {
-    backgroundColor: '#F44336',
+    backgroundColor: colors.error,
   },
   actionText: {
-    color: 'white',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 4,
+  },
+  actionTextDelete: {
+    color: colors.onError,
+  },
+  actionTextComplete: {
+    color: colors.onSuccess,
   },
 });

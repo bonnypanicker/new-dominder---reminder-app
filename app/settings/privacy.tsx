@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Material3Colors } from '@/constants/colors';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 export default function PrivacyPolicyScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="privacy-back">
-          <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
+          <Feather name="arrow-left" size={24} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Privacy Policy</Text>
         <View style={styles.placeholder} />
@@ -66,10 +68,10 @@ export default function PrivacyPolicyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -77,12 +79,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   backButton: {
     width: 40,
@@ -105,14 +107,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     marginTop: 16,
     marginBottom: 8,
     fontWeight: '600',
   },
   text: {
     fontSize: 14,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     lineHeight: 20,
   },
 });

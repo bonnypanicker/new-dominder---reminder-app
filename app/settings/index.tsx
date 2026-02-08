@@ -4,10 +4,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings, WeekStartDay } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
 import Slider from '@react-native-community/slider';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 const { AlarmModule } = NativeModules;
 
@@ -21,6 +21,8 @@ export default function SettingsScreen() {
   const appVersion = (Constants as any)?.expoConfig?.version ?? (Constants as any)?.manifest?.version;
   const localization = (Constants as any)?.expoConfig?.extra?.localization ?? (Constants as any)?.manifest?.extra?.localization;
   const alarmToneLabel = localization?.alarmToneLabel ?? 'Default Alarm Tone';
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Load current ringtone on mount
   useEffect(() => {
@@ -78,7 +80,7 @@ export default function SettingsScreen() {
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
-            <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
+            <Feather name="arrow-left" size={24} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.title}>Settings</Text>
           <View style={styles.placeholder} />
@@ -94,7 +96,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="settings-back">
-          <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
+          <Feather name="arrow-left" size={24} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
         <View style={styles.placeholder} />
@@ -108,14 +110,14 @@ export default function SettingsScreen() {
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <Feather name="sliders" size={20} color={Material3Colors.light.primary} />
+              <Feather name="sliders" size={20} color={colors.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>General</Text>
           </View>
           <Feather
             name="chevron-right"
             size={20}
-            color={Material3Colors.light.onSurfaceVariant}
+            color={colors.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'general' && styles.chevronExpanded]}
           />
         </TouchableOpacity>
@@ -128,16 +130,35 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ notificationsEnabled: !settings.notificationsEnabled })}
                 testID="toggle-notifications"
               >
-                <Feather name="bell" size={20} color={settings.notificationsEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="bell" size={20} color={settings.notificationsEnabled ? colors.primary : colors.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.notificationsEnabled && styles.toggleLabelActive]}>Notifications</Text>
                 <Switch
                   value={settings.notificationsEnabled}
                   onValueChange={(value) => updateSettings.mutate({ notificationsEnabled: value })}
                   trackColor={{
-                    false: Material3Colors.light.surfaceVariant,
-                    true: Material3Colors.light.primaryContainer
+                    false: colors.surfaceVariant,
+                    true: colors.primaryContainer
                   }}
-                  thumbColor={settings.notificationsEnabled ? Material3Colors.light.primary : Material3Colors.light.outline}
+                  thumbColor={settings.notificationsEnabled ? colors.primary : colors.outline}
+                  style={styles.toggleSwitch}
+                />
+              </TouchableOpacity>
+              <View style={styles.toggleDivider} />
+              <TouchableOpacity
+                style={styles.toggleItem}
+                onPress={() => updateSettings.mutate({ darkMode: !settings.darkMode })}
+                testID="toggle-dark-mode"
+              >
+                <Feather name="moon" size={20} color={settings.darkMode ? colors.primary : colors.onSurfaceVariant} />
+                <Text style={[styles.toggleLabel, settings.darkMode && styles.toggleLabelActive]}>Dark mode</Text>
+                <Switch
+                  value={settings.darkMode}
+                  onValueChange={(value) => updateSettings.mutate({ darkMode: value })}
+                  trackColor={{
+                    false: colors.surfaceVariant,
+                    true: colors.primaryContainer
+                  }}
+                  thumbColor={settings.darkMode ? colors.primary : colors.outline}
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
@@ -154,16 +175,16 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ soundEnabled: !settings.soundEnabled })}
                 testID="toggle-sound"
               >
-                <Feather name="speaker" size={20} color={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="speaker" size={20} color={settings.soundEnabled ? colors.primary : colors.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.soundEnabled && styles.toggleLabelActive]}>Sound</Text>
                 <Switch
                   value={settings.soundEnabled}
                   onValueChange={(value) => updateSettings.mutate({ soundEnabled: value })}
                   trackColor={{
-                    false: Material3Colors.light.surfaceVariant,
-                    true: Material3Colors.light.primaryContainer
+                    false: colors.surfaceVariant,
+                    true: colors.primaryContainer
                   }}
-                  thumbColor={settings.soundEnabled ? Material3Colors.light.primary : Material3Colors.light.outline}
+                  thumbColor={settings.soundEnabled ? colors.primary : colors.outline}
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
@@ -175,16 +196,16 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ vibrationEnabled: !settings.vibrationEnabled })}
                 testID="toggle-vibration"
               >
-                <Feather name="smartphone" size={20} color={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="smartphone" size={20} color={settings.vibrationEnabled ? colors.primary : colors.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.vibrationEnabled && styles.toggleLabelActive]}>Vibration</Text>
                 <Switch
                   value={settings.vibrationEnabled}
                   onValueChange={(value) => updateSettings.mutate({ vibrationEnabled: value })}
                   trackColor={{
-                    false: Material3Colors.light.surfaceVariant,
-                    true: Material3Colors.light.primaryContainer
+                    false: colors.surfaceVariant,
+                    true: colors.primaryContainer
                   }}
-                  thumbColor={settings.vibrationEnabled ? Material3Colors.light.primary : Material3Colors.light.outline}
+                  thumbColor={settings.vibrationEnabled ? colors.primary : colors.outline}
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
@@ -193,7 +214,7 @@ export default function SettingsScreen() {
 
               <View style={styles.volumeContainer}>
                 <View style={styles.volumeHeader}>
-                  <Feather name="volume-2" size={20} color={Material3Colors.light.primary} />
+                  <Feather name="volume-2" size={20} color={colors.primary} />
                   <Text style={styles.volumeLabel}>Volume</Text>
                   <Text style={styles.volumeValue}>{settings.ringerVolume ?? 100}%</Text>
                 </View>
@@ -204,9 +225,9 @@ export default function SettingsScreen() {
                   step={10}
                   value={settings.ringerVolume ?? 100}
                   onSlidingComplete={(value) => updateSettings.mutate({ ringerVolume: value })}
-                  minimumTrackTintColor={Material3Colors.light.primary}
-                  maximumTrackTintColor={Material3Colors.light.surfaceVariant}
-                  thumbTintColor={Material3Colors.light.primary}
+                  minimumTrackTintColor={colors.primary}
+                  maximumTrackTintColor={colors.surfaceVariant}
+                  thumbTintColor={colors.primary}
                 />
               </View>
             </View>
@@ -233,13 +254,13 @@ export default function SettingsScreen() {
                 testID="ringtone-picker"
               >
                 <View style={styles.ringtoneIcon}>
-                  <Feather name="music" size={20} color={Material3Colors.light.primary} />
+                  <Feather name="music" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.ringtoneContent}>
                   <Text style={styles.ringtoneTitle}>{alarmToneLabel}</Text>
                   <Text style={styles.ringtoneValue}>{currentRingtone}</Text>
                 </View>
-                <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
+                <Feather name="chevron-right" size={20} color={colors.onSurfaceVariant} />
               </TouchableOpacity>
             )}
           </View>
@@ -252,14 +273,14 @@ export default function SettingsScreen() {
         >
           <View style={styles.sectionHeaderLeft}>
             <View style={styles.sectionIconContainer}>
-              <Feather name="check-square" size={20} color={Material3Colors.light.primary} />
+              <Feather name="check-square" size={20} color={colors.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>Preferences</Text>
           </View>
           <Feather
             name="chevron-right"
             size={20}
-            color={Material3Colors.light.onSurfaceVariant}
+            color={colors.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'preferences' && styles.chevronExpanded]}
           />
         </TouchableOpacity>
@@ -271,23 +292,23 @@ export default function SettingsScreen() {
                 onPress={() => updateSettings.mutate({ use24HourFormat: !settings.use24HourFormat })}
                 testID="toggle-24hr-format"
               >
-                <Feather name="clock" size={20} color={settings.use24HourFormat ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Feather name="clock" size={20} color={settings.use24HourFormat ? colors.primary : colors.onSurfaceVariant} />
                 <Text style={[styles.toggleLabel, settings.use24HourFormat && styles.toggleLabelActive]}>24-hour format</Text>
                 <Switch
                   value={settings.use24HourFormat}
                   onValueChange={(value) => updateSettings.mutate({ use24HourFormat: value })}
                   trackColor={{
-                    false: Material3Colors.light.surfaceVariant,
-                    true: Material3Colors.light.primaryContainer
+                    false: colors.surfaceVariant,
+                    true: colors.primaryContainer
                   }}
-                  thumbColor={settings.use24HourFormat ? Material3Colors.light.primary : Material3Colors.light.outline}
+                  thumbColor={settings.use24HourFormat ? colors.primary : colors.outline}
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
             </View>
             <View style={styles.preferenceCard}>
               <View style={styles.preferenceIcon}>
-                <Feather name="calendar" size={20} color={Material3Colors.light.primary} />
+                <Feather name="calendar" size={20} color={colors.primary} />
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceTitle}>1st day of the week</Text>
@@ -318,7 +339,7 @@ export default function SettingsScreen() {
               testID="open-defaults"
             >
               <View style={styles.preferenceIcon}>
-                <Feather name="check-square" size={20} color={Material3Colors.light.primary} />
+                <Feather name="check-square" size={20} color={colors.primary} />
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceTitle}>Reminder Defaults</Text>
@@ -326,7 +347,7 @@ export default function SettingsScreen() {
                   {getRepeatModeLabel(settings.defaultReminderMode)} • {getPriorityLabel(settings.defaultPriority)}
                 </Text>
               </View>
-              <Feather name="chevron-right" size={20} color={Material3Colors.light.onSurfaceVariant} />
+              <Feather name="chevron-right" size={20} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -338,7 +359,7 @@ export default function SettingsScreen() {
               testID="toggle-sort-mode"
             >
               <View style={styles.preferenceIcon}>
-                <Feather name="clock" size={20} color={Material3Colors.light.primary} />
+                <Feather name="clock" size={20} color={colors.primary} />
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceTitle}>Sort Order</Text>
@@ -361,15 +382,15 @@ export default function SettingsScreen() {
           testID="section-about"
         >
           <View style={styles.sectionHeaderLeft}>
-            <View style={styles.sectionIconContainer}>
-              <Feather name="file-text" size={20} color={Material3Colors.light.primary} />
+              <View style={styles.sectionIconContainer}>
+                <Feather name="file-text" size={20} color={colors.primary} />
             </View>
             <Text style={styles.sectionHeaderTitle}>About</Text>
           </View>
           <Feather
             name="chevron-right"
             size={20}
-            color={Material3Colors.light.onSurfaceVariant}
+            color={colors.onSurfaceVariant}
             style={[styles.chevron, expandedSection === 'about' && styles.chevronExpanded]}
           />
         </TouchableOpacity>
@@ -398,9 +419,9 @@ export default function SettingsScreen() {
                 onPress={() => router.push('/settings/licenses' as any)}
                 testID="open-licenses"
               >
-                <Feather name="file-text" size={16} color={Material3Colors.light.primary} />
+                <Feather name="file-text" size={16} color={colors.primary} />
                 <Text style={styles.licensesButtonText}>Open Source Licenses</Text>
-                <Feather name="chevron-right" size={16} color={Material3Colors.light.primary} />
+                <Feather name="chevron-right" size={16} color={colors.primary} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -408,9 +429,9 @@ export default function SettingsScreen() {
                 onPress={() => router.push('/settings/privacy' as any)}
                 testID="open-privacy"
               >
-                <Feather name="file-text" size={16} color={Material3Colors.light.primary} />
+                <Feather name="file-text" size={16} color={colors.primary} />
                 <Text style={styles.licensesButtonText}>Privacy Policy</Text>
-                <Feather name="chevron-right" size={16} color={Material3Colors.light.primary} />
+                <Feather name="chevron-right" size={16} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -420,10 +441,10 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -431,7 +452,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   backButton: {
     width: 40,
@@ -443,7 +464,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '400',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   placeholder: {
     width: 40,
@@ -457,9 +478,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Material3Colors.light.surfaceVariant,
+    borderBottomColor: colors.surfaceVariant,
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
@@ -470,7 +491,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -478,7 +499,7 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   chevron: {
     transform: [{ rotate: '0deg' }],
@@ -488,7 +509,7 @@ const styles = StyleSheet.create({
   },
   sectionContent: {
     padding: 20,
-    backgroundColor: Material3Colors.light.surfaceContainerLowest,
+    backgroundColor: colors.surfaceContainerLowest,
   },
   subsectionHeader: {
     flexDirection: 'row',
@@ -500,13 +521,13 @@ const styles = StyleSheet.create({
   subsectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     marginLeft: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   toggleGroup: {
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 16,
     padding: 4,
   },
@@ -519,10 +540,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     marginLeft: 12,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   toggleLabelActive: {
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
   },
   toggleSwitch: {
@@ -530,13 +551,13 @@ const styles = StyleSheet.create({
   },
   toggleDivider: {
     height: 1,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     marginHorizontal: 12,
   },
   preferenceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -545,7 +566,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -556,12 +577,12 @@ const styles = StyleSheet.create({
   preferenceTitle: {
     fontSize: 15,
     fontWeight: '500',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     marginBottom: 2,
   },
   preferenceValue: {
     fontSize: 13,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   weekStartOptions: {
     flexDirection: 'row',
@@ -574,36 +595,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
-    borderColor: Material3Colors.light.outlineVariant,
+    borderColor: colors.outlineVariant,
   },
   weekStartOptionSelected: {
-    backgroundColor: Material3Colors.light.primaryContainer,
-    borderColor: Material3Colors.light.primary,
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primary,
   },
   weekStartOptionText: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
   weekStartOptionTextSelected: {
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   sortToggle: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     borderRadius: 12,
   },
   sortToggleText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
   },
   aboutCard: {
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 16,
     padding: 20,
   },
@@ -616,19 +637,19 @@ const styles = StyleSheet.create({
   aboutAppName: {
     fontSize: 20,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   aboutVersion: {
     fontSize: 12,
-    color: Material3Colors.light.onSurfaceVariant,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    color: colors.onSurfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   aboutDivider: {
     height: 1,
-    backgroundColor: Material3Colors.light.surfaceVariant,
+    backgroundColor: colors.surfaceVariant,
     marginBottom: 16,
   },
   feedbackButton: {
@@ -637,13 +658,13 @@ const styles = StyleSheet.create({
   },
   feedbackButtonText: {
     fontSize: 14,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     textDecorationLine: 'underline',
   },
   licensesButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     borderRadius: 12,
     padding: 12,
     marginTop: 8,
@@ -652,7 +673,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     marginLeft: 8,
   },
   loadingContainer: {
@@ -662,12 +683,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   ringtoneCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: 16,
     padding: 16,
     marginTop: 12,
@@ -676,7 +697,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Material3Colors.light.primaryContainer,
+    backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -687,17 +708,17 @@ const styles = StyleSheet.create({
   ringtoneTitle: {
     fontSize: 15,
     fontWeight: '500',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     marginBottom: 2,
   },
   ringtoneValue: {
     fontSize: 13,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     marginBottom: 4,
   },
   ringtoneHint: {
     fontSize: 11,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     fontStyle: 'italic',
   },
   volumeContainer: {
@@ -713,12 +734,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     marginLeft: 12,
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
     fontWeight: '500',
   },
   volumeValue: {
     fontSize: 14,
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   volumeSlider: {

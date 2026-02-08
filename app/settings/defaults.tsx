@@ -3,16 +3,17 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Material3Colors } from '@/constants/colors';
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import { RepeatType } from '@/types/reminder';
+import { useThemeColors } from '@/hooks/theme-provider';
 
 // Memoized repeat mode chip component
 const RepeatModeChip = React.memo<{
   mode: { value: RepeatType; label: string };
   isSelected: boolean;
   onPress: (value: RepeatType) => void;
-}>(({ mode, isSelected, onPress }) => {
+  styles: ReturnType<typeof createStyles>;
+}>(({ mode, isSelected, onPress, styles }) => {
   const handlePress = useCallback(() => {
     onPress(mode.value);
   }, [mode.value, onPress]);
@@ -36,12 +37,14 @@ const PriorityOption = React.memo<{
   priority: { value: 'standard' | 'silent' | 'ringer'; label: string; icon: 'bell' | 'volume-2' | 'alert-circle' | 'moon' };
   isSelected: boolean;
   onPress: (value: 'standard' | 'silent' | 'ringer') => void;
-}>(({ priority, isSelected, onPress }) => {
+  styles: ReturnType<typeof createStyles>;
+  colors: ReturnType<typeof useThemeColors>;
+}>(({ priority, isSelected, onPress, styles, colors }) => {
   const handlePress = useCallback(() => {
     onPress(priority.value);
   }, [priority.value, onPress]);
 
-  const iconColor = isSelected ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant;
+  const iconColor = isSelected ? colors.primary : colors.onSurfaceVariant;
 
   return (
     <TouchableOpacity
@@ -62,6 +65,8 @@ export default function DefaultsScreen() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const repeatModes = useMemo(() => [
     { value: 'none' as RepeatType, label: 'Once' },
@@ -84,7 +89,7 @@ export default function DefaultsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()} testID="defaults-back">
-          <Feather name="arrow-left" size={24} color={Material3Colors.light.onSurface} />
+          <Feather name="arrow-left" size={24} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Reminder Defaults</Text>
         <View style={styles.placeholder} />
@@ -106,6 +111,7 @@ export default function DefaultsScreen() {
                 mode={mode}
                 isSelected={mode.value === settings.defaultReminderMode}
                 onPress={(mode) => updateSettings.mutate({ defaultReminderMode: mode })}
+                styles={styles}
               />
             ))}
           </View>
@@ -121,6 +127,8 @@ export default function DefaultsScreen() {
                 priority={priority}
                 isSelected={priority.value === settings.defaultPriority}
                 onPress={(p) => updateSettings.mutate({ defaultPriority: p })}
+                styles={styles}
+                colors={colors}
               />
             ))}
           </View>
@@ -130,10 +138,10 @@ export default function DefaultsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -141,12 +149,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: Material3Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: Material3Colors.light.onSurface,
+    color: colors.onSurface,
   },
   backButton: {
     width: 40,
@@ -169,7 +177,7 @@ const styles = StyleSheet.create({
   defaultsSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     marginBottom: 16,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -183,21 +191,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: Material3Colors.light.surfaceVariant,
+    borderColor: colors.surfaceVariant,
     margin: 6,
   },
   optionChipSelected: {
-    backgroundColor: Material3Colors.light.primaryContainer,
-    borderColor: Material3Colors.light.primary,
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primary,
   },
   optionChipText: {
     fontSize: 14,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   optionChipTextSelected: {
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
   priorityOptions: {
@@ -210,21 +218,21 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 4,
     borderRadius: 12,
-    backgroundColor: Material3Colors.light.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: Material3Colors.light.surfaceVariant,
+    borderColor: colors.surfaceVariant,
   },
   priorityOptionSelected: {
-    backgroundColor: Material3Colors.light.primaryContainer,
-    borderColor: Material3Colors.light.primary,
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primary,
   },
   priorityOptionText: {
     fontSize: 13,
-    color: Material3Colors.light.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     marginTop: 8,
   },
   priorityOptionTextSelected: {
-    color: Material3Colors.light.primary,
+    color: colors.primary,
     fontWeight: '500',
   },
 });
