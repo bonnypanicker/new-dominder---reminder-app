@@ -215,6 +215,11 @@ export default function HomeScreen() {
     }
   }, [isSelectionMode, selectedReminders.size]);
 
+  const listExtraData = useMemo(() => ({
+    selectionTimestamp,
+    themeKey: colors.background
+  }), [selectionTimestamp, colors.background]);
+
   const [selectionTab, setSelectionTab] = useState<'active' | 'completed' | 'deleted' | null>(null);
 
   const [historyPopupVisible, setHistoryPopupVisible] = useState(false);
@@ -801,13 +806,17 @@ export default function HomeScreen() {
     listType,
     isSelected,
     isSelectionMode: selectionMode,
-    use24HourFormat
+    use24HourFormat,
+    colors,
+    styles
   }: {
     reminder: Reminder;
     listType: 'active' | 'completed' | 'deleted';
     isSelected: boolean;
     isSelectionMode: boolean;
     use24HourFormat: boolean;
+    colors: ReturnType<typeof useThemeColors>;
+    styles: ReturnType<typeof createStyles>;
   }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
@@ -1636,9 +1645,11 @@ export default function HomeScreen() {
                 isSelected={selectedReminders.has(item.id)}
                 isSelectionMode={isSelectionMode}
                 use24HourFormat={use24HourFormat}
+                colors={colors}
+                styles={styles}
               />
             )}
-            extraData={selectionTimestamp}
+            extraData={listExtraData}
             estimatedItemSize={120}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
