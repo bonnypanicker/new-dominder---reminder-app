@@ -52,6 +52,16 @@ export async function checkAndTriggerPendingNotifications() {
       return;
     }
 
+    let use24HourFormat = false;
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const settingsStr = await AsyncStorage.getItem('dominder_settings');
+      if (settingsStr) {
+        const settings = JSON.parse(settingsStr);
+        use24HourFormat = settings.use24HourFormat ?? false;
+      }
+    } catch {}
+
     // --- NEW: Sync native state (snooze/completed) ---
     const { AlarmModule } = NativeModules;
     let nativeStates: Record<string, any> = {};
@@ -251,13 +261,13 @@ export async function checkAndTriggerPendingNotifications() {
     // Trigger ALL overdue notifications immediately
     if (overdueReminders.length > 0) {
       console.log(`[StartupCheck] Triggering ${overdueReminders.length} overdue notifications`);
-      await triggerPendingNotifications(overdueReminders);
+      await triggerPendingNotifications(overdueReminders, use24HourFormat);
     }
 
     // Show missed notification for very old ringer reminders (>24h)
     if (expiredRingerReminders.length > 0) {
       console.log(`[StartupCheck] Showing ${expiredRingerReminders.length} expired ringer notifications`);
-      await showExpiredRingerNotifications(expiredRingerReminders);
+      await showExpiredRingerNotifications(expiredRingerReminders, use24HourFormat);
     }
 
     // Reschedule all future reminders (force stop clears AlarmManager alarms)
@@ -285,7 +295,7 @@ export async function checkAndTriggerPendingNotifications() {
 /**
  * Trigger notifications for pending reminders that should have fired
  */
-async function triggerPendingNotifications(reminders: Reminder[]) {
+async function triggerPendingNotifications(reminders: Reminder[], use24HourFormat: boolean) {
   const { AlarmModule } = NativeModules;
 
   for (const reminder of reminders) {
@@ -313,7 +323,7 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
         AlarmModule.scheduleAlarm(reminder.id, reminder.title, Date.now() + 500, reminder.priority);
       } else {
         // Create config using shared helper
-        const notificationConfig = createNotificationConfig(reminder, scheduledTime);
+        const notificationConfig = createNotificationConfig(reminder, scheduledTime, use24HourFormat);
         // Display notification immediately
         await notifee.displayNotification(notificationConfig);
       }
@@ -328,7 +338,7 @@ async function triggerPendingNotifications(reminders: Reminder[]) {
 /**
  * Show "missed" notifications for expired ringer reminders
  */
-async function showExpiredRingerNotifications(reminders: Reminder[]) {
+async function showExpiredRingerNotifications(reminders: Reminder[], use24HourFormat: boolean) {
   try {
     // Ensure channel exists
     const channelId = 'missed-alarm-v1';
@@ -353,7 +363,7 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
           scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
         }
 
-        const timeText = formatSmartDateTime(scheduledTime);
+        const timeText = formatSmartDateTime(scheduledTime, use24HourFormat);
         const body = `${reminder.title}\n${timeText}`;
 
         // Cancel original notification if it exists
@@ -405,7 +415,7 @@ async function showExpiredRingerNotifications(reminders: Reminder[]) {
 /**
  * Format time for notification display
  */
-function formatSmartDateTime(when: number): string {
+function formatSmartDateTime(when: number, use24HourFormat: boolean): string {
   const reminderDate = new Date(when);
   const now = new Date();
   
@@ -415,9 +425,9 @@ function formatSmartDateTime(when: number): string {
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
   
   const timeStr = reminderDate.toLocaleString('en-US', {
-    hour: 'numeric',
+    hour: use24HourFormat ? '2-digit' : 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: !use24HourFormat
   });
   
   if (reminderStart.getTime() === todayStart.getTime()) {
@@ -429,9 +439,9 @@ function formatSmartDateTime(when: number): string {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-      hour: 'numeric',
+      hour: use24HourFormat ? '2-digit' : 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: !use24HourFormat
     });
   }
 }

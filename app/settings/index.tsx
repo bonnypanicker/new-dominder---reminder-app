@@ -251,6 +251,26 @@ export default function SettingsScreen() {
         </TouchableOpacity>
         {expandedSection === 'preferences' && (
           <View style={styles.sectionContent}>
+            <View style={[styles.toggleGroup, { marginBottom: 12 }]}>
+              <TouchableOpacity
+                style={styles.toggleItem}
+                onPress={() => updateSettings.mutate({ use24HourFormat: !settings.use24HourFormat })}
+                testID="toggle-24hr-format"
+              >
+                <Feather name="clock" size={20} color={settings.use24HourFormat ? Material3Colors.light.primary : Material3Colors.light.onSurfaceVariant} />
+                <Text style={[styles.toggleLabel, settings.use24HourFormat && styles.toggleLabelActive]}>24-hour format</Text>
+                <Switch
+                  value={settings.use24HourFormat}
+                  onValueChange={(value) => updateSettings.mutate({ use24HourFormat: value })}
+                  trackColor={{
+                    false: Material3Colors.light.surfaceVariant,
+                    true: Material3Colors.light.primaryContainer
+                  }}
+                  thumbColor={settings.use24HourFormat ? Material3Colors.light.primary : Material3Colors.light.outline}
+                  style={styles.toggleSwitch}
+                />
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={styles.preferenceCard}
               onPress={() => router.push('/settings/defaults' as any)}

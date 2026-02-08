@@ -87,6 +87,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { data: reminders = [], isLoading } = useReminders();
   const { data: settings } = useSettings();
+  const use24HourFormat = settings?.use24HourFormat ?? false;
   const updateReminder = useUpdateReminder();
   const deleteReminder = useDeleteReminder();
   const bulkDeleteReminders = useBulkDeleteReminders();
@@ -734,10 +735,24 @@ export default function HomeScreen() {
 
   const formatTime = useCallback((time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
+    if (use24HourFormat) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-  }, []);
+  }, [use24HourFormat]);
+
+  const formatTimeFromDate = useCallback((date: Date) => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    if (use24HourFormat) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  }, [use24HourFormat]);
 
   const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
@@ -774,12 +789,14 @@ export default function HomeScreen() {
     reminder,
     listType,
     isSelected,
-    isSelectionMode: selectionMode
+    isSelectionMode: selectionMode,
+    use24HourFormat
   }: {
     reminder: Reminder;
     listType: 'active' | 'completed' | 'deleted';
     isSelected: boolean;
     isSelectionMode: boolean;
+    use24HourFormat: boolean;
   }) => {
     const isActive = !reminder.isCompleted && !reminder.isExpired;
     const isExpired = reminder.isExpired;
@@ -863,11 +880,7 @@ export default function HomeScreen() {
                     // For completed history items, use lastTriggeredAt for accurate trigger time
                     if (reminder.lastTriggeredAt && (listType === 'completed' || listType === 'deleted')) {
                       const triggerDate = new Date(reminder.lastTriggeredAt);
-                      const hours = triggerDate.getHours();
-                      const minutes = triggerDate.getMinutes();
-                      const period = hours >= 12 ? 'PM' : 'AM';
-                      const displayHours = hours % 12 || 12;
-                      return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+                      return formatTimeFromDate(triggerDate);
                     }
                     return formatTime(reminder.time);
                   })()}
@@ -1413,6 +1426,7 @@ export default function HomeScreen() {
     // Check external state dependencies
     if (prevProps.isSelected !== nextProps.isSelected) return false;
     if (prevProps.isSelectionMode !== nextProps.isSelectionMode) return false;
+    if (prevProps.use24HourFormat !== nextProps.use24HourFormat) return false;
 
     const prev = prevProps.reminder;
     const next = nextProps.reminder;
@@ -1612,6 +1626,7 @@ export default function HomeScreen() {
                 listType={activeTab}
                 isSelected={selectedReminders.has(item.id)}
                 isSelectionMode={isSelectionMode}
+                use24HourFormat={use24HourFormat}
               />
             )}
             extraData={selectionTimestamp}
@@ -1748,6 +1763,7 @@ export default function HomeScreen() {
             isAM={isAM}
             untilTime={untilTime}
             untilIsAM={untilIsAM}
+            use24HourFormat={use24HourFormat}
             priority={priority}
             onPriorityChange={setPriority}
             repeatType={repeatType}
@@ -2181,6 +2197,7 @@ interface CreateReminderPopupProps {
   everyUnit: EveryUnit;
   onEveryChange: (value: number, unit: EveryUnit) => void;
   timeSelectorContext: 'start' | 'until';
+  use24HourFormat: boolean;
   // Until props
   untilType: 'none' | 'endsAt' | 'count';
   untilDate: string;
@@ -2228,6 +2245,7 @@ function CreateReminderPopup({
   everyUnit,
   onEveryChange,
   timeSelectorContext,
+  use24HourFormat,
   // Until props
   untilType,
   untilDate,
@@ -2299,6 +2317,12 @@ function CreateReminderPopup({
 
   const formatTime = (time: string, isAm: boolean) => {
     const [hours, minutes] = time.split(':').map(Number);
+    if (use24HourFormat) {
+      let hour24 = hours;
+      if (!isAm && hours !== 12) hour24 = hours + 12;
+      else if (isAm && hours === 12) hour24 = 0;
+      return `${hour24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
     const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${isAm ? 'AM' : 'PM'}`;
   };
@@ -2476,6 +2500,7 @@ function CreateReminderPopup({
                         }}
                         onOpenTime={() => { onTimeSelect(); }}
                         displayTime={`${formatTime(selectedTime, isAM)}`}
+                        use24HourFormat={use24HourFormat}
                         everyValue={everyValue}
                         everyUnit={everyUnit}
                         onEveryChange={onEveryChange}
@@ -2551,6 +2576,7 @@ function CreateReminderPopup({
         visible={showTimeSelector}
         selectedTime={timeSelectorContext === 'until' ? untilTime : selectedTime}
         isAM={timeSelectorContext === 'until' ? untilIsAM : isAM}
+        use24HourFormat={use24HourFormat}
         onTimeChange={(t, am) => {
           if (timeSelectorContext === 'until') onUntilTimeChange(t, am);
           else onTimeChange(t, am);
@@ -2683,6 +2709,7 @@ interface TimeSelectorProps {
   visible: boolean;
   selectedTime: string;
   isAM: boolean;
+  use24HourFormat: boolean;
   onTimeChange: (time: string, isAM: boolean) => void;
   onClose: () => void;
   selectedDate?: string;
@@ -2690,7 +2717,7 @@ interface TimeSelectorProps {
   onPastTimeError?: (message: string) => void;
 }
 
-function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, selectedDate, repeatType, onPastTimeError }: TimeSelectorProps) {
+function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChange, onClose, selectedDate, repeatType, onPastTimeError }: TimeSelectorProps) {
   const [hours, minutes] = selectedTime.split(':').map(Number);
   const [currentHour, setCurrentHour] = useState<number>(() => {
     const h = Number.isFinite(hours) ? hours : 0;
@@ -2708,6 +2735,13 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
     return width > height;
   });
   const [isReady, setIsReady] = useState(false);
+  const displayHour = (() => {
+    if (!use24HourFormat) return currentHour;
+    let hour24 = currentHour;
+    if (!currentAMPM && currentHour !== 12) hour24 = currentHour + 12;
+    else if (currentAMPM && currentHour === 12) hour24 = 0;
+    return hour24;
+  })();
   useEffect(() => {
     const onChange = () => {
       const { width, height } = Dimensions.get('window');
@@ -3292,6 +3326,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                           }
                           setCurrentHour(hour12);
                           setCurrentMinute(inputMinute);
+                          if (use24HourFormat) {
+                            setCurrentAMPM(inputHour < 12);
+                          }
                           setShowManualEntry(false);
                           setManualTimeInput('');
                         } else if (manualTimeInput.trim() !== '') {
@@ -3356,7 +3393,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                           timeSelectorStyles.timeSectionText,
                           activeSection === 'hour' && timeSelectorStyles.activeTimeSectionText
                         ]}>
-                          {currentHour.toString().padStart(2, '0')}
+                          {displayHour.toString().padStart(2, '0')}
                         </Text>
                       </TouchableOpacity>
                       <Text style={timeSelectorStyles.timeSeparator}>:</Text>
@@ -3378,32 +3415,34 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                   )}
                 </View>
 
-                <View style={timeSelectorStyles.ampmContainer}>
-                  <TouchableOpacity
-                    style={[
-                      timeSelectorStyles.ampmButton,
-                      currentAMPM && timeSelectorStyles.selectedAMPM
-                    ]}
-                    onPress={() => setCurrentAMPM(true)}
-                  >
-                    <Text style={[
-                      timeSelectorStyles.ampmText,
-                      currentAMPM && timeSelectorStyles.selectedAMPMText
-                    ]}>AM</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      timeSelectorStyles.ampmButton,
-                      !currentAMPM && timeSelectorStyles.selectedAMPM
-                    ]}
-                    onPress={() => setCurrentAMPM(false)}
-                  >
-                    <Text style={[
-                      timeSelectorStyles.ampmText,
-                      !currentAMPM && timeSelectorStyles.selectedAMPMText
-                    ]}>PM</Text>
-                  </TouchableOpacity>
-                </View>
+                {!use24HourFormat && (
+                  <View style={timeSelectorStyles.ampmContainer}>
+                    <TouchableOpacity
+                      style={[
+                        timeSelectorStyles.ampmButton,
+                        currentAMPM && timeSelectorStyles.selectedAMPM
+                      ]}
+                      onPress={() => setCurrentAMPM(true)}
+                    >
+                      <Text style={[
+                        timeSelectorStyles.ampmText,
+                        currentAMPM && timeSelectorStyles.selectedAMPMText
+                      ]}>AM</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        timeSelectorStyles.ampmButton,
+                        !currentAMPM && timeSelectorStyles.selectedAMPM
+                      ]}
+                      onPress={() => setCurrentAMPM(false)}
+                    >
+                      <Text style={[
+                        timeSelectorStyles.ampmText,
+                        !currentAMPM && timeSelectorStyles.selectedAMPMText
+                      ]}>PM</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <View style={timeSelectorStyles.buttonContainer}>
                   <TouchableOpacity
@@ -3471,6 +3510,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                         }
                         setCurrentHour(hour12);
                         setCurrentMinute(inputMinute);
+                        if (use24HourFormat) {
+                          setCurrentAMPM(inputHour < 12);
+                        }
                         setShowManualEntry(false);
                         setManualTimeInput('');
                       } else if (manualTimeInput.trim() !== '') {
@@ -3507,6 +3549,9 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                           }
                           setCurrentHour(hour12);
                           setCurrentMinute(inputMinute);
+                          if (use24HourFormat) {
+                            setCurrentAMPM(inputHour < 12);
+                          }
                           setShowManualEntry(false);
                           setManualTimeInput('');
                         } else if (manualTimeInput.trim() !== '') {
@@ -3535,7 +3580,7 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                         timeSelectorStyles.timeSectionText,
                         activeSection === 'hour' && timeSelectorStyles.activeTimeSectionText
                       ]}>
-                        {currentHour.toString().padStart(2, '0')}
+                        {displayHour.toString().padStart(2, '0')}
                       </Text>
                     </TouchableOpacity>
                     <Text style={timeSelectorStyles.timeSeparator}>:</Text>
@@ -3576,32 +3621,34 @@ function TimeSelector({ visible, selectedTime, isAM, onTimeChange, onClose, sele
                 </View>
               </View>
 
-              <View style={timeSelectorStyles.ampmContainer}>
-                <TouchableOpacity
-                  style={[
-                    timeSelectorStyles.ampmButton,
-                    currentAMPM && timeSelectorStyles.selectedAMPM
-                  ]}
-                  onPress={() => setCurrentAMPM(true)}
-                >
-                  <Text style={[
-                    timeSelectorStyles.ampmText,
-                    currentAMPM && timeSelectorStyles.selectedAMPMText
-                  ]}>AM</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    timeSelectorStyles.ampmButton,
-                    !currentAMPM && timeSelectorStyles.selectedAMPM
-                  ]}
-                  onPress={() => setCurrentAMPM(false)}
-                >
-                  <Text style={[
-                    timeSelectorStyles.ampmText,
-                    !currentAMPM && timeSelectorStyles.selectedAMPMText
-                  ]}>PM</Text>
-                </TouchableOpacity>
-              </View>
+              {!use24HourFormat && (
+                <View style={timeSelectorStyles.ampmContainer}>
+                  <TouchableOpacity
+                    style={[
+                      timeSelectorStyles.ampmButton,
+                      currentAMPM && timeSelectorStyles.selectedAMPM
+                    ]}
+                    onPress={() => setCurrentAMPM(true)}
+                  >
+                    <Text style={[
+                      timeSelectorStyles.ampmText,
+                      currentAMPM && timeSelectorStyles.selectedAMPMText
+                    ]}>AM</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      timeSelectorStyles.ampmButton,
+                      !currentAMPM && timeSelectorStyles.selectedAMPM
+                    ]}
+                    onPress={() => setCurrentAMPM(false)}
+                  >
+                    <Text style={[
+                      timeSelectorStyles.ampmText,
+                      !currentAMPM && timeSelectorStyles.selectedAMPMText
+                    ]}>PM</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <View style={timeSelectorStyles.buttonContainer}>
                 <TouchableOpacity

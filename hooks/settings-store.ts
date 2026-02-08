@@ -15,6 +15,7 @@ export interface AppSettings {
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
   ringerVolume: number;
+  use24HourFormat: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -26,6 +27,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
   ringerVolume: 40,
+  use24HourFormat: false,
 };
 
 export const useSettings = () => {
@@ -100,6 +102,16 @@ export const useUpdateSettings = () => {
               await AlarmModule.saveRingerVolume(variables.ringerVolume);
             } catch (e) {
               console.log('Failed to save ringer volume to native:', e);
+            }
+          }
+        }
+
+        if (typeof variables.use24HourFormat === 'boolean') {
+          if (AlarmModule?.save24HourFormat) {
+            try {
+              await AlarmModule.save24HourFormat(variables.use24HourFormat);
+            } catch (e) {
+              console.log('Failed to save 24h format to native:', e);
             }
           }
         }

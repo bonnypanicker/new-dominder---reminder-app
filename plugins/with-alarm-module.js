@@ -1234,7 +1234,13 @@ class AlarmActivity : AppCompatActivity() {
 
         // --- Update current time display ---
         val currentTimeView: TextView = findViewById(R.id.current_time)
-        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+        val use24HourFormat = prefs.getBoolean("use24HourFormat", false)
+        val timeFormat = if (use24HourFormat) {
+            SimpleDateFormat("HH:mm", Locale.getDefault())
+        } else {
+            SimpleDateFormat("h:mm a", Locale.getDefault())
+        }
         
         timeUpdateRunnable = object : Runnable {
             override fun run() {
@@ -3076,6 +3082,19 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving ringer volume: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun save24HourFormat(use24Hour: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("use24HourFormat", use24Hour).apply()
+            DebugLogger.log("AlarmModule: Saved 24-hour format: \$use24Hour")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error saving 24-hour format: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }

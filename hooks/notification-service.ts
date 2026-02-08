@@ -63,7 +63,7 @@ if (Platform.OS === 'android') {
   }
 }
 
-function formatSmartDateTime(when: number): string {
+function formatSmartDateTime(when: number, use24HourFormat: boolean): string {
   const reminderDate = new Date(when);
   const now = new Date();
 
@@ -74,9 +74,9 @@ function formatSmartDateTime(when: number): string {
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
   const timeStr = reminderDate.toLocaleString('en-US', {
-    hour: 'numeric',
+    hour: use24HourFormat ? '2-digit' : 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: !use24HourFormat
   });
 
   if (reminderStart.getTime() === todayStart.getTime()) {
@@ -89,9 +89,9 @@ function formatSmartDateTime(when: number): string {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-      hour: 'numeric',
+      hour: use24HourFormat ? '2-digit' : 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: !use24HourFormat
     });
   }
 }
@@ -113,8 +113,8 @@ function formatRepeatType(repeatType: string, everyInterval?: { value: number; u
   }
 }
 
-function bodyWithTime(desc: string | undefined, when: number) {
-  const formatted = formatSmartDateTime(when);
+function bodyWithTime(desc: string | undefined, when: number, use24HourFormat: boolean) {
+  const formatted = formatSmartDateTime(when, use24HourFormat);
   return [desc?.trim(), formatted].filter(Boolean).join('\n');
 }
 
@@ -190,11 +190,11 @@ function applySequentialDelay(baseTimestamp: number, reminderId: string): number
   return candidateTimestamp;
 }
 
-export function createNotificationConfig(reminder: Reminder, when: number) {
+export function createNotificationConfig(reminder: Reminder, when: number, use24HourFormat: boolean = false) {
   const channelId = reminder.priority === 'high' ? 'alarm-v2' :
     reminder.priority === 'medium' ? 'standard-v2' : 'silent-v2';
 
-  const body = bodyWithTime(reminder.description, when);
+  const body = bodyWithTime(reminder.description, when, use24HourFormat);
   const repeatTypeLabel = formatRepeatType(reminder.repeatType, reminder.everyInterval);
 
   return {
@@ -241,6 +241,7 @@ export function createNotificationConfig(reminder: Reminder, when: number) {
 export async function scheduleReminderByModel(reminder: Reminder) {
   // Check if notifications are enabled in settings
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  let use24HourFormat = false;
   try {
     const settingsStr = await AsyncStorage.getItem('dominder_settings');
     if (settingsStr) {
@@ -249,6 +250,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
         console.log('[NotificationService] Notifications disabled in settings, skipping schedule');
         return;
       }
+      use24HourFormat = settings.use24HourFormat ?? false;
     }
   } catch (e) {
     console.log('[NotificationService] Error checking settings, proceeding with schedule');
@@ -399,7 +401,7 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       },
     };
 
-    const notificationConfig = createNotificationConfig(reminder, when);
+    const notificationConfig = createNotificationConfig(reminder, when, use24HourFormat);
 
     await notifee.createTriggerNotification(notificationConfig, trigger);
 

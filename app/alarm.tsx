@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import notifee from '@notifee/react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { getAlarmLaunchOrigin, clearAlarmLaunchOrigin } from '../services/alarm-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { AlarmModule } = NativeModules;
 
@@ -13,6 +14,7 @@ export default function AlarmScreen() {
   const params = useLocalSearchParams();
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('Reminder');
+  const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -50,6 +52,18 @@ export default function AlarmScreen() {
       }
     })();
   }, [params]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem('dominder_settings');
+        if (stored) {
+          const settings = JSON.parse(stored);
+          setUse24HourFormat(settings.use24HourFormat ?? false);
+        }
+      } catch {}
+    })();
+  }, []);
 
   const closePerOrigin = useCallback(async () => {
     const origin = getAlarmLaunchOrigin();
@@ -108,6 +122,13 @@ export default function AlarmScreen() {
 
   const getCurrentTime = () => {
     const now = new Date();
+    if (use24HourFormat) {
+      return now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    }
     return now.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit',

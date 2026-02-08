@@ -51,6 +51,17 @@ export async function refreshDisplayedNotifications() {
 
   try {
     console.log('[NotificationRefresh] Starting midnight refresh of displayed notifications');
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    let use24HourFormat = false;
+    try {
+      const settingsStr = await AsyncStorage.getItem('dominder_settings');
+      if (settingsStr) {
+        const settings = JSON.parse(settingsStr);
+        use24HourFormat = settings.use24HourFormat ?? false;
+      }
+    } catch (_) {
+      use24HourFormat = false;
+    }
     
     // Get all currently displayed notifications
     const displayedNotifications = await notifee.getDisplayedNotifications();
@@ -85,7 +96,7 @@ export async function refreshDisplayedNotifications() {
         // The timestamp remains the same (when it was scheduled/due), but the body text will
         // be re-evaluated by createNotificationConfig -> bodyWithTime -> formatSmartDateTime
         // which uses 'new Date()' inside formatSmartDateTime to determine 'Today' vs 'Yesterday'.
-        const config = createNotificationConfig(reminder, timestamp);
+        const config = createNotificationConfig(reminder, timestamp, use24HourFormat);
 
         // Ensure update is silent (onlyAlertOnce: true prevents sound/vibration on update)
         if (config.android) {
