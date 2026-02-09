@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/icoon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -46,6 +46,18 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/images/icoon.png",
+          "dark": {
+            "image": "./assets/images/icoon.png",
+            "backgroundColor": "#000000"
+          },
+          "imageWidth": 200
+        }
+      ],
       "./plugins/with-back-invoked.js",
       "./plugins/with-fullscreen-alarm",
       "./plugins/with-alarm-module.js",

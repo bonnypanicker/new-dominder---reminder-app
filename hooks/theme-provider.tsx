@@ -24,17 +24,22 @@ export const [ThemeProvider, useTheme] = createContextHook<ThemeContextValue>(()
   useEffect(() => {
     try {
       LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
-    } catch {}
+    } catch { }
   }, [isDark]);
 
   useEffect(() => {
     const bg = value.colors.background;
     try {
       if (Platform.OS !== 'web') {
-        SystemUI.setBackgroundColorAsync(bg).catch(() => {});
+        SystemUI.setBackgroundColorAsync(bg).catch(() => { });
+
+        if (Platform.OS === 'android') {
+          const { NativeModules } = require('react-native');
+          NativeModules.AlarmModule?.saveThemePreference?.(isDark);
+        }
       }
-    } catch {}
-  }, [value.colors.background]);
+    } catch { }
+  }, [value.colors.background, isDark]);
 
   return value;
 });

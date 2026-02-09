@@ -2563,6 +2563,15 @@ class MainActivity : ReactActivity() {
   override fun getMainComponentName(): String = "main"
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    // Determine theme from shared preferences to match splash screen with in-app selection
+    val prefs = getSharedPreferences("DoMinderSettings", android.content.Context.MODE_PRIVATE)
+    if (prefs.contains("user_theme_dark")) {
+      val isDark = prefs.getBoolean("user_theme_dark", false)
+      val mode = if (isDark) androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES else androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+      androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(mode)
+      DebugLogger.log("MainActivity: Applied persisted theme preference: isDark=\${isDark}")
+    }
+
     // Enable edge-to-edge
     WindowCompat.setDecorFitsSystemWindows(window, false)
     super.onCreate(null)
@@ -3074,15 +3083,27 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-            prefs.edit().apply {
                 putBoolean("ringer_sound_enabled", soundEnabled)
                 putBoolean("ringer_vibration_enabled", vibrationEnabled)
                 apply()
             }
-            DebugLogger.log("AlarmModule: Saved notification settings - sound: \$soundEnabled, vibration: \$vibrationEnabled")
+            DebugLogger.log("AlarmModule: Saved notification settings - sound: \${soundEnabled}, vibration: \${vibrationEnabled}")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving notification settings: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun saveThemePreference(isDark: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("user_theme_dark", isDark).apply()
+            DebugLogger.log("AlarmModule: Saved theme preference: isDark=\${isDark}")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error saving theme preference: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }
@@ -3092,7 +3113,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
             prefs.edit().putInt("ringer_volume", volume).apply()
-            DebugLogger.log("AlarmModule: Saved ringer volume: \$volume")
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving ringer volume: \${e.message}")
