@@ -2679,8 +2679,6 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.bridge.UiThreadUtil
-import androidx.appcompat.app.AppCompatDelegate
 import app.rork.dominder_android_reminder_app.DebugLogger
 
 class AlarmModule(private val reactContext: ReactApplicationContext) :
@@ -2861,15 +2859,6 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error clearing metadata: \${e.message}")
             promise?.reject("ERROR", e.message, e)
-        }
-    }
-
-    @ReactMethod
-    fun setDarkMode(enabled: Boolean) {
-        val prefs = reactApplicationContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("darkMode", enabled).apply()
-        UiThreadUtil.runOnUiThread {
-            AppCompatDelegate.setDefaultNightMode(if (enabled) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
         }
     }
 

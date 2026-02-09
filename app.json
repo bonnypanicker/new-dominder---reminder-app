@@ -91,8 +91,7 @@
             "extraProguardRules": "-keep class com.swmansion.reanimated.** { *; }\n-keep class com.shopify.reactnative.flash_list.** { *; }\n-keep class com.facebook.react.uimanager.** { *; }\n-keep class com.facebook.react.views.** { *; }\n-keep class com.th3rdwave.safeareacontext.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }\n-keep class com.horcrux.svg.** { *; }\n-keep class expo.modules.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }"
           }
         }
-      ],
-      "./plugins/with-splash-dark-mode.js"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
