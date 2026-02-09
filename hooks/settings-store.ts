@@ -119,6 +119,16 @@ export const useUpdateSettings = () => {
             }
           }
         }
+
+        if (typeof variables.darkMode === 'boolean') {
+          if (AlarmModule?.setDarkMode) {
+            try {
+              await AlarmModule.setDarkMode(variables.darkMode);
+            } catch (e) {
+              console.log('Failed to apply dark mode to native:', e);
+            }
+          }
+        }
       } catch (e) {
         console.log('Post-settings toggle side effects failed');
       }
