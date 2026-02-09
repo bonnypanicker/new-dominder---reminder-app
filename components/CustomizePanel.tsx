@@ -973,13 +973,13 @@ function CalendarModal({
 
                 // Check if dates should be disabled in End mode when multi-select is active
                 const hasMultiSelectDates = (multiSelectDates && multiSelectDates.length > 0) || (multiSelectDays && multiSelectDays.length > 0);
-                
+
                 // Visual distinction for read-only (End mode) - check this first
                 const isReadOnlySelected = Boolean(isEndMode && (
                   (currentDateString && multiSelectDates?.includes(currentDateString)) ||
                   (dayDate && multiSelectDays?.includes(dayDate.getDay()))
                 ));
-                
+
                 // Disable interaction in End mode when multi-select is active, but NOT for read-only selected dates
                 const isDisabledInEndMode = isEndMode && hasMultiSelectDates && !isReadOnlySelected;
                 const isDisabled = isDateDisabled(val) || isDisabledInEndMode;
@@ -1236,6 +1236,8 @@ interface UnitDropdownModalProps {
 }
 
 function UnitDropdownModal({ visible, anchor, unit, units, getUnitLabel, onChange, onClose }: UnitDropdownModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isPositioned, setIsPositioned] = useState(false);
 
   useEffect(() => {
