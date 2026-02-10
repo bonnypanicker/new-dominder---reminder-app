@@ -3083,6 +3083,7 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
     fun saveNotificationSettings(soundEnabled: Boolean, vibrationEnabled: Boolean, promise: Promise? = null) {
         try {
             val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            prefs.edit().apply {
                 putBoolean("ringer_sound_enabled", soundEnabled)
                 putBoolean("ringer_vibration_enabled", vibrationEnabled)
                 apply()
