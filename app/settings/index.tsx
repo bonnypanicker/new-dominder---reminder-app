@@ -69,6 +69,11 @@ export default function SettingsScreen() {
     { value: 5 as WeekStartDay, label: 'Friday' },
     { value: 6 as WeekStartDay, label: 'Saturday' },
   ]), []);
+  const appearanceOptions = useMemo(() => ([
+    { value: 'system' as const, label: 'System Default', icon: 'smartphone' as const },
+    { value: 'light' as const, label: 'Light', icon: 'sun' as const },
+    { value: 'dark' as const, label: 'Dark', icon: 'moon' as const },
+  ]), []);
 
   const getWeekStartLabel = (value: WeekStartDay): string => {
     const option = weekStartOptions.find((opt) => opt.value === value);
@@ -143,28 +148,31 @@ export default function SettingsScreen() {
                   style={styles.toggleSwitch}
                 />
               </TouchableOpacity>
-              <View style={styles.toggleDivider} />
-              <TouchableOpacity
-                style={styles.toggleItem}
-                onPress={() => updateSettings.mutate({ darkMode: !settings.darkMode })}
-                testID="toggle-dark-mode"
-              >
-                <Feather name="moon" size={20} color={settings.darkMode ? colors.primary : colors.onSurfaceVariant} />
-                <Text style={[styles.toggleLabel, settings.darkMode && styles.toggleLabelActive]}>Dark mode</Text>
-                <Switch
-                  value={settings.darkMode}
-                  onValueChange={(value) => updateSettings.mutate({ darkMode: value })}
-                  trackColor={{
-                    false: colors.surfaceVariant,
-                    true: colors.primaryContainer
-                  }}
-                  thumbColor={settings.darkMode ? colors.primary : colors.outline}
-                  style={styles.toggleSwitch}
-                />
-              </TouchableOpacity>
             </View>
 
-            {/* Ringer Mode Subsection */}
+            <View style={styles.subsectionHeader}>
+              <Text style={[styles.subsectionTitle, { marginLeft: 0 }]}>Appearance</Text>
+            </View>
+            <View style={styles.toggleGroup}>
+              {appearanceOptions.map((option, index) => {
+                const isSelected = settings.themeMode === option.value;
+                return (
+                  <React.Fragment key={option.value}>
+                    <TouchableOpacity
+                      style={styles.toggleItem}
+                      onPress={() => updateSettings.mutate({ themeMode: option.value })}
+                      testID={`appearance-${option.value}`}
+                    >
+                      <Feather name={option.icon} size={20} color={isSelected ? colors.primary : colors.onSurfaceVariant} />
+                      <Text style={[styles.toggleLabel, isSelected && styles.toggleLabelActive]}>{option.label}</Text>
+                      <Feather name={isSelected ? 'check-circle' : 'circle'} size={20} color={isSelected ? colors.primary : colors.outline} />
+                    </TouchableOpacity>
+                    {index < appearanceOptions.length - 1 && <View style={styles.toggleDivider} />}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+
             <View style={styles.subsectionHeader}>
               <Text style={[styles.subsectionTitle, { marginLeft: 0 }]}>Ringer Mode</Text>
             </View>

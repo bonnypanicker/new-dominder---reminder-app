@@ -7,12 +7,13 @@ import { notificationService } from '@/hooks/notification-service';
 const SETTINGS_STORAGE_KEY = 'dominder_settings';
 
 export type WeekStartDay = 0 | 1 | 5 | 6;
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface AppSettings {
   notificationsEnabled: boolean;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
-  darkMode: boolean;
+  themeMode: ThemeMode;
   sortMode: 'creation' | 'upcoming';
   defaultReminderMode: RepeatType;
   defaultPriority: 'standard' | 'silent' | 'ringer';
@@ -25,13 +26,27 @@ const DEFAULT_SETTINGS: AppSettings = {
   notificationsEnabled: true,
   soundEnabled: true,
   vibrationEnabled: true,
-  darkMode: false,
+  themeMode: 'system',
   sortMode: 'creation',
   defaultReminderMode: 'none',
   defaultPriority: 'standard',
   ringerVolume: 40,
   use24HourFormat: false,
   weekStartDay: 0,
+};
+
+const normalizeSettings = (raw: unknown): AppSettings => {
+  if (!raw || typeof raw !== 'object') {
+    return DEFAULT_SETTINGS;
+  }
+  const parsed = raw as Partial<AppSettings> & { darkMode?: boolean };
+  const themeMode =
+    parsed.themeMode === 'light' || parsed.themeMode === 'dark' || parsed.themeMode === 'system'
+      ? parsed.themeMode
+      : typeof parsed.darkMode === 'boolean'
+        ? (parsed.darkMode ? 'dark' : 'light')
+        : DEFAULT_SETTINGS.themeMode;
+  return { ...DEFAULT_SETTINGS, ...parsed, themeMode };
 };
 
 export const useSettings = () => {
@@ -42,7 +57,7 @@ export const useSettings = () => {
         const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          return { ...DEFAULT_SETTINGS, ...parsed };
+          return normalizeSettings(parsed);
         }
         return DEFAULT_SETTINGS;
       } catch (error) {
@@ -60,7 +75,7 @@ export const useUpdateSettings = () => {
     mutationFn: async (updates: Partial<AppSettings>): Promise<AppSettings> => {
       try {
         const current = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
-        const currentSettings: AppSettings = current ? JSON.parse(current) as AppSettings : DEFAULT_SETTINGS;
+        const currentSettings: AppSettings = current ? normalizeSettings(JSON.parse(current)) : DEFAULT_SETTINGS;
         const updatedSettings: AppSettings = { ...currentSettings, ...updates };
 
         await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updatedSettings));

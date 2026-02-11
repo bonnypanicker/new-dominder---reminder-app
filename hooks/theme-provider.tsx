@@ -3,7 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { Material3Colors } from '@/constants/colors';
 import { useSettings } from '@/hooks/settings-store';
 import * as SystemUI from 'expo-system-ui';
-import { Platform, LayoutAnimation } from 'react-native';
+import { Platform, LayoutAnimation, useColorScheme } from 'react-native';
 
 export type ThemeColors = typeof Material3Colors.light;
 
@@ -14,7 +14,9 @@ export interface ThemeContextValue {
 
 export const [ThemeProvider, useTheme] = createContextHook<ThemeContextValue>(() => {
   const { data: settings } = useSettings();
-  const isDark = Boolean(settings?.darkMode);
+  const systemScheme = useColorScheme();
+  const themeMode = settings?.themeMode ?? 'system';
+  const isDark = themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
 
   const value = useMemo<ThemeContextValue>(() => {
     const colors = isDark ? Material3Colors.dark : Material3Colors.light;
