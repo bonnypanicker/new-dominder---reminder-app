@@ -1709,7 +1709,7 @@ export default function HomeScreen() {
             onRequestClose={() => setHistoryPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setHistoryPopupVisible(false)}>
-              <View style={styles.historyPopupContent} onStartShouldSetResponder={() => true}>
+              <Pressable style={styles.historyPopupContent} onPress={() => {}}>
                 <Text style={styles.historyPopupTitle}>History</Text>
                 <FlatList
                   data={historyPopupData}
@@ -1730,7 +1730,7 @@ export default function HomeScreen() {
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setHistoryPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </View>
+              </Pressable>
             </Pressable>
           </Modal>
 
@@ -1741,7 +1741,7 @@ export default function HomeScreen() {
             onRequestClose={() => setMultiDatesPopupVisible(false)}
           >
             <Pressable style={styles.historyPopupOverlay} onPress={() => setMultiDatesPopupVisible(false)}>
-              <View style={styles.historyPopupContent} onStartShouldSetResponder={() => true}>
+              <Pressable style={styles.historyPopupContent} onPress={() => {}}>
                 <Text style={styles.historyPopupTitle}>Selected Dates</Text>
                 <Text style={[styles.historyPopupTitle, { fontSize: 14, fontWeight: 'normal', marginBottom: 16 }]}>{multiDatesPopupTitle}</Text>
                 <FlatList
@@ -1770,7 +1770,7 @@ export default function HomeScreen() {
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setMultiDatesPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </View>
+              </Pressable>
             </Pressable>
           </Modal>
 
@@ -4403,6 +4403,9 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     paddingVertical: 2,
     borderRadius: 8,
     overflow: 'hidden',
+    // Android background rendering fix
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   reminderRight: {
     flexDirection: 'row',
