@@ -320,9 +320,23 @@ export default function HomeScreen() {
   }, [reminders]);
 
   const deletedReminders = React.useMemo(() => {
-    const deleted = reminders.filter(r => r.isDeleted);
+    const allDeleted = reminders.filter(r => r.isDeleted);
+    
+    // Create a set of IDs of deleted reminders to efficiently check parent status
+    const deletedIds = new Set(allDeleted.map(r => r.id));
+    
+    // Filter out children whose parents are also in the deleted list
+    // We want to keep the parent (which has the counter button) and hide individual occurrences
+    const filteredDeleted = allDeleted.filter(r => {
+      // If it has no parent, keep it
+      if (!r.parentId) return true;
+      // If it has a parent, only keep it if the parent is NOT in the deleted list
+      // (meaning we only deleted this specific occurrence, not the whole series)
+      return !deletedIds.has(r.parentId);
+    });
+
     // Sort by creation date (most recently created first)
-    return deleted.sort((a, b) => {
+    return filteredDeleted.sort((a, b) => {
       const createdA = new Date(a.createdAt).getTime();
       const createdB = new Date(b.createdAt).getTime();
       return createdB - createdA; // Most recently created first
