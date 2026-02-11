@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Keyboard as RNKeyboard, StyleProp, ViewStyle } from 'react-native';
 import { RepeatType, EveryUnit } from '@/types/reminder';
 import { DAYS_OF_WEEK } from '@/constants/reminders';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -362,7 +362,7 @@ export default function CustomizePanel({
 
         {(repeatType === 'none' || repeatType === 'every') && (
           <View style={[styles.dateSelectionContainer, { marginTop: 12 * scaleFactor, marginBottom: 12 * scaleFactor }, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
-            <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 2 * scaleFactor }]}>
+            <View style={[styles.topRow, repeatType === 'every' && { marginBottom: 8 * scaleFactor }]}>
               <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>{repeatType === 'every' ? 'Start' : 'Date'}</Text>
               <View style={styles.menuWrapper}
               >
@@ -373,6 +373,7 @@ export default function CustomizePanel({
                   onOpen={() => { }}
                   onToggle={() => setDropdownOpen(!dropdownOpen)}
                   onMeasure={(coords) => coords && handleDropdownOpen(coords)}
+                  style={{ paddingVertical: 6 * scaleFactor, paddingHorizontal: 12 * scaleFactor }}
                 />
 
               </View>
@@ -404,7 +405,7 @@ export default function CustomizePanel({
         )}
 
         {repeatType === 'daily' && (
-          <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 2 * scaleFactor }]}>
+          <View style={[styles.daysContainer, { marginTop: 6 * scaleFactor, gap: 10 * scaleFactor }]}>
             <View style={[styles.dailySection, styles.dailyTimeRow]}>
               <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Time</Text>
               <View style={styles.menuWrapper}>
@@ -432,7 +433,6 @@ export default function CustomizePanel({
               </View>
             </View>
             <View style={styles.dailySection}>
-              <Text style={[styles.dailySectionLabel, { fontSize: 14 * scaleFactor }]}>Days</Text>
               <View style={[
                 styles.daysRow,
                 { marginHorizontal: 0, paddingHorizontal: 0 },
@@ -2334,9 +2334,10 @@ interface DropdownAnchorProps {
   onOpen: () => void;
   onToggle: () => void;
   onMeasure: (rect: AnchorRect | null) => void;
+  style?: StyleProp<ViewStyle>;
 }
 
-const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, open, onOpen, onToggle, onMeasure }, ref) => {
+const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, open, onOpen, onToggle, onMeasure, style }, ref) => {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const measureNow = () => {
@@ -2354,7 +2355,7 @@ const DropdownAnchor = React.forwardRef<View, DropdownAnchorProps>(({ label, ope
     <TouchableOpacity
       ref={ref as any}
       testID="date-menu-button"
-      style={styles.menuButton}
+      style={[styles.menuButton, style]}
       onPress={() => {
         if (!open) measureNow();
         onToggle();

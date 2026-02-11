@@ -2732,6 +2732,8 @@ const buildPopupStyles = (colors: ReturnType<typeof useThemeColors>) => StyleShe
   popup: {
     backgroundColor: colors.surface,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
     padding: 12,
     paddingBottom: 12,
     width: '100%',
