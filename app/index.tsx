@@ -4625,11 +4625,11 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     fontWeight: '500',
   },
   repeatBadgeBottom: {
-    alignSelf: 'flex-start',
+    // alignSelf: 'flex-start', // Removed to allow centering in container
   },
   repeatBadgeContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: 4,
     marginTop: 4,
     flexWrap: 'nowrap',
