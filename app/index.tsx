@@ -1722,8 +1722,9 @@ export default function HomeScreen() {
             animationType="fade"
             onRequestClose={() => setHistoryPopupVisible(false)}
           >
-            <Pressable style={styles.historyPopupOverlay} onPress={() => setHistoryPopupVisible(false)}>
-              <Pressable style={styles.historyPopupContent} onPress={() => {}}>
+            <View style={styles.historyPopupOverlay}>
+              <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setHistoryPopupVisible(false)} />
+              <View style={styles.historyPopupContent}>
                 <Text style={styles.historyPopupTitle}>History</Text>
                 <FlatList
                   data={historyPopupData}
@@ -1740,12 +1741,14 @@ export default function HomeScreen() {
                   }}
                   style={styles.historyPopupList}
                   showsVerticalScrollIndicator={true}
+                  scrollEnabled={true}
+                  nestedScrollEnabled={true}
                 />
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setHistoryPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </Pressable>
-            </Pressable>
+              </View>
+            </View>
           </Modal>
 
           <Modal
@@ -1754,8 +1757,9 @@ export default function HomeScreen() {
             animationType="fade"
             onRequestClose={() => setMultiDatesPopupVisible(false)}
           >
-            <Pressable style={styles.historyPopupOverlay} onPress={() => setMultiDatesPopupVisible(false)}>
-              <Pressable style={styles.historyPopupContent} onPress={() => {}}>
+            <View style={styles.historyPopupOverlay}>
+              <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setMultiDatesPopupVisible(false)} />
+              <View style={styles.historyPopupContent}>
                 <Text style={styles.historyPopupTitle}>Selected Dates</Text>
                 <Text style={[styles.historyPopupTitle, { fontSize: 14, fontWeight: 'normal', marginBottom: 16 }]}>{multiDatesPopupTitle}</Text>
                 <FlatList
@@ -1780,12 +1784,14 @@ export default function HomeScreen() {
                   }}
                   style={styles.historyPopupList}
                   showsVerticalScrollIndicator={true}
+                  scrollEnabled={true}
+                  nestedScrollEnabled={true}
                 />
                 <TouchableOpacity style={styles.closeHistoryButton} onPress={() => setMultiDatesPopupVisible(false)}>
                   <Text style={styles.closeHistoryButtonText}>Close</Text>
                 </TouchableOpacity>
-              </Pressable>
-            </Pressable>
+              </View>
+            </View>
           </Modal>
 
           <CreateReminderPopup

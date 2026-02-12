@@ -465,7 +465,7 @@ export default function CustomizePanel({
         )}
 
         {repeatType === 'monthly' && (
-          <View style={[styles.dateSelectionContainer, { marginTop: 6 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
+          <View style={[styles.dateSelectionContainer, { marginTop: 6 * scaleFactor, marginBottom: 10 * scaleFactor }]}>
             <View style={styles.topRow}>
               <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
               <View style={styles.menuWrapper}>
@@ -486,7 +486,7 @@ export default function CustomizePanel({
         )}
 
         {repeatType === 'yearly' && (
-          <View style={[styles.dateSelectionContainer, { marginTop: 6 * scaleFactor, marginBottom: 12 * scaleFactor }]}>
+          <View style={[styles.dateSelectionContainer, { marginTop: 6 * scaleFactor, marginBottom: 10 * scaleFactor }]}>
             <View style={styles.topRow}>
               <Text style={[styles.topRowLabel, { fontSize: 14 * scaleFactor }]}>Repeats on</Text>
               <View style={styles.menuWrapper}>
