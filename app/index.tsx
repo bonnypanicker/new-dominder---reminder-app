@@ -1276,7 +1276,7 @@ export default function HomeScreen() {
                       {/* Show selected dates when individual dates are selected */}
                       {reminder.multiSelectDates && reminder.multiSelectDates.length > 0 && (
                         <TouchableOpacity onPress={() => openMultiDatesPopup(reminder.multiSelectDates!, reminder.title)}>
-                          <Text style={styles.selectedDatesText}>
+                          <View style={styles.selectedDatesText}>
                             {(() => {
                               const formatDate = (dateStr: string) => {
                                 const [year, month, day] = dateStr.split('-').map(Number);
@@ -1286,19 +1286,19 @@ export default function HomeScreen() {
 
                               const dates = [...(reminder.multiSelectDates ?? [])].sort((a, b) => a.localeCompare(b));
                               if (dates.length <= 3) {
-                                return dates.map(formatDate).join(', ');
+                                return <Text style={{ color: colors.error, fontSize: 12, fontWeight: '500' }}>{dates.map(formatDate).join(', ')}</Text>;
                               }
 
                               // Show first 3, then +N with background
                               const displayDates = dates.slice(0, 3).map(formatDate).join(', ');
                               return (
                                 <>
-                                  {displayDates}{' '}
+                                  <Text style={{ color: colors.error, fontSize: 12, fontWeight: '500' }}>{displayDates}</Text>
                                   <Text style={styles.selectedDatesMoreText}>+{dates.length - 3}</Text>
                                 </>
                               );
                             })()}
-                          </Text>
+                          </View>
                         </TouchableOpacity>
                       )}
                     </>
@@ -4407,16 +4407,20 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     color: colors.error,
     fontWeight: '500',
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   selectedDatesMoreText: {
-    fontSize: 12,
-    color: colors.onSurface,
-    fontWeight: '700',
-    backgroundColor: colors.surfaceVariant,
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderColor: colors.outline,
+    borderRadius: 10,
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    overflow: 'hidden',
+    paddingVertical: 1,
+    marginLeft: 4,
     // Android background rendering fix
     textAlignVertical: 'center',
     includeFontPadding: false,
@@ -4750,7 +4754,7 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     padding: 20,
     width: '100%',
     maxWidth: 320,
-    maxHeight: '70%',
+    height: 400, // Fixed height to prevent growing
     elevation: 4,
   },
   historyPopupTitle: {
