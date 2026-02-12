@@ -215,6 +215,7 @@ const files = [
         content: `package app.rork.dominder_android_reminder_app.alarm
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -242,6 +243,9 @@ class AlarmActionBridge : BroadcastReceiver() {
                 val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
+                    AlarmRingtoneService.stopAlarmRingtone(context)
+                    val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.cancel(reminderId.hashCode())
                     // Check if React Native is running
                     val isReactRunning = isReactContextAvailable(context)
                     DebugLogger.log("AlarmActionBridge: React Native running: \$isReactRunning")
@@ -271,6 +275,9 @@ class AlarmActionBridge : BroadcastReceiver() {
                 DebugLogger.log("AlarmActionBridge: ALARM_SNOOZE - reminderId: \${reminderId}, minutes: \${snoozeMinutes}")
                 
                 if (reminderId != null) {
+                    AlarmRingtoneService.stopAlarmRingtone(context)
+                    val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.cancel(reminderId.hashCode())
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
                     val snoozeTimeMs = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
                     
@@ -842,13 +849,14 @@ class AlarmRingtoneService : Service() {
         private const val CHANNEL_ID = "alarm_ringtone_service"
         private var serviceInstance: AlarmRingtoneService? = null
         
-        fun startAlarmRingtone(context: Context, reminderId: String, title: String, priority: String) {
+        fun startAlarmRingtone(context: Context, reminderId: String, title: String, priority: String, triggerTime: Long) {
             DebugLogger.log("AlarmRingtoneService: startAlarmRingtone called - priority: \$priority")
             val intent = Intent(context, AlarmRingtoneService::class.java).apply {
                 action = "app.rork.dominder.START_ALARM_RINGTONE"
                 putExtra("reminderId", reminderId)
                 putExtra("title", title)
                 putExtra("priority", priority)
+                putExtra("triggerTime", triggerTime)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -884,12 +892,13 @@ class AlarmRingtoneService : Service() {
                 val priority = intent.getStringExtra("priority") ?: "medium"
                 val title = intent.getStringExtra("title") ?: "Reminder"
                 val reminderId = intent.getStringExtra("reminderId") ?: ""
+                val triggerTime = intent.getLongExtra("triggerTime", System.currentTimeMillis())
                 
                 DebugLogger.log("AlarmRingtoneService: Starting ringtone for priority: \$priority")
                 
                 // Only play for high priority alarms
                 if (priority == "high") {
-                    startForegroundService(title, reminderId)
+                    startForegroundService(title, reminderId, priority, triggerTime)
                     startRingtoneAndVibration(reminderId)
                 } else {
                     DebugLogger.log("AlarmRingtoneService: Skipping ringtone (priority=\$priority, only high priority plays)")
@@ -924,8 +933,48 @@ class AlarmRingtoneService : Service() {
         }
     }
     
-    private fun startForegroundService(title: String, reminderId: String) {
+    private fun startForegroundService(title: String, reminderId: String, priority: String, triggerTime: Long) {
         DebugLogger.log("AlarmRingtoneService: Starting foreground service")
+        
+        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
+            setPackage(packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("triggerTime", triggerTime)
+        }
+        val donePendingIntent = PendingIntent.getBroadcast(
+            this,
+            reminderId.hashCode() + 200,
+            doneIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        val snooze5Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("snoozeMinutes", 5)
+            putExtra("title", title)
+            putExtra("priority", priority)
+        }
+        val snooze5PendingIntent = PendingIntent.getBroadcast(
+            this,
+            reminderId.hashCode() + 201,
+            snooze5Intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        val snooze10Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("snoozeMinutes", 10)
+            putExtra("title", title)
+            putExtra("priority", priority)
+        }
+        val snooze10PendingIntent = PendingIntent.getBroadcast(
+            this,
+            reminderId.hashCode() + 202,
+            snooze10Intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Reminder")
@@ -934,6 +983,9 @@ class AlarmRingtoneService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setSilent(true)
+            .addAction(0, "Done", donePendingIntent)
+            .addAction(0, "Snooze 5m", snooze5PendingIntent)
+            .addAction(0, "Snooze 10m", snooze10PendingIntent)
             .build()
         
         if (Build.VERSION.SDK_INT >= 29) {
@@ -1618,7 +1670,7 @@ class AlarmReceiver : BroadcastReceiver() {
         // Start AlarmRingtoneService for high priority reminders
         if (priority == "high") {
             DebugLogger.log("AlarmReceiver: Starting AlarmRingtoneService for high priority")
-            AlarmRingtoneService.startAlarmRingtone(context, reminderId, title, priority)
+            AlarmRingtoneService.startAlarmRingtone(context, reminderId, title, priority, triggerTime)
         }
 
         DebugLogger.log("AlarmReceiver: Creating full-screen notification for \$reminderId, triggerTime: \$triggerTime")
@@ -1671,6 +1723,46 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
+        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
+            setPackage(context.packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("triggerTime", triggerTime)
+        }
+        val donePendingIntent = PendingIntent.getBroadcast(
+            context,
+            reminderId.hashCode() + 210,
+            doneIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        val snooze5Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(context.packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("snoozeMinutes", 5)
+            putExtra("title", title)
+            putExtra("priority", priority)
+        }
+        val snooze5PendingIntent = PendingIntent.getBroadcast(
+            context,
+            reminderId.hashCode() + 211,
+            snooze5Intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
+        val snooze10Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(context.packageName)
+            putExtra("reminderId", reminderId)
+            putExtra("snoozeMinutes", 10)
+            putExtra("title", title)
+            putExtra("priority", priority)
+        }
+        val snooze10PendingIntent = PendingIntent.getBroadcast(
+            context,
+            reminderId.hashCode() + 212,
+            snooze10Intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
             .setSmallIcon(R.drawable.small_icon_noti)
             .setColor(0xFF6750A4.toInt())
@@ -1686,6 +1778,9 @@ class AlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
+            .addAction(0, "Done", donePendingIntent)
+            .addAction(0, "Snooze 5m", snooze5PendingIntent)
+            .addAction(0, "Snooze 10m", snooze10PendingIntent)
             .build()
         
         notificationManager.notify(reminderId.hashCode(), notification)
