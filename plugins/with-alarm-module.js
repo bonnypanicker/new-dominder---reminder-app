@@ -936,8 +936,8 @@ class AlarmRingtoneService : Service() {
     private fun startForegroundService(title: String, reminderId: String, priority: String, triggerTime: Long) {
         DebugLogger.log("AlarmRingtoneService: Starting foreground service")
         
-        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
-            setPackage(packageName)
+        val doneIntent = Intent(this, AlarmActionBridge::class.java).apply {
+            action = "app.rork.dominder.ALARM_DONE"
             putExtra("reminderId", reminderId)
             putExtra("triggerTime", triggerTime)
         }
@@ -948,8 +948,8 @@ class AlarmRingtoneService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        val snooze5Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-            setPackage(packageName)
+        val snooze5Intent = Intent(this, AlarmActionBridge::class.java).apply {
+            action = "app.rork.dominder.ALARM_SNOOZE"
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", 5)
             putExtra("title", title)
@@ -962,8 +962,8 @@ class AlarmRingtoneService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        val snooze10Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-            setPackage(packageName)
+        val snooze10Intent = Intent(this, AlarmActionBridge::class.java).apply {
+            action = "app.rork.dominder.ALARM_SNOOZE"
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", 10)
             putExtra("title", title)
@@ -1296,7 +1296,7 @@ class AlarmActivity : AppCompatActivity() {
 
         // --- Update current time display ---
         val currentTimeView: TextView = findViewById(R.id.current_time)
-        val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+        // prefs is already defined at top of onCreate
         val use24HourFormat = prefs.getBoolean("use24HourFormat", false)
         val timeFormat = if (use24HourFormat) {
             SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -1375,8 +1375,8 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast
-        val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
-            setPackage(packageName)
+        val intent = Intent(this, AlarmActionBridge::class.java).apply {
+            action = "app.rork.dominder.ALARM_SNOOZE"
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
             putExtra("title", intent.getStringExtra("title") ?: "Reminder")
@@ -1416,8 +1416,8 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast as fallback for when app is running
-        val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
-            setPackage(packageName)
+        val intent = Intent(this, AlarmActionBridge::class.java).apply {
+            action = "app.rork.dominder.ALARM_DONE"
             putExtra("reminderId", reminderId)
             putExtra("triggerTime", triggerTimeMs)
         }
