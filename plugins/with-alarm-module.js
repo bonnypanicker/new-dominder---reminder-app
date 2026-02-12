@@ -1234,6 +1234,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
@@ -1253,6 +1254,12 @@ class AlarmActivity : AppCompatActivity() {
     private val TIMEOUT_DURATION = 5 * 60 * 1000L // 5 minutes in milliseconds
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+        if (prefs.contains("user_theme_dark")) {
+            val isDark = prefs.getBoolean("user_theme_dark", false)
+            val mode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+            AppCompatDelegate.setDefaultNightMode(mode)
+        }
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
 
@@ -1939,6 +1946,7 @@ import android.view.ViewGroup
 import android.widget.*
 import com.google.android.material.color.MaterialColors
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import app.rork.dominder_android_reminder_app.DebugLogger
@@ -1952,6 +1960,12 @@ class RingtonePickerActivity : AppCompatActivity() {
     private val PICK_AUDIO_REQUEST = 2001
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+        if (prefs.contains("user_theme_dark")) {
+            val isDark = prefs.getBoolean("user_theme_dark", false)
+            val mode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+            AppCompatDelegate.setDefaultNightMode(mode)
+        }
         super.onCreate(savedInstanceState)
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -1967,6 +1981,8 @@ class RingtonePickerActivity : AppCompatActivity() {
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = isLightSurface
 
         val statusBarHeight = getStatusBarHeight()
+        val density = resources.displayMetrics.density
+        fun dp(value: Int): Int = (value * density).toInt()
         
         // Main container matching Reminder Defaults design
         val mainLayout = LinearLayout(this).apply {
@@ -1988,7 +2004,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             // Add status bar height to top padding for seamless look
-            setPadding(64, statusBarHeight + 52, 52, 52)
+            setPadding(dp(24), statusBarHeight + dp(8), dp(24), dp(20))
             setBackgroundColor(surfaceColor)
             elevation = 0f // No elevation for seamless look
         }
@@ -2007,13 +2023,13 @@ class RingtonePickerActivity : AppCompatActivity() {
 
         val doneButton = TextView(this).apply {
             text = "Done"
-            textSize = 14f // fontSize 14
+            textSize = 14f
             setTextColor(onPrimaryContainerColor)
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // fontWeight 500
-            setPadding(42, 20, 42, 20) // paddingHorizontal 16dp, paddingVertical 8dp
+            setPadding(dp(16), dp(8), dp(16), dp(8))
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(primaryContainerColor)
-                cornerRadius = 52f // borderRadius 20
+                cornerRadius = dp(20).toFloat()
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -2040,7 +2056,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 0,
                 1f
             )
-            setPadding(64, 64, 64, 64) // padding 24dp matching defaultsList style
+            setPadding(dp(24), dp(24), dp(24), dp(24))
             setBackgroundColor(surfaceColor)
             // Hide scroll bar indicator but keep scrolling enabled
             isVerticalScrollBarEnabled = false
@@ -2063,7 +2079,7 @@ class RingtonePickerActivity : AppCompatActivity() {
         // Section title matching defaultsSectionTitle style
         val sectionTitle = TextView(this).apply {
             text = "SELECT TONE"
-            textSize = 14f // fontSize 14
+            textSize = 14f
             setTextColor(onSurfaceVariantColor)
             typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD) // fontWeight 600
             letterSpacing = 0.05f // letterSpacing 0.5
@@ -2071,7 +2087,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = 42 // marginBottom 16dp
+                bottomMargin = dp(16)
             }
         }
         contentLayout.addView(sectionTitle)
@@ -2107,20 +2123,20 @@ class RingtonePickerActivity : AppCompatActivity() {
         // Browse button matching option chip style
         val browseButton = TextView(this).apply {
             text = "📁 Browse Custom Songs"
-            textSize = 14f // fontSize 14
+            textSize = 14f
             setTextColor(primaryColor)
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // fontWeight 500
-            setPadding(42, 26, 42, 26) // paddingHorizontal 16dp, paddingVertical 10dp
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setPadding(dp(16), dp(10), dp(16), dp(10))
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(primaryContainerColor)
-                cornerRadius = 52f // borderRadius 20
-                setStroke(3, primaryColor)
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), primaryColor)
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(0, 0, 0, 52) // margin bottom 20dp
+                setMargins(0, 0, 0, dp(20))
             }
             setOnClickListener {
                 stopCurrentRingtone()
@@ -2138,13 +2154,13 @@ class RingtonePickerActivity : AppCompatActivity() {
                 textSize = 16f
                 setTextColor(if (isSelected) primaryColor else onSurfaceColor)
                 typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-                setPadding(48, 36, 48, 36)
+                setPadding(dp(16), dp(12), dp(16), dp(12))
                 setBackgroundColor(if (isSelected) primaryContainerColor else 0x00000000.toInt())
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(0, 0, 0, 16) // Extra margin bottom before system ringtones
+                    setMargins(0, 0, 0, dp(16))
                 }
                 isClickable = true
                 isFocusable = true
@@ -2184,10 +2200,10 @@ class RingtonePickerActivity : AppCompatActivity() {
             
             val ringtoneItem = TextView(this).apply {
                 text = title
-                textSize = 16f // Slightly larger for better readability
+                textSize = 16f
                 setTextColor(if (isSelected) primaryColor else onSurfaceColor)
                 typeface = android.graphics.Typeface.create("sans-serif", if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-                setPadding(48, 36, 48, 36) // More padding for easier clicking
+                setPadding(dp(16), dp(12), dp(16), dp(12))
                 
                 // Simple background - just a subtle highlight when selected
                 setBackgroundColor(if (isSelected) primaryContainerColor else 0x00000000.toInt())
@@ -2196,7 +2212,7 @@ class RingtonePickerActivity : AppCompatActivity() {
                     ViewGroup.LayoutParams.MATCH_PARENT, // Full width for easier clicking
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(0, 0, 0, 2) // Small gap between items
+                    setMargins(0, 0, 0, dp(2))
                 }
                 
                 // Make it clear it's clickable
