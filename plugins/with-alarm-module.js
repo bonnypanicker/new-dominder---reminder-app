@@ -1827,7 +1827,7 @@ class AlarmReceiver : BroadcastReceiver() {
         
         val notification = NotificationCompat.Builder(context, "alarm_channel_v2")
             .setSmallIcon(R.drawable.small_icon_noti)
-            .setColor(0xFFB3261E.toInt()) // High Priority Red
+            .setColor(0xFF6750A4.toInt())
             .setColorized(true)
             .setContentTitle(title)
             .setContentText("Reminder")
