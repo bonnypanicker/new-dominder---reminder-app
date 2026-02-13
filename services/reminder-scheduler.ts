@@ -43,6 +43,38 @@ export async function rescheduleReminderById(reminderId: string, minutes: number
   DeviceEventEmitter.emit('remindersChanged');
 }
 
+/**
+ * Lightweight snooze sync for when native already handled everything
+ * (scheduled alarm, set metadata, stopped ringtone).
+ * JS only needs to update AsyncStorage state so the UI reflects the snooze.
+ * Does NOT cancel/re-schedule native alarms or clear native metadata.
+ */
+export async function syncSnoozeFromNative(reminderId: string, snoozeMinutes: number) {
+  console.log(`[Scheduler] syncSnoozeFromNative: ${reminderId} for ${snoozeMinutes} minutes`);
+
+  const reminder = await getReminder(reminderId);
+  if (!reminder || reminder.isCompleted) {
+    console.log(`[Scheduler] Reminder ${reminderId} not found or completed, skipping native snooze sync.`);
+    return;
+  }
+
+  const snoozeTime = Date.now() + snoozeMinutes * 60 * 1000;
+  const snoozeEndDate = new Date(snoozeTime);
+
+  // Only update AsyncStorage - native already handled alarm scheduling and metadata
+  const updated = {
+    ...reminder,
+    snoozeUntil: snoozeEndDate.toISOString(),
+    wasSnoozed: true,
+    isActive: true
+  };
+  await updateReminder(updated);
+
+  console.log(`[Scheduler] syncSnoozeFromNative: Updated AsyncStorage for ${reminderId}, snoozeUntil=${snoozeEndDate.toISOString()}`);
+
+  DeviceEventEmitter.emit('remindersChanged');
+}
+
 export async function rescheduleReminderByIdAt(reminderId: string, snoozeUntilMs: number) {
   console.log(`[Scheduler] Snoozing reminder ${reminderId} until ${new Date(snoozeUntilMs).toISOString()}`);
 
@@ -83,7 +115,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
   // Direct use - no shadow ID resolution needed
   const actualId = reminderId;
-  
+
   let reminder = await getReminder(actualId);
 
   if (!reminder) {
@@ -93,7 +125,7 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
 
   // Check if this was a snoozed alarm completing
   const wasSnoozeCompletion = reminder.wasSnoozed === true;
-  
+
   if (wasSnoozeCompletion) {
     console.log(`[Scheduler] Snoozed alarm completing for ${actualId}`);
     // Clear snooze state

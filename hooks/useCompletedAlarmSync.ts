@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AppState, NativeModules, Platform, DeviceEventEmitter } from 'react-native';
-import { markReminderDone, rescheduleReminderByIdAt } from '@/services/reminder-scheduler';
+import { markReminderDone, rescheduleReminderByIdAt, syncSnoozeFromNative } from '@/services/reminder-scheduler';
 import { deleteReminder, getReminder, updateReminder, addReminder, getReminders } from '@/services/reminder-service';
 
 const { AlarmModule } = NativeModules;
@@ -155,15 +155,16 @@ export function useCompletedAlarmSync() {
           console.log('[AlarmSync] Processing snoozed alarm:', reminderId, 'for', minutes, 'minutes');
 
           // Snooze in the store
-          
+
           // Fix 5: Check if native is currently processing this snooze to avoid race condition
           const isBeingProcessedNatively = await AlarmModule.checkProcessingFlag?.(reminderId);
           if (isBeingProcessedNatively) {
-             console.log('[AlarmSync] Snooze being processed by native, skipping JS processing');
-             continue;
+            console.log('[AlarmSync] Snooze being processed by native, skipping JS processing');
+            continue;
           }
 
-          await rescheduleReminderByIdAt(reminderId, snoozeUntilMs);
+          // Use lightweight sync since native already handled alarm scheduling
+          await syncSnoozeFromNative(reminderId, minutes);
 
           // Clear from SharedPreferences
           await AlarmModule.clearSnoozedAlarm(reminderId);
@@ -295,12 +296,12 @@ export function useCompletedAlarmSync() {
       }
     });
 
-    // Periodic sync every 30 seconds while app is active (as safety net)
+    // Periodic sync every 5 seconds while app is active (fast fallback for event delivery failures)
     const interval = setInterval(() => {
       if (AppState.currentState === 'active') {
         syncCompletedAlarms();
       }
-    }, 30000);
+    }, 5000);
 
     return () => {
       subscription.remove();

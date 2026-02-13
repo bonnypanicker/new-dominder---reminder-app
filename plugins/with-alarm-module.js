@@ -244,6 +244,19 @@ class AlarmActionBridge : BroadcastReceiver() {
                 DebugLogger.log("AlarmActionBridge: ALARM_DONE - reminderId: \${reminderId}, triggerTime: \${triggerTime}")
                 if (reminderId != null) {
                     AlarmRingtoneService.stopAlarmRingtone(context)
+                    
+                    // NEW: Write to SharedPreferences for sync fallback (same as AlarmActivity)
+                    try {
+                        val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("completed_\${reminderId}", triggerTime.toString())
+                            apply()
+                        }
+                        DebugLogger.log("AlarmActionBridge: Saved completion to SharedPreferences for \${reminderId}")
+                    } catch (e: Exception) {
+                        DebugLogger.log("AlarmActionBridge: Error saving to SharedPreferences: \${e.message}")
+                    }
+
                     val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     notificationManager.cancel(reminderId.hashCode())
                     // Check if React Native is running
@@ -276,6 +289,19 @@ class AlarmActionBridge : BroadcastReceiver() {
                 
                 if (reminderId != null) {
                     AlarmRingtoneService.stopAlarmRingtone(context)
+                    
+                    // NEW: Write to SharedPreferences for sync fallback (same as AlarmActivity)
+                    try {
+                        val prefs = context.getSharedPreferences("DoMinderAlarmActions", Context.MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("snoozed_\${reminderId}", "\${System.currentTimeMillis()}:\${snoozeMinutes}")
+                            apply()
+                        }
+                        DebugLogger.log("AlarmActionBridge: Saved snooze to SharedPreferences for \${reminderId}")
+                    } catch (e: Exception) {
+                        DebugLogger.log("AlarmActionBridge: Error saving snooze to SharedPreferences: \${e.message}")
+                    }
+
                     val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     notificationManager.cancel(reminderId.hashCode())
                     val metaPrefs = context.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
@@ -782,25 +808,40 @@ class AlarmActionBridge : BroadcastReceiver() {
                 
                 if (reactContext != null) {
                     DebugLogger.log("AlarmActionBridge: ReactContext is VALID ✓")
-                    DebugLogger.log("AlarmActionBridge: Creating params map...")
                     
-                    val params = Arguments.createMap().apply {
-                        putString("reminderId", reminderId)
-                        if (eventName == "alarmSnooze") {
-                            putInt("snoozeMinutes", snoozeMinutes)
-                        }
-                        if (eventName == "alarmDone" && triggerTime > 0) {
-                            putDouble("triggerTime", triggerTime.toDouble())
+                    // Emit on the UI thread to ensure reliable delivery to JS
+                    // BroadcastReceiver.onReceive may run on a binder thread depending on how it was triggered                    
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        try {
+                            DebugLogger.log("AlarmActionBridge: [MainThread] Creating params map...")
+                            
+                            val params = Arguments.createMap().apply {
+                                putString("reminderId", reminderId)
+                                if (eventName == "alarmSnooze") {
+                                    putInt("snoozeMinutes", snoozeMinutes)
+                                }
+                                if (eventName == "alarmDone" && triggerTime > 0) {
+                                    putDouble("triggerTime", triggerTime.toDouble())
+                                }
+                            }
+                            
+                            DebugLogger.log("AlarmActionBridge: [MainThread] Params created, emitting event '\${eventName}'...")
+                            
+                            // Re-check ReactContext is still valid on execute
+                            val currentContext = reactInstanceManager.currentReactContext
+                            if (currentContext != null) {
+                                currentContext
+                                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                                    .emit(eventName, params)
+                                
+                                DebugLogger.log("AlarmActionBridge: [MainThread] ✓✓✓ Event '\${eventName}' emitted successfully! ✓✓✓")
+                            } else {
+                                DebugLogger.log("AlarmActionBridge: [MainThread] ReactContext became null before emit, relying on SharedPreferences fallback")
+                            }
+                        } catch (e: Exception) {
+                            DebugLogger.log("AlarmActionBridge: [MainThread] Exception during emit: \${e.message}")
                         }
                     }
-                    
-                    DebugLogger.log("AlarmActionBridge: Params created, emitting event '\${eventName}'...")
-                    
-                    reactContext
-                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                        .emit(eventName, params)
-                    
-                    DebugLogger.log("AlarmActionBridge: ✓✓✓ Event '\${eventName}' emitted successfully! ✓✓✓")
                 } else {
                     DebugLogger.log("AlarmActionBridge: ✗✗✗ ERROR - ReactContext is NULL! ✗✗✗")
                     DebugLogger.log("AlarmActionBridge: This means React Native is not running or was killed")
@@ -936,8 +977,8 @@ class AlarmRingtoneService : Service() {
     private fun startForegroundService(title: String, reminderId: String, priority: String, triggerTime: Long) {
         DebugLogger.log("AlarmRingtoneService: Starting foreground service")
         
-        val doneIntent = Intent(this, AlarmActionBridge::class.java).apply {
-            action = "app.rork.dominder.ALARM_DONE"
+        val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
+            setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("triggerTime", triggerTime)
         }
@@ -948,8 +989,8 @@ class AlarmRingtoneService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        val snooze5Intent = Intent(this, AlarmActionBridge::class.java).apply {
-            action = "app.rork.dominder.ALARM_SNOOZE"
+        val snooze5Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", 5)
             putExtra("title", title)
@@ -962,8 +1003,8 @@ class AlarmRingtoneService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        val snooze10Intent = Intent(this, AlarmActionBridge::class.java).apply {
-            action = "app.rork.dominder.ALARM_SNOOZE"
+        val snooze10Intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", 10)
             putExtra("title", title)
@@ -1375,8 +1416,8 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast
-        val intent = Intent(this, AlarmActionBridge::class.java).apply {
-            action = "app.rork.dominder.ALARM_SNOOZE"
+        val intent = Intent("app.rork.dominder.ALARM_SNOOZE").apply {
+            setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("snoozeMinutes", minutes)
             putExtra("title", intent.getStringExtra("title") ?: "Reminder")
@@ -1416,8 +1457,8 @@ class AlarmActivity : AppCompatActivity() {
         }
         
         // Keep existing broadcast as fallback for when app is running
-        val intent = Intent(this, AlarmActionBridge::class.java).apply {
-            action = "app.rork.dominder.ALARM_DONE"
+        val intent = Intent("app.rork.dominder.ALARM_DONE").apply {
+            setPackage(packageName)
             putExtra("reminderId", reminderId)
             putExtra("triggerTime", triggerTimeMs)
         }

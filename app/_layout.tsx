@@ -4,7 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet, DeviceEventEmitter, Platform, View } from 'react-native';
+import { StyleSheet, DeviceEventEmitter, Platform, View, NativeModules } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "@/hooks/theme-provider";
@@ -16,44 +16,93 @@ import { useCompletedAlarmSync } from '../hooks/useCompletedAlarmSync';
 import { missedAlarmService } from '../services/missed-alarm-service';
 
 // Import the functions directly from reminder-scheduler
-import { markReminderDone, rescheduleReminderById } from '@/services/reminder-scheduler';
+import { markReminderDone, rescheduleReminderById, syncSnoozeFromNative } from '@/services/reminder-scheduler';
 
 SplashScreen.preventAutoHideAsync();
 const rootQueryClient = new QueryClient();
 
 // 1. Define the new listener hook
+const AlarmModuleRef = Platform.OS === 'android' ? NativeModules.AlarmModule : null;
+
 const useAlarmListeners = () => {
+  // Track processed events to prevent double handling
+  const processedEventsRef = React.useRef(new Set<string>());
+
   useEffect(() => {
     console.log('[useAlarmListeners] Setting up native alarm event listeners...');
 
     const doneSubscription = DeviceEventEmitter.addListener(
       'alarmDone',
-      (event: { reminderId: string; triggerTime?: number }) => {
-        console.log('Native alarm DONE event received for:', event.reminderId, 'triggerTime:', event.triggerTime);
+      async (event: { reminderId: string; triggerTime?: number }) => {
+        console.log('[useAlarmListeners] Native alarm DONE event received for:', event.reminderId, 'triggerTime:', event.triggerTime);
         if (event.reminderId) {
+          // Deduplication: prevent handling same event twice
+          const eventKey = `done_${event.reminderId}_${event.triggerTime || 'now'}`;
+          if (processedEventsRef.current.has(eventKey)) {
+            console.log('[useAlarmListeners] Already processed DONE event for:', eventKey);
+            return;
+          }
+          processedEventsRef.current.add(eventKey);
+
+          // Clear SharedPreferences IMMEDIATELY to prevent useCompletedAlarmSync
+          // from double-processing this same completion
+          if (AlarmModuleRef?.clearCompletedAlarm) {
+            try {
+              await AlarmModuleRef.clearCompletedAlarm(event.reminderId);
+              console.log('[useAlarmListeners] Cleared SharedPreferences for completed:', event.reminderId);
+            } catch (e) {
+              console.log('[useAlarmListeners] Error clearing completed alarm:', e);
+            }
+          }
+
           // Native alarm DONE -> schedule next occurrence
           // IMPORTANT: shouldIncrementOccurrence=false because native AlarmReceiver 
           // already incremented actualTriggerCount when the alarm fired.
           // We just need to record history and schedule the next occurrence.
-          markReminderDone(event.reminderId, false, event.triggerTime);
+          await markReminderDone(event.reminderId, false, event.triggerTime);
+          console.log('[useAlarmListeners] markReminderDone completed for:', event.reminderId);
         }
       }
     );
 
     const snoozeSubscription = DeviceEventEmitter.addListener(
       'alarmSnooze',
-      (event: { reminderId: string; snoozeMinutes: number }) => {
-        console.log(`Native alarm SNOOZE event for ${event.reminderId}, minutes: ${event.snoozeMinutes}`);
+      async (event: { reminderId: string; snoozeMinutes: number }) => {
+        console.log(`[useAlarmListeners] Native alarm SNOOZE event for ${event.reminderId}, minutes: ${event.snoozeMinutes}`);
         if (event.reminderId && event.snoozeMinutes) {
-          rescheduleReminderById(event.reminderId, event.snoozeMinutes);
+          // Deduplication: prevent handling same event twice
+          const eventKey = `snooze_${event.reminderId}_${Date.now()}`;
+          processedEventsRef.current.add(eventKey);
+
+          // Clear SharedPreferences IMMEDIATELY to prevent useCompletedAlarmSync
+          // from double-processing this same snooze
+          if (AlarmModuleRef?.clearSnoozedAlarm) {
+            try {
+              await AlarmModuleRef.clearSnoozedAlarm(event.reminderId);
+              console.log('[useAlarmListeners] Cleared SharedPreferences for snoozed:', event.reminderId);
+            } catch (e) {
+              console.log('[useAlarmListeners] Error clearing snoozed alarm:', e);
+            }
+          }
+
+          await syncSnoozeFromNative(event.reminderId, event.snoozeMinutes);
+          console.log('[useAlarmListeners] syncSnoozeFromNative completed for:', event.reminderId);
         }
       }
     );
+
+    // Cleanup old processed events periodically (prevent memory leak)
+    const cleanupInterval = setInterval(() => {
+      if (processedEventsRef.current.size > 100) {
+        processedEventsRef.current.clear();
+      }
+    }, 60000);
 
     return () => {
       console.log('[useAlarmListeners] Cleaning up native alarm event listeners.');
       doneSubscription.remove();
       snoozeSubscription.remove();
+      clearInterval(cleanupInterval);
     };
   }, []); // Empty deps since functions are imported directly
 };
