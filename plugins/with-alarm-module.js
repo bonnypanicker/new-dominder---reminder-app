@@ -1834,10 +1834,13 @@ class AlarmReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
-            // FIX: Add content intent for notification tap handling.
+            // FIX: Add a content intent for when the user taps the notification itself.
             .setContentIntent(contentPendingIntent)
-            // FIX: setAutoCancel(true) allows dismissal, so remove contradictory setOngoing(true).
-            .setAutoCancel(true)
+            // FIX: setAutoCancel(false) ensures the notification persists so the user can control it 
+            // even if they minimize the full-screen activity.
+            .setAutoCancel(false)
+            // FIX: setOngoing(true) prevents the user from swiping it away while the alarm is ringing.
+            .setOngoing(true)
             // FIX: Add vibration pattern for better user alert.
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .addAction(0, "Done", donePendingIntent)
