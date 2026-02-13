@@ -38,10 +38,11 @@ export const [ThemeProvider, useTheme] = createContextHook<ThemeContextValue>(()
         if (Platform.OS === 'android') {
           const { NativeModules } = require('react-native');
           NativeModules.AlarmModule?.saveThemePreference?.(isDark);
+          NativeModules.AlarmModule?.saveThemeMode?.(themeMode);
         }
       }
     } catch { }
-  }, [value.colors.background, isDark]);
+  }, [value.colors.background, isDark, themeMode]);
 
   return value;
 });

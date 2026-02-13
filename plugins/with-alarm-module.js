@@ -1296,10 +1296,24 @@ class AlarmActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-        if (prefs.contains("user_theme_dark")) {
+        
+        // Check for specific mode string first (system/light/dark)
+        if (prefs.contains("user_theme_mode")) {
+            val mode = when (prefs.getString("user_theme_mode", "system")) {
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            }
+            AppCompatDelegate.setDefaultNightMode(mode)
+        } 
+        // Fallback to boolean if legacy
+        else if (prefs.contains("user_theme_dark")) {
             val isDark = prefs.getBoolean("user_theme_dark", false)
             val mode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
             AppCompatDelegate.setDefaultNightMode(mode)
+        }
+        else {
+             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
@@ -2002,10 +2016,24 @@ class RingtonePickerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
-        if (prefs.contains("user_theme_dark")) {
+        
+        // Check for specific mode string first (system/light/dark)
+        if (prefs.contains("user_theme_mode")) {
+            val mode = when (prefs.getString("user_theme_mode", "system")) {
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            }
+            AppCompatDelegate.setDefaultNightMode(mode)
+        } 
+        // Fallback to boolean if legacy
+        else if (prefs.contains("user_theme_dark")) {
             val isDark = prefs.getBoolean("user_theme_dark", false)
             val mode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
             AppCompatDelegate.setDefaultNightMode(mode)
+        }
+        else {
+             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
         super.onCreate(savedInstanceState)
         
@@ -2717,11 +2745,26 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     // Determine theme from shared preferences to match splash screen with in-app selection
     val prefs = getSharedPreferences("DoMinderSettings", android.content.Context.MODE_PRIVATE)
-    if (prefs.contains("user_theme_dark")) {
-      val isDark = prefs.getBoolean("user_theme_dark", false)
-      val mode = if (isDark) androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES else androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
-      androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(mode)
-      DebugLogger.log("MainActivity: Applied persisted theme preference: isDark=\${isDark}")
+    
+    // Check for specific mode string first (system/light/dark)
+    if (prefs.contains("user_theme_mode")) {
+        val mode = when (prefs.getString("user_theme_mode", "system")) {
+            "dark" -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+            "light" -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+            else -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        }
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(mode)
+        DebugLogger.log("MainActivity: Applied theme mode: \${prefs.getString("user_theme_mode", "system")}")
+    } 
+    // Fallback to boolean if legacy
+    else if (prefs.contains("user_theme_dark")) {
+        val isDark = prefs.getBoolean("user_theme_dark", false)
+        val mode = if (isDark) androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES else androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(mode)
+        DebugLogger.log("MainActivity: Applied persisted theme preference: isDark=\${isDark}")
+    }
+    else {
+         androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
     }
 
     // Enable edge-to-edge
@@ -3257,6 +3300,19 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise?.resolve(true)
         } catch (e: Exception) {
             DebugLogger.log("AlarmModule: Error saving theme preference: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun saveThemeMode(mode: String, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
+            prefs.edit().putString("user_theme_mode", mode).apply()
+            DebugLogger.log("AlarmModule: Saved theme mode: \${mode}")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error saving theme mode: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }
