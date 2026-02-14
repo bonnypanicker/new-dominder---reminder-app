@@ -1298,23 +1298,20 @@ class AlarmActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
         
         // Check for specific mode string first (system/light/dark)
-        if (prefs.contains("user_theme_mode")) {
-            val mode = when (prefs.getString("user_theme_mode", "system")) {
+        val nightMode = if (prefs.contains("user_theme_mode")) {
+            when (prefs.getString("user_theme_mode", "system")) {
                 "dark" -> AppCompatDelegate.MODE_NIGHT_YES
                 "light" -> AppCompatDelegate.MODE_NIGHT_NO
                 else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
-            AppCompatDelegate.setDefaultNightMode(mode)
-        } 
-        // Fallback to boolean if legacy
-        else if (prefs.contains("user_theme_dark")) {
+        } else if (prefs.contains("user_theme_dark")) {
             val isDark = prefs.getBoolean("user_theme_dark", false)
-            val mode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-            AppCompatDelegate.setDefaultNightMode(mode)
+            if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        } else {
+            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         }
-        else {
-             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        }
+        
+        delegate.localNightMode = nightMode  // FIX: per-activity only, no process contamination
         super.onCreate(savedInstanceState)
         DebugLogger.log("AlarmActivity: onCreate")
 
@@ -2021,23 +2018,20 @@ class RingtonePickerActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("DoMinderSettings", Context.MODE_PRIVATE)
         
         // Check for specific mode string first (system/light/dark)
-        if (prefs.contains("user_theme_mode")) {
-            val mode = when (prefs.getString("user_theme_mode", "system")) {
+        val nightMode = if (prefs.contains("user_theme_mode")) {
+            when (prefs.getString("user_theme_mode", "system")) {
                 "dark" -> AppCompatDelegate.MODE_NIGHT_YES
                 "light" -> AppCompatDelegate.MODE_NIGHT_NO
                 else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
-            AppCompatDelegate.setDefaultNightMode(mode)
-        } 
-        // Fallback to boolean if legacy
-        else if (prefs.contains("user_theme_dark")) {
+        } else if (prefs.contains("user_theme_dark")) {
             val isDark = prefs.getBoolean("user_theme_dark", false)
-            val mode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-            AppCompatDelegate.setDefaultNightMode(mode)
+            if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        } else {
+            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         }
-        else {
-             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        }
+        
+        delegate.localNightMode = nightMode  // FIX: per-activity only, no process contamination
         super.onCreate(savedInstanceState)
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
