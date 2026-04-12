@@ -3444,6 +3444,144 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
     return ticks;
   };
 
+  // Outer bezel padding — space for number labels outside the disc
+  const BEZEL_PADDING = 30;
+  const clockFaceSize = discSize + BEZEL_PADDING * 2;
+  const numberRadius = discSize / 2 + 17; // center of number sits 17px outside disc edge
+
+  // Tap a number to jump the dial to that value
+  const handleNumberTap = (value: number) => {
+    if (activeSection === 'hour') {
+      setCurrentHour(value);
+      const hourStep = 360 / 12;
+      const hourIndex = value === 12 ? 0 : value;
+      const newRotation = (hourIndex * hourStep) % 360;
+      rotationRef.current = newRotation;
+      setRotation(newRotation);
+      // Auto-switch to minutes after selecting hour
+      if (autoSwitchTimeout.current) clearTimeout(autoSwitchTimeout.current);
+      autoSwitchTimeout.current = setTimeout(() => {
+        setActiveSection('minute');
+        autoSwitchTimeout.current = null;
+      }, 400);
+    } else {
+      setCurrentMinute(value);
+      const minuteStep = 360 / 60;
+      const newRotation = (value * minuteStep) % 360;
+      rotationRef.current = newRotation;
+      setRotation(newRotation);
+    }
+  };
+
+  // Render static clock numbers as an outer bezel ring
+  const renderClockNumbers = () => {
+    const numbers: React.ReactElement[] = [];
+    const wrapperCenter = clockFaceSize / 2;
+
+    if (activeSection === 'hour') {
+      const count = 12;
+      for (let i = 0; i < count; i++) {
+        const hourValue12 = i === 0 ? 12 : i;
+        const angleDeg = i * (360 / count) - 90;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        const x = Math.cos(angleRad) * numberRadius;
+        const y = Math.sin(angleRad) * numberRadius;
+
+        let label: string;
+        if (use24HourFormat) {
+          let hour24: number;
+          if (currentAMPM) {
+            hour24 = hourValue12 === 12 ? 0 : hourValue12;
+          } else {
+            hour24 = hourValue12 === 12 ? 12 : hourValue12 + 12;
+          }
+          label = hour24.toString().padStart(2, '0');
+        } else {
+          label = hourValue12.toString();
+        }
+
+        const isSelected = currentHour === hourValue12;
+        const numSize = 26;
+
+        numbers.push(
+          <TouchableOpacity
+            key={`num-${i}`}
+            activeOpacity={0.6}
+            onPress={() => handleNumberTap(hourValue12)}
+            style={{
+              position: 'absolute',
+              width: numSize,
+              height: numSize,
+              borderRadius: numSize / 2,
+              alignItems: 'center',
+              justifyContent: 'center',
+              left: wrapperCenter + x - numSize / 2,
+              top: wrapperCenter + y - numSize / 2,
+              backgroundColor: isSelected ? `${colors.primary}20` : 'transparent',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: use24HourFormat ? 10.5 : 11.5,
+                fontWeight: isSelected ? '700' : '400',
+                color: isSelected ? colors.primary : colors.onSurfaceVariant,
+                opacity: isSelected ? 1 : 0.6,
+                letterSpacing: 0.1,
+              }}
+            >
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+    } else {
+      const count = 12;
+      for (let i = 0; i < count; i++) {
+        const minuteValue = i * 5;
+        const angleDeg = i * (360 / count) - 90;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        const x = Math.cos(angleRad) * numberRadius;
+        const y = Math.sin(angleRad) * numberRadius;
+
+        const label = minuteValue.toString().padStart(2, '0');
+        const isSelected = currentMinute === minuteValue;
+        const numSize = 26;
+
+        numbers.push(
+          <TouchableOpacity
+            key={`num-${i}`}
+            activeOpacity={0.6}
+            onPress={() => handleNumberTap(minuteValue)}
+            style={{
+              position: 'absolute',
+              width: numSize,
+              height: numSize,
+              borderRadius: numSize / 2,
+              alignItems: 'center',
+              justifyContent: 'center',
+              left: wrapperCenter + x - numSize / 2,
+              top: wrapperCenter + y - numSize / 2,
+              backgroundColor: isSelected ? `${colors.primary}20` : 'transparent',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10.5,
+                fontWeight: isSelected ? '700' : '400',
+                color: isSelected ? colors.primary : colors.onSurfaceVariant,
+                opacity: isSelected ? 1 : 0.55,
+                letterSpacing: 0.2,
+              }}
+            >
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+    }
+    return numbers;
+  };
+
   if (!visible) return null;
 
   return (
@@ -3687,20 +3825,23 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
 
               <View style={timeSelectorStyles.discPanel}>
                 <View style={timeSelectorStyles.discContainer}>
-                  <View
-                    ref={discRef}
-                    collapsable={false}
-                    onLayout={(e) => {
-                      const w = (e.nativeEvent as any).layout?.width ?? 220;
-                      setDiscSize(typeof w === 'number' ? w : 220);
-                    }}
-                    style={timeSelectorStyles.discBackground}
-                    {...panResponder.panHandlers}
-                    testID="time-disc"
-                  >
-                    <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
-                      {renderTickMarks()}
-                      <View style={timeSelectorStyles.discIndicator} />
+                  <View style={{ width: clockFaceSize, height: clockFaceSize, alignItems: 'center', justifyContent: 'center' }}>
+                    {renderClockNumbers()}
+                    <View
+                      ref={discRef}
+                      collapsable={false}
+                      onLayout={(e) => {
+                        const w = (e.nativeEvent as any).layout?.width ?? 220;
+                        setDiscSize(typeof w === 'number' ? w : 220);
+                      }}
+                      style={timeSelectorStyles.discBackground}
+                      {...panResponder.panHandlers}
+                      testID="time-disc"
+                    >
+                      <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+                        {renderTickMarks()}
+                        <View style={timeSelectorStyles.discIndicator} />
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -3836,20 +3977,23 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
               </View>
 
               <View style={timeSelectorStyles.discContainer}>
-                <View
-                  ref={discRef}
-                  collapsable={false}
-                  onLayout={(e) => {
-                    const w = (e.nativeEvent as any).layout?.width ?? 220;
-                    setDiscSize(typeof w === 'number' ? w : 220);
-                  }}
-                  style={timeSelectorStyles.discBackground}
-                  {...panResponder.panHandlers}
-                  testID="time-disc"
-                >
-                  <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
-                    {renderTickMarks()}
-                    <View style={timeSelectorStyles.discIndicator} />
+                <View style={{ width: clockFaceSize, height: clockFaceSize, alignItems: 'center', justifyContent: 'center' }}>
+                  {renderClockNumbers()}
+                  <View
+                    ref={discRef}
+                    collapsable={false}
+                    onLayout={(e) => {
+                      const w = (e.nativeEvent as any).layout?.width ?? 220;
+                      setDiscSize(typeof w === 'number' ? w : 220);
+                    }}
+                    style={timeSelectorStyles.discBackground}
+                    {...panResponder.panHandlers}
+                    testID="time-disc"
+                  >
+                    <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+                      {renderTickMarks()}
+                      <View style={timeSelectorStyles.discIndicator} />
+                    </View>
                   </View>
                 </View>
               </View>
@@ -3932,7 +4076,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
     elevation: 10,
   },
   containerLandscape: {
-    maxWidth: 500,
+    maxWidth: 560,
     padding: 24,
   },
   timeDisplay: {
@@ -3984,7 +4128,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
   },
   sidePanel: {
     width: 200,
-    marginRight: 16,
+    marginRight: 36,
   },
   discPanel: {
     flex: 1,
