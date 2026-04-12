@@ -3473,10 +3473,9 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
     }
   }, [activeSection, setCurrentHour, setCurrentMinute, setRotation]);
 
-  // static clock numbers as an outer bezel ring (memoized to prevent friction)
   const clockNumbers = React.useMemo(() => {
     const numbers: React.ReactElement[] = [];
-    const wrapperCenter = clockFaceSize / 2;
+    const wrapperCenter = discSize / 2;
 
     if (activeSection === 'hour') {
       const count = 12;
