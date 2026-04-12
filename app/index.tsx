@@ -3445,9 +3445,9 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
   }, [activeSection, discSize, colors]);
 
   // Outer bezel padding — space for number labels outside the disc
-  const BEZEL_PADDING = 30;
+  const BEZEL_PADDING = 28;
   const clockFaceSize = discSize + BEZEL_PADDING * 2;
-  const numberRadius = discSize / 2 + 17; // center of number sits 17px outside disc edge
+  const numberRadius = discSize / 2 + 15; // center of number sits 15px outside disc edge
 
   // Tap a number to jump the dial to that value
   const handleNumberTap = React.useCallback((value: number) => {
@@ -3475,7 +3475,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
 
   const clockNumbers = React.useMemo(() => {
     const numbers: React.ReactElement[] = [];
-    const wrapperCenter = discSize / 2;
+    const wrapperCenter = clockFaceSize / 2;
 
     if (activeSection === 'hour') {
       const count = 12;
@@ -3824,7 +3824,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
 
               <View style={timeSelectorStyles.discPanel}>
                 <View style={timeSelectorStyles.discContainer}>
-                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: clockFaceSize, height: clockFaceSize, alignItems: 'center', justifyContent: 'center' }}>
                     {clockNumbers}
                     <View
                       ref={discRef}
@@ -3976,7 +3976,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
               </View>
 
               <View style={timeSelectorStyles.discContainer}>
-                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: clockFaceSize, height: clockFaceSize, alignItems: 'center', justifyContent: 'center' }}>
                   {clockNumbers}
                   <View
                     ref={discRef}
@@ -4065,7 +4065,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
   container: {
     backgroundColor: colors.surface,
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 380,
     borderRadius: 16,
     padding: 20,
     shadowColor: colors.shadow,
@@ -4075,7 +4075,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
     elevation: 10,
   },
   containerLandscape: {
-    maxWidth: 500,
+    maxWidth: 580,
     padding: 24,
   },
   timeDisplay: {
@@ -4127,7 +4127,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
   },
   sidePanel: {
     width: 200,
-    marginRight: 20,
+    marginRight: 24,
   },
   discPanel: {
     flex: 1,
