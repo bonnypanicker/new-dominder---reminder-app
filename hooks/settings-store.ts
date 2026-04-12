@@ -20,6 +20,11 @@ export interface AppSettings {
   ringerVolume: number;
   use24HourFormat: boolean;
   weekStartDay: WeekStartDay;
+  appOpensCount: number;
+  firstLaunchDate: string;
+  hasRatedApp: boolean;
+  ratingPromptDeclined: boolean;
+  lastRatingPromptDate: string | null;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -33,6 +38,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   ringerVolume: 40,
   use24HourFormat: false,
   weekStartDay: 0,
+  appOpensCount: 0,
+  firstLaunchDate: new Date().toISOString(),
+  hasRatedApp: false,
+  ratingPromptDeclined: false,
+  lastRatingPromptDate: null,
 };
 
 const normalizeSettings = (raw: unknown): AppSettings => {

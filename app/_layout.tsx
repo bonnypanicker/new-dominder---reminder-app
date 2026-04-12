@@ -4,11 +4,12 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet, DeviceEventEmitter, Platform, View, NativeModules } from 'react-native';
+import { StyleSheet, DeviceEventEmitter, Platform, View, NativeModules, AppState } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "@/hooks/theme-provider";
-import { useSettings } from '@/hooks/settings-store';
+import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
+import RatingPrompt from "@/components/RatingPrompt";
 import { StatusBar } from "expo-status-bar";
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
@@ -128,9 +129,32 @@ function RootLayoutNav() {
 }
 
 function AppContent() {
-  const { isLoading } = useSettings();
+  const { data: settings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  // App usage tracking for rating prompt
+  useEffect(() => {
+    if (!settings) return;
+
+    // Track app mounting as one open, then listen for background->active
+    let isTrackingDoneForThisMount = false;
+    if (!isTrackingDoneForThisMount) {
+      updateSettings.mutate({ appOpensCount: (settings.appOpensCount || 0) + 1 });
+      isTrackingDoneForThisMount = true;
+    }
+
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        updateSettings.mutate({ appOpensCount: (settings.appOpensCount || 0) + 1 });
+      }
+    });
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, [settings?.hasRatedApp]); // Use small dependency to avoid loops
 
   // 2. Call the new hook here
   useAlarmListeners();
@@ -461,6 +485,7 @@ function AppContent() {
           <ReminderEngineProvider>
             <DynamicStatusBar />
             <RootLayoutNav />
+            <RatingPrompt />
           </ReminderEngineProvider>
         </GestureHandlerRootView>
       </ErrorBoundary>

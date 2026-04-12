@@ -411,6 +411,33 @@ export default function SettingsScreen() {
                 <Text style={styles.aboutVersion}>{appVersion ? `v${appVersion}` : ''}</Text>
               </View>
               <View style={styles.aboutDivider} />
+
+              <TouchableOpacity
+                style={[styles.licensesButton, { marginTop: 0, marginBottom: 12 }]}
+                onPress={async () => {
+                  try {
+                    const PLAY_STORE_URL = 'market://details?id=app.rork.dominder_android_reminder_app';
+                    const PLAY_STORE_FALLBACK = 'https://play.google.com/store/apps/details?id=app.rork.dominder_android_reminder_app';
+                    if (Platform.OS === 'android') {
+                      const canOpen = await Linking.canOpenURL(PLAY_STORE_URL);
+                      if (canOpen) {
+                        await Linking.openURL(PLAY_STORE_URL);
+                      } else {
+                        await Linking.openURL(PLAY_STORE_FALLBACK);
+                      }
+                      updateSettings.mutate({ hasRatedApp: true });
+                    }
+                  } catch (error) {
+                    console.log('Error opening Play Store', error);
+                  }
+                }}
+                testID="rate-us"
+              >
+                <Feather name="star" size={16} color={colors.primary} />
+                <Text style={styles.licensesButtonText}>Rate Us on Play Store</Text>
+                <Feather name="external-link" size={16} color={colors.primary} />
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.feedbackButton}
                 onPress={() => {
