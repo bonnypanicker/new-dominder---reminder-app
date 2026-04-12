@@ -3408,7 +3408,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
     onClose();
   };
 
-  const renderTickMarks = () => {
+  const tickMarks = useMemo(() => {
     const ticks: React.ReactElement[] = [];
     const tickCount = activeSection === 'hour' ? 12 : 60;
     const tickStep = 360 / tickCount;
@@ -3442,7 +3442,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
       );
     }
     return ticks;
-  };
+  }, [activeSection, discSize, colors]);
 
   // Outer bezel padding — space for number labels outside the disc
   const BEZEL_PADDING = 30;
@@ -3450,7 +3450,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
   const numberRadius = discSize / 2 + 17; // center of number sits 17px outside disc edge
 
   // Tap a number to jump the dial to that value
-  const handleNumberTap = (value: number) => {
+  const handleNumberTap = React.useCallback((value: number) => {
     if (activeSection === 'hour') {
       setCurrentHour(value);
       const hourStep = 360 / 12;
@@ -3471,10 +3471,10 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
       rotationRef.current = newRotation;
       setRotation(newRotation);
     }
-  };
+  }, [activeSection, setCurrentHour, setCurrentMinute, setRotation]);
 
-  // Render static clock numbers as an outer bezel ring
-  const renderClockNumbers = () => {
+  // static clock numbers as an outer bezel ring (memoized to prevent friction)
+  const clockNumbers = React.useMemo(() => {
     const numbers: React.ReactElement[] = [];
     const wrapperCenter = clockFaceSize / 2;
 
@@ -3580,7 +3580,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
       }
     }
     return numbers;
-  };
+  }, [activeSection, currentHour, currentMinute, use24HourFormat, currentAMPM, discSize, colors, handleNumberTap, clockFaceSize, numberRadius]);
 
   if (!visible) return null;
 
@@ -3825,8 +3825,8 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
 
               <View style={timeSelectorStyles.discPanel}>
                 <View style={timeSelectorStyles.discContainer}>
-                  <View style={{ width: clockFaceSize, height: clockFaceSize, alignItems: 'center', justifyContent: 'center' }}>
-                    {renderClockNumbers()}
+                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                    {clockNumbers}
                     <View
                       ref={discRef}
                       collapsable={false}
@@ -3839,7 +3839,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                       testID="time-disc"
                     >
                       <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
-                        {renderTickMarks()}
+                        {tickMarks}
                         <View style={timeSelectorStyles.discIndicator} />
                       </View>
                     </View>
@@ -3977,8 +3977,8 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
               </View>
 
               <View style={timeSelectorStyles.discContainer}>
-                <View style={{ width: clockFaceSize, height: clockFaceSize, alignItems: 'center', justifyContent: 'center' }}>
-                  {renderClockNumbers()}
+                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  {clockNumbers}
                   <View
                     ref={discRef}
                     collapsable={false}
@@ -3991,7 +3991,7 @@ function TimeSelector({ visible, selectedTime, isAM, use24HourFormat, onTimeChan
                     testID="time-disc"
                   >
                     <View style={[timeSelectorStyles.handContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
-                      {renderTickMarks()}
+                      {tickMarks}
                       <View style={timeSelectorStyles.discIndicator} />
                     </View>
                   </View>
@@ -4076,7 +4076,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
     elevation: 10,
   },
   containerLandscape: {
-    maxWidth: 560,
+    maxWidth: 500,
     padding: 24,
   },
   timeDisplay: {
@@ -4128,7 +4128,7 @@ const buildTimeSelectorStyles = (colors: ReturnType<typeof useThemeColors>) => S
   },
   sidePanel: {
     width: 200,
-    marginRight: 36,
+    marginRight: 20,
   },
   discPanel: {
     flex: 1,
