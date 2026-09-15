@@ -14,14 +14,14 @@
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
       },
-      "credentialsSource": "local"
+      "credentialsSource": "remote"
     },
     "production": {
       "android": {
         "buildType": "app-bundle",
         "gradleCommand": ":app:bundleRelease"
       },
-      "credentialsSource": "local"
+      "credentialsSource": "remote"
     }
   },
   "submit": {
