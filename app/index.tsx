@@ -961,49 +961,43 @@ export default function HomeScreen() {
                   </Text>
                 </>
 
-                {/* Repeat Badge (Once, Daily, Monthly, Yearly, Every) */}
+              </View>
+              {/* Badges locked to the right edge: repeat type, every-interval, completion count */}
+              <View style={styles.compactRightBadges}>
                 {reminder.repeatType && (
-                  <>
-                    <Text style={styles.compactSeparator}>•</Text>
-                    <View style={[styles.repeatBadge, { paddingVertical: 1, paddingHorizontal: 6, minHeight: 0 }]}>
-                      <Text style={[styles.repeatBadgeText, { fontSize: 11 }]}>
-                        {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                {/* Interval Text for 'Every' (1m, 2h, 1d) */}
-                {reminder.repeatType === 'every' && reminder.everyInterval && (
-                  <>
-                    <Text style={styles.compactSeparator}>•</Text>
-                    <Text style={{ fontSize: 11, color: colors.onSurfaceVariant, fontWeight: '600' }}>
-                      {reminder.everyInterval.value}
-                      {reminder.everyInterval.unit === 'minutes' ? 'm' : reminder.everyInterval.unit === 'hours' ? 'h' : 'd'}
+                  <View style={[styles.repeatBadge, styles.repeatBadgeCompact]}>
+                    <Text style={[styles.repeatBadgeText, styles.repeatBadgeTextCompact]}>
+                      {formatRepeatType(reminder.repeatType, reminder.everyInterval)}
                     </Text>
-                  </>
+                  </View>
+                )}
+                {reminder.repeatType === 'every' && reminder.everyInterval && (
+                  <Text style={styles.everyDurationCompact}>
+                    {reminder.everyInterval.value}
+                    {reminder.everyInterval.unit === 'minutes' ? 'm' : reminder.everyInterval.unit === 'hours' ? 'h' : 'd'}
+                  </Text>
+                )}
+                {/* Counter Badge for Completion History */}
+                {(reminder.completionHistory && reminder.completionHistory.length > 0) && (
+                  <TouchableOpacity
+                    style={[
+                      styles.historyBadge,
+                      !reminder.id.endsWith('_hist') && styles.historyBadgeFinal
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openHistoryPopup(reminder.completionHistory!);
+                    }}
+                  >
+                    <Text style={[
+                      styles.historyBadgeText,
+                      !reminder.id.endsWith('_hist') && styles.historyBadgeTextFinal
+                    ]}>
+                      {reminder.completionHistory.length}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
-              {/* Counter Badge for Completion History */}
-              {(reminder.completionHistory && reminder.completionHistory.length > 0) && (
-                <TouchableOpacity
-                  style={[
-                    styles.historyBadge,
-                    !reminder.id.endsWith('_hist') && styles.historyBadgeFinal
-                  ]}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    openHistoryPopup(reminder.completionHistory!);
-                  }}
-                >
-                  <Text style={[
-                    styles.historyBadgeText,
-                    !reminder.id.endsWith('_hist') && styles.historyBadgeTextFinal
-                  ]}>
-                    {reminder.completionHistory.length}
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
           </TouchableOpacity>
         </SwipeableRow>
@@ -4872,6 +4866,14 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     color: colors.onSurfaceVariant,
     fontWeight: '600',
     marginLeft: 4,
+    flexShrink: 0,
+  },
+  // Pins repeat/count badges to the card's right edge, locked against title shrink
+  compactRightBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
     flexShrink: 0,
   },
   // History Badge Styles

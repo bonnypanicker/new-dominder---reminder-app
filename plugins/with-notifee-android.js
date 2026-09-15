@@ -9,9 +9,9 @@ module.exports = function withNotifeeAndroid(config) {
     if (buildGradle.includes("classpath('com.android.tools.build:gradle')")) {
       config.modResults.contents = buildGradle.replace(
         "classpath('com.android.tools.build:gradle')",
-        "classpath('com.android.tools.build:gradle:8.1.4')"
+        "classpath('com.android.tools.build:gradle:8.11.0')"
       );
-      console.log('✅ Updated Android Gradle Plugin version to 8.1.4');
+      console.log('✅ Updated Android Gradle Plugin version to 8.11.0');
     }
     
     return config;

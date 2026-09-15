@@ -96,14 +96,17 @@
         {
           "android": {
             "kotlinVersion": "2.0.21",
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
             "minSdkVersion": 24,
             "usesCleartextTraffic": false,
             "extraProguardRules": "-keep class com.swmansion.reanimated.** { *; }\n-keep class com.shopify.reactnative.flash_list.** { *; }\n-keep class com.facebook.react.uimanager.** { *; }\n-keep class com.facebook.react.views.** { *; }\n-keep class com.th3rdwave.safeareacontext.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }\n-keep class com.horcrux.svg.** { *; }\n-keep class expo.modules.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
