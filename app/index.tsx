@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useReminders, useUpdateReminder, useAddReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders, usePermanentlyDeleteReminder, useRestoreReminder } from '@/hooks/reminder-store';
+import { initialSyncComplete } from '@/hooks/useCompletedAlarmSync';
 import { useSettings } from '@/hooks/settings-store';
 import { calculateNextReminderDate } from '@/services/reminder-utils';
 import { CHANNEL_IDS } from '@/services/channels';
@@ -88,6 +89,16 @@ const calculateDefaultTime = () => {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { data: reminders = [], isLoading } = useReminders();
+  // Gate the first render until the initial alarm sync has reconciled
+  // completions/snoozes/deletes that happened while the app was killed.
+  const [isInitialSyncDone, setIsInitialSyncDone] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    initialSyncComplete.then(() => {
+      if (mounted) setIsInitialSyncDone(true);
+    });
+    return () => { mounted = false; };
+  }, []);
   const { data: settings } = useSettings();
   const colors = useThemeColors();
   const use24HourFormat = settings?.use24HourFormat ?? false;
@@ -1497,7 +1508,7 @@ export default function HomeScreen() {
     }
   }, [activeTab, isSelectionMode, selectionTab, exitSelectionMode]);
 
-  if (isLoading) {
+  if (isLoading || !isInitialSyncDone) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <View style={styles.loadingContainer}>

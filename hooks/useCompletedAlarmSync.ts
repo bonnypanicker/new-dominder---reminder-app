@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, NativeModules, Platform, DeviceEventEmitter } from 'react-native';
 import { markReminderDone, rescheduleReminderByIdAt, syncSnoozeFromNative } from '@/services/reminder-scheduler';
 import { deleteReminder, getReminder, updateReminder, addReminder, getReminders } from '@/services/reminder-service';
@@ -19,9 +19,21 @@ const { AlarmModule } = NativeModules;
  * individual trigger timestamps. The getAllNativeReminderStates is used ONLY for syncing
  * occurrence counts, NOT for triggering markReminderDone (which would cause double processing).
  */
+// Resolved once the first sync pass after mount has finished (or timed out).
+// index.tsx awaits this so stale, not-yet-reconciled reminders (e.g. ones
+// completed while the app was killed) are never flashed on screen.
+let resolveInitialSync: (() => void) | null = null;
+export const initialSyncComplete: Promise<void> = new Promise<void>((resolve) => {
+  resolveInitialSync = resolve;
+});
+
+// Safety cap so the UI can never hang on the loading screen if native calls stall.
+const INITIAL_SYNC_TIMEOUT_MS = 3000;
+
 export function useCompletedAlarmSync() {
   const processedRef = useRef(new Set<string>());
   const syncInProgressRef = useRef(false);
+  const [isInitialSyncDone, setIsInitialSyncDone] = useState(false);
 
   const syncCompletedAlarms = async () => {
     if (Platform.OS !== 'android' || !AlarmModule) {
@@ -284,9 +296,25 @@ export function useCompletedAlarmSync() {
 
   useEffect(() => {
     console.log('[AlarmSync] Hook initialized');
+    let cancelled = false;
 
-    // Sync immediately when hook mounts
-    syncCompletedAlarms();
+    // Sync immediately when hook mounts. The UI (index.tsx) stays on the loading
+    // screen until this first pass finishes, so completions/deletions performed
+    // while the app was killed are applied BEFORE anything is displayed.
+    const runInitialSync = async () => {
+      try {
+        await Promise.race([
+          syncCompletedAlarms(),
+          new Promise<void>((resolve) => setTimeout(resolve, INITIAL_SYNC_TIMEOUT_MS)),
+        ]);
+      } finally {
+        if (!cancelled) {
+          setIsInitialSyncDone(true);
+          resolveInitialSync?.();
+        }
+      }
+    };
+    runInitialSync();
 
     // Sync when app comes to foreground
     const subscription = AppState.addEventListener('change', (nextAppState) => {
@@ -304,10 +332,11 @@ export function useCompletedAlarmSync() {
     }, 5000);
 
     return () => {
+      cancelled = true;
       subscription.remove();
       clearInterval(interval);
     };
   }, []);
 
-  return null;
+  return { isInitialSyncDone };
 }
