@@ -63,7 +63,7 @@ export const [ReminderEngineProvider, useReminderEngine] = createContextHook<Eng
         }
       }
 
-      if (!reminder.isActive || reminder.isCompleted || reminder.isPaused) {
+      if (!reminder.isActive || reminder.isCompleted || reminder.isPaused || reminder.isDeleted) {
         processedReminders.current.delete(reminder.id);
         continue;
       }

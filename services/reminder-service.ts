@@ -26,6 +26,15 @@ function serializeAsyncStorageWrite<T>(fn: () => Promise<T>): Promise<T> {
   return result;
 }
 
+/**
+ * Runs an operation exclusively relative to all reminder storage writes.
+ * Used by notification scheduling so its final state check + registration
+ * cannot interleave with a concurrent deleteReminder/updateReminder.
+ */
+export function withReminderWriteLock<T>(fn: () => Promise<T>): Promise<T> {
+  return serializeAsyncStorageWrite(fn);
+}
+
 export async function getReminders(): Promise<Reminder[]> {
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);

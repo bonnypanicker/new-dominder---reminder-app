@@ -1708,6 +1708,15 @@ class AlarmReceiver : BroadcastReceiver() {
             DebugLogger.log("AlarmReceiver: Reminder \$reminderId is PAUSED - skipping alarm")
             return
         }
+
+        // CRITICAL: Skip if reminder was deleted. A pending alarm that was already
+        // delivered while the JS-side cancel was in flight must not ring or
+        // recreate metadata for a deleted reminder.
+        val isDeletedReminder = metaPrefs.getBoolean("meta_\${reminderId}_isDeleted", false)
+        if (isDeletedReminder) {
+            DebugLogger.log("AlarmReceiver: Reminder \$reminderId is DELETED - skipping alarm")
+            return
+        }
         
         // CRITICAL: Check if reminder is already completed (native state)
         val isNativeCompleted = metaPrefs.getBoolean("meta_\${reminderId}_isCompleted", false)
@@ -3010,6 +3019,9 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 putString("meta_\${reminderId}_windowEndTime", windowEndTime)
                 putBoolean("meta_\${reminderId}_windowEndIsAM", windowEndIsAM)
 
+                // This reminder is being (re-)scheduled, so it is no longer deleted
+                putBoolean("meta_\${reminderId}_isDeleted", false)
+
                 // Initialize native tracking fields (only if not already set to preserve existing state)
                 if (!prefs.contains("meta_\${reminderId}_actualTriggerCount")) {
                     putInt("meta_\${reminderId}_actualTriggerCount", occurrenceCount)
@@ -3053,6 +3065,9 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 remove("meta_\${reminderId}_completedAt")
                 remove("meta_\${reminderId}_lastTriggerTime")
                 remove("meta_\${reminderId}_triggerHistory")
+                // Mark as deleted so any alarm that was already delivered before the
+                // cancel is skipped by AlarmReceiver instead of ringing/rescheduling
+                putBoolean("meta_\${reminderId}_isDeleted", true)
                 apply()
             }
             DebugLogger.log("AlarmModule: Cleared metadata for \$reminderId")

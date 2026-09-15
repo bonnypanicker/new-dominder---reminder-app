@@ -123,6 +123,15 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     return;
   }
 
+  // CRITICAL: Never resurrect deleted reminders. A "Done" tap (or native
+  // completion sync) arriving after the user deleted the reminder must not
+  // re-activate it and schedule a future occurrence.
+  if (reminder.isDeleted) {
+    console.log(`[Scheduler] Reminder ${actualId} is deleted - skipping done processing and cancelling leftovers`);
+    await notificationService.cancelAllNotificationsForReminder(actualId);
+    return;
+  }
+
   // Check if this was a snoozed alarm completing
   const wasSnoozeCompletion = reminder.wasSnoozed === true;
 

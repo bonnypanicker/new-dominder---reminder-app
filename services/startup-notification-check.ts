@@ -157,7 +157,7 @@ export async function checkAndTriggerPendingNotifications() {
 
     // Check each active reminder
     for (const reminder of allReminders) {
-      if (!reminder.isActive || reminder.isCompleted || reminder.isPaused) {
+      if (!reminder.isActive || reminder.isCompleted || reminder.isPaused || reminder.isDeleted) {
         continue;
       }
 

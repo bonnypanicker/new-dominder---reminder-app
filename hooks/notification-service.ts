@@ -239,6 +239,12 @@ export function createNotificationConfig(reminder: Reminder, when: number, use24
 }
 
 export async function scheduleReminderByModel(reminder: Reminder) {
+  // CRITICAL: Never schedule deleted reminders
+  if (reminder.isDeleted) {
+    console.log(`[NotificationService] Skipping schedule for deleted reminder ${reminder.id}`);
+    return;
+  }
+
   // Check if notifications are enabled in settings
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
   let use24HourFormat = false;
@@ -348,64 +354,92 @@ export async function scheduleReminderByModel(reminder: Reminder) {
 
   const isRinger = reminder.priority === 'high';
 
-  if (isRinger) {
-    const canUseNative = !!(AlarmModule && typeof AlarmModule.scheduleAlarm === 'function');
-    if (!canUseNative) {
-      console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
-    } else {
-      try {
-        // Store reminder metadata for native background scheduling
-        if (AlarmModule?.storeReminderMetadata) {
-          await AlarmModule.storeReminderMetadata(
-            reminder.id,
-            reminder.repeatType || 'none',
-            reminder.everyInterval?.value || 1,
-            reminder.everyInterval?.unit || 'minutes',
-            reminder.untilType || 'forever',
-            reminder.untilCount || 0,
-            reminder.untilDate || '',
-            reminder.untilTime || '',
-            reminder.occurrenceCount || 0,
-            reminder.date || '',
-            reminder.time || '',
-            reminder.title,
-            reminder.priority,
-            reminder.multiSelectEnabled ?? false,
-            JSON.stringify(reminder.multiSelectDates ?? []),
-            JSON.stringify(reminder.multiSelectDays ?? []),
-            reminder.windowEndTime ?? '',
-            reminder.windowEndIsAM ?? false
-          );
-          console.log(`[NotificationService] Stored metadata for native alarm ${reminder.id}`);
-        }
-
-        await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
-        console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
+  // Registration step. The final deletion re-check + the actual notifee/native
+  // registration run inside the reminder-service write lock, so a concurrent
+  // deleteReminder can never slip between the check and the registration
+  // (in-flight calls completing after a delete would otherwise resurrect it).
+  const register = async (): Promise<void> => {
+    try {
+      const { getReminder } = require('../services/reminder-service');
+      const stored = await getReminder(reminder.id);
+      if (stored?.isDeleted) {
+        console.log(`[NotificationService] Reminder ${reminder.id} is deleted - aborting registration`);
         return;
-      } catch (e) {
-        console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
+      }
+    } catch (e) {
+      console.log('[NotificationService] Deletion re-check failed, proceeding with registration');
+    }
+
+    if (isRinger) {
+      const canUseNative = !!(AlarmModule && typeof AlarmModule.scheduleAlarm === 'function');
+      if (!canUseNative) {
+        console.warn('[NotificationService] AlarmModule.scheduleAlarm unavailable (Expo Go or not linked). Falling back to notifee.');
+      } else {
+        try {
+          // Store reminder metadata for native background scheduling
+          if (AlarmModule?.storeReminderMetadata) {
+            await AlarmModule.storeReminderMetadata(
+              reminder.id,
+              reminder.repeatType || 'none',
+              reminder.everyInterval?.value || 1,
+              reminder.everyInterval?.unit || 'minutes',
+              reminder.untilType || 'forever',
+              reminder.untilCount || 0,
+              reminder.untilDate || '',
+              reminder.untilTime || '',
+              reminder.occurrenceCount || 0,
+              reminder.date || '',
+              reminder.time || '',
+              reminder.title,
+              reminder.priority,
+              reminder.multiSelectEnabled ?? false,
+              JSON.stringify(reminder.multiSelectDates ?? []),
+              JSON.stringify(reminder.multiSelectDays ?? []),
+              reminder.windowEndTime ?? '',
+              reminder.windowEndIsAM ?? false
+            );
+            console.log(`[NotificationService] Stored metadata for native alarm ${reminder.id}`);
+          }
+
+          await AlarmModule?.scheduleAlarm?.(reminder.id, reminder.title, when, reminder.priority);
+          console.log(`[NotificationService] Scheduled native alarm for rem-${reminder.id} with priority ${reminder.priority}`);
+          return;
+        } catch (e) {
+          console.error('[NotificationService] Native scheduleAlarm threw, falling back to notifee:', e);
+        }
       }
     }
-  }
 
-  {
-    // Use notifee for medium/low priority OR as fallback for high priority
-    // CRITICAL: Always use alarmManager with allowWhileIdle for exact timing
-    // Even if SCHEDULE_EXACT_ALARM permission is not granted, this gives best-effort exact delivery
-    const trigger: TimestampTrigger = {
-      type: TriggerType.TIMESTAMP,
-      timestamp: when,
-      alarmManager: {
-        allowWhileIdle: true, // Ensures notification fires even in Doze mode
-        type: exactAlarmEnabled ? AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE : AlarmType.SET_AND_ALLOW_WHILE_IDLE,
-      },
+    {
+      // Use notifee for medium/low priority OR as fallback for high priority
+      // CRITICAL: Always use alarmManager with allowWhileIdle for exact timing
+      // Even if SCHEDULE_EXACT_ALARM permission is not granted, this gives best-effort exact delivery
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: when,
+        alarmManager: {
+          allowWhileIdle: true, // Ensures notification fires even in Doze mode
+          type: exactAlarmEnabled ? AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE : AlarmType.SET_AND_ALLOW_WHILE_IDLE,
+        },
+      };
+
+      const notificationConfig = createNotificationConfig(reminder, when, use24HourFormat);
+
+      await notifee.createTriggerNotification(notificationConfig, trigger);
+
+      console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
+    }
+  };
+
+  try {
+    const { withReminderWriteLock } = require('../services/reminder-service') as {
+      withReminderWriteLock?: <T>(fn: () => Promise<T>) => Promise<T>;
     };
-
-    const notificationConfig = createNotificationConfig(reminder, when, use24HourFormat);
-
-    await notifee.createTriggerNotification(notificationConfig, trigger);
-
-    console.log(`[NotificationService] Successfully scheduled notification rem-${reminder.id}`);
+    const lock = withReminderWriteLock ?? ((fn: () => Promise<void>) => fn());
+    await lock(register);
+  } catch (e) {
+    console.error(`[NotificationService] Failed to register notification for ${reminder.id}:`, e);
+    throw e;
   }
 }
 
