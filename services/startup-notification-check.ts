@@ -371,6 +371,13 @@ async function showExpiredRingerNotifications(reminders: Reminder[], use24HourFo
           await notifee.cancelNotification(`rem-${reminder.id}`);
         } catch {}
 
+        // Cancel the native-fallback missed notification (posted by AlarmActivity
+        // if the app was killed at timeout) so only ONE missed notification shows.
+        try {
+          const AlarmModule = (NativeModules as any).AlarmModule;
+          await AlarmModule?.cancelMissedNotification?.(reminder.id);
+        } catch {}
+
         await notifee.displayNotification({
           id: `missed-${reminder.id}`,
           title: 'You missed a Ringer reminder',

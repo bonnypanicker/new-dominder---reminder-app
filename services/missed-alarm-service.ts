@@ -90,6 +90,15 @@ class MissedAlarmService {
         console.log('[MissedAlarmService] No original notification to cancel');
       }
 
+      // Cancel the native-fallback missed notification so only ONE missed
+      // notification shows (the notifee one below, with the JS-wired Delete).
+      try {
+        const AlarmModule = (NativeModules as any).AlarmModule;
+        await AlarmModule?.cancelMissedNotification?.(reminderId);
+      } catch (e) {
+        // Ignore - native notification may not exist
+      }
+
       // Create notification for missed ringer
       const channelId = 'missed-alarm-v1';
       

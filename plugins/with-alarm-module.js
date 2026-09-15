@@ -2579,12 +2579,11 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
 class AlarmPackage : ReactPackage {
-    private var missedAlarmReceiver: MissedAlarmReceiver? = null
     
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        // Initialize the missed alarm receiver
-        missedAlarmReceiver = MissedAlarmReceiver(reactContext)
-        
+        // NOTE: MissedAlarmReceiver is intentionally NOT registered. The manifest-registered
+        // AlarmActionBridge already handles com.dominder.MISSED_ALARM and emits onMissedAlarm
+        // to JS. Registering both caused the JS missed-notification handler to run twice.
         return listOf(AlarmModule(reactContext))
     }
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
@@ -2887,6 +2886,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.BaseActivityEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
+import android.app.NotificationManager
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import app.rork.dominder_android_reminder_app.DebugLogger
@@ -2927,6 +2927,26 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(isProcessing)
         } catch (e: Exception) {
             promise.reject("CHECK_ERROR", e.message)
+        }
+    }
+
+    /**
+     * Cancels the native-fallback "missed reminder" notification posted by
+     * AlarmActivity (id = reminderId.hashCode() + 999). JS shows its own notifee
+     * missed notification with the same purpose; cancelling the native one prevents
+     * two duplicate missed notifications in the tray.
+     */
+    @ReactMethod
+    fun cancelMissedNotification(reminderId: String, promise: Promise? = null) {
+        try {
+            val nm = reactApplicationContext.applicationContext
+                .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(reminderId.hashCode() + 999)
+            DebugLogger.log("AlarmModule: Cancelled native missed notification for \$reminderId")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error cancelling missed notification: \${e.message}")
+            promise?.reject("ERROR", e.message, e)
         }
     }
 
