@@ -157,7 +157,7 @@ export default function HomeScreen() {
     }
   }, [activeTab, tabLayouts]);
 
-  const contentScrollRef = useRef<FlashList<any>>(null);
+  const contentScrollRef = useRef<any>(null);
   const swipeableRefs = useRef<Map<string, any>>(new Map());
   // Toast state removed - now using native Android toast
   const [selectedTime, setSelectedTime] = useState<string>(() => {
@@ -1669,7 +1669,6 @@ export default function HomeScreen() {
               />
             )}
             extraData={listExtraData}
-            estimatedItemSize={120}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             scrollEnabled={!showCreatePopup && !showOnboarding}
@@ -1678,13 +1677,6 @@ export default function HomeScreen() {
               paddingBottom: 100,
               paddingTop: 4,
               paddingHorizontal: 0,
-            }}
-            drawDistance={Platform.OS === 'android' ? 500 : 250}
-            removeClippedSubviews={false}
-            overrideItemLayout={(layout, item) => {
-              if (Platform.OS === 'android') {
-                layout.size = layout.size || 120;
-              }
             }}
             ListEmptyComponent={
               <View style={styles.emptyState}>
