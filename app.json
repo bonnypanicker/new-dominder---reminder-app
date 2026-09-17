@@ -67,6 +67,7 @@
       "./plugins/with-eas-notifee.js",
       "./plugins/with-permissions-cleanup.js",
       "./plugins/with-ringtone-picker-style.js",
+      "./plugins/with-transparent-statusbar.js",
       [
         "./plugins/with-ringer-tone-selector-ui.js",
         {

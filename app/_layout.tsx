@@ -11,6 +11,7 @@ import { ThemeProvider, useTheme } from "@/hooks/theme-provider";
 import { useSettings, useUpdateSettings } from '@/hooks/settings-store';
 import RatingPrompt from "@/components/RatingPrompt";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
 import { useCompletedAlarmSync } from '../hooks/useCompletedAlarmSync';
@@ -495,9 +496,11 @@ function AppContent() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={rootQueryClient}>
-      <AppContent />
-    </QueryClientProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <QueryClientProvider client={rootQueryClient}>
+        <AppContent />
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
 
