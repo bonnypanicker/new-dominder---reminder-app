@@ -42,7 +42,7 @@ const appThemeXml = ({ lightStatusBar, contrast }) =>
     `    <item name="android:windowLightStatusBar">${lightStatusBar}</item>`,
     ...(contrast
       ? [
-          '    <item name="android:statusBarContrastEnforced">false</item>',
+          '    <item name="android:enforceStatusBarContrast">false</item>',
           '    <item name="android:enforceNavigationBarContrast">false</item>',
         ]
       : []),
