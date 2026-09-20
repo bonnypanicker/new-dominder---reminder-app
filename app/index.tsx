@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, Modal, TextInput, Dimensions, InteractionManager, Keyboard as RNKeyboard, Platform, PanResponder, StatusBar, KeyboardAvoidingView, Animated, LayoutChangeEvent, FlatList, NativeModules } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -458,23 +458,20 @@ export default function HomeScreen() {
       const existingHistory = reminders.find(r => r.id === historyId);
       const historyTimes = existingHistory?.completionHistory || [];
 
-      if (existingHistory) {
-        // Permanently delete the history item so it doesn't show in Deleted tab
-        permanentlyDeleteReminder.mutate(existingHistory.id);
-      }
+      const historyDeletion = existingHistory
+        ? permanentlyDeleteReminder.mutateAsync(existingHistory.id)
+        : Promise.resolve();
 
-      updateReminder.mutate({
+      return Promise.all([historyDeletion, updateReminder.mutateAsync({
         ...reminder,
         isCompleted: true,
         isActive: false,
         completionHistory: historyTimes,
-        // Keep lastTriggeredAt as is (or update? user said no time updation required).
-        // Let's keep it as is.
         snoozeUntil: undefined,
         nextReminderDate: undefined,
-      });
+      })]);
     } else {
-      updateReminder.mutate({
+      return updateReminder.mutateAsync({
         ...reminder,
         isCompleted: true,
         lastTriggeredAt: new Date().toISOString(),
@@ -636,7 +633,7 @@ export default function HomeScreen() {
     }, 650);
 
     // Use bulk delete to remove parent + all history children
-    bulkDeleteReminders.mutate(idsToDelete);
+    return bulkDeleteReminders.mutateAsync(idsToDelete);
   }, [bulkDeleteReminders, reminders]);
 
   const handlePermanentDelete = useCallback((reminder: Reminder) => {
@@ -645,7 +642,7 @@ export default function HomeScreen() {
     setTimeout(() => {
       isDeletingRef.current = false;
     }, 650);
-    permanentlyDeleteReminder.mutate(reminder.id);
+    return permanentlyDeleteReminder.mutateAsync(reminder.id);
   }, [permanentlyDeleteReminder]);
 
   const handleRestore = useCallback((reminder: Reminder) => {
@@ -826,7 +823,7 @@ export default function HomeScreen() {
   }, []);
 
 
-  const ReminderCard = memo(({
+  const renderReminderCard = ({
     reminder,
     listType,
     isSelected,
@@ -1455,45 +1452,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </SwipeableRow>
     );
-  }, (prevProps, nextProps) => {
-    // ID change always means different card
-    if (prevProps.reminder.id !== nextProps.reminder.id) return false;
-    if (prevProps.listType !== nextProps.listType) return false;
-
-    // Check external state dependencies
-    if (prevProps.isSelected !== nextProps.isSelected) return false;
-    if (prevProps.isSelectionMode !== nextProps.isSelectionMode) return false;
-    if (prevProps.use24HourFormat !== nextProps.use24HourFormat) return false;
-
-    const prev = prevProps.reminder;
-    const next = nextProps.reminder;
-
-    // Check ALL fields that affect visual rendering to prevent flickering
-    const areDaysEqual = prev.repeatDays?.length === next.repeatDays?.length &&
-      (prev.repeatDays?.every((day, i) => day === next.repeatDays?.[i]) ?? true);
-    const isEveryIntervalEqual = prev.everyInterval?.value === next.everyInterval?.value &&
-      prev.everyInterval?.unit === next.everyInterval?.unit;
-
-    return prev.title === next.title &&
-      prev.time === next.time &&
-      prev.date === next.date &&
-      prev.priority === next.priority &&
-      prev.isActive === next.isActive &&
-      prev.isPaused === next.isPaused &&
-      prev.isCompleted === next.isCompleted &&
-      prev.isExpired === next.isExpired &&
-      prev.repeatType === next.repeatType &&
-      prev.nextReminderDate === next.nextReminderDate &&
-      prev.snoozeUntil === next.snoozeUntil &&
-      prev.lastTriggeredAt === next.lastTriggeredAt &&
-      prev.untilType === next.untilType &&
-      prev.untilDate === next.untilDate &&
-      prev.untilCount === next.untilCount &&
-      areDaysEqual &&
-      isEveryIntervalEqual;
-  });
-
-  ReminderCard.displayName = 'ReminderCard';
+  };
 
   useEffect(() => {
     // Reset selection when switching tabs to prevent cross-tab actions
@@ -1505,6 +1464,7 @@ export default function HomeScreen() {
   if (isLoading || !isInitialSyncDone) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={[styles.statusBarBackground, { height: insets.top }]} />
         <View style={styles.loadingContainer}>
           <Clock size={48} color={colors.primary} />
           <Text style={styles.loadingText}>Loading reminders...</Text>
@@ -1517,8 +1477,9 @@ export default function HomeScreen() {
     <>
       <KeyboardAvoidingView style={{ flex: 1 }} enabled={false}>
         <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-            <Text style={styles.title}>DoMinder</Text>
+          {/* Themed background drawn into the status-bar space for a seamless look */}
+          <View style={[styles.statusBarBackground, { height: insets.top }]} />
+          <View style={[styles.header, { paddingTop: 12 }]}>
             <View style={styles.headerActions}>
               {Platform.OS === 'web' && (
                 <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
@@ -1657,17 +1618,15 @@ export default function HomeScreen() {
           <FlashList
             ref={contentScrollRef}
             data={currentList}
-            renderItem={({ item }) => (
-              <ReminderCard
-                reminder={item}
-                listType={activeTab}
-                isSelected={selectedReminders.has(item.id)}
-                isSelectionMode={isSelectionMode}
-                use24HourFormat={use24HourFormat}
-                colors={colors}
-                styles={styles}
-              />
-            )}
+            renderItem={({ item }) => renderReminderCard({
+              reminder: item,
+              listType: activeTab,
+              isSelected: selectedReminders.has(item.id),
+              isSelectionMode,
+              use24HourFormat,
+              colors,
+              styles,
+            })}
             extraData={listExtraData}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
@@ -4276,9 +4235,12 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     flex: 1,
     backgroundColor: colors.surface,
   },
+  statusBarBackground: {
+    backgroundColor: colors.surface,
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 8,
@@ -4288,12 +4250,6 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '400',
-    color: colors.onSurface,
-    letterSpacing: 0,
   },
   headerActions: {
     flexDirection: 'row',
