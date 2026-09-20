@@ -279,6 +279,17 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
         }
       }
 
+      // Re-check freshness immediately before writing: the user may have swiped
+      // to complete (or deleted) the reminder while this processing was awaiting
+      // (native state sync, history write). Writing the stale snapshot would
+      // overwrite the completion and resurrect the series.
+      const freshReminder = await getReminder(actualId);
+      if (!freshReminder || freshReminder.isDeleted || freshReminder.isCompleted) {
+        console.log(`[Scheduler] Reminder ${actualId} was completed/deleted during done processing - aborting reschedule`);
+        await notificationService.cancelAllNotificationsForReminder(actualId);
+        return;
+      }
+
       const updated = {
         ...calcContext,
         occurrenceCount: countToSave,

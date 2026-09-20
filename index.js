@@ -103,6 +103,22 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         const reminderUtils = require('./services/reminder-utils');
         const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
 
+        // Re-check freshness immediately before writing: the user may have
+        // swiped to complete (or deleted) the reminder while this handler was
+        // awaiting. Writing the stale snapshot would overwrite the completion
+        // and resurrect the series.
+        const latest = await reminderService.getReminder(reminderId);
+        if (!latest || latest.isDeleted || latest.isCompleted) {
+          console.log(`[onBackgroundEvent] Reminder ${reminderId} was completed/deleted during delivery processing - aborting auto-reschedule`);
+          try {
+            const notificationService = require('./hooks/notification-service');
+            await notificationService.cancelAllNotificationsForReminder(reminderId);
+          } catch (e) {
+            console.log(`[onBackgroundEvent] Cleanup failed for ${reminderId}:`, e);
+          }
+          return;
+        }
+
         if (nextDate) {
           // Update the reminder with the next occurrence and keep it active
           const updatedReminder = {
