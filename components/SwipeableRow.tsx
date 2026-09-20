@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useMemo, useState, memo } from 'react';
+import React, { useRef, useCallback, useMemo, useState, useEffect, memo } from 'react';
 import { StyleSheet, View, Text, Animated, Dimensions, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Reminder } from '@/types/reminder';
 import { useRenderTracking, animationConflictDetector, performanceMonitor } from '@/utils/debugUtils';
 import { useThemeColors } from '@/hooks/theme-provider';
+import { showToast } from '@/utils/toast';
 
 const CheckCircle = (props: any) => <Feather name="check-circle" {...props} />;
 const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
@@ -13,15 +14,15 @@ const Trash2 = (props: any) => <Feather name="trash-2" {...props} />;
 interface SwipeableRowProps {
   children: React.ReactNode;
   reminder: Reminder;
-  onSwipeRight?: () => void;
-  onSwipeLeft?: () => void;
+  onSwipeRight?: () => unknown | Promise<unknown>;
+  onSwipeLeft?: () => unknown | Promise<unknown>;
   swipeableRefs?: React.MutableRefObject<Map<string, any>>;
   simultaneousHandlers?: React.RefObject<any>;
   isSelectionMode?: boolean;
   leftActionType?: 'complete' | 'delete';
 }
 
-const SwipeableRow = memo(function SwipeableRow({ 
+const SwipeableRowContent = memo(function SwipeableRowContent({
   children,
   reminder,
   onSwipeRight,
@@ -40,7 +41,17 @@ const SwipeableRow = memo(function SwipeableRow({
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const heightAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const hasLayoutMeasured = useRef(false);
+  const removingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const removalAnimation = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      removalAnimation.current?.stop();
+    };
+  }, []);
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -49,6 +60,8 @@ const SwipeableRow = memo(function SwipeableRow({
     swipeableRef.current = ref;
     if (ref && swipeableRefs) {
       swipeableRefs.current.set(reminder.id, ref);
+    } else {
+      swipeableRefs?.current.delete(reminder.id);
     }
   }, [reminder.id, swipeableRefs]);
 
@@ -80,7 +93,7 @@ const SwipeableRow = memo(function SwipeableRow({
         <Text style={[styles.actionText, styles.actionTextDelete]}>Delete</Text>
       </Animated.View>
     );
-  }, [onSwipeRight]);
+  }, [onSwipeRight, colors.onError, styles]);
 
   // Left swipe action - Complete (green)
   const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
@@ -123,10 +136,10 @@ const SwipeableRow = memo(function SwipeableRow({
         </Text>
       </Animated.View>
     );
-  }, [onSwipeLeft, leftActionType]);
+  }, [onSwipeLeft, leftActionType, colors.onError, colors.onSuccess, styles]);
 
   // Close other swipeables when this one opens
-  const handleSwipeableWillOpen = useCallback((direction: 'left' | 'right') => {
+  const handleSwipeableWillOpen = useCallback(() => {
     if (swipeableRefs) {
       swipeableRefs.current.forEach((ref, id) => {
         if (id !== reminder.id) {
@@ -138,7 +151,10 @@ const SwipeableRow = memo(function SwipeableRow({
 
   // Execute full swipe-away animation
   const handleSwipeableOpen = useCallback((direction: 'left' | 'right') => {
-    if (isRemoving) return;
+    const action = direction === 'right' ? onSwipeRight : onSwipeLeft;
+    if (removingRef.current || !action) return;
+    removingRef.current = true;
+    setIsRemoving(true);
     
     // Debug: Track animation start
     performanceMonitor.start(`SwipeAnimation-${reminder.id}`);
@@ -151,7 +167,7 @@ const SwipeableRow = memo(function SwipeableRow({
     animationConflictDetector.registerAnimation(nodeId + '-height', 'heightAnim', false);
     
     // Haptic feedback for action confirmation
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     
     const screenWidth = Dimensions.get('window').width;
     const targetX = direction === 'right' ? screenWidth : -screenWidth;
@@ -161,15 +177,8 @@ const SwipeableRow = memo(function SwipeableRow({
     const heightDuration = Platform.OS === 'android' ? 180 : 250;
     const heightDelay = Platform.OS === 'android' ? 30 : 0;
     
-    // Set removing state after a brief delay on Android to prevent flash
-    if (Platform.OS === 'android') {
-      setTimeout(() => setIsRemoving(true), 16);
-    } else {
-      setIsRemoving(true);
-    }
-    
     // Animate card sliding off screen with action fade-out
-    Animated.parallel([
+    const animation = Animated.parallel([
       // Slide card off screen
       Animated.timing(slideAnim, {
         toValue: targetX,
@@ -197,7 +206,9 @@ const SwipeableRow = memo(function SwipeableRow({
           useNativeDriver: false,
         }),
       ]),
-    ]).start(() => {
+    ]);
+    removalAnimation.current = animation;
+    animation.start(async ({ finished }) => {
       // Debug: Track animation end
       performanceMonitor.end(`SwipeAnimation-${reminder.id}`);
       
@@ -208,14 +219,23 @@ const SwipeableRow = memo(function SwipeableRow({
       animationConflictDetector.unregisterAnimation(nodeId, 'scaleAnim');
       animationConflictDetector.unregisterAnimation(nodeId + '-height', 'heightAnim');
       
-      // Execute the action after animation completes
-      if (direction === 'right' && onSwipeRight) {
-        onSwipeRight();
-      } else if (direction === 'left' && onSwipeLeft) {
-        onSwipeLeft();
+      if (!finished || !mountedRef.current) return;
+      try {
+        await action();
+      } catch {
+        if (mountedRef.current) {
+          slideAnim.setValue(0);
+          fadeAnim.setValue(1);
+          heightAnim.setValue(1);
+          scaleAnim.setValue(1);
+          removingRef.current = false;
+          setIsRemoving(false);
+          swipeableRef.current?.reset();
+        }
+        showToast('Could not save the reminder change. Please try again.');
       }
     });
-  }, [isRemoving, slideAnim, fadeAnim, scaleAnim, heightAnim, onSwipeRight, onSwipeLeft, reminder.id]);
+  }, [slideAnim, fadeAnim, scaleAnim, heightAnim, onSwipeRight, onSwipeLeft, reminder.id]);
 
   return (
     <Animated.View
@@ -237,9 +257,8 @@ const SwipeableRow = memo(function SwipeableRow({
       }}
       onLayout={(e) => {
         const { height } = e.nativeEvent.layout;
-        if (height > 0 && !isRemoving && !hasLayoutMeasured.current) {
+        if (height > 0 && !removingRef.current) {
           setCardHeight(height);
-          hasLayoutMeasured.current = true;
         }
       }}
     >
@@ -272,17 +291,12 @@ const SwipeableRow = memo(function SwipeableRow({
       </Animated.View>
     </Animated.View>
   );
-}, (prevProps, nextProps) => {
-  // Optimize re-renders - only update if reminder changes
-  return (
-    prevProps.reminder.id === nextProps.reminder.id &&
-    prevProps.reminder.isCompleted === nextProps.reminder.isCompleted &&
-    prevProps.reminder.title === nextProps.reminder.title &&
-    prevProps.onSwipeRight === nextProps.onSwipeRight &&
-    prevProps.onSwipeLeft === nextProps.onSwipeLeft &&
-    prevProps.isSelectionMode === nextProps.isSelectionMode
-  );
 });
+
+// FlashList recycles cells across IDs; animation state belongs to one reminder.
+const SwipeableRow = (props: SwipeableRowProps) => (
+  <SwipeableRowContent key={props.reminder.id} {...props} />
+);
 
 export default SwipeableRow;
 
