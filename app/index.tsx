@@ -43,6 +43,29 @@ let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 const ONBOARDING_STORAGE_KEY = 'dominder_onboarding_completed';
 
+// Persist a durable native "completed" flag for a reminder so the native alarm
+// scheduler (AlarmReceiver / AlarmActionBridge) refuses to reschedule or fire it
+// again. This runs AFTER any cancellation that clears native metadata. Without it,
+// fast-repeating ('every') reminders re-fire and re-appear in the active list at
+// the next trigger time even after the user swiped to complete them. The flag is
+// cleared again by setReminderCompleted(id, false) inside scheduleReminderByModel
+// whenever the reminder is genuinely (re)scheduled (e.g. reassigned).
+const markReminderCompletedNatively = async (reminderId: string) => {
+  if (Platform.OS !== 'android') return;
+  try {
+    const AlarmModule = (NativeModules as any)?.AlarmModule;
+    if (AlarmModule && typeof AlarmModule.setReminderCompleted === 'function') {
+      await AlarmModule.setReminderCompleted(reminderId, true);
+      console.log(`[HomeScreen] Marked reminder ${reminderId} completed natively`);
+    } else if (AlarmModule && typeof AlarmModule.markReminderCompletedNatively === 'function') {
+      await AlarmModule.markReminderCompletedNatively(reminderId, Date.now());
+      console.log(`[HomeScreen] Marked reminder ${reminderId} completed natively (legacy)`);
+    }
+  } catch (e) {
+    console.warn('[HomeScreen] Failed to mark reminder completed natively:', e);
+  }
+};
+
 const debouncedUpdate = (callback: () => void, delay: number = 50) => {
   if (updateTimeoutId) {
     clearTimeout(updateTimeoutId);
@@ -406,6 +429,9 @@ export default function HomeScreen() {
           nextReminderDate: undefined,
           snoozeUntil: undefined,
         });
+        // Final occurrence of a repeating series: assert the durable native
+        // completion flag so the native scheduler stops re-firing it.
+        void markReminderCompletedNatively(reminder.id);
       } else {
         // Intermediate occurrence: Update/Create history item
         const existingHistory = reminders.find(r => r.id === historyId);
@@ -469,7 +495,13 @@ export default function HomeScreen() {
         completionHistory: historyTimes,
         snoozeUntil: undefined,
         nextReminderDate: undefined,
-      })]);
+      })]).then(async () => {
+        // Durable native completion flag — must run AFTER the update above, which
+        // cancels notifications and clears native metadata (wiping isCompleted).
+        // Re-asserting it here is the final native write, so the native scheduler
+        // stops re-firing this repeating series (fixes 'every X min' re-triggering).
+        await markReminderCompletedNatively(reminder.id);
+      });
     } else {
       return updateReminder.mutateAsync({
         ...reminder,

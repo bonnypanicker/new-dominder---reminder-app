@@ -3042,12 +3042,15 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 // This reminder is being (re-)scheduled, so it is no longer deleted
                 putBoolean("meta_\${reminderId}_isDeleted", false)
 
+                // A fresh (re)schedule must always start from a non-completed state.
+                // clearReminderMetadata now preserves isCompleted as a durable
+                // completion guard, so explicitly reset it here to allow reassignment /
+                // re-activation of a previously completed reminder.
+                putBoolean("meta_\${reminderId}_isCompleted", false)
+
                 // Initialize native tracking fields (only if not already set to preserve existing state)
                 if (!prefs.contains("meta_\${reminderId}_actualTriggerCount")) {
                     putInt("meta_\${reminderId}_actualTriggerCount", occurrenceCount)
-                }
-                if (!prefs.contains("meta_\${reminderId}_isCompleted")) {
-                    putBoolean("meta_\${reminderId}_isCompleted", false)
                 }
                 if (!prefs.contains("meta_\${reminderId}_triggerHistory")) {
                     putString("meta_\${reminderId}_triggerHistory", "")
@@ -3079,10 +3082,15 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
                 remove("meta_\${reminderId}_startTime")
                 remove("meta_\${reminderId}_title")
                 remove("meta_\${reminderId}_priority")
-                // Also clear native tracking fields
+                // Also clear native tracking fields.
+                // NOTE: We intentionally do NOT clear meta_<id>_isCompleted / _completedAt.
+                // Those are only ever set for a genuine completion (final occurrence or
+                // an explicit swipe-to-complete full stop), and AlarmReceiver /
+                // AlarmActionBridge use them as a durable guard to refuse re-firing or
+                // re-scheduling a completed repeating reminder (e.g. 'every X min').
+                // storeReminderMetadata re-initializes state when a reminder is
+                // legitimately (re)scheduled, so preserving them is safe.
                 remove("meta_\${reminderId}_actualTriggerCount")
-                remove("meta_\${reminderId}_isCompleted")
-                remove("meta_\${reminderId}_completedAt")
                 remove("meta_\${reminderId}_lastTriggerTime")
                 remove("meta_\${reminderId}_triggerHistory")
                 // Mark as deleted so any alarm that was already delivered before the
@@ -3282,6 +3290,30 @@ class AlarmModule(private val reactContext: ReactApplicationContext) :
             pendingIntent.cancel()
             promise?.resolve(true)
         } catch (e: Exception) {
+            promise?.reject("ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun setReminderCompleted(reminderId: String, completed: Boolean, promise: Promise? = null) {
+        try {
+            val prefs = reactContext.getSharedPreferences("DoMinderReminderMeta", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putBoolean("meta_\${reminderId}_isCompleted", completed)
+                if (completed) {
+                    putLong("meta_\${reminderId}_completedAt", System.currentTimeMillis())
+                } else {
+                    remove("meta_\${reminderId}_completedAt")
+                    // A genuine (re)schedule/restore means the reminder is live again,
+                    // so also lift the deleted tombstone that clearReminderMetadata set.
+                    putBoolean("meta_\${reminderId}_isDeleted", false)
+                }
+                apply()
+            }
+            DebugLogger.log("AlarmModule: Set \$reminderId isCompleted=\$completed")
+            promise?.resolve(true)
+        } catch (e: Exception) {
+            DebugLogger.log("AlarmModule: Error setting completed state: \${e.message}")
             promise?.reject("ERROR", e.message, e)
         }
     }

@@ -52,6 +52,7 @@ const AlarmModule: {
   getNativeReminderState?: (reminderId: string) => Promise<NativeReminderState>;
   syncNativeState?: (reminderId: string, actualTriggerCount: number, isCompleted: boolean, completedAt: number) => Promise<void>;
   markReminderCompletedNatively?: (reminderId: string, completedAt: number) => Promise<void>;
+  setReminderCompleted?: (reminderId: string, completed: boolean) => Promise<void>;
   getAllNativeReminderStates?: () => Promise<Record<string, NativeReminderState>>;
 } | null = Platform.OS === 'android' ? (NativeModules as any)?.AlarmModule ?? null : null;
 
@@ -353,6 +354,19 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   console.log(`[NotificationService] Scheduling for ${new Date(when).toISOString()}`);
 
   const isRinger = reminder.priority === 'high';
+
+  // A genuine (re)schedule must start from a non-completed native state.
+  // clearReminderMetadata now preserves the native isCompleted flag as a durable
+  // completion guard (to stop completed 'every X min' reminders from re-firing),
+  // so reset it here for EVERY mode. For ringer alarms storeReminderMetadata also
+  // resets it; this call covers standard/silent (notifee) reminders and reassignment.
+  if (AlarmModule?.setReminderCompleted) {
+    try {
+      await AlarmModule.setReminderCompleted(reminder.id, false);
+    } catch (e) {
+      console.warn('[NotificationService] Failed to reset native completion state:', e);
+    }
+  }
 
   // Registration step. The final deletion re-check + the actual notifee/native
   // registration run inside the reminder-service write lock, so a concurrent
