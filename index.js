@@ -47,6 +47,23 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         return;
       }
 
+      // CRITICAL: Never resurrect a deleted or completed reminder. A notifee
+      // DELIVERED event can be queued/processed AFTER the user swiped the card to
+      // fully complete the series (or deleted it). Without this guard the
+      // auto-reschedule below would flip isCompleted back to false, set
+      // isActive: true, and schedule the next occurrence — making the card
+      // reappear in Active and re-fire (the 'every X min' bug).
+      if (reminder.isDeleted || reminder.isCompleted) {
+        console.log(`[onBackgroundEvent] Reminder ${reminderId} is ${reminder.isDeleted ? 'deleted' : 'completed'} - skipping auto-reschedule and cancelling leftovers`);
+        try {
+          const notificationService = require('./hooks/notification-service');
+          await notificationService.cancelAllNotificationsForReminder(reminderId);
+        } catch (e) {
+          console.log(`[onBackgroundEvent] Cleanup failed for ${reminderId}:`, e);
+        }
+        return;
+      }
+
       // Auto-reschedule all repeating reminder types (not just 'every')
       if (reminder.repeatType !== 'none') {
         console.log(`[onBackgroundEvent] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId}`);

@@ -132,6 +132,19 @@ export async function markReminderDone(reminderId: string, shouldIncrementOccurr
     return;
   }
 
+  // CRITICAL: Never resurrect a completed reminder. A queued native "Done"
+  // trigger (processed by the 5s periodic sync) can arrive AFTER the user has
+  // already swiped the card to fully complete the series. Without this guard the
+  // repeating branch below would flip isCompleted back to false, set
+  // isActive: true, and reschedule the next occurrence — making the card
+  // reappear in Active and re-fire (the 'every X min' bug). If it's already
+  // completed, the series is done: just cancel any leftovers and bail.
+  if (reminder.isCompleted) {
+    console.log(`[Scheduler] Reminder ${actualId} is already completed - skipping done processing and cancelling leftovers`);
+    await notificationService.cancelAllNotificationsForReminder(actualId);
+    return;
+  }
+
   // Check if this was a snoozed alarm completing
   const wasSnoozeCompletion = reminder.wasSnoozed === true;
 
