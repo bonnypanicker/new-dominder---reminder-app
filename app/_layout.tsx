@@ -4,7 +4,8 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { StyleSheet, DeviceEventEmitter, Platform, View, NativeModules, AppState } from 'react-native';
+import { ThemeProvider as NavigationThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
+import { StyleSheet, DeviceEventEmitter, Platform, View, NativeModules, AppState, Appearance } from 'react-native';
 import { ReminderEngineProvider } from "@/hooks/reminder-engine";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "@/hooks/theme-provider";
@@ -14,6 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { setAlarmLaunchOrigin } from '../services/alarm-context';
 import { ensureBaseChannels } from '@/services/channels';
+import { Material3Colors } from '@/constants/colors';
 import { useCompletedAlarmSync } from '../hooks/useCompletedAlarmSync';
 import { missedAlarmService } from '../services/missed-alarm-service';
 
@@ -112,8 +114,19 @@ const useAlarmListeners = () => {
 
 function RootLayoutNav() {
   const isIOS = Platform.OS === 'ios';
+  const { colors } = useTheme();
   return (
-    <Stack screenOptions={{ ...(isIOS ? { headerBackTitle: "Back" } : {}) }}>
+    <Stack
+      screenOptions={{
+        ...(isIOS ? { headerBackTitle: "Back" } : {}),
+        // Paint every screen's native container with the app theme background.
+        // Under Android edge-to-edge (targetSdk 36) the screen container spans the
+        // full window and is what shows behind the transparent status bar, so this
+        // is what makes the status-bar space blend with the app background and
+        // follow the selected theme (same effect as the onboarding panel backdrop).
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen
@@ -126,6 +139,51 @@ function RootLayoutNav() {
       />
       <Stack.Screen name="notifications-debug" options={{ title: 'Notifications Debug' }} />
     </Stack>
+  );
+}
+
+/**
+ * Root container that paints the app theme background over the whole window.
+ *
+ * Mirrors the onboarding panel's full-bleed backdrop: because Android
+ * edge-to-edge (targetSdk 36) lets the window extend behind the status bar, the
+ * root view is the topmost surface the status-bar space can show. Giving it the
+ * themed background keeps that space seamless in both light and dark themes.
+ */
+function ThemedRoot({ onLayout, children }: { onLayout?: () => void; children: React.ReactNode }) {
+  const { colors, isDark } = useTheme();
+
+  // React Navigation (expo-router) paints the navigation/screen containers with
+  // its OWN theme, which defaults to DarkTheme ('rgb(1, 1, 1)' — near black) and
+  // follows the *system* color scheme rather than the in-app theme setting. Under
+  // edge-to-edge (targetSdk 36) that container is what shows behind the
+  // transparent status bar, which is why the bar stayed black/opaque and ignored
+  // the in-app light/dark switch. Feeding it the app's Material 3 palette makes
+  // the status-bar space blend and follow the selected theme.
+  const navigationTheme = React.useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      dark: isDark,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.onSurface,
+        border: colors.outlineVariant,
+        notification: colors.error,
+      },
+    };
+  }, [colors, isDark]);
+
+  return (
+    <GestureHandlerRootView
+      style={[styles.root, { backgroundColor: colors.background }]}
+      onLayout={onLayout}
+    >
+      <NavigationThemeProvider value={navigationTheme}>{children}</NavigationThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -509,19 +567,31 @@ function AppContent() {
   }, [isLoading]);
 
   if (isLoading) {
-    return <View style={{ flex: 1 }} />;
+    // Themed so the status-bar space blends during startup too (this renders
+    // before ThemeProvider mounts, hence the direct Appearance lookup).
+    const scheme = Appearance.getColorScheme();
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: scheme === 'dark'
+            ? Material3Colors.dark.background
+            : Material3Colors.light.background,
+        }}
+      />
+    );
   }
 
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
+        <ThemedRoot onLayout={onLayoutRootView}>
           <ReminderEngineProvider>
             <DynamicStatusBar />
             <RootLayoutNav />
             <RatingPrompt />
           </ReminderEngineProvider>
-        </GestureHandlerRootView>
+        </ThemedRoot>
       </ErrorBoundary>
     </ThemeProvider>
   );
