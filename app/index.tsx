@@ -1512,6 +1512,7 @@ export default function HomeScreen() {
           {/* Themed background drawn into the status-bar space for a seamless look */}
           <View style={[styles.statusBarBackground, { height: insets.top }]} />
           <View style={[styles.header, { paddingTop: 12 }]}>
+            <Text style={styles.title}>DoMinder</Text>
             <View style={styles.headerActions}>
               {Platform.OS === 'web' && (
                 <TouchableOpacity style={styles.settingsButton} onPress={openOnboardingPreview}>
@@ -4272,7 +4273,7 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 8,
@@ -4282,6 +4283,12 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '400',
+    color: colors.onSurface,
+    letterSpacing: 0,
   },
   headerActions: {
     flexDirection: 'row',
