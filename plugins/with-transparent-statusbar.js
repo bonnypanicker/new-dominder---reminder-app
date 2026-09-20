@@ -46,9 +46,12 @@ const appThemeXml = ({ lightStatusBar, contrast, windowBackground }) =>
     '    <item name="colorPrimary">@color/colorPrimary</item>',
     ...BAR_COLORS.map((n) => `    <item name="${n}">${TRANSPARENT}</item>`),
     `    <item name="android:windowLightStatusBar">${lightStatusBar}</item>`,
-    // Seamless system bars: the window background matches the app surface so
-    // the status-bar space blends into the app background in both themes.
+    // Seamless system bars: both the window background and colorBackground are
+    // set to the app surface. `colorBackground` is what Android uses to fill
+    // system-managed/inset regions (and the root view), so leaving it at the
+    // theme default is a classic source of a black band behind the status bar.
     `    <item name="android:windowBackground">${windowBackground}</item>`,
+    `    <item name="android:colorBackground">${windowBackground}</item>`,
     ...(contrast
       ? [
           '    <item name="android:enforceStatusBarContrast">false</item>',
@@ -93,6 +96,7 @@ module.exports = function withAdaptiveSystemBars(config) {
     setItem(theme, 'android:windowLightStatusBar', 'true');
     // Light default; values-night overrides with the dark surface.
     setItem(theme, 'android:windowBackground', LIGHT_SURFACE);
+    setItem(theme, 'android:colorBackground', LIGHT_SURFACE);
     setItem(theme, 'android:windowActionBar', 'false');
     setItem(theme, 'android:windowNoTitle', 'true');
 
