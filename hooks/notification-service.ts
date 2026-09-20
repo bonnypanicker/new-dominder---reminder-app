@@ -356,11 +356,12 @@ export async function scheduleReminderByModel(reminder: Reminder) {
   const isRinger = reminder.priority === 'high';
 
   // A genuine (re)schedule must start from a non-completed native state.
-  // clearReminderMetadata now preserves the native isCompleted flag as a durable
+  // clearReminderMetadata preserves the native isCompleted flag as a durable
   // completion guard (to stop completed 'every X min' reminders from re-firing),
-  // so reset it here for EVERY mode. For ringer alarms storeReminderMetadata also
-  // resets it; this call covers standard/silent (notifee) reminders and reassignment.
-  if (AlarmModule?.setReminderCompleted) {
+  // so reset it here — but ONLY for reminders that are actually active in JS.
+  // Never un-complete a completed reminder: if a stray schedule request arrives
+  // for a completed reminder, keep the native guard intact so it stays dead.
+  if (!reminder.isCompleted && !reminder.isDeleted && AlarmModule?.setReminderCompleted) {
     try {
       await AlarmModule.setReminderCompleted(reminder.id, false);
     } catch (e) {
@@ -378,6 +379,13 @@ export async function scheduleReminderByModel(reminder: Reminder) {
       const stored = await getReminder(reminder.id);
       if (stored?.isDeleted) {
         console.log(`[NotificationService] Reminder ${reminder.id} is deleted - aborting registration`);
+        return;
+      }
+      if (stored?.isCompleted) {
+        // A swipe-to-complete (or natural series end) landed while this schedule
+        // request was in flight. Registering would re-create the trigger and
+        // re-fire the reminder at the next interval.
+        console.log(`[NotificationService] Reminder ${reminder.id} is completed - aborting registration`);
         return;
       }
     } catch (e) {

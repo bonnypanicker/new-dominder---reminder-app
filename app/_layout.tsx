@@ -252,6 +252,23 @@ function AppContent() {
             return;
           }
 
+          // CRITICAL: Never resurrect a deleted or completed reminder. A foreground
+          // DELIVERED event can be queued/delivered AFTER the user swiped the card
+          // to fully complete the series (or deleted it). Without this guard the
+          // auto-reschedule below would flip isCompleted back to false, set
+          // isActive: true, and schedule the next occurrence — making the card
+          // reappear in Active and re-fire (the 'every X min' bug).
+          if (reminder.isDeleted || reminder.isCompleted) {
+            console.log(`[RootLayout] Reminder ${reminderId} is ${reminder.isDeleted ? 'deleted' : 'completed'} - skipping auto-reschedule and cancelling leftovers`);
+            try {
+              const notificationService = require('../hooks/notification-service');
+              await notificationService.cancelAllNotificationsForReminder(reminderId);
+            } catch (e) {
+              console.log(`[RootLayout] Cleanup failed for ${reminderId}:`, e);
+            }
+            return;
+          }
+
           // Auto-reschedule all repeating reminder types (not just 'every')
           if (reminder.repeatType !== 'none') {
             console.log(`[RootLayout] Auto-rescheduling '${reminder.repeatType}' reminder ${reminderId} (foreground)`);
@@ -291,6 +308,22 @@ function AppContent() {
 
             const reminderUtils = require('../services/reminder-utils');
             const nextDate = reminderUtils.calculateNextReminderDate(forCalc, new Date());
+
+            // Re-check freshness immediately before writing: the user may have
+            // swiped to complete (or deleted) the reminder while this handler was
+            // awaiting. Writing the stale snapshot would overwrite the completion
+            // and resurrect the series.
+            const latest = await reminderService.getReminder(reminderId);
+            if (!latest || latest.isDeleted || latest.isCompleted) {
+              console.log(`[RootLayout] Reminder ${reminderId} was completed/deleted during delivery processing - aborting auto-reschedule`);
+              try {
+                const notificationService = require('../hooks/notification-service');
+                await notificationService.cancelAllNotificationsForReminder(reminderId);
+              } catch (e) {
+                console.log(`[RootLayout] Cleanup failed for ${reminderId}:`, e);
+              }
+              return;
+            }
 
             if (nextDate) {
               // Update the reminder with the next occurrence and keep it active

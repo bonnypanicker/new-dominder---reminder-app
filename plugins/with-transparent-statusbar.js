@@ -25,6 +25,12 @@ const removeItem = (style, name) => {
   style.item = style.item.filter((i) => i.$ && i.$.name !== name);
 };
 
+// App surface colours (mirror constants/colors.ts) so the window background —
+// visible in the status-bar space during cold start, before React renders, and
+// behind translucent bars — matches the app's own background in both themes.
+const LIGHT_SURFACE = '#FFFBFE';
+const DARK_SURFACE = '#10131C';
+
 /**
  * A complete AppTheme for a resource-qualified directory.
  *
@@ -33,13 +39,16 @@ const removeItem = (style, name) => {
  * before Expo's base mods flush styles.xml, so reading the file here would
  * capture a half-built theme.
  */
-const appThemeXml = ({ lightStatusBar, contrast }) =>
+const appThemeXml = ({ lightStatusBar, contrast, windowBackground }) =>
   [
     '<style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">',
     '    <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>',
     '    <item name="colorPrimary">@color/colorPrimary</item>',
     ...BAR_COLORS.map((n) => `    <item name="${n}">${TRANSPARENT}</item>`),
     `    <item name="android:windowLightStatusBar">${lightStatusBar}</item>`,
+    // Seamless system bars: the window background matches the app surface so
+    // the status-bar space blends into the app background in both themes.
+    `    <item name="android:windowBackground">${windowBackground}</item>`,
     ...(contrast
       ? [
           '    <item name="android:enforceStatusBarContrast">false</item>',
@@ -82,6 +91,8 @@ module.exports = function withAdaptiveSystemBars(config) {
     CONTRAST_ITEMS.forEach((name) => removeItem(theme, name));
     BAR_COLORS.forEach((name) => setItem(theme, name, TRANSPARENT));
     setItem(theme, 'android:windowLightStatusBar', 'true');
+    // Light default; values-night overrides with the dark surface.
+    setItem(theme, 'android:windowBackground', LIGHT_SURFACE);
     setItem(theme, 'android:windowActionBar', 'false');
     setItem(theme, 'android:windowNoTitle', 'true');
 
@@ -100,17 +111,17 @@ module.exports = function withAdaptiveSystemBars(config) {
 
     writeStyles(
       path.join(resDir, 'values-night'),
-      appThemeXml({ lightStatusBar: 'false', contrast: false })
+      appThemeXml({ lightStatusBar: 'false', contrast: false, windowBackground: DARK_SURFACE })
     );
     writeStyles(
       path.join(resDir, 'values-v29'),
-      appThemeXml({ lightStatusBar: 'true', contrast: true })
+      appThemeXml({ lightStatusBar: 'true', contrast: true, windowBackground: LIGHT_SURFACE })
     );
     // Android matches the night qualifier ahead of the version qualifier, so
     // the API 29+ dark case needs its own combination directory.
     writeStyles(
       path.join(resDir, 'values-night-v29'),
-      appThemeXml({ lightStatusBar: 'false', contrast: true })
+      appThemeXml({ lightStatusBar: 'false', contrast: true, windowBackground: DARK_SURFACE })
     );
 
     console.log('✅ Adaptive system bars: transparent colors + night/v29 variants.');
