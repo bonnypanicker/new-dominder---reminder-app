@@ -119,6 +119,11 @@ function RootLayoutNav() {
     <Stack
       screenOptions={{
         ...(isIOS ? { headerBackTitle: "Back" } : {}),
+        // Must live here, not on <Stack.Screen>: expo-router applies per-screen
+        // options via setOptions AFTER mount, which is too late to stop the
+        // native AppCompat toolbar from attaching (black bar titled with the
+        // activity label). Same pattern as settings/_layout.tsx.
+        headerShown: false,
         // Paint every screen's native container with the app theme background.
         // Under Android edge-to-edge (targetSdk 36) the screen container spans the
         // full window and is what shows behind the transparent status bar, so this
