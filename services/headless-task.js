@@ -1,8 +1,5 @@
 import { AppRegistry } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService } from '../hooks/notification-service';
-
-const STORAGE_KEY = 'dominder_reminders';
 
 const RescheduleAlarms = async () => {
   console.log('[Dominder-Debug] Headless task: RescheduleAlarms started');
@@ -11,7 +8,7 @@ const RescheduleAlarms = async () => {
 
     // Use the robust startup check to handle overdue/missed/future reminders
     const { checkAndTriggerPendingNotifications } = require('./startup-notification-check');
-    await checkAndTriggerPendingNotifications();
+    await checkAndTriggerPendingNotifications({ bootRecoveryMode: true });
 
     console.log('[Dominder-Debug] Headless task: Completed checkAndTriggerPendingNotifications');
   } catch (error) {

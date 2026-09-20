@@ -2,20 +2,26 @@ import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native'
 import { Platform, NativeModules } from 'react-native';
 import { Reminder } from '@/types/reminder';
 import { createNotificationConfig } from '../hooks/notification-service';
-import { calculateNextReminderDate } from './reminder-utils';
 
 /**
  * Service to check and trigger pending/missed notifications on app startup
  * Handles cases where app was force stopped and notifications were missed
  */
 
+type PendingNotificationCheckOptions = {
+  bootRecoveryMode?: boolean;
+};
+
 /**
- * Check all active reminders and trigger notifications for any that are overdue
+ * Check all active reminders and trigger notifications for any that are overdue.
+ * In boot recovery mode we avoid relaunching the native ringer foreground service,
+ * which Android 15 blocks from BOOT_COMPLETED flows.
  */
-export async function checkAndTriggerPendingNotifications() {
+export async function checkAndTriggerPendingNotifications(options: PendingNotificationCheckOptions = {}) {
   if (Platform.OS !== 'android') return;
 
   const maintenanceId = 'maintenance-notification';
+  const bootRecoveryMode = options.bootRecoveryMode === true;
 
   try {
     await notifee.createChannel({
@@ -261,7 +267,7 @@ export async function checkAndTriggerPendingNotifications() {
     // Trigger ALL overdue notifications immediately
     if (overdueReminders.length > 0) {
       console.log(`[StartupCheck] Triggering ${overdueReminders.length} overdue notifications`);
-      await triggerPendingNotifications(overdueReminders, use24HourFormat);
+      await triggerPendingNotifications(overdueReminders, use24HourFormat, bootRecoveryMode);
     }
 
     // Show missed notification for very old ringer reminders (>24h)
@@ -295,7 +301,11 @@ export async function checkAndTriggerPendingNotifications() {
 /**
  * Trigger notifications for pending reminders that should have fired
  */
-async function triggerPendingNotifications(reminders: Reminder[], use24HourFormat: boolean) {
+async function triggerPendingNotifications(
+  reminders: Reminder[],
+  use24HourFormat: boolean,
+  bootRecoveryMode: boolean
+) {
   const { AlarmModule } = NativeModules;
 
   for (const reminder of reminders) {
@@ -316,12 +326,16 @@ async function triggerPendingNotifications(reminders: Reminder[], use24HourForma
         scheduledTime = new Date(year, month - 1, day, hours, minutes, 0, 0).getTime();
       }
 
-      if (isRinger && AlarmModule?.scheduleAlarm) {
+      if (isRinger && AlarmModule?.scheduleAlarm && !bootRecoveryMode) {
         // For valid ringers (< 5 mins late), launch the native Alarm Screen immediately
+        // during normal in-app recovery.
         console.log(`[StartupCheck] Launching native alarm screen for ringer: ${reminder.id}`);
         // Schedule for "now" (small delay to ensure reliable scheduling)
         AlarmModule.scheduleAlarm(reminder.id, reminder.title, Date.now() + 500, reminder.priority);
       } else {
+        if (isRinger && bootRecoveryMode) {
+          console.log(`[StartupCheck] Boot recovery mode active; showing notification instead of starting ringer service for: ${reminder.id}`);
+        }
         // Create config using shared helper
         const notificationConfig = createNotificationConfig(reminder, scheduledTime, use24HourFormat);
         // Display notification immediately

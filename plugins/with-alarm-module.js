@@ -939,8 +939,13 @@ class AlarmRingtoneService : Service() {
                 
                 // Only play for high priority alarms
                 if (priority == "high") {
-                    startForegroundService(title, reminderId, priority, triggerTime)
-                    startRingtoneAndVibration(reminderId)
+                    val startedInForeground = startForegroundAlarm(title, reminderId, priority, triggerTime)
+                    if (startedInForeground) {
+                        startRingtoneAndVibration(reminderId)
+                    } else {
+                        DebugLogger.log("AlarmRingtoneService: Foreground start blocked, skipping ringtone playback")
+                        stopSelf()
+                    }
                 } else {
                     DebugLogger.log("AlarmRingtoneService: Skipping ringtone (priority=\$priority, only high priority plays)")
                     stopSelf()
@@ -974,7 +979,7 @@ class AlarmRingtoneService : Service() {
         }
     }
     
-    private fun startForegroundService(title: String, reminderId: String, priority: String, triggerTime: Long) {
+    private fun startForegroundAlarm(title: String, reminderId: String, priority: String, triggerTime: Long): Boolean {
         DebugLogger.log("AlarmRingtoneService: Starting foreground service")
         
         val doneIntent = Intent("app.rork.dominder.ALARM_DONE").apply {
@@ -1029,12 +1034,18 @@ class AlarmRingtoneService : Service() {
             .addAction(0, "Snooze 10m", snooze10PendingIntent)
             .build()
         
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("AlarmRingtoneService: Failed to enter foreground", e)
+            return false
         }
         isServiceRunning = true
+        return true
     }
     
     private fun startRingtoneAndVibration(reminderId: String) {
