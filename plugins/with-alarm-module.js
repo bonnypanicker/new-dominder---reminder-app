@@ -2679,12 +2679,10 @@ import app.rork.dominder_android_reminder_app.alarm.AlarmPackage
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
+import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
-import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactNativeHost
-import com.facebook.react.soloader.OpenSourceMergedSoMapping
-import com.facebook.soloader.SoLoader
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
@@ -2713,10 +2711,8 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-    SoLoader.init(this, OpenSourceMergedSoMapping)
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      load()
-    }
+    // RN 0.81 bootstrap; loadReactNative also flips RN's edge-to-edge feature flag — without it the status bar draws a black band on Android 15+.
+    ReactNativeApplicationEntryPoint.loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
 
     // Note: AlarmActionBridge is registered via AndroidManifest.xml

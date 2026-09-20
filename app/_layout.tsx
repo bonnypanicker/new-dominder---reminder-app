@@ -613,5 +613,6 @@ const styles = StyleSheet.create({
 
 function DynamicStatusBar() {
   const { isDark } = useTheme();
-  return <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor="transparent" translucent={true} />;
+  // Edge-to-edge is native-driven (RN 0.81 flag); only icon contrast is ours.
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
