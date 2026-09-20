@@ -67,7 +67,7 @@ const writeStyles = (dir, themeXml) => {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, 'styles.xml'),
-    `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n  ${themeXml}\n</resources>\n`
+    `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n  ${themeXml}\n  <style name="Theme.App.SplashScreen" parent="Theme.SplashScreen">\n    <item name="windowSplashScreenBackground">@color/splashscreen_background</item>\n    <item name="windowSplashScreenAnimatedIcon">@drawable/splashscreen_logo</item>\n    <item name="postSplashScreenTheme">@style/AppTheme</item>\n    <item name="android:windowSplashScreenBehavior">icon_preferred</item>\n    <item name="android:windowActionBar">false</item>\n    <item name="android:windowNoTitle">true</item>\n  </style>\n</resources>\n`
   );
 };
 

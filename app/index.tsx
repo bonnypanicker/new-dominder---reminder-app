@@ -4278,11 +4278,6 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.c
     paddingHorizontal: 24,
     paddingBottom: 8,
     backgroundColor: colors.surface,
-    elevation: 2,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
   },
   title: {
     fontSize: 28,

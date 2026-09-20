@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DoMinder",
-    "slug": "new-dominder-reminder-app",
+    "slug": "dominder",
     "version": "1.0.6",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -117,9 +117,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "6475a17f-f730-4631-af77-82a1428aa171"
+        "projectId": "26001daa-a2e2-421d-9692-493c773d961e"
       }
     },
-    "owner": "panicker"
+    "owner": "bonnypanicker"
   }
 }

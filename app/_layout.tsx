@@ -176,7 +176,7 @@ function ThemedRoot({ onLayout, children }: { onLayout?: () => void; children: R
         background: colors.background,
         card: colors.surface,
         text: colors.onSurface,
-        border: colors.outlineVariant,
+        border: 'transparent',
         notification: colors.error,
       },
     };
